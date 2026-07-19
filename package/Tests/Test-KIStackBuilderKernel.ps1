@@ -885,8 +885,8 @@ try {
         ConvertFrom-Json -Depth 50
 
     $pythonGitApproved = (
-        [string]$releaseConfig.kernelVersion -eq '1.2.0' -and
-        [string]$releaseConfig.executeRelease.releaseId -eq 'COMFYUI-1.2.0' -and
+        [string]$releaseConfig.kernelVersion -eq '1.2.1' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'COMFYUI-1.2.1' -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModulePythonGit'
     )
 
@@ -1214,8 +1214,8 @@ try {
     $releaseConfig = Get-Content -LiteralPath $configPath -Raw |
         ConvertFrom-Json -Depth 100
     $comfyApproved = (
-        [string]$releaseConfig.kernelVersion -eq '1.2.0' -and
-        [string]$releaseConfig.executeRelease.releaseId -eq 'COMFYUI-1.2.0' -and
+        [string]$releaseConfig.kernelVersion -eq '1.2.1' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'COMFYUI-1.2.1' -and
         @($releaseConfig.executeRelease.enabledModules).Count -eq 4 -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModuleComfyUI'
     )
@@ -1257,18 +1257,59 @@ catch {
 try {
     $modulePath = Join-Path $ProjectRoot 'Modules\04-ComfyUI\KIModuleComfyUI.psm1'
     $moduleContent = Get-Content -LiteralPath $modulePath -Raw
+    $releaseConfig = Read-KIJson -Path (Join-Path $ProjectRoot 'Config\kernel-config.json')
+
+    $containsExecutablePullArgument = [regex]::IsMatch(
+        $moduleContent,
+        '(?im)(?:^|[,(]\s*)[''"]pull[''"](?:\s*[,)]|$)'
+    )
+    $branchLiteral = [char]39 + '--branch' + [char]39 + ', $expectedRef'
+    $singleBranchLiteral = [char]39 + '--single-branch' + [char]39
+
     $pinnedRelease = (
-        $moduleContent.Contains("[string]$Context.Config.comfyUI.ref") -and
-        $moduleContent.Contains("[string]$repositoryState.exactTag") -and
+        [string]$releaseConfig.comfyUI.refType -eq 'tag' -and
+        -not [string]::IsNullOrWhiteSpace([string]$releaseConfig.comfyUI.ref) -and
+        -not [bool]$releaseConfig.comfyUI.updateExistingRepository -and
+        $moduleContent.Contains('[string]$Context.Config.comfyUI.ref') -and
+        $moduleContent.Contains('[string]$repositoryState.exactTag') -and
+        $moduleContent.Contains($branchLiteral) -and
+        $moduleContent.Contains($singleBranchLiteral) -and
         $moduleContent.Contains('Das ComfyUI-Repository enthält lokale Änderungen') -and
-        -not $moduleContent.Contains('git pull')
+        -not $containsExecutablePullArgument
     )
     Add-Result -Name 'ComfyUI-kein-ungeprüftes-Master-Update' `
         -Passed $pinnedRelease `
-        -Message 'Execute arbeitet mit dem freigegebenen Tag und führt kein implizites git pull aus.'
+        -Message 'Execute arbeitet mit dem freigegebenen Tag und enthält keinen ausführbaren Git-Pull-Aufruf.'
 }
 catch {
     Add-Result -Name 'ComfyUI-kein-ungeprüftes-Master-Update' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $selfTestPath = Join-Path $ProjectRoot 'Tests\Test-KIStackBuilderKernel.ps1'
+    $selfTestContent = Get-Content -LiteralPath $selfTestPath -Raw
+    $contextLiteralCheck = '$moduleContent.Contains(' + [char]39 + '[string]$Context.Config.comfyUI.ref' + [char]39 + ')'
+    $exactTagLiteralCheck = '$moduleContent.Contains(' + [char]39 + '[string]$repositoryState.exactTag' + [char]39 + ')'
+
+    $literalSafe = (
+        $selfTestContent.Contains($contextLiteralCheck) -and
+        $selfTestContent.Contains($exactTagLiteralCheck) -and
+        -not [regex]::IsMatch(
+            $selfTestContent,
+            '(?m)^\s*\$moduleContent\.Contains\("\[string\]\$Context\.Config\.comfyUI\.ref"\)'
+        ) -and
+        -not [regex]::IsMatch(
+            $selfTestContent,
+            '(?m)^\s*\$moduleContent\.Contains\("\[string\]\$repositoryState\.exactTag"\)'
+        )
+    )
+    Add-Result -Name 'ComfyUI-Quelltextliteral-ohne-Interpolation' `
+        -Passed $literalSafe `
+        -Message 'PowerShell-Quelltext mit $Context wird als Literal geprüft und nicht im Test interpoliert.'
+}
+catch {
+    Add-Result -Name 'ComfyUI-Quelltextliteral-ohne-Interpolation' `
         -Passed $false -Message $_.Exception.Message
 }
 
@@ -1299,12 +1340,12 @@ try {
     $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-ComfyUI.cmd'
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
     $versionLabelValid = (
-        $bootstrapContent.Contains('KI-Stack ComfyUI v1.2.0 - %ACTION%') -and
+        $bootstrapContent.Contains('KI-Stack ComfyUI v1.2.1 - %ACTION%') -and
         -not [regex]::IsMatch($bootstrapContent, 'PythonGit v1\\.1\\.[0-9]+')
     )
     Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
         -Passed $versionLabelValid `
-        -Message 'Der sichtbare CMD-Kopf entspricht dem Paket v1.2.0.'
+        -Message 'Der sichtbare CMD-Kopf entspricht dem Paket v1.2.1.'
 }
 catch {
     Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
@@ -1318,7 +1359,7 @@ $failedResults = @(
 
 $summary = [pscustomobject][ordered]@{
     generatedAt = (Get-Date).ToString('o')
-    packageVersion = '1.2.0'
+    packageVersion = '1.2.1'
     passed = ($failedResults.Count -eq 0)
     failedNames = @(
         $failedResults |

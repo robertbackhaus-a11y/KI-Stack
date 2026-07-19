@@ -673,7 +673,7 @@ function Install-KIModuleComfyUI {
         schemaVersion = '1.0'
         installedAt = (Get-Date).ToString('o')
         transactionId = [string]$Context.Transaction.transactionId
-        release = 'KI-Stack-ComfyUI-Execute-v1.2.0'
+        release = 'KI-Stack-ComfyUI-Execute-v1.2.1'
         repository = [string]$repositoryState.origin
         tag = [string]$repositoryState.exactTag
         commit = [string]$repositoryState.head

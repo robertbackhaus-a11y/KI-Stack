@@ -80,7 +80,7 @@ set "KI_STACK_LAUNCHED_FROM_CMD=1"
 call :Log "PowerShell-Starter wird aufgerufen."
 echo.
 echo ============================================================
-echo KI-Stack ComfyUI v1.2.0 - %ACTION%
+echo KI-Stack ComfyUI v1.2.1 - %ACTION%
 echo ============================================================
 echo Paket: %PACKAGE_ROOT%
 echo PowerShell: %PWSH%

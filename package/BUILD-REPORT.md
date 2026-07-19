@@ -1,22 +1,13 @@
-# KI-Stack ComfyUI Execute v1.2.0 – Buildbericht
+# KI-Stack ComfyUI Execute v1.2.1 – Buildbericht
 
 ## Ergebnis
 
-- Statische Build- und Regressionsprüfungen: **70 von 70 bestanden**
-- Foundation-, Runtime- und PythonGit-Moduldateien: bytegleich zum freigegebenen v1.1.5-Paket
-- ComfyUI: offizielles Repository, fest gepinnt auf `v0.28.0`
-- PyTorch: offizieller NVIDIA-CUDA-13.0-Paketindex
-- Modelle: nicht Bestandteil dieses Releases
+- Statische Build- und Regressionsprüfungen: **88 von 88 bestanden**
+- Foundation-, Runtime- und PythonGit-Moduldateien: bytegleich zum freigegebenen v1.1.5-Referenzinhalt
+- ComfyUI-Installationslogik: gegenüber v1.2.0 unverändert, abgesehen von der Paketkennung
+- ComfyUI: fest gepinnt auf `v0.28.0`
+- Korrigiert: Regressionstest interpolierte `$Context` statt Quelltextliteral zu prüfen
 
-## Zielsystemprüfungen
+## Zielsystemprüfung
 
-Der Paket-Selbsttest prüft vor Dry-Run und Execute zusätzlich:
-
-- echte PowerShell-AST-Parsergebnisse
-- sämtliche historischen Regressionen
-- Starter, UAC, rekursive Preflight-Suche und Zeilenenden
-- vollständige Release- und Modul-Allowlist
-- ComfyUI-Konfiguration und Rollbackmechanismen
-
-Während Execute validiert das ComfyUI-Modul zusätzlich Repository-Tag, Git-Status,
-Python- und Torch-Version, CUDA-Verfügbarkeit, GPU-Namen und Compute Capability.
+Der native PowerShell-AST-Selbsttest wird vor Dry-Run und Execute auf dem Windows-Zielsystem ausgeführt. v1.2.1 prüft den gepinnten Tag anhand der vollständigen Releasekonfiguration, der konkreten Clone-/Tag-Prüflogik und des Fehlens eines ausführbaren `pull`-Arguments.

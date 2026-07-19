@@ -8,7 +8,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 |---|---:|---|
 | Foundation / Runtime | 1.0.9 | Stabiler Referenzstand, auf Zielsystem validiert |
 | Python / Git | 1.1.5 | Stabil, auf Zielsystem validiert |
-| ComfyUI | 1.2.0-rc1 | Release Candidate, Zielsystemtest noch offen |
+| ComfyUI | 1.2.1 | Stabil; auf dem Zielsystem validiert |
 
 Vollständige Paketquellen liegen im Verzeichnis `package`. Fertige ZIP-Pakete werden als GitHub-Release-Artefakte veröffentlicht und nicht dauerhaft in die normale Git-Historie aufgenommen.
 

@@ -1,4 +1,4 @@
-# KI-Stack ComfyUI Execute v1.2.0
+# KI-Stack ComfyUI Execute v1.2.1
 
 ## Freigabebasis
 
@@ -46,3 +46,11 @@ Baustein `Models`.
 Nach erfolgreicher Installation liegt der Laufzeitstarter unter:
 
 `C:\KI-Stack\modules\comfyui\Start-KIStack-ComfyUI.cmd`
+
+
+## Korrektur v1.2.1
+
+Der Zielsystem-Selbsttest für den gepinnten ComfyUI-Release verwendete in v1.2.0
+einen expandierbaren PowerShell-String und wertete dadurch `$Context` im Test aus.
+v1.2.1 prüft die Quelltextliterale und Git-Argumente ohne Variableninterpolation.
+Die Installationslogik und der freigegebene ComfyUI-Tag `v0.28.0` bleiben unverändert.

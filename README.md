@@ -8,7 +8,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 |---|---:|---|
 | Foundation / Runtime | 1.0.9 | Stable reference; target-system validated |
 | Python / Git | 1.1.5 | Stable; target-system validated |
-| ComfyUI | 1.2.0-rc1 | Release candidate; target-system validation pending |
+| ComfyUI | 1.2.1 | Stable; target-system validated |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
 

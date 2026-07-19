@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "kernelVersion": "1.2.0",
+  "kernelVersion": "1.2.1",
   "stackRoot": "C:\\KI-Stack",
   "stateRoot": "C:\\KI-Stack\\state",
   "logRoot": "C:\\KI-Stack\\logs",
@@ -137,7 +137,7 @@
     "cutoverEnabled": false
   },
   "executeRelease": {
-    "releaseId": "COMFYUI-1.2.0",
+    "releaseId": "COMFYUI-1.2.1",
     "enabledModules": [
       "KIModuleFoundation",
       "KIModuleRuntime",

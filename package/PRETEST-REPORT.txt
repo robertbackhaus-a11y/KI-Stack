@@ -1,3 +1,3 @@
-KI-Stack ComfyUI Execute v1.2.0
-Prüfungen: 70/70 bestanden
+KI-Stack ComfyUI Execute v1.2.1
+Prüfungen: 88/88 bestanden
 Windows-Zielsystem-Selbsttest vor Execute: verpflichtend

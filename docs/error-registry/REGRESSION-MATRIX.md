@@ -18,3 +18,5 @@ Every new package must retain automated coverage for all entries below.
 | GitHub Initial v0.1.1 | StrictMode validator accessed `$failed.name` when the failure list was empty | Explicit `ForEach-Object` name enumeration, result-schema validation and empty-list regression check |
 
 A correction is incomplete until its regression test executes before final self-test aggregation.
+
+| v1.2.1 | ComfyUI pinned-release test interpolated `$Context` instead of checking literal source | Literal-safe source and executable Git argument validation |
