@@ -1,0 +1,39 @@
+# Runtime and generated state
+State/
+state/
+logs/
+cache/
+backups/
+*.log
+*.tmp
+*.bak
+
+# Local release output
+dist/
+artifacts/
+*.zip
+*.7z
+*.tar
+*.gz
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12

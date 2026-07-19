@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "id": "KIModuleFoundation",
+  "order": 10,
+  "name": "Foundation",
+  "version": "0.1.0",
+  "enabled": true,
+  "script": "KIModuleFoundation.psm1",
+  "supportsRollback": true,
+  "dependencies": [],
+  "actions": [
+    "Test",
+    "Install",
+    "Validate",
+    "Rollback"
+  ]
+}

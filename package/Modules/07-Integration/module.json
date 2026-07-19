@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "id": "KIModuleIntegration",
+  "order": 70,
+  "name": "WSL SearXNG Integration",
+  "version": "0.1.0",
+  "enabled": false,
+  "script": "KIModuleIntegration.psm1",
+  "supportsRollback": false,
+  "dependencies": [
+    "KIModuleApplications"
+  ],
+  "actions": [
+    "Test",
+    "Install",
+    "Validate"
+  ]
+}

@@ -1,0 +1,40 @@
+name: Build controlled release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to release
+        required: true
+        type: string
+      prerelease:
+        description: Mark as prerelease
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Validate
+        shell: pwsh
+        run: ./scripts/Test-Repository.ps1
+      - name: Build archive
+        shell: pwsh
+        run: ./scripts/New-ReleaseArchive.ps1
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = Get-ChildItem ./dist -File | ForEach-Object FullName
+          $args = @('release','create','${{ inputs.tag }}') + $assets + @('--verify-tag','--generate-notes')
+          if ('${{ inputs.prerelease }}' -eq 'true') { $args += '--prerelease' }
+          & gh @args

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "repositoryVersion": "1.1.5",
+  "packageName": "KI-Stack-PythonGit-Execute-v1.1.5",
+  "packageVersion": "1.1.5",
+  "releaseId": "PYTHONGIT-1.1.5",
+  "status": "stable",
+  "tag": "python-git-v1.1.5",
+  "targetSystemValidated": true,
+  "baseReference": "KI-Stack-Foundation-Runtime-Execute-v1.0.9",
+  "enabledModules": [
+    "KIModuleFoundation",
+    "KIModuleRuntime",
+    "KIModulePythonGit"
+  ],
+  "originalAssetSha256": "907a8a5acb6f7603f53168c1ceabc2510cb41e17d5abf8219bfafb91ee60c93f",
+  "sourceArtifact": "KI-Stack-PythonGit-Execute-v1.1.5.zip",
+  "publishedAt": "2026-07-19"
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "KIModuleApplications",
+  "order": 60,
+  "name": "LM Studio and Open WebUI",
+  "version": "0.1.0",
+  "enabled": false,
+  "script": "KIModuleApplications.psm1",
+  "supportsRollback": true,
+  "dependencies": [
+    "KIModuleModels"
+  ],
+  "actions": [
+    "Test",
+    "Install",
+    "Validate",
+    "Rollback"
+  ]
+}

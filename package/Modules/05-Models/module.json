@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "id": "KIModuleModels",
+  "order": 50,
+  "name": "Model Management",
+  "version": "0.1.0",
+  "enabled": false,
+  "script": "KIModuleModels.psm1",
+  "supportsRollback": true,
+  "dependencies": [
+    "KIModuleComfyUI"
+  ],
+  "actions": [
+    "Test",
+    "Install",
+    "Validate",
+    "Rollback"
+  ]
+}

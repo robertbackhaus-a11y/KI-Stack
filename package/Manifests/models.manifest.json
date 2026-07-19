@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "models": [
+    {
+      "id": "krea-placeholder",
+      "enabled": false,
+      "type": "checkpoint",
+      "fileName": "KREA-Realism.safetensors",
+      "source": "",
+      "sha256": ""
+    },
+    {
+      "id": "pony-placeholder",
+      "enabled": false,
+      "type": "checkpoint",
+      "fileName": "PONY-Control.safetensors",
+      "source": "",
+      "sha256": ""
+    },
+    {
+      "id": "flux-placeholder",
+      "enabled": false,
+      "type": "unet",
+      "fileName": "FLUX.safetensors",
+      "source": "",
+      "sha256": ""
+    }
+  ]
+}

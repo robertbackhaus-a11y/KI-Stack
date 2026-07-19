@@ -1,0 +1,208 @@
+{
+  "package": "KI-Stack-PythonGit-Execute-v1.1.5",
+  "generatedAtUtc": "2026-07-19T10:41:26.656526+00:00",
+  "passed": true,
+  "checksPassed": 39,
+  "checksTotal": 39,
+  "reference": "KI-Stack-Foundation-Runtime-Execute-v1.0.9",
+  "identifiedCause": "The PythonGit DryRun self-test used a partial PSCustomObject fixture without pythonEnvironment.pipUpgrade. Set-StrictMode converted the missing property access into a terminating test failure.",
+  "durableCorrection": "All module DryRun tests now consume the complete release kernel-config.json; the starter prints failed test names and messages directly.",
+  "checks": [
+    {
+      "name": "Paketvollständigkeit",
+      "passed": true,
+      "detail": "alle Pflichtdateien vorhanden"
+    },
+    {
+      "name": "JSON-Integrität",
+      "passed": true,
+      "detail": "10 JSON-Dateien gelesen"
+    },
+    {
+      "name": "Versionskonsistenz",
+      "passed": true,
+      "detail": "Config=1.1.5, Release=PYTHONGIT-1.1.5, Core=1.1.5"
+    },
+    {
+      "name": "Foundation-Runtime-PythonGit bytegleich",
+      "passed": true,
+      "detail": "sechs Referenzdateien unverändert"
+    },
+    {
+      "name": "Ursache v1.1.4 beseitigt",
+      "passed": true,
+      "detail": "PythonGit-DryRun verwendet vollständige Releasekonfiguration statt Teil-Fixture"
+    },
+    {
+      "name": "pipUpgrade-Regressionstest",
+      "passed": true,
+      "detail": "Pflichtproperty explizit geprüft"
+    },
+    {
+      "name": "Keine Modul-Teil-Fixtures",
+      "passed": true,
+      "detail": "Dry-Run-Tests nutzen vollständige kernel-config.json"
+    },
+    {
+      "name": "Fehlerdiagnose sichtbar",
+      "passed": true,
+      "detail": "Testname und Meldung werden direkt ausgegeben"
+    },
+    {
+      "name": "Historische Regressionsmatrix",
+      "passed": true,
+      "detail": "requiredCommand/command-Roundtrip; winget-Endzustand; Git-Version-Normalisierung; $Matches-Korrektur; $null-Discard; Fehleraggregation; rekursive-Preflight-Suche; PowerShell-Fallback; persistente-CMD; uv-Fallback; Rollback-Journal; automatische-UAC; Selftest-Bericht"
+    },
+    {
+      "name": "Releasekonfiguration vollständig",
+      "passed": true,
+      "detail": "keine fehlenden PythonGit-Pflichtfelder"
+    },
+    {
+      "name": "CMD-CRLF Bootstrap-KIStack-PythonGit.cmd",
+      "passed": true,
+      "detail": "keine nackten LF"
+    },
+    {
+      "name": "CMD-CRLF Start-Nur-Selbsttest.cmd",
+      "passed": true,
+      "detail": "keine nackten LF"
+    },
+    {
+      "name": "CMD-CRLF Start-KIStack-PythonGit-DryRun.cmd",
+      "passed": true,
+      "detail": "keine nackten LF"
+    },
+    {
+      "name": "CMD-CRLF Start-KIStack-PythonGit-Execute.cmd",
+      "passed": true,
+      "detail": "keine nackten LF"
+    },
+    {
+      "name": "Unverändert Invoke-KIStackBuilderKernel.ps1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Unverändert Request-KIStack-Elevation.ps1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Unverändert Core/KIStack.DownloadManager.psm1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Unverändert Core/KIStack.Starter.psm1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Unverändert Modules/01-Foundation/KIModuleFoundation.psm1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Unverändert Modules/02-Runtime/KIModuleRuntime.psm1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Unverändert Modules/03-PythonGit/KIModulePythonGit.psm1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Unverändert Modules/04-ComfyUI/KIModuleComfyUI.psm1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Unverändert Modules/05-Models/KIModuleModels.psm1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Unverändert Modules/06-Applications/KIModuleApplications.psm1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Unverändert Modules/07-Integration/KIModuleIntegration.psm1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Unverändert Modules/99-Validation/KIModuleValidation.psm1",
+      "passed": true,
+      "detail": "bytegleich"
+    },
+    {
+      "name": "Änderungsumfang begrenzt",
+      "passed": true,
+      "detail": "nur Core-Version, Starterdiagnose und Selbsttest geändert"
+    },
+    {
+      "name": "Keine aktive Altversion in Config/kernel-config.json",
+      "passed": true,
+      "detail": "keine stale Versionskennung"
+    },
+    {
+      "name": "Keine aktive Altversion in Core/KIStack.BuilderKernel.Core.psm1",
+      "passed": true,
+      "detail": "keine stale Versionskennung"
+    },
+    {
+      "name": "Keine aktive Altversion in Tests/Test-KIStackBuilderKernel.ps1",
+      "passed": true,
+      "detail": "keine stale Versionskennung"
+    },
+    {
+      "name": "Strukturdifferenz Core/KIStack.BuilderKernel.Core.psm1 {}",
+      "passed": true,
+      "detail": "symmetrische Delimiteränderung"
+    },
+    {
+      "name": "Strukturdifferenz Core/KIStack.BuilderKernel.Core.psm1 ()",
+      "passed": true,
+      "detail": "symmetrische Delimiteränderung"
+    },
+    {
+      "name": "Strukturdifferenz Core/KIStack.BuilderKernel.Core.psm1 []",
+      "passed": true,
+      "detail": "symmetrische Delimiteränderung"
+    },
+    {
+      "name": "Strukturdifferenz Tests/Test-KIStackBuilderKernel.ps1 {}",
+      "passed": true,
+      "detail": "symmetrische Delimiteränderung"
+    },
+    {
+      "name": "Strukturdifferenz Tests/Test-KIStackBuilderKernel.ps1 ()",
+      "passed": true,
+      "detail": "symmetrische Delimiteränderung"
+    },
+    {
+      "name": "Strukturdifferenz Tests/Test-KIStackBuilderKernel.ps1 []",
+      "passed": true,
+      "detail": "symmetrische Delimiteränderung"
+    },
+    {
+      "name": "Strukturdifferenz Start-KIStack-PythonGit.ps1 {}",
+      "passed": true,
+      "detail": "symmetrische Delimiteränderung"
+    },
+    {
+      "name": "Strukturdifferenz Start-KIStack-PythonGit.ps1 ()",
+      "passed": true,
+      "detail": "symmetrische Delimiteränderung"
+    },
+    {
+      "name": "Strukturdifferenz Start-KIStack-PythonGit.ps1 []",
+      "passed": true,
+      "detail": "symmetrische Delimiteränderung"
+    }
+  ],
+  "runtimeLimitation": "Windows cmd.exe, UAC, winget and installed Windows runtimes cannot be executed in this Linux build environment. Target-side selftest persists and prints exact failures."
+}
