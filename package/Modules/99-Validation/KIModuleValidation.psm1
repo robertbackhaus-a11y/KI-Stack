@@ -1,4 +1,4 @@
-﻿Set-StrictMode -Version Latest
+Set-StrictMode -Version Latest
 
 function Test-KIModuleValidation {
     param([Parameter(Mandatory)][object]$Context)

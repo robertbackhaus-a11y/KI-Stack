@@ -1,13 +1,15 @@
-# KI-Stack ComfyUI Execute v1.2.1 – Buildbericht
+# KI-Stack Models/Workflows Execute v1.3.7 – Korrekturbericht
 
-## Ergebnis
+Stand: 2026-07-19
 
-- Statische Build- und Regressionsprüfungen: **88 von 88 bestanden**
-- Foundation-, Runtime- und PythonGit-Moduldateien: bytegleich zum freigegebenen v1.1.5-Referenzinhalt
-- ComfyUI-Installationslogik: gegenüber v1.2.0 unverändert, abgesehen von der Paketkennung
-- ComfyUI: fest gepinnt auf `v0.28.0`
-- Korrigiert: Regressionstest interpolierte `$Context` statt Quelltextliteral zu prüfen
+## Ursache
 
-## Zielsystemprüfung
+Das integrierte GitHub-Bundle v0.2.6 behandelte den bekanntermaßen fehlerhaften historischen Snapshot `Repo-Models-Workflows-v1.3.4-rc1` als vollständig freizugebenden Stand und führte dessen Repository-Parser aus. Der Snapshot wird für eine sichere Wiederaufnahme benötigt, darf aber nicht als gültiger Release-Stand revalidiert werden.
 
-Der native PowerShell-AST-Selbsttest wird vor Dry-Run und Execute auf dem Windows-Zielsystem ausgeführt. v1.2.1 prüft den gepinnten Tag anhand der vollständigen Releasekonfiguration, der konkreten Clone-/Tag-Prüflogik und des Fehlens eines ausführbaren `pull`-Arguments.
+## Korrektur
+
+- Historische fehlerhafte Zwischenstände werden ausschließlich als Resume-Snapshots klassifiziert.
+- Vollvalidierung erfolgt nur für den stabilen ComfyUI-Stand, den letzten syntaktisch validen Models/Workflows-Stand v1.3.6 und das neue Ziel v1.3.7.
+- Die Snapshot-Klassen sind disjunkt und werden vor der Veröffentlichung geprüft.
+- Das GitHub-Update v0.2.7 ist direkt im Gesamtpaket integriert.
+- Execute-, Modell- und Workflowlogik bleiben gegenüber v1.3.6 funktional unverändert.

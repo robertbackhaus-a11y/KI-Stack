@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "workflows": [
+    {
+      "id": "flux2-klein-9b-ui",
+      "file": "FLUX2-Klein-9B-Text-to-Image.json",
+      "required": true,
+      "kind": "comfyui-ui",
+      "requiredModels": [
+        "flux2-klein-9b-fp8",
+        "qwen-3-8b-fp8mixed",
+        "flux2-vae"
+      ]
+    },
+    {
+      "id": "flux2-klein-9b-openwebui-api",
+      "file": "FLUX2-Klein-9B-OpenWebUI-API-FLAT.json",
+      "required": true,
+      "kind": "comfyui-api",
+      "mapping": "OpenWebUI-ComfyUI-Generation-Mapping.json",
+      "requiredModels": [
+        "flux2-klein-9b-fp8",
+        "qwen-3-8b-fp8mixed",
+        "flux2-vae"
+      ]
+    },
+    {
+      "id": "krea-realism",
+      "file": "KREA-Realism-Official-Template.json",
+      "required": false,
+      "kind": "comfyui-api",
+      "requiredModels": [
+        "flux1-krea-dev-fp8",
+        "clip-l",
+        "t5xxl-fp16",
+        "flux-ae"
+      ]
+    },
+    {
+      "id": "pony-control",
+      "file": "PONY-Control-QuickTest-v2.json",
+      "required": false,
+      "kind": "comfyui-api",
+      "requiredModels": [
+        "pony-v6-xl"
+      ]
+    }
+  ]
+}

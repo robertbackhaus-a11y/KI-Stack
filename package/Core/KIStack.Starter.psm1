@@ -1,4 +1,4 @@
-﻿Set-StrictMode -Version Latest
+Set-StrictMode -Version Latest
 
 function Get-KIStarterDefaultSearchRoots {
     [CmdletBinding()]
@@ -115,10 +115,13 @@ function Test-KIStarterPackage {
         'Core\KIStack.BuilderKernel.Core.psm1',
         'Core\KIStack.Starter.psm1',
         'Invoke-KIStackBuilderKernel.ps1',
-        'Bootstrap-KIStack-ComfyUI.cmd',
-        'Start-KIStack-ComfyUI.ps1',
+        'Bootstrap-KIStack-ModelsWorkflows.cmd',
+        'Start-KIStack-ModelsWorkflows.ps1',
         'Request-KIStack-Elevation.ps1',
-        'Tests\Test-KIStackBuilderKernel.ps1'
+        'Tests\Test-KIStackPowerShellSyntax.ps1',
+        'Tests\Test-KIStackBuilderKernel.ps1',
+        'Tests\Test-KIStackPathResolution.ps1',
+        'Embedded\Preflight\State\Preflight-Continuation-v1.3.7.zip'
     )
 
     $missing = @(

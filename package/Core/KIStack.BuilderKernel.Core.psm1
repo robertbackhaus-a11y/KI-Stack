@@ -1,4 +1,4 @@
-﻿Set-StrictMode -Version Latest
+Set-StrictMode -Version Latest
 
 function Get-KIProperty {
     param(
@@ -305,7 +305,7 @@ function New-KITransaction {
     return [pscustomobject][ordered]@{
         schemaVersion = '1.0'
         transactionId = $TransactionId
-        kernelVersion = '1.2.1'
+        kernelVersion = '1.3.7'
         createdAt = (Get-Date).ToString('o')
         updatedAt = (Get-Date).ToString('o')
         mode = $Mode

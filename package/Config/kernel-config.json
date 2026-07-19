@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "kernelVersion": "1.2.1",
+  "kernelVersion": "1.3.7",
   "stackRoot": "C:\\KI-Stack",
   "stateRoot": "C:\\KI-Stack\\state",
   "logRoot": "C:\\KI-Stack\\logs",
@@ -103,13 +103,33 @@
   "models": {
     "root": "C:\\KI-Stack\\models",
     "manifestPath": "Manifests\\models.manifest.json",
-    "downloadsEnabled": false,
+    "workflowCatalogPath": "Manifests\\workflows.catalog.json",
+    "workflowSourceRoot": "Workflows",
+    "workflowTargetRoot": "C:\\KI-Stack\\data\\comfyui\\user\\default\\workflows\\KI-Stack",
+    "integrationRoot": "C:\\KI-Stack\\modules\\models-workflows",
+    "installationMarker": "C:\\KI-Stack\\modules\\models-workflows\\installation.json",
+    "downloadsEnabled": true,
+    "allowInteractiveHuggingFaceToken": true,
+    "huggingFaceTokenFile": "%LOCALAPPDATA%\\KI-Stack\\secrets\\huggingface.token.clixml",
+    "downloadRetryCount": 3,
+    "downloadBufferBytes": 8388608,
+    "importSearchRoots": [
+      "C:\\KI-Stack\\models",
+      "%USERPROFILE%\\Downloads",
+      "%USERPROFILE%\\ComfyUI\\models",
+      "%USERPROFILE%\\Documents\\ComfyUI\\models",
+      "C:\\ComfyUI\\models",
+      "C:\\Users\\okami\\ComfyUI\\models"
+    ],
     "directories": [
       "checkpoints",
+      "diffusion_models",
+      "text_encoders",
       "vae",
       "loras",
       "controlnet",
       "clip",
+      "clip_vision",
       "unet",
       "embeddings"
     ]
@@ -137,12 +157,13 @@
     "cutoverEnabled": false
   },
   "executeRelease": {
-    "releaseId": "COMFYUI-1.2.1",
+    "releaseId": "MODELS-WORKFLOWS-1.3.7",
     "enabledModules": [
       "KIModuleFoundation",
       "KIModuleRuntime",
       "KIModulePythonGit",
-      "KIModuleComfyUI"
+      "KIModuleComfyUI",
+      "KIModuleModels"
     ],
     "confirmationToken": "EXECUTE",
     "allowWingetInstall": true,
@@ -157,6 +178,9 @@
     "preflightFilePattern": "Preflight-*.zip",
     "requireStateDirectory": true,
     "searchRecursively": true,
-    "sortBy": "LastWriteTimeUtc"
+    "sortBy": "LastWriteTimeUtc",
+    "preflightSelectionMode": "EmbeddedDefault",
+    "embeddedPreflightRelativePath": "Embedded\\Preflight\\State\\Preflight-Continuation-v1.3.7.zip",
+    "allowExplicitPreflightOverride": true
   }
 }

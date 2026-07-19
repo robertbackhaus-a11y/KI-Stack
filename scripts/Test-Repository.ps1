@@ -52,7 +52,8 @@ try {
 
     $cmdFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Filter '*.cmd' | Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' })
     $badCmd = @($cmdFiles | Where-Object { -not (Test-CmdCrLf -Path $_.FullName) } | ForEach-Object FullName)
-    Add-Result 'CMD CRLF' ($badCmd.Count -eq 0) ($(if($badCmd){$badCmd -join ', '}else{"$($cmdFiles.Count) files checked"}))
+    $bomCmd = @($cmdFiles | Where-Object { $bytes=[IO.File]::ReadAllBytes($_.FullName); $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF } | ForEach-Object FullName)
+    Add-Result 'CMD CRLF/BOM' ($badCmd.Count -eq 0 -and $bomCmd.Count -eq 0) ($(if($badCmd -or $bomCmd){'CRLF='+($badCmd -join ', ')+'; BOM='+($bomCmd -join ', ')}else{"$($cmdFiles.Count) files checked"}))
 
     $manifestPath = Join-Path $RootPath 'release-manifest.json'
     $configPath = Join-Path $RootPath 'package/Config/kernel-config.json'

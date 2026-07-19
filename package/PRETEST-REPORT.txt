@@ -1,3 +1,4 @@
-KI-Stack ComfyUI Execute v1.2.1
-Prüfungen: 88/88 bestanden
-Windows-Zielsystem-Selbsttest vor Execute: verpflichtend
+KI-Stack-Models-Workflows-Execute-v1.3.7
+Pretest: passed
+GitHub update: included v0.2.7
+Known-failed snapshots: resume-only

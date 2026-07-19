@@ -1,4 +1,4 @@
-﻿#Requires -Version 7.0
+#Requires -Version 7.0
 [CmdletBinding()]
 param([string]$ProjectRoot = (Split-Path -Parent $PSScriptRoot))
 
@@ -170,6 +170,29 @@ try {
 }
 catch {
     Add-Result -Name 'Null-Discard-keine-Automatikvariablen-Kollision' `
+        -Passed $false `
+        -Message $_.Exception.Message
+}
+
+try {
+    $modelsModulePath = Join-Path $ProjectRoot 'Modules\05-Models\KIModuleModels.psm1'
+    $modelsModuleContent = Get-Content -LiteralPath $modelsModulePath -Raw
+    $downloadStreamVariableSafe = (
+        -not [regex]::IsMatch(
+            $modelsModuleContent,
+            '(?im)^\s*\$input\s*=',
+            [Text.RegularExpressions.RegexOptions]::IgnoreCase
+        ) -and
+        $modelsModuleContent.Contains('$responseStream = $response.Content.ReadAsStream()') -and
+        $modelsModuleContent.Contains('$responseStream.Read($buffer,0,$buffer.Length)') -and
+        $modelsModuleContent.Contains('$responseStream.Dispose()')
+    )
+    Add-Result -Name 'Models-Downloadstream-keine-Input-Kollision' `
+        -Passed $downloadStreamVariableSafe `
+        -Message 'Der HTTP-Downloadstream überschreibt die PowerShell-Automatikvariable $input nicht.'
+}
+catch {
+    Add-Result -Name 'Models-Downloadstream-keine-Input-Kollision' `
         -Passed $false `
         -Message $_.Exception.Message
 }
@@ -497,9 +520,54 @@ try {
 try {
     $manifest = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Manifests\models.manifest.json') -Raw |
         ConvertFrom-Json -Depth 20
-    Add-Result -Name 'Modellmanifest' -Passed (
-        $manifest.schemaVersion -eq '1.0' -and @($manifest.models).Count -eq 3
-    ) -Message 'Modellmanifest und Platzhalter geprüft.'
+    $managedRequiredModels = @(
+        $manifest.models | Where-Object {
+            [bool]$_.enabled -and [bool]$_.required -and [bool]$_.managed
+        }
+    )
+    $localModelPlaceholders = @(
+        $manifest.models | Where-Object {
+            [bool]$_.enabled -and -not [bool]$_.required -and -not [bool]$_.managed
+        }
+    )
+    $requiredModelIds = @(
+        $managedRequiredModels | ForEach-Object { [string]$_.id } | Sort-Object
+    )
+    $placeholderIds = @(
+        $localModelPlaceholders | ForEach-Object { [string]$_.id } | Sort-Object
+    )
+    $managedMetadataValid = @(
+        $managedRequiredModels | Where-Object {
+            [string]::IsNullOrWhiteSpace([string]$_.source) -or
+            [int64]$_.sizeBytes -le 0 -or
+            [string]$_.sha256 -notmatch '^[0-9a-fA-F]{64}$'
+        }
+    ).Count -eq 0
+    $placeholderMetadataValid = @(
+        $localModelPlaceholders | Where-Object {
+            -not [string]::IsNullOrWhiteSpace([string]$_.source) -or
+            $null -ne $_.sizeBytes -or
+            $null -ne $_.sha256
+        }
+    ).Count -eq 0
+    $manifestValid = (
+        [string]$manifest.schemaVersion -eq '1.1' -and
+        @($manifest.models).Count -eq 8 -and
+        $managedRequiredModels.Count -eq 3 -and
+        $localModelPlaceholders.Count -eq 5 -and
+        ($requiredModelIds -join '|') -eq 'flux2-klein-9b-fp8|flux2-vae|qwen-3-8b-fp8mixed' -and
+        ($placeholderIds -join '|') -eq 'clip-l|flux-ae|flux1-krea-dev-fp8|pony-v6-xl|t5xxl-fp16' -and
+        $managedMetadataValid -and
+        $placeholderMetadataValid
+    )
+    Add-Result -Name 'Modellmanifest' -Passed $manifestValid -Message $(
+        if ($manifestValid) {
+            'Schema 1.1, drei verwaltete Pflichtmodelle und fünf lokale Platzhalter geprüft.'
+        }
+        else {
+            'Der Modellmanifest-Vertrag entspricht nicht dem freigegebenen Schema 1.1.'
+        }
+    )
 } catch {
     Add-Result -Name 'Modellmanifest' -Passed $false -Message $_.Exception.Message
 }
@@ -538,14 +606,51 @@ try {
             Config=$testConfig
         }
         $result = & (Get-Command Validate-KIModuleIntegration -Module $moduleInfo.Name) -Context $context
-        Add-Result -Name 'Integration Dry-Run' -Passed (
-            [bool]$result.success -and @($result.data.endpoints).Count -eq 4
-        ) -Message 'WSL/SearXNG-End-to-End-Planung erfolgreich.'
+        $integrationEndpointNames = @(
+            'searxngUrl',
+            'openWebUIUrl',
+            'lmStudioUrl',
+            'comfyUIUrl'
+        )
+        $missingIntegrationEndpoints = @(
+            $integrationEndpointNames |
+            Where-Object {
+                $null -eq $testConfig.integration.PSObject.Properties[[string]$_]
+            }
+        )
+        $integrationDryRunValid = (
+            [bool]$result.success -and
+            $missingIntegrationEndpoints.Count -eq 0 -and
+            @($result.data.endpoints).Count -eq $integrationEndpointNames.Count
+        )
+        Add-Result -Name 'Integration Dry-Run' `
+            -Passed $integrationDryRunValid `
+            -Message 'Die vier konfigurierten End-to-End-Endpunkte wurden unabhängig von der Modulanzahl validiert.'
     } finally {
         Remove-Module -ModuleInfo $moduleInfo -Force -ErrorAction SilentlyContinue
     }
 } catch {
     Add-Result -Name 'Integration Dry-Run' -Passed $false -Message $_.Exception.Message
+}
+
+
+try {
+    $integrationModulePath = Join-Path $ProjectRoot `
+        'Modules\07-Integration\KIModuleIntegration.psm1'
+    $integrationModuleContent = Get-Content -LiteralPath $integrationModulePath -Raw
+    $integrationContractValid = (
+        $integrationModuleContent.Contains('[string]$Context.Config.integration.searxngUrl') -and
+        $integrationModuleContent.Contains('[string]$Context.Config.integration.openWebUIUrl') -and
+        $integrationModuleContent.Contains('[string]$Context.Config.integration.lmStudioUrl') -and
+        $integrationModuleContent.Contains('[string]$Context.Config.integration.comfyUIUrl')
+    )
+    Add-Result -Name 'Integration-Endpunktvertrag-vier-Endpunkte' `
+        -Passed $integrationContractValid `
+        -Message 'Der Integration-Endpunktvertrag umfasst SearXNG, Open WebUI, LM Studio und ComfyUI.'
+}
+catch {
+    Add-Result -Name 'Integration-Endpunktvertrag-vier-Endpunkte' `
+        -Passed $false -Message $_.Exception.Message
 }
 
 
@@ -566,7 +671,7 @@ try {
 
     $approvedIds = @($releaseConfig.executeRelease.enabledModules)
     $allowlistValid = (
-        $activeManifestIds.Count -eq 4 -and
+        $activeManifestIds.Count -eq 5 -and
         $activeManifestIds -contains 'KIModuleFoundation' -and
         $activeManifestIds -contains 'KIModuleRuntime' -and
         $activeManifestIds -contains 'KIModulePythonGit' -and
@@ -885,8 +990,8 @@ try {
         ConvertFrom-Json -Depth 50
 
     $pythonGitApproved = (
-        [string]$releaseConfig.kernelVersion -eq '1.2.1' -and
-        [string]$releaseConfig.executeRelease.releaseId -eq 'COMFYUI-1.2.1' -and
+        [string]$releaseConfig.kernelVersion -eq '1.3.7' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'MODELS-WORKFLOWS-1.3.7' -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModulePythonGit'
     )
 
@@ -1008,8 +1113,8 @@ finally {
 try {
     $wrapperNames = @(
         'Start-Nur-Selbsttest.cmd',
-        'Start-KIStack-ComfyUI-DryRun.cmd',
-        'Start-KIStack-ComfyUI-Execute.cmd'
+        'Start-KIStack-ModelsWorkflows-DryRun.cmd',
+        'Start-KIStack-ModelsWorkflows-Execute.cmd'
     )
     $cmdIssues = [System.Collections.Generic.List[string]]::new()
 
@@ -1022,7 +1127,7 @@ try {
         if (-not $wrapperContent.Contains('%ComSpec%" /D /K')) {
             [void]$cmdIssues.Add("${wrapperName}: dauerhafte cmd-/K-Diagnosesitzung fehlt")
         }
-        if (-not $wrapperContent.Contains('Bootstrap-KIStack-ComfyUI.cmd')) {
+        if (-not $wrapperContent.Contains('Bootstrap-KIStack-ModelsWorkflows.cmd')) {
             [void]$cmdIssues.Add("${wrapperName}: gemeinsamer Bootstrap fehlt")
         }
         if ([regex]::IsMatch($wrapperAscii, '(?<!\r)\n')) {
@@ -1030,7 +1135,7 @@ try {
         }
     }
 
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-ComfyUI.cmd'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-ModelsWorkflows.cmd'
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
     $bootstrapBytes = [IO.File]::ReadAllBytes($bootstrapPath)
     $bootstrapAscii = [Text.Encoding]::ASCII.GetString($bootstrapBytes)
@@ -1041,7 +1146,7 @@ try {
     if (-not $bootstrapContent.Contains('where pwsh.exe')) {
         [void]$cmdIssues.Add('Bootstrap: PATH-Fallback fehlt')
     }
-    if (-not $bootstrapContent.Contains('KI-Stack-ComfyUI-Bootstrap.log')) {
+    if (-not $bootstrapContent.Contains('KI-Stack-ModelsWorkflows-Bootstrap.log')) {
         [void]$cmdIssues.Add('Bootstrap: TEMP-Diagnoselog fehlt')
     }
     if (-not $bootstrapContent.Contains('pause >nul')) {
@@ -1066,7 +1171,7 @@ catch {
 }
 
 try {
-    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-ComfyUI.ps1'
+    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-ModelsWorkflows.ps1'
     $launcherContent = Get-Content -LiteralPath $launcherPath -Raw
     $tryMatch = [regex]::Match(
         $launcherContent,
@@ -1081,7 +1186,7 @@ try {
         $importIndex -gt $tryIndex -and
         $newLogIndex -gt $tryIndex -and
         $launcherContent.Contains('Write-EmergencyStarterLog') -and
-        $launcherContent.Contains('KI-Stack-ComfyUI-Starter.log') -and
+        $launcherContent.Contains('KI-Stack-ModelsWorkflows-Starter.log') -and
         -not $launcherContent.StartsWith('#Requires')
     )
 
@@ -1097,8 +1202,8 @@ catch {
 
 try {
     $elevationPath = Join-Path $ProjectRoot 'Request-KIStack-Elevation.ps1'
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-ComfyUI.cmd'
-    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-ComfyUI.ps1'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-ModelsWorkflows.cmd'
+    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-ModelsWorkflows.ps1'
 
     $elevationContent = Get-Content -LiteralPath $elevationPath -Raw
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
@@ -1136,18 +1241,70 @@ try {
         [string]$starterConfig.starter.preflightFilePattern -eq 'Preflight-*.zip' -and
         [bool]$starterConfig.starter.searchRecursively -and
         [string]$starterConfig.starter.sortBy -eq 'LastWriteTimeUtc' -and
+        [string]$starterConfig.starter.preflightSelectionMode -eq 'EmbeddedDefault' -and
+        [bool]$starterConfig.starter.allowExplicitPreflightOverride -and
+        [string]$starterConfig.starter.embeddedPreflightRelativePath -eq
+            'Embedded\Preflight\State\Preflight-Continuation-v1.3.7.zip' -and
         @($starterConfig.starter.preflightSearchRoots).Count -ge 2
     )
 
     Add-Result -Name 'Starter-Konfiguration' `
         -Passed $starterConfigValid `
-        -Message 'Suchwurzeln, Rekursion und Zeitstempelsortierung geprüft.'
+        -Message 'Paketinterner Standard-Preflight, expliziter Override und historische Suchlogik wurden geprüft.'
 }
 catch {
     Add-Result -Name 'Starter-Konfiguration' `
         -Passed $false `
         -Message $_.Exception.Message
 }
+
+try {
+    $embeddedConfig = Get-Content -LiteralPath (
+        Join-Path $ProjectRoot 'Config\kernel-config.json'
+    ) -Raw | ConvertFrom-Json -Depth 100
+    $embeddedPreflightPath = Join-Path $ProjectRoot `
+        ([string]$embeddedConfig.starter.embeddedPreflightRelativePath)
+    $embeddedWorkingRoot = Join-Path ([IO.Path]::GetTempPath()) (
+        'KI-Stack-Embedded-Preflight-Test-' + [guid]::NewGuid().ToString('N')
+    )
+    try {
+        New-Item -ItemType Directory -Path $embeddedWorkingRoot -Force | Out-Null
+        $resolvedEmbeddedInput = Resolve-KIPreflightInput `
+            -InputPath $embeddedPreflightPath `
+            -WorkingDirectory $embeddedWorkingRoot
+        $embeddedReport = Read-KIJson -Path $resolvedEmbeddedInput.reportPath
+        $embeddedLock = Read-KIJson -Path $resolvedEmbeddedInput.lockPath
+        $embeddedPlan = Read-KIJson -Path $resolvedEmbeddedInput.planPath
+        $embeddedValidation = Test-KIKernelInput `
+            -Report $embeddedReport `
+            -VersionLock $embeddedLock `
+            -Plan $embeddedPlan `
+            -Config $embeddedConfig
+        $embeddedPreflightValid = (
+            [bool]$embeddedValidation.valid -and
+            [string]$embeddedReport.reportId -eq
+                'PREFLIGHT-CONTINUATION-MODELS-WORKFLOWS-1.3.7' -and
+            [string]$embeddedLock.lockId -eq
+                'VERSION-LOCK-CONTINUATION-MODELS-WORKFLOWS-1.3.7' -and
+            [string]$embeddedPlan.planId -eq
+                'INSTALL-PLAN-CONTINUATION-MODELS-WORKFLOWS-1.3.7'
+        )
+        Add-Result -Name 'Paketinterner-Fortsetzungs-Preflight' `
+            -Passed $embeddedPreflightValid `
+            -Message 'Der eingebettete Preflight wurde extrahiert, geparst und durch die echte Kernel-Eingabevalidierung geprüft.'
+    }
+    finally {
+        if (Test-Path -LiteralPath $embeddedWorkingRoot) {
+            Remove-Item -LiteralPath $embeddedWorkingRoot -Recurse -Force `
+                -ErrorAction SilentlyContinue
+        }
+    }
+}
+catch {
+    Add-Result -Name 'Paketinterner-Fortsetzungs-Preflight' `
+        -Passed $false -Message $_.Exception.Message
+}
+
 
 try {
     $selfTestContent = Get-Content -LiteralPath $PSCommandPath -Raw
@@ -1214,14 +1371,14 @@ try {
     $releaseConfig = Get-Content -LiteralPath $configPath -Raw |
         ConvertFrom-Json -Depth 100
     $comfyApproved = (
-        [string]$releaseConfig.kernelVersion -eq '1.2.1' -and
-        [string]$releaseConfig.executeRelease.releaseId -eq 'COMFYUI-1.2.1' -and
-        @($releaseConfig.executeRelease.enabledModules).Count -eq 4 -and
+        [string]$releaseConfig.kernelVersion -eq '1.3.7' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'MODELS-WORKFLOWS-1.3.7' -and
+        @($releaseConfig.executeRelease.enabledModules).Count -eq 5 -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModuleComfyUI'
     )
     Add-Result -Name 'ComfyUI-Execute-Freigabe' `
         -Passed $comfyApproved `
-        -Message 'ComfyUI ist als viertes und letztes Modul dieses Execute-Releases freigegeben.'
+        -Message 'ComfyUI ist als viertes Referenzmodul aktiv; Models/Workflows ist das fünfte Release-Modul freigegeben.'
 }
 catch {
     Add-Result -Name 'ComfyUI-Execute-Freigabe' `
@@ -1337,19 +1494,245 @@ catch {
 }
 
 try {
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-ComfyUI.cmd'
+    $releaseConfig = Get-Content -LiteralPath (
+        Join-Path $ProjectRoot 'Config\kernel-config.json'
+    ) -Raw | ConvertFrom-Json -Depth 100
+    $modelModule = Get-Content -LiteralPath (
+        Join-Path $ProjectRoot 'Modules\05-Models\KIModuleModels.psm1'
+    ) -Raw
+    $modelsApproved = (
+        @($releaseConfig.executeRelease.enabledModules).Count -eq 5 -and
+        @($releaseConfig.executeRelease.enabledModules) -contains 'KIModuleModels' -and
+        $modelModule.Contains('KIModuleModels.rollback.json') -and
+        $modelModule.Contains('Invoke-KIResumableHttpDownload') -and
+        $modelModule.Contains('Get-KIHuggingFaceToken') -and
+        $modelModule.Contains('KI-STACK-MODELS-WORKFLOWS-MANAGED')
+    )
+    Add-Result -Name 'Models-Workflows-Execute-Freigabe' `
+        -Passed $modelsApproved `
+        -Message 'Fünftes Modul, Rollbackjournal, Resume-Download und Token-Schutz sind enthalten.'
+}
+catch {
+    Add-Result -Name 'Models-Workflows-Execute-Freigabe' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $manifest = Get-Content -LiteralPath (
+        Join-Path $ProjectRoot 'Manifests\models.manifest.json'
+    ) -Raw | ConvertFrom-Json -Depth 100
+    $requiredModels = @($manifest.models | Where-Object { [bool]$_.required })
+    $valid = (
+        $requiredModels.Count -eq 3 -and
+        @($requiredModels | Where-Object {
+            [string]$_.sha256 -notmatch '^[0-9a-fA-F]{64}$'
+        }).Count -eq 0 -and
+        @($requiredModels | Where-Object { [int64]$_.sizeBytes -le 0 }).Count -eq 0 -and
+        @($requiredModels | Where-Object {
+            [string]$_.source -notmatch '^https://huggingface\.co/(black-forest-labs|Comfy-Org)/'
+        }).Count -eq 0
+    )
+    Add-Result -Name 'FLUX2-Pflichtmodelle-offiziell-und-hashgebunden' `
+        -Passed $valid `
+        -Message 'Drei Pflichtdateien besitzen offizielle Quellen, Größe und SHA256.'
+}
+catch {
+    Add-Result -Name 'FLUX2-Pflichtmodelle-offiziell-und-hashgebunden' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $apiPath = Join-Path $ProjectRoot 'Workflows\FLUX2-Klein-9B-OpenWebUI-API-FLAT.json'
+    $api = Get-Content -LiteralPath $apiPath -Raw | ConvertFrom-Json -Depth 100
+    $flatValid = (
+        $api.PSObject.Properties.Name -contains '92' -and
+        $api.PSObject.Properties.Name -contains '87' -and
+        $api.PSObject.Properties.Name -contains '84' -and
+        $api.PSObject.Properties.Name -contains '85' -and
+        $api.'92'.inputs.PSObject.Properties.Name -contains 'text' -and
+        [string]$api.'87'.inputs.unet_name -eq 'flux-2-klein-9b-fp8.safetensors'
+    )
+    Add-Result -Name 'OpenWebUI-FLUX2-API-flach-Node92' `
+        -Passed $flatValid `
+        -Message 'Flacher API-Workflow schützt gegen den historischen KeyError(92).'
+}
+catch {
+    Add-Result -Name 'OpenWebUI-FLUX2-API-flach-Node92' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $modelModule = Get-Content -LiteralPath (
+        Join-Path $ProjectRoot 'Modules\05-Models\KIModuleModels.psm1'
+    ) -Raw
+    $secretSafe = (
+        $modelModule.Contains(
+            'Read-Host ''Hugging-Face Read-Token eingeben (wird nicht angezeigt)'' -AsSecureString'
+        ) -and
+        $modelModule.Contains('Export-Clixml') -and
+        $modelModule.Contains('ZeroFreeBSTR') -and
+        -not $modelModule.Contains('Write-Host $token')
+    )
+    Add-Result -Name 'HuggingFace-Token-nicht-im-Log' `
+        -Passed $secretSafe `
+        -Message 'Token wird verdeckt abgefragt, benutzergebunden gespeichert und nicht ausgegeben.'
+}
+catch {
+    Add-Result -Name 'HuggingFace-Token-nicht-im-Log' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $catalog = Get-Content -LiteralPath (
+        Join-Path $ProjectRoot 'Manifests\workflows.catalog.json'
+    ) -Raw | ConvertFrom-Json -Depth 100
+    $files = @($catalog.workflows | ForEach-Object { [string]$_.file })
+    $workflowValid = (
+        $files -contains 'FLUX2-Klein-9B-Text-to-Image.json' -and
+        $files -contains 'FLUX2-Klein-9B-OpenWebUI-API-FLAT.json' -and
+        $files -contains 'KREA-Realism-Official-Template.json' -and
+        $files -contains 'PONY-Control-QuickTest-v2.json'
+    )
+    Add-Result -Name 'Workflowkatalog-vollständig' `
+        -Passed $workflowValid `
+        -Message 'FLUX2 UI/API, KREA und Pony sind katalogisiert.'
+}
+catch {
+    Add-Result -Name 'Workflowkatalog-vollständig' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $syntaxTestPath = Join-Path $ProjectRoot 'Tests\Test-KIStackPowerShellSyntax.ps1'
+    $starterPath = Join-Path $ProjectRoot 'Start-KIStack-ModelsWorkflows.ps1'
+    $starterContent = Get-Content -LiteralPath $starterPath -Raw
+    $syntaxTestExists = Test-Path -LiteralPath $syntaxTestPath -PathType Leaf
+    $syntaxGateValid = (
+        $syntaxTestExists -and
+        $starterContent.Contains("'Tests\Test-KIStackPowerShellSyntax.ps1'") -and
+        $starterContent.Contains('PowerShell-Syntaxprüfung-Exitcode') -and
+        $starterContent.IndexOf('PowerShell-Syntaxprüfung-Exitcode') -lt
+            $starterContent.IndexOf('Der vollständige Selbsttest wird vor Execute ausgeführt.')
+    )
+    Add-Result -Name 'PowerShell-AST-Syntaxgate-vor-Ausführung' `
+        -Passed $syntaxGateValid `
+        -Message 'Alle PowerShell-Dateien werden vor SelfTest, DryRun und Execute nativ geparst.'
+}
+catch {
+    Add-Result -Name 'PowerShell-AST-Syntaxgate-vor-Ausführung' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-ModelsWorkflows.cmd'
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
     $versionLabelValid = (
-        $bootstrapContent.Contains('KI-Stack ComfyUI v1.2.1 - %ACTION%') -and
+        $bootstrapContent.Contains('KI-Stack Models/Workflows v1.3.7 - %ACTION%') -and
         -not [regex]::IsMatch($bootstrapContent, 'PythonGit v1\\.1\\.[0-9]+')
     )
     Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
         -Passed $versionLabelValid `
-        -Message 'Der sichtbare CMD-Kopf entspricht dem Paket v1.2.1.'
+        -Message 'Der sichtbare CMD-Kopf entspricht dem Paket v1.3.7.'
 }
 catch {
     Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
         -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $selfTestSource = Get-Content -LiteralPath $PSCommandPath -Raw
+    $ambiguousCmdletBoolean = [regex]::IsMatch(
+        $selfTestSource,
+        '(?m)^\s*Test-Path\b[^\r\n]*\s-and\s*$'
+    )
+    $fixedBooleanPattern = (
+        $selfTestSource.Contains(
+            '$syntaxTestExists = Test-Path -LiteralPath $syntaxTestPath -PathType Leaf'
+        ) -and
+        $selfTestSource.Contains('$syntaxTestExists -and')
+    )
+    Add-Result -Name 'PowerShell-Cmdlet-nicht-direkt-mit-and-verkettet' `
+        -Passed (-not $ambiguousCmdletBoolean -and $fixedBooleanPattern) `
+        -Message 'Cmdlet-Ergebnisse werden vor boolescher Verknüpfung explizit ausgewertet.'
+}
+catch {
+    Add-Result -Name 'PowerShell-Cmdlet-nicht-direkt-mit-and-verkettet' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+
+try {
+    $cmdFiles = @(Get-ChildItem -LiteralPath $ProjectRoot -File -Filter '*.cmd')
+    $badBom = @()
+    $badLineEndings = @()
+    foreach ($cmdFile in $cmdFiles) {
+        $bytes = [IO.File]::ReadAllBytes($cmdFile.FullName)
+        if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+            $badBom += $cmdFile.Name
+        }
+        for ($i = 0; $i -lt $bytes.Length; $i++) {
+            if ($bytes[$i] -eq 10 -and ($i -eq 0 -or $bytes[$i - 1] -ne 13)) {
+                $badLineEndings += $cmdFile.Name
+                break
+            }
+        }
+    }
+    Add-Result -Name 'CMD-UTF8-ohne-BOM-und-CRLF' `
+        -Passed ($badBom.Count -eq 0 -and $badLineEndings.Count -eq 0) `
+        -Message ('BOM: {0}; LF-ohne-CR: {1}' -f ($badBom -join ','), ($badLineEndings -join ','))
+}
+catch {
+    Add-Result -Name 'CMD-UTF8-ohne-BOM-und-CRLF' -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $starterSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Core\KIStack.Starter.psm1') -Raw
+    $trailingCommaRemoved = (
+        -not $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.3.7.zip',") -and
+        $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.3.7.zip'")
+    )
+    Add-Result -Name 'PowerShell-Array-ohne-abschliessendes-Komma' `
+        -Passed $trailingCommaRemoved `
+        -Message 'Die Required-Path-Liste endet ohne syntaktisch unzulässiges Komma.'
+}
+catch {
+    Add-Result -Name 'PowerShell-Array-ohne-abschliessendes-Komma' -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $launcherSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Start-KIStack-ModelsWorkflows.ps1') -Raw
+    $syntaxIndex = $launcherSource.IndexOf('Native PowerShell-Syntaxprüfung wird vor jedem Modulimport gestartet.')
+    $importIndex = $launcherSource.IndexOf('Import-Module $starterModulePath')
+    $pathGateIndex = $launcherSource.IndexOf('Tests\Test-KIStackPathResolution.ps1')
+    $pathGateValid = (
+        $syntaxIndex -ge 0 -and
+        $importIndex -gt $syntaxIndex -and
+        $pathGateIndex -gt $importIndex
+    )
+    Add-Result -Name 'Syntaxgate-vor-Startermodul-und-Pfadgate' `
+        -Passed $pathGateValid `
+        -Message 'Der native Parser läuft vor dem Startermodul; anschließend folgt die Pfadprüfung.'
+}
+catch {
+    Add-Result -Name 'Syntaxgate-vor-Startermodul-und-Pfadgate' -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $pathTest = Join-Path $ProjectRoot 'Tests\Test-KIStackPathResolution.ps1'
+    $pathSource = Get-Content -LiteralPath $pathTest -Raw
+    $pathRegressionValid = (
+        (Test-Path -LiteralPath $pathTest -PathType Leaf) -and
+        $pathSource.Contains('Doppelt verschachtelt') -and
+        $pathSource.Contains('Leerzeichen und doppelte Verschachtelung') -and
+        $pathSource.Contains('Start-Validate-GitHub-Update.cmd') -and
+        $pathSource.Contains('Preflight-Continuation-v1.3.7.zip')
+    )
+    Add-Result -Name 'Pfade-doppelt-verschachtelt-und-mit-Leerzeichen' `
+        -Passed $pathRegressionValid `
+        -Message 'Paketwurzel, eingebetteter Preflight und GitHub-Unterpaket werden in allen relevanten Pfadvarianten geprüft.'
+}
+catch {
+    Add-Result -Name 'Pfade-doppelt-verschachtelt-und-mit-Leerzeichen' -Passed $false -Message $_.Exception.Message
 }
 
 $failedResults = @(
@@ -1359,7 +1742,7 @@ $failedResults = @(
 
 $summary = [pscustomobject][ordered]@{
     generatedAt = (Get-Date).ToString('o')
-    packageVersion = '1.2.1'
+    packageVersion = '1.3.7'
     passed = ($failedResults.Count -eq 0)
     failedNames = @(
         $failedResults |
@@ -1385,7 +1768,7 @@ try {
 catch {
     try {
         $tempSelfTestPath = Join-Path ([IO.Path]::GetTempPath()) `
-            'KI-Stack-ComfyUI-SelfTest-latest.json'
+            'KI-Stack-ModelsWorkflows-SelfTest-latest.json'
         Set-Content -LiteralPath $tempSelfTestPath -Value $selfTestJson `
             -Encoding UTF8 -ErrorAction SilentlyContinue
     }

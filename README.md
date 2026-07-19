@@ -9,6 +9,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Foundation / Runtime | 1.0.9 | Stable reference; target-system validated |
 | Python / Git | 1.1.5 | Stable; target-system validated |
 | ComfyUI | 1.2.1 | Stable; target-system validated |
+| Models / Workflows | 1.3.4-rc1 | Release candidate; target-system validation pending |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
 
@@ -50,3 +51,6 @@ pwsh -NoProfile -File .\scripts\New-ReleaseArchive.ps1
 ## Safety and licensing
 
 Do not commit credentials, access tokens, private keys, personal transaction logs or machine-specific state. No open-source license has been selected yet; public visibility alone does not grant reuse rights.
+
+
+Current release candidate: `models-workflows-v1.3.7-rc1`.
