@@ -1,7 +1,3 @@
-KI-Stack PythonGit Execute v1.1.5 – Pretest
-Ergebnis: BESTANDEN
-Prüfungen: 39 von 39
-Ursache v1.1.4: unvollständiges PythonGit-DryRun-Testfixture ohne pipUpgrade.
-Korrektur: vollständige echte Releasekonfiguration für alle Modul-DryRuns.
-Foundation/Runtime/PythonGit-Module: bytegleich zu v1.1.4
-Zielsystembericht: State\SelfTest\SelfTest-latest.json
+KI-Stack ComfyUI Execute v1.2.0
+Prüfungen: 70/70 bestanden
+Windows-Zielsystem-Selbsttest vor Execute: verpflichtend

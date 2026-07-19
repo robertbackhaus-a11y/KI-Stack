@@ -1,14 +1,19 @@
 # Changelog
 
+## ComfyUI 1.2.0-rc1 — release candidate
+
+- Added complete ComfyUI module.
+- Pinned the configured ComfyUI repository reference.
+- Added isolated virtual environment and managed runtime starters.
+- Added NVIDIA CUDA/PyTorch and device validation.
+- Added centralized model, input, output and user paths.
+- Added ComfyUI-specific rollback handling and regression checks.
+
 ## PythonGit 1.1.5 — stable
 
-- Added Python, virtual-environment, package-cache and repository structures.
-- Enforced Git `core.longpaths` target state.
-- Added pip upgrade and `uv` installation with `python -m uv` fallback.
-- Added transaction-bound rollback journal.
-- Consolidated all historical starter, elevation, self-test and configuration regressions.
+- Target-system validated Python/Git reference package.
+- Full regression matrix through v1.1.5.
 
 ## Foundation / Runtime 1.0.9 — stable reference
 
-- Validated foundation target structure and required Windows runtimes.
-- Corrected runtime-state compatibility, end-state validation, Windows Git version normalization and `$Matches` collision.
+- Frozen predecessor reference.

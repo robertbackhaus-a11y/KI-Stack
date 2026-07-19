@@ -3,8 +3,8 @@
   "id": "KIModuleComfyUI",
   "order": 40,
   "name": "ComfyUI",
-  "version": "0.1.0",
-  "enabled": false,
+  "version": "0.2.0",
+  "enabled": true,
   "script": "KIModuleComfyUI.psm1",
   "supportsRollback": true,
   "dependencies": [

@@ -1,208 +1,365 @@
 {
-  "package": "KI-Stack-PythonGit-Execute-v1.1.5",
-  "generatedAtUtc": "2026-07-19T10:41:26.656526+00:00",
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-07-19T11:40:51.489660+00:00",
+  "package": "KI-Stack-ComfyUI-Execute-v1.2.0",
   "passed": true,
-  "checksPassed": 39,
-  "checksTotal": 39,
-  "reference": "KI-Stack-Foundation-Runtime-Execute-v1.0.9",
-  "identifiedCause": "The PythonGit DryRun self-test used a partial PSCustomObject fixture without pythonEnvironment.pipUpgrade. Set-StrictMode converted the missing property access into a terminating test failure.",
-  "durableCorrection": "All module DryRun tests now consume the complete release kernel-config.json; the starter prints failed test names and messages directly.",
+  "checkCount": 70,
+  "failedCount": 0,
+  "failedNames": [],
   "checks": [
     {
-      "name": "Paketvollständigkeit",
+      "name": "JSON: Config/kernel-config.json",
       "passed": true,
-      "detail": "alle Pflichtdateien vorhanden"
+      "detail": ""
     },
     {
-      "name": "JSON-Integrität",
+      "name": "JSON: Manifests/models.manifest.json",
       "passed": true,
-      "detail": "10 JSON-Dateien gelesen"
+      "detail": ""
     },
     {
-      "name": "Versionskonsistenz",
+      "name": "JSON: Modules/01-Foundation/module.json",
       "passed": true,
-      "detail": "Config=1.1.5, Release=PYTHONGIT-1.1.5, Core=1.1.5"
+      "detail": ""
     },
     {
-      "name": "Foundation-Runtime-PythonGit bytegleich",
+      "name": "JSON: Modules/02-Runtime/module.json",
       "passed": true,
-      "detail": "sechs Referenzdateien unverändert"
+      "detail": ""
     },
     {
-      "name": "Ursache v1.1.4 beseitigt",
+      "name": "JSON: Modules/03-PythonGit/module.json",
       "passed": true,
-      "detail": "PythonGit-DryRun verwendet vollständige Releasekonfiguration statt Teil-Fixture"
+      "detail": ""
     },
     {
-      "name": "pipUpgrade-Regressionstest",
+      "name": "JSON: Modules/04-ComfyUI/module.json",
       "passed": true,
-      "detail": "Pflichtproperty explizit geprüft"
+      "detail": ""
     },
     {
-      "name": "Keine Modul-Teil-Fixtures",
+      "name": "JSON: Modules/05-Models/module.json",
       "passed": true,
-      "detail": "Dry-Run-Tests nutzen vollständige kernel-config.json"
+      "detail": ""
     },
     {
-      "name": "Fehlerdiagnose sichtbar",
+      "name": "JSON: Modules/06-Applications/module.json",
       "passed": true,
-      "detail": "Testname und Meldung werden direkt ausgegeben"
+      "detail": ""
     },
     {
-      "name": "Historische Regressionsmatrix",
+      "name": "JSON: Modules/07-Integration/module.json",
       "passed": true,
-      "detail": "requiredCommand/command-Roundtrip; winget-Endzustand; Git-Version-Normalisierung; $Matches-Korrektur; $null-Discard; Fehleraggregation; rekursive-Preflight-Suche; PowerShell-Fallback; persistente-CMD; uv-Fallback; Rollback-Journal; automatische-UAC; Selftest-Bericht"
+      "detail": ""
     },
     {
-      "name": "Releasekonfiguration vollständig",
+      "name": "JSON: Modules/99-Validation/module.json",
       "passed": true,
-      "detail": "keine fehlenden PythonGit-Pflichtfelder"
+      "detail": ""
     },
     {
-      "name": "CMD-CRLF Bootstrap-KIStack-PythonGit.cmd",
+      "name": "Required: Bootstrap-KIStack-ComfyUI.cmd",
       "passed": true,
-      "detail": "keine nackten LF"
+      "detail": ""
     },
     {
-      "name": "CMD-CRLF Start-Nur-Selbsttest.cmd",
+      "name": "Required: Start-KIStack-ComfyUI.ps1",
       "passed": true,
-      "detail": "keine nackten LF"
+      "detail": ""
     },
     {
-      "name": "CMD-CRLF Start-KIStack-PythonGit-DryRun.cmd",
+      "name": "Required: Start-KIStack-ComfyUI-DryRun.cmd",
       "passed": true,
-      "detail": "keine nackten LF"
+      "detail": ""
     },
     {
-      "name": "CMD-CRLF Start-KIStack-PythonGit-Execute.cmd",
+      "name": "Required: Start-KIStack-ComfyUI-Execute.cmd",
       "passed": true,
-      "detail": "keine nackten LF"
+      "detail": ""
     },
     {
-      "name": "Unverändert Invoke-KIStackBuilderKernel.ps1",
+      "name": "Required: Start-Nur-Selbsttest.cmd",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Unverändert Request-KIStack-Elevation.ps1",
+      "name": "Required: Request-KIStack-Elevation.ps1",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Unverändert Core/KIStack.DownloadManager.psm1",
+      "name": "Required: Invoke-KIStackBuilderKernel.ps1",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Unverändert Core/KIStack.Starter.psm1",
+      "name": "Required: Config/kernel-config.json",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Unverändert Modules/01-Foundation/KIModuleFoundation.psm1",
+      "name": "Required: Core/KIStack.BuilderKernel.Core.psm1",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Unverändert Modules/02-Runtime/KIModuleRuntime.psm1",
+      "name": "Required: Core/KIStack.Starter.psm1",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Unverändert Modules/03-PythonGit/KIModulePythonGit.psm1",
+      "name": "Required: Modules/04-ComfyUI/KIModuleComfyUI.psm1",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Unverändert Modules/04-ComfyUI/KIModuleComfyUI.psm1",
+      "name": "Required: Tests/Test-KIStackBuilderKernel.ps1",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Unverändert Modules/05-Models/KIModuleModels.psm1",
+      "name": "CMD CRLF: Start-Nur-Selbsttest.cmd",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Unverändert Modules/06-Applications/KIModuleApplications.psm1",
+      "name": "CMD ASCII: Start-Nur-Selbsttest.cmd",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Unverändert Modules/07-Integration/KIModuleIntegration.psm1",
+      "name": "CMD CRLF: Bootstrap-KIStack-ComfyUI.cmd",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Unverändert Modules/99-Validation/KIModuleValidation.psm1",
+      "name": "CMD ASCII: Bootstrap-KIStack-ComfyUI.cmd",
       "passed": true,
-      "detail": "bytegleich"
+      "detail": ""
     },
     {
-      "name": "Änderungsumfang begrenzt",
+      "name": "CMD CRLF: Start-KIStack-ComfyUI-DryRun.cmd",
       "passed": true,
-      "detail": "nur Core-Version, Starterdiagnose und Selbsttest geändert"
+      "detail": ""
     },
     {
-      "name": "Keine aktive Altversion in Config/kernel-config.json",
+      "name": "CMD ASCII: Start-KIStack-ComfyUI-DryRun.cmd",
       "passed": true,
-      "detail": "keine stale Versionskennung"
+      "detail": ""
     },
     {
-      "name": "Keine aktive Altversion in Core/KIStack.BuilderKernel.Core.psm1",
+      "name": "CMD CRLF: Start-KIStack-ComfyUI-Execute.cmd",
       "passed": true,
-      "detail": "keine stale Versionskennung"
+      "detail": ""
     },
     {
-      "name": "Keine aktive Altversion in Tests/Test-KIStackBuilderKernel.ps1",
+      "name": "CMD ASCII: Start-KIStack-ComfyUI-Execute.cmd",
       "passed": true,
-      "detail": "keine stale Versionskennung"
+      "detail": ""
     },
     {
-      "name": "Strukturdifferenz Core/KIStack.BuilderKernel.Core.psm1 {}",
+      "name": "Version config",
       "passed": true,
-      "detail": "symmetrische Delimiteränderung"
+      "detail": ""
     },
     {
-      "name": "Strukturdifferenz Core/KIStack.BuilderKernel.Core.psm1 ()",
+      "name": "Release ID",
       "passed": true,
-      "detail": "symmetrische Delimiteränderung"
+      "detail": ""
     },
     {
-      "name": "Strukturdifferenz Core/KIStack.BuilderKernel.Core.psm1 []",
+      "name": "Enabled modules 4",
       "passed": true,
-      "detail": "symmetrische Delimiteränderung"
+      "detail": ""
     },
     {
-      "name": "Strukturdifferenz Tests/Test-KIStackBuilderKernel.ps1 {}",
+      "name": "ComfyUI pinned v0.28.0",
       "passed": true,
-      "detail": "symmetrische Delimiteränderung"
+      "detail": ""
     },
     {
-      "name": "Strukturdifferenz Tests/Test-KIStackBuilderKernel.ps1 ()",
+      "name": "PyTorch official cu130",
       "passed": true,
-      "detail": "symmetrische Delimiteränderung"
+      "detail": ""
     },
     {
-      "name": "Strukturdifferenz Tests/Test-KIStackBuilderKernel.ps1 []",
+      "name": "RTX 5090 validation",
       "passed": true,
-      "detail": "symmetrische Delimiteränderung"
+      "detail": ""
     },
     {
-      "name": "Strukturdifferenz Start-KIStack-PythonGit.ps1 {}",
+      "name": "Comfy rollback journal",
       "passed": true,
-      "detail": "symmetrische Delimiteränderung"
+      "detail": "present=True, expected=True"
     },
     {
-      "name": "Strukturdifferenz Start-KIStack-PythonGit.ps1 ()",
+      "name": "Comfy exact tag",
       "passed": true,
-      "detail": "symmetrische Delimiteränderung"
+      "detail": "present=True, expected=True"
     },
     {
-      "name": "Strukturdifferenz Start-KIStack-PythonGit.ps1 []",
+      "name": "Comfy no git pull",
       "passed": true,
-      "detail": "symmetrische Delimiteränderung"
+      "detail": "present=False, expected=False"
+    },
+    {
+      "name": "Comfy CUDA probe",
+      "passed": true,
+      "detail": "present=True, expected=True"
+    },
+    {
+      "name": "Comfy managed marker",
+      "passed": true,
+      "detail": "present=True, expected=True"
+    },
+    {
+      "name": "Comfy manager requirements",
+      "passed": true,
+      "detail": "present=True, expected=True"
+    },
+    {
+      "name": "Comfy valid installation JSON",
+      "passed": true,
+      "detail": "present=True, expected=True"
+    },
+    {
+      "name": "Comfy runtime user-site isolation",
+      "passed": true,
+      "detail": "present=True, expected=True"
+    },
+    {
+      "name": "Comfy model directory validation",
+      "passed": true,
+      "detail": "present=True, expected=True"
+    },
+    {
+      "name": "Comfy start artifact",
+      "passed": true,
+      "detail": "present=True, expected=True"
+    },
+    {
+      "name": "Comfy stop artifact",
+      "passed": true,
+      "detail": "present=True, expected=True"
+    },
+    {
+      "name": "Reference byte-identical: Modules/01-Foundation/KIModuleFoundation.psm1",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Reference byte-identical: Modules/01-Foundation/module.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Reference byte-identical: Modules/02-Runtime/KIModuleRuntime.psm1",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Reference byte-identical: Modules/02-Runtime/module.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Reference byte-identical: Modules/03-PythonGit/KIModulePythonGit.psm1",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Reference byte-identical: Modules/03-PythonGit/module.json",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "PowerShell structural integrity: Invoke-KIStackBuilderKernel.ps1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Request-KIStack-Elevation.ps1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Start-KIStack-ComfyUI.ps1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Core/KIStack.BuilderKernel.Core.psm1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Core/KIStack.DownloadManager.psm1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Core/KIStack.Starter.psm1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Tests/Test-KIStackBuilderKernel.ps1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Modules/01-Foundation/KIModuleFoundation.psm1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Modules/02-Runtime/KIModuleRuntime.psm1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Modules/03-PythonGit/KIModulePythonGit.psm1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Modules/04-ComfyUI/KIModuleComfyUI.psm1",
+      "passed": true,
+      "detail": "single=1/1, double=4/4"
+    },
+    {
+      "name": "PowerShell structural integrity: Modules/05-Models/KIModuleModels.psm1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Modules/06-Applications/KIModuleApplications.psm1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Modules/07-Integration/KIModuleIntegration.psm1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "PowerShell structural integrity: Modules/99-Validation/KIModuleValidation.psm1",
+      "passed": true,
+      "detail": "single=0/0, double=0/0"
+    },
+    {
+      "name": "No stale PythonGit starter names",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "Visible version v1.2.0",
+      "passed": true,
+      "detail": ""
     }
   ],
-  "runtimeLimitation": "Windows cmd.exe, UAC, winget and installed Windows runtimes cannot be executed in this Linux build environment. Target-side selftest persists and prints exact failures."
+  "limitations": [
+    "Die Build-Umgebung enthält kein Windows PowerShell 7, CMD, UAC, NVIDIA-Treiber oder eine RTX 5090.",
+    "Die vollständige AST-, Windows-, CUDA- und Installationsprüfung wird deshalb durch den Paket-Selbsttest auf dem Zielsystem ausgeführt."
+  ]
 }

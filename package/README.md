@@ -1,39 +1,48 @@
-# KI-Stack PythonGit Execute v1.1.5
+# KI-Stack ComfyUI Execute v1.2.0
 
-## Status
+## Freigabebasis
 
-Vollständige korrigierte Nachfolgeversion von v1.1.4.
+- Foundation/Runtime Execute v1.0.9: eingefrorener Referenzstand
+- PythonGit Execute v1.1.5: erfolgreich auf dem Zielsystem validierter Referenzstand
+- Foundation-, Runtime- und PythonGit-Fachmodule wurden unverändert übernommen
 
-Referenzstand bleibt unverändert:
+## Umfang dieses Pakets
 
-- KI-Stack-Foundation-Runtime-Execute-v1.0.9
-- letzte erfolgreiche Foundation/Runtime-Transaktion: KI-STACK-TX-20260719-110527
+Das Paket aktiviert als vierten Baustein `KIModuleComfyUI` und installiert bzw.
+validiert:
 
-Foundation-, Runtime- und PythonGit-Fachmodule wurden bytegleich übernommen.
+- ComfyUI aus dem offiziellen Repository
+- fest gepinnter Release-Tag `v0.28.0`
+- eigenes Virtual Environment unter `C:\KI-Stack\python\venvs\comfyui`
+- stabiles PyTorch für NVIDIA mit CUDA 13.0
+- CUDA-, RTX-5090- und Compute-Capability-Validierung
+- ComfyUI- und Manager-Abhängigkeiten
+- zentrale Modell-, Ein-/Ausgabe- und Benutzerdatenpfade
+- verwaltete Start- und Stop-Artefakte
+- transaktionsgebundenes Rollback-Journal
 
-## Ursache des v1.1.4-Abbruchs
+Modelle werden in diesem Paket noch nicht heruntergeladen. Das folgt im nächsten
+Baustein `Models`.
 
-Der Selbsttest `PythonGit Dry-Run` erzeugte eine handgeschriebene, unvollständige
-Konfiguration. Die Property `pythonEnvironment.pipUpgrade` fehlte. Das
-PythonGit-Modul greift im Dry-Run auf diese Property zu. Unter
-`Set-StrictMode -Version Latest` führt der Zugriff auf eine fehlende Property zu
-einem Fehler und damit zu Exitcode 1.
+## Sicherheits- und Bestandsregeln
 
-## Korrekturen v1.1.5
-
-- Alle Modul-Dry-Run-Tests verwenden die vollständige echte
-  `Config/kernel-config.json`.
-- Direkter Regressionstest auf vollständige PythonGit-Konfiguration inklusive
-  `pipUpgrade`.
-- Keine handgebauten Teilkonfigurationen mehr für Runtime, DownloadManager,
-  PythonGit, ComfyUI, Applications und Integration.
-- Bei Selbsttestfehlern zeigt Konsole und Starter sofort Testname und Meldung.
-- Vollständige historische Regressionsmatrix bleibt aktiv.
+- Kein implizites `git pull`.
+- Ein bestehendes Repository muss sauber sein und exakt dem freigegebenen Tag
+  entsprechen.
+- Nicht durch den KI-Stack verwaltete Start- oder Konfigurationsdateien werden
+  nicht überschrieben.
+- Ein vorhandenes Venv wird validiert, aber nicht ungefragt verändert.
+- Rollback entfernt nur durch die laufende Transaktion erzeugte Repository- und
+  Venv-Pfade; Datenverzeichnisse werden nur entfernt, wenn sie leer sind.
 
 ## Startreihenfolge
 
-1. Start-Nur-Selbsttest.cmd
-2. Start-KIStack-PythonGit-DryRun.cmd
-3. Start-KIStack-PythonGit-Execute.cmd
-4. UAC bestätigen
-5. EXECUTE eingeben
+1. `Start-Nur-Selbsttest.cmd`
+2. `Start-KIStack-ComfyUI-DryRun.cmd`
+3. `Start-KIStack-ComfyUI-Execute.cmd`
+4. Windows-UAC bestätigen
+5. `EXECUTE` eingeben
+
+Nach erfolgreicher Installation liegt der Laufzeitstarter unter:
+
+`C:\KI-Stack\modules\comfyui\Start-KIStack-ComfyUI.cmd`

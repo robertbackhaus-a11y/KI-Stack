@@ -566,16 +566,17 @@ try {
 
     $approvedIds = @($releaseConfig.executeRelease.enabledModules)
     $allowlistValid = (
-        $activeManifestIds.Count -eq 3 -and
+        $activeManifestIds.Count -eq 4 -and
         $activeManifestIds -contains 'KIModuleFoundation' -and
         $activeManifestIds -contains 'KIModuleRuntime' -and
         $activeManifestIds -contains 'KIModulePythonGit' -and
+        $activeManifestIds -contains 'KIModuleComfyUI' -and
         @($activeManifestIds | Where-Object { $approvedIds -notcontains $_ }).Count -eq 0
     )
 
     Add-Result -Name 'Execute-Modulfreigabe' `
         -Passed $allowlistValid `
-        -Message 'Nur Foundation, Runtime und PythonGit sind für Execute aktiviert.'
+        -Message 'Nur Foundation, Runtime, PythonGit und ComfyUI sind für Execute aktiviert.'
 }
 catch {
     Add-Result -Name 'Execute-Modulfreigabe' `
@@ -884,17 +885,17 @@ try {
         ConvertFrom-Json -Depth 50
 
     $pythonGitApproved = (
-        [string]$releaseConfig.kernelVersion -eq '1.1.5' -and
-        [string]$releaseConfig.executeRelease.releaseId -eq 'PYTHONGIT-1.1.5' -and
+        [string]$releaseConfig.kernelVersion -eq '1.2.0' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'COMFYUI-1.2.0' -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModulePythonGit'
     )
 
-    Add-Result -Name 'PythonGit-Execute-Freigabe' `
+    Add-Result -Name 'PythonGit-Referenzfreigabe-beibehalten' `
         -Passed $pythonGitApproved `
-        -Message 'PythonGit ist als drittes Execute-Modul freigegeben.'
+        -Message 'Der freigegebene PythonGit-Baustein bleibt als drittes Execute-Modul aktiv.'
 }
 catch {
-    Add-Result -Name 'PythonGit-Execute-Freigabe' `
+    Add-Result -Name 'PythonGit-Referenzfreigabe-beibehalten' `
         -Passed $false `
         -Message $_.Exception.Message
 }
@@ -1007,8 +1008,8 @@ finally {
 try {
     $wrapperNames = @(
         'Start-Nur-Selbsttest.cmd',
-        'Start-KIStack-PythonGit-DryRun.cmd',
-        'Start-KIStack-PythonGit-Execute.cmd'
+        'Start-KIStack-ComfyUI-DryRun.cmd',
+        'Start-KIStack-ComfyUI-Execute.cmd'
     )
     $cmdIssues = [System.Collections.Generic.List[string]]::new()
 
@@ -1021,7 +1022,7 @@ try {
         if (-not $wrapperContent.Contains('%ComSpec%" /D /K')) {
             [void]$cmdIssues.Add("${wrapperName}: dauerhafte cmd-/K-Diagnosesitzung fehlt")
         }
-        if (-not $wrapperContent.Contains('Bootstrap-KIStack-PythonGit.cmd')) {
+        if (-not $wrapperContent.Contains('Bootstrap-KIStack-ComfyUI.cmd')) {
             [void]$cmdIssues.Add("${wrapperName}: gemeinsamer Bootstrap fehlt")
         }
         if ([regex]::IsMatch($wrapperAscii, '(?<!\r)\n')) {
@@ -1029,7 +1030,7 @@ try {
         }
     }
 
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-PythonGit.cmd'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-ComfyUI.cmd'
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
     $bootstrapBytes = [IO.File]::ReadAllBytes($bootstrapPath)
     $bootstrapAscii = [Text.Encoding]::ASCII.GetString($bootstrapBytes)
@@ -1040,7 +1041,7 @@ try {
     if (-not $bootstrapContent.Contains('where pwsh.exe')) {
         [void]$cmdIssues.Add('Bootstrap: PATH-Fallback fehlt')
     }
-    if (-not $bootstrapContent.Contains('KI-Stack-PythonGit-Bootstrap.log')) {
+    if (-not $bootstrapContent.Contains('KI-Stack-ComfyUI-Bootstrap.log')) {
         [void]$cmdIssues.Add('Bootstrap: TEMP-Diagnoselog fehlt')
     }
     if (-not $bootstrapContent.Contains('pause >nul')) {
@@ -1065,7 +1066,7 @@ catch {
 }
 
 try {
-    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-PythonGit.ps1'
+    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-ComfyUI.ps1'
     $launcherContent = Get-Content -LiteralPath $launcherPath -Raw
     $tryMatch = [regex]::Match(
         $launcherContent,
@@ -1080,7 +1081,7 @@ try {
         $importIndex -gt $tryIndex -and
         $newLogIndex -gt $tryIndex -and
         $launcherContent.Contains('Write-EmergencyStarterLog') -and
-        $launcherContent.Contains('KI-Stack-PythonGit-Starter.log') -and
+        $launcherContent.Contains('KI-Stack-ComfyUI-Starter.log') -and
         -not $launcherContent.StartsWith('#Requires')
     )
 
@@ -1096,8 +1097,8 @@ catch {
 
 try {
     $elevationPath = Join-Path $ProjectRoot 'Request-KIStack-Elevation.ps1'
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-PythonGit.cmd'
-    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-PythonGit.ps1'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-ComfyUI.cmd'
+    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-ComfyUI.ps1'
 
     $elevationContent = Get-Content -LiteralPath $elevationPath -Raw
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
@@ -1167,6 +1168,149 @@ catch {
         -Message $_.Exception.Message
 }
 
+
+try {
+    $configPath = Join-Path $ProjectRoot 'Config\kernel-config.json'
+    $comfyConfig = Get-Content -LiteralPath $configPath -Raw |
+        ConvertFrom-Json -Depth 100
+
+    $requiredProperties = @(
+        'root','repository','ref','refType','cloneDepth','venv','customNodesRoot',
+        'modelsRoot','moduleRoot','extraModelPathsConfig','inputDirectory',
+        'outputDirectory','userDirectory','listenAddress','port','enableManager',
+        'dependencyInstaller','pipUpgrade','installManagerRequirements','torch'
+    )
+    $missingProperties = @(
+        $requiredProperties |
+        Where-Object { $null -eq $comfyConfig.comfyUI.PSObject.Properties[$_] }
+    )
+    $comfyConfigValid = (
+        $missingProperties.Count -eq 0 -and
+        [string]$comfyConfig.comfyUI.repository -eq 'https://github.com/Comfy-Org/ComfyUI.git' -and
+        [string]$comfyConfig.comfyUI.ref -eq 'v0.28.0' -and
+        [string]$comfyConfig.comfyUI.refType -eq 'tag' -and
+        [string]$comfyConfig.comfyUI.torch.extraIndexUrl -eq
+            'https://download.pytorch.org/whl/cu130' -and
+        [bool]$comfyConfig.comfyUI.torch.requireCuda -and
+        [int]$comfyConfig.comfyUI.torch.minimumComputeCapabilityMajor -ge 12 -and
+        [string]$comfyConfig.comfyUI.torch.expectedDeviceNamePattern -eq 'RTX 5090'
+    )
+
+    Add-Result -Name 'ComfyUI-Releasekonfiguration-vollständig' `
+        -Passed $comfyConfigValid `
+        -Message ($(if ($comfyConfigValid) {
+            'ComfyUI v0.28.0, offizieller CUDA-13.0-Index und RTX-5090-Gates sind vollständig konfiguriert.'
+        } else {
+            'Fehlende oder ungültige Eigenschaften: {0}' -f ($missingProperties -join ', ')
+        }))
+}
+catch {
+    Add-Result -Name 'ComfyUI-Releasekonfiguration-vollständig' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $configPath = Join-Path $ProjectRoot 'Config\kernel-config.json'
+    $releaseConfig = Get-Content -LiteralPath $configPath -Raw |
+        ConvertFrom-Json -Depth 100
+    $comfyApproved = (
+        [string]$releaseConfig.kernelVersion -eq '1.2.0' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'COMFYUI-1.2.0' -and
+        @($releaseConfig.executeRelease.enabledModules).Count -eq 4 -and
+        @($releaseConfig.executeRelease.enabledModules) -contains 'KIModuleComfyUI'
+    )
+    Add-Result -Name 'ComfyUI-Execute-Freigabe' `
+        -Passed $comfyApproved `
+        -Message 'ComfyUI ist als viertes und letztes Modul dieses Execute-Releases freigegeben.'
+}
+catch {
+    Add-Result -Name 'ComfyUI-Execute-Freigabe' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $modulePath = Join-Path $ProjectRoot 'Modules\04-ComfyUI\KIModuleComfyUI.psm1'
+    $moduleContent = Get-Content -LiteralPath $modulePath -Raw
+    $moduleHardened = (
+        $moduleContent.Contains('KIModuleComfyUI.rollback.json') -and
+        $moduleContent.Contains('Write-KIComfyRollbackState') -and
+        $moduleContent.Contains('Read-KIComfyRollbackState') -and
+        $moduleContent.Contains('rootCreatedByTransaction') -and
+        $moduleContent.Contains('venvCreatedByTransaction') -and
+        $moduleContent.Contains('Nicht verwaltete Datei wird nicht überschrieben') -and
+        $moduleContent.Contains('describe --tags --exact-match') -and
+        $moduleContent.Contains('manager_requirements.txt') -and
+        $moduleContent.Contains('torch.cuda.get_device_capability') -and
+        $moduleContent.Contains("managedBy = 'KI-STACK-COMFYUI-MANAGED'") -and
+        $moduleContent.Contains('PYTHONNOUSERSITE') -and
+        $moduleContent.Contains('validationModelDirectories')
+    )
+    Add-Result -Name 'ComfyUI-Transaktion-und-Rollback' `
+        -Passed $moduleHardened `
+        -Message 'Repository, Venv, verwaltete Dateien und Teilzustände werden transaktionsgebunden behandelt.'
+}
+catch {
+    Add-Result -Name 'ComfyUI-Transaktion-und-Rollback' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $modulePath = Join-Path $ProjectRoot 'Modules\04-ComfyUI\KIModuleComfyUI.psm1'
+    $moduleContent = Get-Content -LiteralPath $modulePath -Raw
+    $pinnedRelease = (
+        $moduleContent.Contains("[string]$Context.Config.comfyUI.ref") -and
+        $moduleContent.Contains("[string]$repositoryState.exactTag") -and
+        $moduleContent.Contains('Das ComfyUI-Repository enthält lokale Änderungen') -and
+        -not $moduleContent.Contains('git pull')
+    )
+    Add-Result -Name 'ComfyUI-kein-ungeprüftes-Master-Update' `
+        -Passed $pinnedRelease `
+        -Message 'Execute arbeitet mit dem freigegebenen Tag und führt kein implizites git pull aus.'
+}
+catch {
+    Add-Result -Name 'ComfyUI-kein-ungeprüftes-Master-Update' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $modulePath = Join-Path $ProjectRoot 'Modules\04-ComfyUI\KIModuleComfyUI.psm1'
+    $moduleContent = Get-Content -LiteralPath $modulePath -Raw
+    $launcherSafe = (
+        $moduleContent.Contains('Start-KIStack-ComfyUI.cmd') -and
+        $moduleContent.Contains('Stop-KIStack-ComfyUI.ps1') -and
+        $moduleContent.Contains('--extra-model-paths-config') -and
+        $moduleContent.Contains('--input-directory') -and
+        $moduleContent.Contains('--output-directory') -and
+        $moduleContent.Contains('--user-directory') -and
+        $moduleContent.Contains('--enable-manager') -and
+        $moduleContent.Contains('$matchingProcesses') -and
+        -not $moduleContent.Contains('$matches =')
+    )
+    Add-Result -Name 'ComfyUI-Start-Stop-und-Matches-Regression' `
+        -Passed $launcherSafe `
+        -Message 'Start/Stop-Artefakte, zentrale Datenpfade und Schutz vor $Matches-Kollision sind enthalten.'
+}
+catch {
+    Add-Result -Name 'ComfyUI-Start-Stop-und-Matches-Regression' `
+        -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-ComfyUI.cmd'
+    $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
+    $versionLabelValid = (
+        $bootstrapContent.Contains('KI-Stack ComfyUI v1.2.0 - %ACTION%') -and
+        -not [regex]::IsMatch($bootstrapContent, 'PythonGit v1\\.1\\.[0-9]+')
+    )
+    Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
+        -Passed $versionLabelValid `
+        -Message 'Der sichtbare CMD-Kopf entspricht dem Paket v1.2.0.'
+}
+catch {
+    Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
+        -Passed $false -Message $_.Exception.Message
+}
+
 $failedResults = @(
     $results |
     Where-Object { -not [bool]$_.passed }
@@ -1174,7 +1318,7 @@ $failedResults = @(
 
 $summary = [pscustomobject][ordered]@{
     generatedAt = (Get-Date).ToString('o')
-    packageVersion = '1.1.5'
+    packageVersion = '1.2.0'
     passed = ($failedResults.Count -eq 0)
     failedNames = @(
         $failedResults |
@@ -1200,7 +1344,7 @@ try {
 catch {
     try {
         $tempSelfTestPath = Join-Path ([IO.Path]::GetTempPath()) `
-            'KI-Stack-PythonGit-SelfTest-latest.json'
+            'KI-Stack-ComfyUI-SelfTest-latest.json'
         Set-Content -LiteralPath $tempSelfTestPath -Value $selfTestJson `
             -Encoding UTF8 -ErrorAction SilentlyContinue
     }

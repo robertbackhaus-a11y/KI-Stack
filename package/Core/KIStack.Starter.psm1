@@ -115,8 +115,8 @@ function Test-KIStarterPackage {
         'Core\KIStack.BuilderKernel.Core.psm1',
         'Core\KIStack.Starter.psm1',
         'Invoke-KIStackBuilderKernel.ps1',
-        'Bootstrap-KIStack-PythonGit.cmd',
-        'Start-KIStack-PythonGit.ps1',
+        'Bootstrap-KIStack-ComfyUI.cmd',
+        'Start-KIStack-ComfyUI.ps1',
         'Request-KIStack-Elevation.ps1',
         'Tests\Test-KIStackBuilderKernel.ps1'
     )

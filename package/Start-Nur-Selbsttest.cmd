@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
-set "BOOTSTRAP=%~dp0Bootstrap-KIStack-PythonGit.cmd"
+set "BOOTSTRAP=%~dp0Bootstrap-KIStack-ComfyUI.cmd"
 
 if not exist "%BOOTSTRAP%" (
     echo.
-    echo FEHLER: Bootstrap-KIStack-PythonGit.cmd fehlt.
+    echo FEHLER: Bootstrap-KIStack-ComfyUI.cmd fehlt.
     echo Paketpfad: %~dp0
     echo.
     echo Die Diagnosesitzung bleibt geoeffnet.
@@ -12,5 +12,5 @@ if not exist "%BOOTSTRAP%" (
     exit /b 1
 )
 
-"%ComSpec%" /D /K ""%BOOTSTRAP%" SelfTest "KI-Stack PythonGit - Selbsttest""
+"%ComSpec%" /D /K ""%BOOTSTRAP%" SelfTest "KI-Stack ComfyUI - Selbsttest""
 exit /b %ERRORLEVEL%

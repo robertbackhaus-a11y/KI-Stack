@@ -1,19 +1,20 @@
 {
   "schemaVersion": "1.0",
-  "repositoryVersion": "1.1.5",
-  "packageName": "KI-Stack-PythonGit-Execute-v1.1.5",
-  "packageVersion": "1.1.5",
-  "releaseId": "PYTHONGIT-1.1.5",
-  "status": "stable",
-  "tag": "python-git-v1.1.5",
-  "targetSystemValidated": true,
-  "baseReference": "KI-Stack-Foundation-Runtime-Execute-v1.0.9",
+  "repositoryVersion": "1.2.0-rc1",
+  "packageName": "KI-Stack-ComfyUI-Execute-v1.2.0",
+  "packageVersion": "1.2.0",
+  "releaseId": "COMFYUI-1.2.0",
+  "status": "release-candidate",
+  "tag": "comfyui-v1.2.0-rc1",
+  "targetSystemValidated": false,
+  "baseReference": "KI-Stack-PythonGit-Execute-v1.1.5",
   "enabledModules": [
     "KIModuleFoundation",
     "KIModuleRuntime",
-    "KIModulePythonGit"
+    "KIModulePythonGit",
+    "KIModuleComfyUI"
   ],
-  "originalAssetSha256": "907a8a5acb6f7603f53168c1ceabc2510cb41e17d5abf8219bfafb91ee60c93f",
-  "sourceArtifact": "KI-Stack-PythonGit-Execute-v1.1.5.zip",
+  "originalAssetSha256": "053d6f52660b9eaa491dfe72f9949e3899d19b63974a65a30ee1b7f4c3b9bf23",
+  "sourceArtifact": "KI-Stack-ComfyUI-Execute-v1.2.0.zip",
   "publishedAt": "2026-07-19"
 }
