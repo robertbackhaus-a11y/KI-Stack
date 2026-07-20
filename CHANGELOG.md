@@ -178,3 +178,15 @@
 ## Foundation / Runtime 1.0.9 — stable reference
 
 - Frozen predecessor reference.
+
+## 1.6.1
+
+- Added final cutover, health and acceptance reporting.
+
+## 1.6.2
+
+- Fixed final validation and Cutover diagnostic regression contracts.
+
+## 1.6.3
+
+- Fixed GitHub repository validator manifest schema compatibility under StrictMode.

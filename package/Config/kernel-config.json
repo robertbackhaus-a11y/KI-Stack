@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "kernelVersion": "1.5.7",
+  "kernelVersion": "1.6.3",
   "stackRoot": "C:\\KI-Stack",
   "stateRoot": "C:\\KI-Stack\\state",
   "logRoot": "C:\\KI-Stack\\logs",
@@ -180,13 +180,13 @@
     "lmStudioUrl": "http://127.0.0.1:1234",
     "comfyUIUrl": "http://127.0.0.1:8188",
     "timeoutSeconds": 20,
-    "cutoverEnabled": false,
+    "cutoverEnabled": true,
     "webSearchResultCount": 5,
     "webSearchConcurrentRequests": 3,
     "webLoaderConcurrentRequests": 5
   },
   "executeRelease": {
-    "releaseId": "INTEGRATION-1.5.7",
+    "releaseId": "CUTOVER-1.6.3",
     "enabledModules": [
       "KIModuleFoundation",
       "KIModuleRuntime",
@@ -194,12 +194,14 @@
       "KIModuleComfyUI",
       "KIModuleModels",
       "KIModuleApplications",
-      "KIModuleIntegration"
+      "KIModuleIntegration",
+      "KIModuleCutover",
+      "KIModuleValidation"
     ],
     "confirmationToken": "EXECUTE",
     "allowWingetInstall": true,
     "allowWingetUninstallDuringRollback": true,
-    "cutoverEnabled": false
+    "cutoverEnabled": true
   },
   "starter": {
     "preflightSearchRoots": [
@@ -211,7 +213,54 @@
     "searchRecursively": true,
     "sortBy": "LastWriteTimeUtc",
     "preflightSelectionMode": "EmbeddedDefault",
-    "embeddedPreflightRelativePath": "Embedded\\Preflight\\State\\Preflight-Continuation-v1.5.7.zip",
+    "embeddedPreflightRelativePath": "Embedded\\Preflight\\State\\Preflight-Continuation-v1.6.3.zip",
     "allowExplicitPreflightOverride": true
+  },
+  "cutover": {
+    "moduleRoot": "C:\\KI-Stack\\modules\\cutover",
+    "installationMarker": "C:\\KI-Stack\\modules\\cutover\\installation.json",
+    "reportRoot": "C:\\KI-Stack\\reports\\cutover",
+    "healthReportPath": "C:\\KI-Stack\\reports\\cutover\\Health-latest.json",
+    "acceptanceReportPath": "C:\\KI-Stack\\reports\\cutover\\Acceptance-latest.json",
+    "healthTimeoutSeconds": 45,
+    "startupGraceSeconds": 5,
+    "requireLiveEndpointsDuringExecute": false,
+    "endpoints": [
+      {
+        "name": "SearXNG",
+        "kind": "searxng",
+        "url": "http://localhost/searxng/search?q=ki-stack&format=json"
+      },
+      {
+        "name": "Open WebUI",
+        "kind": "web",
+        "url": "http://127.0.0.1:8080"
+      },
+      {
+        "name": "LM Studio",
+        "kind": "openai",
+        "url": "http://127.0.0.1:1234/v1/models"
+      },
+      {
+        "name": "ComfyUI",
+        "kind": "json",
+        "url": "http://127.0.0.1:8188/system_stats"
+      }
+    ],
+    "startScripts": {
+      "searxng": "C:\\KI-Stack\\modules\\integration\\Start-KIStack-SearXNG.cmd",
+      "lmStudio": "C:\\KI-Stack\\modules\\applications\\Start-KIStack-LMStudio.cmd",
+      "openWebUI": "C:\\KI-Stack\\modules\\integration\\Start-KIStack-OpenWebUI-WithSearch.cmd",
+      "comfyUI": "C:\\KI-Stack\\modules\\comfyui\\Start-KIStack-ComfyUI.cmd"
+    },
+    "stopScripts": {
+      "applications": "C:\\KI-Stack\\modules\\applications\\Stop-KIStack-Applications.cmd",
+      "searxng": "C:\\KI-Stack\\modules\\integration\\Stop-KIStack-SearXNG.cmd",
+      "comfyUI": "C:\\KI-Stack\\modules\\comfyui\\Stop-KIStack-ComfyUI.cmd"
+    }
+  },
+  "validation": {
+    "acceptanceRoot": "C:\\KI-Stack\\reports\\cutover",
+    "latestReportPath": "C:\\KI-Stack\\reports\\cutover\\Acceptance-latest.json"
   }
 }

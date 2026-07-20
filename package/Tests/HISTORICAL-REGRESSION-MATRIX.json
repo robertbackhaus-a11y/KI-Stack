@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "scope": "all-projects",
-  "release": "INTEGRATION-1.5.7",
-  "generatedAtUtc": "2026-07-20T09:29:41Z",
+  "release": "CUTOVER-1.6.3",
+  "generatedAtUtc": "2026-07-20T10:56:11Z",
   "policy": {
     "completeFilesOnly": true,
     "noPatchInstructions": true,
@@ -135,6 +135,61 @@
       "id": "REG-GATE-002",
       "class": "cmd-label-block-precision",
       "requirement": "CMD lifecycle checks inspect only the requested label block up to the next label; helper-function exit /b 0 is ignored"
+    },
+    {
+      "id": "CUTOVER-001",
+      "class": "cutover-master-lifecycle",
+      "requirement": "Cutover provides managed start, stop and health-check entry points plus readiness and acceptance reports."
+    },
+    {
+      "id": "CUTOVER-002",
+      "class": "final-validation-module",
+      "requirement": "The validation module is enabled, depends on cutover and writes an acceptance report without treating itself as incomplete."
+    },
+    {
+      "id": "CUTOVER-003",
+      "class": "live-endpoint-policy",
+      "requirement": "Execute readiness does not fail merely because runtime services are intentionally stopped; live endpoint enforcement is configurable."
+    },
+    {
+      "id": "CUTOVER-004",
+      "class": "authoritative-version-title",
+      "requirement": "README title must equal the current Cutover package version; predecessor references in body text are allowed."
+    },
+    {
+      "id": "REG-GH-005",
+      "class": "github-wrapper-whitespace",
+      "requirement": "Wrapper exit-code assignments are validated structurally or whitespace-independently."
+    },
+    {
+      "id": "VAL-STRICT-001",
+      "name": "Validation optionale Transaktionsmetadaten",
+      "failureClass": "StrictMode optional property access",
+      "requiredTest": "Validation-Modul Leermenge und Fehlerfall"
+    },
+    {
+      "id": "VAL-STRICT-002",
+      "name": "Validation ungültige Moduleinträge",
+      "failureClass": "StrictMode invalid entry serialization",
+      "requiredTest": "Validation-Modul ungültiger Statuseintrag"
+    },
+    {
+      "id": "CUTOVER-DIAG-001",
+      "name": "Cutover Diagnoseidentitäten",
+      "failureClass": "Inherited Integration log identity",
+      "requiredTest": "CMD-Starter-Robustheit"
+    },
+    {
+      "id": "VAL-REPORT-001",
+      "name": "Ausführbarer Abnahmebericht",
+      "failureClass": "Expandable source literal false failure",
+      "requiredTest": "Validation-Abnahmebericht-Vertrag"
+    },
+    {
+      "id": "GH-MANIFEST-STRICT-001",
+      "name": "GitHub Release-Manifest Schemaauflösung",
+      "failureClass": "StrictMode direct access to missing packageVersion property",
+      "requiredTest": "GitHub-Release-Manifest-Schema-Kompatibilitaet"
     }
   ],
   "requiredSelfTests": [
@@ -215,6 +270,10 @@
     "Workflowkatalog-vollständig",
     "Integration-NUL-Entfernung-ohne-Char-Overload",
     "GitHub-Releasepublisher-aktuelle-Artefakte",
-    "CMD-Finishblock-Praezision"
+    "CMD-Finishblock-Praezision",
+    "Cutover-DryRun-Vertrag",
+    "Cutover-Execute-Freigabe",
+    "Validation-Abnahmebericht-Vertrag",
+    "GitHub-Release-Manifest-Schema-Kompatibilitaet"
   ]
 }

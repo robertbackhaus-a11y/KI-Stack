@@ -1,7 +1,8 @@
-# KI-Stack Integration v1.5.7 – CMD Lifecycle Gate Precision Repair
+# KI-Stack Cutover v1.6.3 Repair Report
 
-- Keeps the requested lifecycle: every result remains visible until one key is pressed.
-- Fixes the false-positive historical gate by parsing only the exact `:Finish` CMD label block.
-- Applies the same label-block precision to normal package SelfTests.
-- Adds permanent regression `REG-GATE-002` and SelfTest `CMD-Finishblock-Praezision`.
-- Embeds GitHub Update v0.4.7.
+- Basis: Cutover v1.6.2
+- GitHub-Repository-Validator unterstützt `version` und Legacy-`packageVersion`
+- StrictMode-sichere Manifest-Feldauflösung ohne direkten Zugriff auf optionale Properties
+- Schema-Fixtures für current, legacy, dual, conflict und missing
+- Release-Manifest enthält kompatiblen Alias `packageVersion`
+- GitHub Update v0.5.3 integriert

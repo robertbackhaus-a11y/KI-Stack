@@ -302,6 +302,8 @@ try {
 
         $validValidationBehavior = (
             [bool]$cleanResult.success -and
+            [string]$cleanResult.data.transactionId -eq 'UNSPECIFIED' -and
+            [string]$cleanResult.data.mode -eq 'Unknown' -and
             @($cleanResult.data.failedModuleIds).Count -eq 0 -and
             -not [bool]$failedResult.success -and
             @($failedResult.data.failedModuleIds).Count -eq 1 -and
@@ -347,7 +349,9 @@ try {
 
         $validInvalidEntryHandling = (
             -not [bool]$invalidResult.success -and
-            @($invalidResult.data.invalidModuleEntries).Count -eq 1
+            @($invalidResult.data.invalidModuleEntries).Count -eq 1 -and
+            [string]$invalidResult.data.transactionId -eq 'UNSPECIFIED' -and
+            @($invalidResult.data.report.modules).Count -eq 1
         )
 
         Add-Result -Name 'Validation-Modul ungültiger Statuseintrag' `
@@ -689,7 +693,7 @@ try {
 
     $approvedIds = @($releaseConfig.executeRelease.enabledModules)
     $allowlistValid = (
-        $activeManifestIds.Count -eq 7 -and
+        $activeManifestIds.Count -eq 9 -and
         $activeManifestIds -contains 'KIModuleFoundation' -and
         $activeManifestIds -contains 'KIModuleRuntime' -and
         $activeManifestIds -contains 'KIModulePythonGit' -and
@@ -1011,8 +1015,8 @@ try {
         ConvertFrom-Json -Depth 50
 
     $pythonGitApproved = (
-        [string]$releaseConfig.kernelVersion -eq '1.5.7' -and
-        [string]$releaseConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.7' -and
+        [string]$releaseConfig.kernelVersion -eq '1.6.3' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'CUTOVER-1.6.3' -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModulePythonGit'
     )
 
@@ -1134,8 +1138,8 @@ finally {
 try {
     $wrapperNames = @(
         'Start-Nur-Selbsttest.cmd',
-        'Start-KIStack-Integration-DryRun.cmd',
-        'Start-KIStack-Integration-Execute.cmd'
+        'Start-KIStack-Cutover-DryRun.cmd',
+        'Start-KIStack-Cutover-Execute.cmd'
     )
     $cmdIssues = [System.Collections.Generic.List[string]]::new()
 
@@ -1148,7 +1152,7 @@ try {
         if (-not $wrapperContent.Contains('%ComSpec%" /D /C')) {
             [void]$cmdIssues.Add("${wrapperName}: cmd-/C-Aufruf für automatisches Schließen bei Erfolg fehlt")
         }
-        if (-not $wrapperContent.Contains('Bootstrap-KIStack-Integration.cmd')) {
+        if (-not $wrapperContent.Contains('Bootstrap-KIStack-Cutover.cmd')) {
             [void]$cmdIssues.Add("${wrapperName}: gemeinsamer Bootstrap fehlt")
         }
         if ([regex]::IsMatch($wrapperAscii, '(?<!\r)\n')) {
@@ -1156,7 +1160,7 @@ try {
         }
     }
 
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Cutover.cmd'
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
     $bootstrapBytes = [IO.File]::ReadAllBytes($bootstrapPath)
     $bootstrapAscii = [Text.Encoding]::ASCII.GetString($bootstrapBytes)
@@ -1167,7 +1171,7 @@ try {
     if (-not $bootstrapContent.Contains('where pwsh.exe')) {
         [void]$cmdIssues.Add('Bootstrap: PATH-Fallback fehlt')
     }
-    if (-not $bootstrapContent.Contains('KI-Stack-Integration-Bootstrap.log')) {
+    if (-not $bootstrapContent.Contains('KI-Stack-Cutover-Bootstrap.log')) {
         [void]$cmdIssues.Add('Bootstrap: TEMP-Diagnoselog fehlt')
     }
     if (-not $bootstrapContent.Contains('pause >nul')) {
@@ -1192,7 +1196,7 @@ catch {
 }
 
 try {
-    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-Integration.ps1'
+    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-Cutover.ps1'
     $launcherContent = Get-Content -LiteralPath $launcherPath -Raw
     $tryMatch = [regex]::Match(
         $launcherContent,
@@ -1207,7 +1211,7 @@ try {
         $importIndex -gt $tryIndex -and
         $newLogIndex -gt $tryIndex -and
         $launcherContent.Contains('Write-EmergencyStarterLog') -and
-        $launcherContent.Contains('KI-Stack-Integration-Starter.log') -and
+        $launcherContent.Contains('KI-Stack-Cutover-Starter.log') -and
         -not $launcherContent.StartsWith('#Requires')
     )
 
@@ -1223,8 +1227,8 @@ catch {
 
 try {
     $elevationPath = Join-Path $ProjectRoot 'Request-KIStack-Elevation.ps1'
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
-    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-Integration.ps1'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Cutover.cmd'
+    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-Cutover.ps1'
 
     $elevationContent = Get-Content -LiteralPath $elevationPath -Raw
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
@@ -1265,7 +1269,7 @@ try {
         [string]$starterConfig.starter.preflightSelectionMode -eq 'EmbeddedDefault' -and
         [bool]$starterConfig.starter.allowExplicitPreflightOverride -and
         [string]$starterConfig.starter.embeddedPreflightRelativePath -eq
-            'Embedded\Preflight\State\Preflight-Continuation-v1.5.7.zip' -and
+            'Embedded\Preflight\State\Preflight-Continuation-v1.6.3.zip' -and
         @($starterConfig.starter.preflightSearchRoots).Count -ge 2
     )
 
@@ -1304,11 +1308,11 @@ try {
         $embeddedPreflightValid = (
             [bool]$embeddedValidation.valid -and
             [string]$embeddedReport.reportId -eq
-                'PREFLIGHT-CONTINUATION-INTEGRATION-1.5.7' -and
+                'PREFLIGHT-CONTINUATION-CUTOVER-1.6.3' -and
             [string]$embeddedLock.lockId -eq
-                'VERSION-LOCK-CONTINUATION-INTEGRATION-1.5.7' -and
+                'VERSION-LOCK-CONTINUATION-CUTOVER-1.6.3' -and
             [string]$embeddedPlan.planId -eq
-                'INSTALL-PLAN-CONTINUATION-INTEGRATION-1.5.7'
+                'INSTALL-PLAN-CONTINUATION-CUTOVER-1.6.3'
         )
         Add-Result -Name 'Paketinterner-Fortsetzungs-Preflight' `
             -Passed $embeddedPreflightValid `
@@ -1392,9 +1396,9 @@ try {
     $releaseConfig = Get-Content -LiteralPath $configPath -Raw |
         ConvertFrom-Json -Depth 100
     $comfyApproved = (
-        [string]$releaseConfig.kernelVersion -eq '1.5.7' -and
-        [string]$releaseConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.7' -and
-        @($releaseConfig.executeRelease.enabledModules).Count -eq 7 -and
+        [string]$releaseConfig.kernelVersion -eq '1.6.3' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'CUTOVER-1.6.3' -and
+        @($releaseConfig.executeRelease.enabledModules).Count -eq 9 -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModuleComfyUI'
     )
     Add-Result -Name 'ComfyUI-Execute-Freigabe' `
@@ -1522,7 +1526,7 @@ try {
         Join-Path $ProjectRoot 'Modules\05-Models\KIModuleModels.psm1'
     ) -Raw
     $modelsApproved = (
-        @($releaseConfig.executeRelease.enabledModules).Count -eq 7 -and
+        @($releaseConfig.executeRelease.enabledModules).Count -eq 9 -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModuleModels' -and
         $modelModule.Contains('KIModuleModels.rollback.json') -and
         $modelModule.Contains('Invoke-KIResumableHttpDownload') -and
@@ -1625,7 +1629,7 @@ catch {
 
 try {
     $syntaxTestPath = Join-Path $ProjectRoot 'Tests\Test-KIStackPowerShellSyntax.ps1'
-    $starterPath = Join-Path $ProjectRoot 'Start-KIStack-Integration.ps1'
+    $starterPath = Join-Path $ProjectRoot 'Start-KIStack-Cutover.ps1'
     $starterContent = Get-Content -LiteralPath $starterPath -Raw
     $syntaxTestExists = Test-Path -LiteralPath $syntaxTestPath -PathType Leaf
     $syntaxGateValid = (
@@ -1645,10 +1649,10 @@ catch {
 }
 
 try {
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Cutover.cmd'
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
     $versionLabelValid = (
-        $bootstrapContent.Contains('KI-Stack Integration v1.5.7 - %ACTION%') -and
+        $bootstrapContent.Contains('KI-Stack Cutover v1.6.3 - %ACTION%') -and
         -not [regex]::IsMatch($bootstrapContent, 'PythonGit v1\\.1\\.[0-9]+')
     )
     Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
@@ -1709,8 +1713,8 @@ catch {
 try {
     $starterSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Core\KIStack.Starter.psm1') -Raw
     $trailingCommaRemoved = (
-        -not $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.5.7.zip',") -and
-        $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.5.7.zip'")
+        -not $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.6.3.zip',") -and
+        $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.6.3.zip'")
     )
     Add-Result -Name 'PowerShell-Array-ohne-abschliessendes-Komma' `
         -Passed $trailingCommaRemoved `
@@ -1721,7 +1725,7 @@ catch {
 }
 
 try {
-    $launcherSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Start-KIStack-Integration.ps1') -Raw
+    $launcherSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Start-KIStack-Cutover.ps1') -Raw
     $syntaxIndex = $launcherSource.IndexOf('Native PowerShell-Syntaxprüfung wird vor jedem Modulimport gestartet.')
     $importIndex = $launcherSource.IndexOf('Import-Module $starterModulePath')
     $pathGateIndex = $launcherSource.IndexOf('Tests\Test-KIStackPathResolution.ps1')
@@ -1746,7 +1750,7 @@ try {
         $pathSource.Contains('Doppelt verschachtelt') -and
         $pathSource.Contains('Leerzeichen und doppelte Verschachtelung') -and
         $pathSource.Contains('Start-Validate-GitHub-Update.cmd') -and
-        $pathSource.Contains('Preflight-Continuation-v1.5.7.zip')
+        $pathSource.Contains('Preflight-Continuation-v1.6.3.zip')
     )
     Add-Result -Name 'Pfade-doppelt-verschachtelt-und-mit-Leerzeichen' `
         -Passed $pathRegressionValid `
@@ -1765,7 +1769,7 @@ try {
     $applicationModulePath = Join-Path $ProjectRoot 'Modules\06-Applications\KIModuleApplications.psm1'
     $applicationModule = Get-Content -LiteralPath $applicationModulePath -Raw
     $applicationsApproved = (
-        @($applicationConfig.executeRelease.enabledModules).Count -eq 7 -and
+        @($applicationConfig.executeRelease.enabledModules).Count -eq 9 -and
         @($applicationConfig.executeRelease.enabledModules) -contains 'KIModuleApplications' -and
         [string]$applicationConfig.applications.openWebUI.version -eq '0.10.2' -and
         [string]$applicationConfig.applications.lmStudio.packageId -eq 'ElementLabs.LMStudio' -and
@@ -1859,25 +1863,25 @@ try {
         Join-Path $ProjectRoot 'Config\kernel-config.json'
     ) -Raw | ConvertFrom-Json -Depth 100
     $versionModule = Get-Content -LiteralPath (
-        Join-Path $ProjectRoot 'Modules\07-Integration\module.json'
+        Join-Path $ProjectRoot 'Modules\08-Cutover\module.json'
     ) -Raw | ConvertFrom-Json -Depth 100
     $versionCore = Get-Content -LiteralPath (
         Join-Path $ProjectRoot 'Core\KIStack.BuilderKernel.Core.psm1'
     ) -Raw
     $versionBootstrap = Get-Content -LiteralPath (
-        Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
+        Join-Path $ProjectRoot 'Bootstrap-KIStack-Cutover.cmd'
     ) -Raw
     $versionReadmeTitle = [string](Get-Content -LiteralPath (
         Join-Path $ProjectRoot 'README.md'
     ) -TotalCount 1)
 
     $authoritativeVersionValid = (
-        [string]$versionConfig.kernelVersion -eq '1.5.7' -and
-        [string]$versionConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.7' -and
-        [string]$versionModule.version -eq '1.5.7' -and
-        $versionCore.Contains("kernelVersion = '1.5.7'") -and
-        $versionBootstrap.Contains('KI-Stack Integration v1.5.7 - %ACTION%') -and
-        $versionReadmeTitle -eq '# KI-Stack Integration Execute v1.5.7'
+        [string]$versionConfig.kernelVersion -eq '1.6.3' -and
+        [string]$versionConfig.executeRelease.releaseId -eq 'CUTOVER-1.6.3' -and
+        [string]$versionModule.version -eq '1.6.3' -and
+        $versionCore.Contains("kernelVersion = '1.6.3'") -and
+        $versionBootstrap.Contains('KI-Stack Cutover v1.6.3 - %ACTION%') -and
+        $versionReadmeTitle -eq '# KI-Stack Cutover Execute v1.6.3'
     )
 
     Add-Result -Name 'Integration-aktive-Versionskonsolidierung' `
@@ -1891,12 +1895,12 @@ catch {
 
 
 try {
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Cutover.cmd'
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
     $entryStarterFiles = @(
         'Start-Nur-Selbsttest.cmd',
-        'Start-KIStack-Integration-DryRun.cmd',
-        'Start-KIStack-Integration-Execute.cmd'
+        'Start-KIStack-Cutover-DryRun.cmd',
+        'Start-KIStack-Cutover-Execute.cmd'
     )
     $conditionalEntryStarters = $true
     foreach ($entryStarterFile in $entryStarterFiles) {
@@ -1920,7 +1924,7 @@ try {
         Join-Path $ProjectRoot 'Request-KIStack-Elevation.ps1'
     ) -Raw
     $elevationLogIdentityValid = (
-        $elevationSource.Contains('KI-Stack-Integration-Elevation.log') -and
+        $elevationSource.Contains('KI-Stack-Cutover-Elevation.log') -and
         -not $elevationSource.Contains('KI-Stack-ModelsWorkflows-Elevation.log')
     )
     $acknowledgedBootstrapLifecycle = (
@@ -1935,14 +1939,14 @@ try {
         )
     )
     $integrationTopLevelContract = (
-        (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd') -PathType Leaf) -and
-        (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Start-KIStack-Integration.ps1') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Bootstrap-KIStack-Cutover.cmd') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Start-KIStack-Cutover.ps1') -PathType Leaf) -and
         -not (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Bootstrap-KIStack-Applications.cmd') -PathType Leaf) -and
         -not (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Start-KIStack-Applications.ps1') -PathType Leaf)
     )
     Add-Result -Name 'CMD-Diagnosefenster-bleibt-offen' `
         -Passed ($conditionalEntryStarters -and $acknowledgedBootstrapLifecycle -and $elevationLogIdentityValid -and $integrationTopLevelContract) `
-        -Message 'Integration-Einstiegsstarter zeigen Erfolg und Fehler samt Exitcode, warten auf Tastendruck und schließen danach; Bootstrap, Logs und Elevation sind konsistent.'
+        -Message 'Cutover-Einstiegsstarter zeigen Erfolg und Fehler samt Exitcode, warten auf Tastendruck und schließen danach; Bootstrap, Logs und Elevation sind konsistent.'
 }
 catch {
     Add-Result -Name 'CMD-Diagnosefenster-bleibt-offen' `
@@ -1954,10 +1958,11 @@ try {
     $includedWrapperValid = $true
     if (Test-Path -LiteralPath $includedWrapperPath -PathType Leaf) {
         $includedWrapperSource = Get-Content -LiteralPath $includedWrapperPath -Raw
+        $normalizedIncludedWrapperSource = [regex]::Replace($includedWrapperSource,'\s+','')
         $includedWrapperValid = (
-            $includedWrapperSource.Contains('$bundleName=''KI-Stack-GitHub-Update-v0.4.7''') -and
-            $includedWrapperSource.Contains('$invocationExitCode = 1') -and
-            $includedWrapperSource.Contains('$invocationExitCode = 0') -and
+            $includedWrapperSource.Contains('$bundleName=''KI-Stack-GitHub-Update-v0.5.3''') -and
+            $normalizedIncludedWrapperSource.Contains('$invocationExitCode=1') -and
+            $normalizedIncludedWrapperSource.Contains('$invocationExitCode=0') -and
             $includedWrapperSource.Contains('exit $invocationExitCode') -and
             -not [regex]::IsMatch($includedWrapperSource,'(?im)^\s*exit\s+\$LASTEXITCODE\s*$')
         )
@@ -1982,7 +1987,7 @@ try {
         [string]$integrationManifest.version -eq '1.5.7' -and
         [bool]$integrationManifest.supportsRollback -and
         @($integrationConfig.executeRelease.enabledModules) -contains 'KIModuleIntegration' -and
-        @($integrationConfig.executeRelease.enabledModules).Count -eq 7 -and
+        @($integrationConfig.executeRelease.enabledModules).Count -eq 9 -and
         [string]$integrationConfig.integration.wslDistribution -eq 'Debian' -and
         [string]$integrationConfig.integration.searxngRef -eq '277d8469c' -and
         [string]$integrationConfig.integration.searxngQueryUrl -eq 'http://localhost/searxng/search?q=<query>' -and
@@ -1993,7 +1998,7 @@ try {
         $integrationModuleContent.Contains('SEARXNG_QUERY_URL=__QUERY_URL__') -and
         $integrationModuleContent.Contains('exit 42') -eq $false
     )
-    Add-Result -Name 'Integration-Execute-Freigabe' -Passed $integrationApproved -Message 'WSL2, Debian, gepinntes SearXNG, JSON-API, Keeper und Open-WebUI-Websuche sind als siebtes Execute-Modul freigegeben.'
+    Add-Result -Name 'Integration-Execute-Freigabe' -Passed $integrationApproved -Message 'WSL2, Debian, gepinntes SearXNG, JSON-API, Keeper und Open-WebUI-Websuche sind als siebtes Referenzmodul aktiv; Cutover und Validation folgen als achtes und neuntes Modul.'
 }
 catch { Add-Result -Name 'Integration-Execute-Freigabe' -Passed $false -Message $_.Exception.Message }
 
@@ -2078,10 +2083,10 @@ catch {
 }
 
 try {
-    $bootstrapLifecycle = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd') -Raw
+    $bootstrapLifecycle = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Bootstrap-KIStack-Cutover.cmd') -Raw
     $elevationLifecycle = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Request-KIStack-Elevation.ps1') -Raw
     $entryLifecycleOk = $true
-    foreach ($entryLifecycleName in @('Start-Nur-Selbsttest.cmd','Start-KIStack-Integration-DryRun.cmd','Start-KIStack-Integration-Execute.cmd')) {
+    foreach ($entryLifecycleName in @('Start-Nur-Selbsttest.cmd','Start-KIStack-Cutover-DryRun.cmd','Start-KIStack-Cutover-Execute.cmd')) {
         $entryLifecycleSource = Get-Content -LiteralPath (Join-Path $ProjectRoot $entryLifecycleName) -Raw
         if (-not $entryLifecycleSource.Contains('"%ComSpec%" /D /C')) { $entryLifecycleOk = $false }
     }
@@ -2110,13 +2115,13 @@ catch {
 
 
 try {
-    $releaseBundlePath = Join-Path $ProjectRoot 'GitHub\KI-Stack-GitHub-Update-v0.4.7.zip'
+    $releaseBundlePath = Join-Path $ProjectRoot 'GitHub\KI-Stack-GitHub-Update-v0.5.3.zip'
     $releaseContractValid = Test-Path -LiteralPath $releaseBundlePath -PathType Leaf
     if ($releaseContractValid) {
         $releaseTemp = Join-Path ([IO.Path]::GetTempPath()) ('KI-Stack-Release-Test-' + [guid]::NewGuid().ToString('N'))
         try {
             Expand-Archive -LiteralPath $releaseBundlePath -DestinationPath $releaseTemp -Force
-            $releaseBundleRoot = Join-Path $releaseTemp 'KI-Stack-GitHub-Update-v0.4.7'
+            $releaseBundleRoot = Join-Path $releaseTemp 'KI-Stack-GitHub-Update-v0.5.3'
             $releaseManifest = Get-Content -LiteralPath (Join-Path $releaseBundleRoot 'BUNDLE-MANIFEST.json') -Raw | ConvertFrom-Json -Depth 100
             $releasePublisher = Get-Content -LiteralPath (Join-Path $releaseBundleRoot 'Bootstrap\Publish-KIStack-Releases.ps1') -Raw
             $releaseAssetsValid = $true
@@ -2127,7 +2132,7 @@ try {
                 if ($releaseAssetHash -ne ([string]$releaseAsset.sha256).ToLowerInvariant()) { $releaseAssetsValid = $false; break }
             }
             $releaseContractValid = (
-                [string]$releaseManifest.targetTag -eq 'integration-v1.5.7-rc1' -and
+                [string]$releaseManifest.targetTag -eq 'cutover-v1.6.3-rc1' -and
                 $releaseAssetsValid -and
                 $releasePublisher.Contains('$tag = [string]$manifest.targetTag') -and
                 $releasePublisher.Contains('foreach ($asset in @($manifest.assets))') -and
@@ -2150,7 +2155,7 @@ catch {
 
 try {
     $precisionBootstrap = Get-Content -LiteralPath (
-        Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
+        Join-Path $ProjectRoot 'Bootstrap-KIStack-Cutover.cmd'
     ) -Raw
     $precisionMatch = [regex]::Match(
         $precisionBootstrap,
@@ -2176,6 +2181,136 @@ catch {
     Add-Result -Name 'CMD-Finishblock-Praezision' -Passed $false -Message $_.Exception.Message
 }
 
+
+
+try {
+    $cutoverConfig = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Config\kernel-config.json') -Raw | ConvertFrom-Json -Depth 100
+    $cutoverPath = Join-Path $ProjectRoot 'Modules\08-Cutover\KIModuleCutover.psm1'
+    $cutoverModule = Import-Module $cutoverPath -Force -PassThru -DisableNameChecking -ErrorAction Stop
+    try {
+        $cutoverContext = [pscustomobject]@{
+            Mode = 'DryRun'
+            Config = $cutoverConfig
+            Transaction = [pscustomobject]@{ transactionId='TEST-CUTOVER'; mode='DryRun'; modules=@() }
+            TransactionDirectory = Join-Path ([IO.Path]::GetTempPath()) ('KI-Cutover-Test-'+[guid]::NewGuid().ToString('N'))
+        }
+        New-Item -ItemType Directory -Path $cutoverContext.TransactionDirectory -Force | Out-Null
+        $installResult = & (Get-Command Install-KIModuleCutover -Module $cutoverModule.Name) -Context $cutoverContext
+        $validationResult = & (Get-Command Validate-KIModuleCutover -Module $cutoverModule.Name) -Context $cutoverContext
+        $cutoverDryRunValid = (
+            [bool]$installResult.success -and
+            @($installResult.data.endpoints).Count -eq 4 -and
+            @($installResult.data.plannedFiles).Count -ge 8 -and
+            [bool]$validationResult.success -and
+            @($validationResult.data.endpoints).Count -eq 4
+        )
+        Add-Result -Name 'Cutover-DryRun-Vertrag' -Passed $cutoverDryRunValid -Message 'Dry-Run liefert vier Endpunkte sowie Gesamtstarter, Stopper, Healthcheck und Berichte.'
+    }
+    finally {
+        if ($cutoverContext -and (Test-Path -LiteralPath $cutoverContext.TransactionDirectory)) { Remove-Item -LiteralPath $cutoverContext.TransactionDirectory -Recurse -Force -ErrorAction SilentlyContinue }
+        Remove-Module -ModuleInfo $cutoverModule -Force -ErrorAction SilentlyContinue
+    }
+}
+catch { Add-Result -Name 'Cutover-DryRun-Vertrag' -Passed $false -Message $_.Exception.Message }
+
+try {
+    $cutoverConfig = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Config\kernel-config.json') -Raw | ConvertFrom-Json -Depth 100
+    $cutoverManifest = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Modules\08-Cutover\module.json') -Raw | ConvertFrom-Json -Depth 30
+    $validationManifest = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Modules\99-Validation\module.json') -Raw | ConvertFrom-Json -Depth 30
+    $cutoverApproved = (
+        [string]$cutoverConfig.kernelVersion -eq '1.6.3' -and
+        [string]$cutoverConfig.executeRelease.releaseId -eq 'CUTOVER-1.6.3' -and
+        [bool]$cutoverConfig.executeRelease.cutoverEnabled -and
+        [bool]$cutoverConfig.integration.cutoverEnabled -and
+        @($cutoverConfig.executeRelease.enabledModules).Count -eq 9 -and
+        @($cutoverConfig.executeRelease.enabledModules) -contains 'KIModuleCutover' -and
+        @($cutoverConfig.executeRelease.enabledModules) -contains 'KIModuleValidation' -and
+        [bool]$cutoverManifest.enabled -and
+        [bool]$validationManifest.enabled -and
+        @($validationManifest.dependencies) -contains 'KIModuleCutover'
+    )
+    Add-Result -Name 'Cutover-Execute-Freigabe' -Passed $cutoverApproved -Message 'Cutover und Abschlussvalidierung sind als achtes und neuntes Execute-Modul freigegeben.'
+}
+catch { Add-Result -Name 'Cutover-Execute-Freigabe' -Passed $false -Message $_.Exception.Message }
+
+try {
+    $validationPath = Join-Path $ProjectRoot 'Modules\99-Validation\KIModuleValidation.psm1'
+    $validationModule = Import-Module $validationPath -Force -PassThru -DisableNameChecking -ErrorAction Stop
+    $acceptanceTemp = Join-Path ([IO.Path]::GetTempPath()) ('KI-Validation-Acceptance-' + [guid]::NewGuid().ToString('N'))
+    try {
+        $transactionDirectory = Join-Path $acceptanceTemp 'transaction'
+        $latestReportPath = Join-Path $acceptanceTemp 'global\Acceptance-latest.json'
+        New-Item -ItemType Directory -Path $transactionDirectory -Force | Out-Null
+        $acceptanceContext = [pscustomobject]@{
+            Transaction = [pscustomobject]@{
+                transactionId = 'TEST-VALIDATION-ACCEPTANCE'
+                mode = 'DryRun'
+                modules = @(
+                    [pscustomobject]@{id='KIModuleFoundation';status='Validated'},
+                    [pscustomobject]@{id='KIModuleValidation';status='Running'}
+                )
+            }
+            TransactionDirectory = $transactionDirectory
+            Config = [pscustomobject]@{
+                validation = [pscustomobject]@{latestReportPath=$latestReportPath}
+            }
+        }
+        $acceptanceResult = & (
+            Get-Command -Name 'Validate-KIModuleValidation' -Module $validationModule.Name -ErrorAction Stop
+        ) -Context $acceptanceContext
+        $transactionReportPath = Join-Path $transactionDirectory 'acceptance-report.json'
+        $transactionReport = Get-Content -LiteralPath $transactionReportPath -Raw -ErrorAction Stop | ConvertFrom-Json -Depth 50 -ErrorAction Stop
+        $latestReport = Get-Content -LiteralPath $latestReportPath -Raw -ErrorAction Stop | ConvertFrom-Json -Depth 50 -ErrorAction Stop
+        $acceptanceContract = (
+            [bool]$acceptanceResult.success -and
+            @($acceptanceResult.data.reportPaths).Count -eq 2 -and
+            (Test-Path -LiteralPath $transactionReportPath -PathType Leaf) -and
+            (Test-Path -LiteralPath $latestReportPath -PathType Leaf) -and
+            [string]$transactionReport.transactionId -eq 'TEST-VALIDATION-ACCEPTANCE' -and
+            [string]$transactionReport.status -eq 'Accepted' -and
+            [string]$latestReport.status -eq 'Accepted' -and
+            @($transactionReport.modules).Count -eq 2
+        )
+        Add-Result -Name 'Validation-Abnahmebericht-Vertrag' -Passed $acceptanceContract -Message 'Das Abschlussmodul erzeugt transaktionsgebundene und globale Abnahmeberichte mit sicherer Metadatenauswertung.'
+    }
+    finally {
+        if ($acceptanceTemp -and (Test-Path -LiteralPath $acceptanceTemp)) {
+            Remove-Item -LiteralPath $acceptanceTemp -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        Remove-Module -ModuleInfo $validationModule -Force -ErrorAction SilentlyContinue
+    }
+}
+catch { Add-Result -Name 'Validation-Abnahmebericht-Vertrag' -Passed $false -Message $_.Exception.Message }
+
+
+try {
+    $manifestSchemaBundle = Join-Path $ProjectRoot 'GitHub\KI-Stack-GitHub-Update-v0.5.3.zip'
+    $manifestSchemaPassed = $false
+    $manifestSchemaTemp = Join-Path ([IO.Path]::GetTempPath()) ('KI-Stack-Manifest-SelfTest-' + [guid]::NewGuid().ToString('N'))
+    try {
+        Expand-Archive -LiteralPath $manifestSchemaBundle -DestinationPath $manifestSchemaTemp -Force
+        $manifestSchemaRoot = Join-Path $manifestSchemaTemp 'KI-Stack-GitHub-Update-v0.5.3'
+        $releaseManifest = Get-Content -LiteralPath (Join-Path $manifestSchemaRoot 'Repository\release-manifest.json') -Raw -ErrorAction Stop | ConvertFrom-Json -Depth 100 -ErrorAction Stop
+        $repositoryValidator = Get-Content -LiteralPath (Join-Path $manifestSchemaRoot 'Repository\scripts\Test-Repository.ps1') -Raw -ErrorAction Stop
+        $legacyVersionProperty = $releaseManifest.PSObject.Properties['packageVersion']
+        $currentVersionProperty = $releaseManifest.PSObject.Properties['version']
+        $manifestSchemaPassed = (
+            $null -ne $currentVersionProperty -and [string]$currentVersionProperty.Value -eq '1.6.3' -and
+            $null -ne $legacyVersionProperty -and [string]$legacyVersionProperty.Value -eq '1.6.3' -and
+            $repositoryValidator.Contains('Resolve-ReleaseManifestVersion') -and
+            $repositoryValidator.Contains("'CurrentVersionOnly'") -and
+            $repositoryValidator.Contains("'LegacyPackageVersionOnly'") -and
+            $repositoryValidator.Contains("'ConflictingDualVersion'") -and
+            -not $repositoryValidator.Contains('$manifest.packageVersion')
+        )
+    }
+    finally {
+        if (Test-Path -LiteralPath $manifestSchemaTemp) { Remove-Item -LiteralPath $manifestSchemaTemp -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+    Add-Result -Name 'GitHub-Release-Manifest-Schema-Kompatibilitaet' -Passed $manifestSchemaPassed -Message 'Der finale Bundle-Validator löst version und packageVersion StrictMode-sicher auf und testet aktuelle, ältere und ungültige Schemafälle.'
+}
+catch { Add-Result -Name 'GitHub-Release-Manifest-Schema-Kompatibilitaet' -Passed $false -Message $_.Exception.Message }
+
 $failedResults = @(
     $results |
     Where-Object { -not [bool]$_.passed }
@@ -2183,7 +2318,7 @@ $failedResults = @(
 
 $summary = [pscustomobject][ordered]@{
     generatedAt = (Get-Date).ToString('o')
-    packageVersion = '1.5.7'
+    packageVersion = '1.6.3'
     passed = ($failedResults.Count -eq 0)
     failedNames = @(
         $failedResults |
@@ -2209,7 +2344,7 @@ try {
 catch {
     try {
         $tempSelfTestPath = Join-Path ([IO.Path]::GetTempPath()) `
-            'KI-Stack-Integration-SelfTest-latest.json'
+            'KI-Stack-Cutover-SelfTest-latest.json'
         Set-Content -LiteralPath $tempSelfTestPath -Value $selfTestJson `
             -Encoding UTF8 -ErrorAction SilentlyContinue
     }

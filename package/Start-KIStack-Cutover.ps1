@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = $PSScriptRoot
-$tempLogPath = Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Integration-Starter.log'
+$tempLogPath = Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Cutover-Starter.log'
 $starterLogPath = $null
 $finalExitCode = 1
 
@@ -84,7 +84,7 @@ function Write-SelfTestFailureSummary {
 
     $candidatePaths = @(
         (Join-Path $ProjectRoot 'State\SelfTest\SelfTest-latest.json'),
-        (Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Integration-SelfTest-latest.json')
+        (Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Cutover-SelfTest-latest.json')
     )
 
     $reportPath = @(

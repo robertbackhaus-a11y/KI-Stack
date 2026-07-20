@@ -1,12 +1,12 @@
 {
   "schemaVersion": "1.0",
-  "id": "KIModuleValidation",
-  "order": 990,
-  "name": "Kernel Validation",
+  "id": "KIModuleCutover",
+  "order": 80,
+  "name": "Stack Cutover and Operational Readiness",
   "version": "1.6.3",
   "enabled": true,
-  "script": "KIModuleValidation.psm1",
-  "supportsRollback": false,
+  "script": "KIModuleCutover.psm1",
+  "supportsRollback": true,
   "dependencies": [
     "KIModuleFoundation",
     "KIModuleRuntime",
@@ -14,12 +14,12 @@
     "KIModuleComfyUI",
     "KIModuleModels",
     "KIModuleApplications",
-    "KIModuleIntegration",
-    "KIModuleCutover"
+    "KIModuleIntegration"
   ],
   "actions": [
     "Test",
     "Install",
-    "Validate"
+    "Validate",
+    "Rollback"
   ]
 }

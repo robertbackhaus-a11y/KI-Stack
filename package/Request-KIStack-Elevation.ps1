@@ -14,7 +14,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$tempLogPath = Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Integration-Elevation.log'
+$tempLogPath = Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Cutover-Elevation.log'
 
 function Write-ElevationLog {
     param([Parameter(Mandatory)][string]$Message)

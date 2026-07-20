@@ -9,7 +9,7 @@ set "EXITCODE=1"
 set "FAIL_MESSAGE="
 
 if not defined TEMP set "TEMP=%SystemRoot%\Temp"
-set "TEMP_LOG=%TEMP%\KI-Stack-Integration-Bootstrap.log"
+set "TEMP_LOG=%TEMP%\KI-Stack-Cutover-Bootstrap.log"
 set "LOCAL_STATE=%PACKAGE_ROOT%State\Starter"
 set "LOCAL_LOG=%LOCAL_STATE%\Bootstrap-latest.log"
 
@@ -45,8 +45,8 @@ if not defined PWSH (
 
 call :Log "PowerShell 7: %PWSH%"
 
-if not exist "%PACKAGE_ROOT%Start-KIStack-Integration.ps1" (
-    set "FAIL_MESSAGE=Start-KIStack-Integration.ps1 fehlt."
+if not exist "%PACKAGE_ROOT%Start-KIStack-Cutover.ps1" (
+    set "FAIL_MESSAGE=Start-KIStack-Cutover.ps1 fehlt."
     goto :FailAfterPushd
 )
 if not exist "%PACKAGE_ROOT%Request-KIStack-Elevation.ps1" (
@@ -80,15 +80,15 @@ set "KI_STACK_LAUNCHED_FROM_CMD=1"
 call :Log "PowerShell-Starter wird aufgerufen."
 echo.
 echo ============================================================
-echo KI-Stack Integration v1.5.7 - %ACTION%
+echo KI-Stack Cutover v1.6.3 - %ACTION%
 echo ============================================================
 echo Paket: %PACKAGE_ROOT%
 echo PowerShell: %PWSH%
 echo Bootstrap-Log: %TEMP_LOG%
-if /I "%ACTION%"=="Execute" echo Elevation-Log: %TEMP%\KI-Stack-Integration-Elevation.log
+if /I "%ACTION%"=="Execute" echo Elevation-Log: %TEMP%\KI-Stack-Cutover-Elevation.log
 echo.
 
-"%PWSH%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%PACKAGE_ROOT%Start-KIStack-Integration.ps1" -Action "%ACTION%"
+"%PWSH%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%PACKAGE_ROOT%Start-KIStack-Cutover.ps1" -Action "%ACTION%"
 set "EXITCODE=%ERRORLEVEL%"
 call :Log "PowerShell-Starter beendet. Exitcode: %EXITCODE%"
 
@@ -120,7 +120,7 @@ if "%EXITCODE%"=="0" (
     echo Vorgang fehlgeschlagen. Exitcode: %EXITCODE%
 )
 echo Bootstrap-Log: %TEMP_LOG%
-if /I "%ACTION%"=="Execute" echo Elevation-Log: %TEMP%\KI-Stack-Integration-Elevation.log
+if /I "%ACTION%"=="Execute" echo Elevation-Log: %TEMP%\KI-Stack-Cutover-Elevation.log
 if exist "%LOCAL_LOG%" echo Paket-Log: %LOCAL_LOG%
 echo.
 echo Druecken Sie eine beliebige Taste, um dieses Fenster zu schliessen.
@@ -130,12 +130,12 @@ exit /b %EXITCODE%
 :EnsureElevation
 if /I "%ELEVATION_MARKER%"=="Elevated" exit /b 0
 call :Log "Execute: Administratorstatus wird geprueft; falls erforderlich wird UAC automatisch angefordert."
-"%PWSH%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%PACKAGE_ROOT%Request-KIStack-Elevation.ps1" -BootstrapPath "%PACKAGE_ROOT%Bootstrap-KIStack-Integration.cmd" -Action Execute -WindowTitle "%WINDOW_TITLE%"
+"%PWSH%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%PACKAGE_ROOT%Request-KIStack-Elevation.ps1" -BootstrapPath "%PACKAGE_ROOT%Bootstrap-KIStack-Cutover.cmd" -Action Execute -WindowTitle "%WINDOW_TITLE%"
 set "ELEVATION_RESULT=%ERRORLEVEL%"
 call :Log "UAC-Helfer beendet. Exitcode: %ELEVATION_RESULT%"
 if "%ELEVATION_RESULT%"=="10" exit /b 20
 if not "%ELEVATION_RESULT%"=="0" (
-    set "FAIL_MESSAGE=Die automatische UAC-Elevation ist fehlgeschlagen oder wurde abgebrochen. Siehe %TEMP%\KI-Stack-Integration-Elevation.log"
+    set "FAIL_MESSAGE=Die automatische UAC-Elevation ist fehlgeschlagen oder wurde abgebrochen. Siehe %TEMP%\KI-Stack-Cutover-Elevation.log"
     exit /b 1
 )
 exit /b 0

@@ -11,6 +11,51 @@ function Add-Result {
     $script:Results.Add([pscustomobject]@{ name=$Name; passed=$Passed; detail=$Detail }) | Out-Null
 }
 
+function Get-OptionalPropertyValue {
+    param(
+        [AllowNull()][object]$InputObject,
+        [Parameter(Mandatory)][string]$Name,
+        [AllowNull()][object]$DefaultValue = $null
+    )
+    if ($null -eq $InputObject) { return $DefaultValue }
+    $property = $InputObject.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $DefaultValue }
+    return $property.Value
+}
+
+function Resolve-ReleaseManifestVersion {
+    param([Parameter(Mandatory)][object]$Manifest)
+    $currentValue = [string](Get-OptionalPropertyValue -InputObject $Manifest -Name 'version' -DefaultValue '')
+    $legacyValue = [string](Get-OptionalPropertyValue -InputObject $Manifest -Name 'packageVersion' -DefaultValue '')
+    $hasCurrent = -not [string]::IsNullOrWhiteSpace($currentValue)
+    $hasLegacy = -not [string]::IsNullOrWhiteSpace($legacyValue)
+    if (-not $hasCurrent -and -not $hasLegacy) {
+        return [pscustomobject][ordered]@{ success=$false; version=''; detail='Neither version nor packageVersion is present.' }
+    }
+    if ($hasCurrent -and $hasLegacy -and $currentValue -ne $legacyValue) {
+        return [pscustomobject][ordered]@{ success=$false; version=''; detail=('Conflicting version fields: version={0}; packageVersion={1}' -f $currentValue,$legacyValue) }
+    }
+    return [pscustomobject][ordered]@{ success=$true; version=$(if($hasCurrent){$currentValue}else{$legacyValue}); detail=$(if($hasCurrent -and $hasLegacy){'current and legacy fields agree'}elseif($hasCurrent){'current version field'}else{'legacy packageVersion field'}) }
+}
+
+function Test-ReleaseManifestSchemaFixtures {
+    $fixtures = @(
+        [pscustomobject]@{ Name='CurrentVersionOnly'; Manifest=[pscustomobject]@{version='1.6.3'}; ExpectedSuccess=$true; ExpectedVersion='1.6.3' },
+        [pscustomobject]@{ Name='LegacyPackageVersionOnly'; Manifest=[pscustomobject]@{packageVersion='1.6.3'}; ExpectedSuccess=$true; ExpectedVersion='1.6.3' },
+        [pscustomobject]@{ Name='MatchingDualVersion'; Manifest=[pscustomobject]@{version='1.6.3';packageVersion='1.6.3'}; ExpectedSuccess=$true; ExpectedVersion='1.6.3' },
+        [pscustomobject]@{ Name='ConflictingDualVersion'; Manifest=[pscustomobject]@{version='1.6.3';packageVersion='1.6.2'}; ExpectedSuccess=$false; ExpectedVersion='' },
+        [pscustomobject]@{ Name='MissingVersionFields'; Manifest=[pscustomobject]@{releaseId='TEST'}; ExpectedSuccess=$false; ExpectedVersion='' }
+    )
+    $failures = [Collections.Generic.List[string]]::new()
+    foreach ($fixture in $fixtures) {
+        $resolved = Resolve-ReleaseManifestVersion -Manifest $fixture.Manifest
+        if ([bool]$resolved.success -ne [bool]$fixture.ExpectedSuccess -or [string]$resolved.version -ne [string]$fixture.ExpectedVersion) {
+            [void]$failures.Add(('{0}: success={1}, version={2}, detail={3}' -f $fixture.Name,$resolved.success,$resolved.version,$resolved.detail))
+        }
+    }
+    return [pscustomobject][ordered]@{ success=($failures.Count -eq 0); failures=@($failures); fixtureCount=$fixtures.Count }
+}
+
 function Test-CmdCrLf {
     param([string]$Path)
     $bytes = [IO.File]::ReadAllBytes($Path)
@@ -55,16 +100,39 @@ try {
     $bomCmd = @($cmdFiles | Where-Object { $bytes=[IO.File]::ReadAllBytes($_.FullName); $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF } | ForEach-Object FullName)
     Add-Result 'CMD CRLF/BOM' ($badCmd.Count -eq 0 -and $bomCmd.Count -eq 0) ($(if($badCmd -or $bomCmd){'CRLF='+($badCmd -join ', ')+'; BOM='+($bomCmd -join ', ')}else{"$($cmdFiles.Count) files checked"}))
 
+    $schemaFixtures = Test-ReleaseManifestSchemaFixtures
+    Add-Result 'Release manifest schema compatibility' ([bool]$schemaFixtures.success) $(
+        if ([bool]$schemaFixtures.success) { "$($schemaFixtures.fixtureCount) fixtures passed" }
+        else { @($schemaFixtures.failures) -join '; ' }
+    )
+
     $manifestPath = Join-Path $RootPath 'release-manifest.json'
     $configPath = Join-Path $RootPath 'package/Config/kernel-config.json'
-    if ((Test-Path $manifestPath) -and (Test-Path $configPath)) {
-        $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json -Depth 100
-        $config = Get-Content $configPath -Raw | ConvertFrom-Json -Depth 100
-        $versionsOk = ([string]$manifest.packageVersion -eq [string]$config.kernelVersion) -and ([string]$manifest.releaseId -eq [string]$config.executeRelease.releaseId)
-        Add-Result 'Version consistency' $versionsOk "manifest=$($manifest.packageVersion)/$($manifest.releaseId); config=$($config.kernelVersion)/$($config.executeRelease.releaseId)"
-        $enabledA=@($manifest.enabledModules | Sort-Object); $enabledB=@($config.executeRelease.enabledModules | Sort-Object)
+    if ((Test-Path -LiteralPath $manifestPath -PathType Leaf) -and (Test-Path -LiteralPath $configPath -PathType Leaf)) {
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
+        $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json -Depth 100
+        $resolvedVersion = Resolve-ReleaseManifestVersion -Manifest $manifest
+        $manifestReleaseId = [string](Get-OptionalPropertyValue -InputObject $manifest -Name 'releaseId' -DefaultValue '')
+        $configRelease = Get-OptionalPropertyValue -InputObject $config -Name 'executeRelease' -DefaultValue $null
+        $configReleaseId = [string](Get-OptionalPropertyValue -InputObject $configRelease -Name 'releaseId' -DefaultValue '')
+        $versionsOk = (
+            [bool]$resolvedVersion.success -and
+            [string]$resolvedVersion.version -eq [string]$config.kernelVersion -and
+            -not [string]::IsNullOrWhiteSpace($manifestReleaseId) -and
+            $manifestReleaseId -eq $configReleaseId
+        )
+        Add-Result 'Version consistency' $versionsOk "manifest=$($resolvedVersion.version)/$manifestReleaseId ($($resolvedVersion.detail)); config=$($config.kernelVersion)/$configReleaseId"
+        $manifestModules = Get-OptionalPropertyValue -InputObject $manifest -Name 'enabledModules' -DefaultValue $null
+        if ($null -eq $manifestModules) {
+            $manifestModules = Get-OptionalPropertyValue -InputObject $configRelease -Name 'enabledModules' -DefaultValue @()
+        }
+        $enabledA=@($manifestModules | Sort-Object); $enabledB=@((Get-OptionalPropertyValue -InputObject $configRelease -Name 'enabledModules' -DefaultValue @()) | Sort-Object)
         $modulesOk = (($enabledA -join '|') -eq ($enabledB -join '|'))
         Add-Result 'Enabled modules' $modulesOk "manifest=$($enabledA -join ','); config=$($enabledB -join ',')"
+    }
+    else {
+        Add-Result 'Version consistency' $false 'release-manifest.json or package/Config/kernel-config.json is missing.'
+        Add-Result 'Enabled modules' $false 'Version inputs are incomplete.'
     }
 
     $sumsPath = Join-Path $RootPath 'package/SHA256SUMS.txt'

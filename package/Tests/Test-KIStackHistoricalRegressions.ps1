@@ -10,16 +10,16 @@ try{
  Add-Check 'Matrix policy' ([bool]$matrix.policy.historicalRegressionGateRequired -and [bool]$matrix.policy.nativePowerShellParserRequired) 'Historische Regressionen und nativer Parser sind Pflichtgates.'
 
  $config=Read-Text 'Config\kernel-config.json'|ConvertFrom-Json -Depth 100
- $manifest=Read-Text 'Modules\07-Integration\module.json'|ConvertFrom-Json -Depth 30
+ $manifest=Read-Text 'Modules\08-Cutover\module.json'|ConvertFrom-Json -Depth 30
  $core=Read-Text 'Core\KIStack.BuilderKernel.Core.psm1'
- $bootstrap=Read-Text 'Bootstrap-KIStack-Integration.cmd'
+ $bootstrap=Read-Text 'Bootstrap-KIStack-Cutover.cmd'
  $readmeFirst=(Get-Content -LiteralPath (Join-Path $ProjectRoot 'README.md') -TotalCount 1)
- $versionsOk=([string]$config.kernelVersion -eq '1.5.7' -and [string]$config.executeRelease.releaseId -eq 'INTEGRATION-1.5.7' -and [string]$manifest.version -eq '1.5.7' -and $core.Contains("kernelVersion = '1.5.7'") -and $bootstrap.Contains('KI-Stack Integration v1.5.7') -and $readmeFirst.Contains('v1.5.7'))
- Add-Check 'Authoritative version consistency' $versionsOk 'Config, release, core, module, bootstrap and README title are 1.5.7.'
+ $versionsOk=([string]$config.kernelVersion -eq '1.6.3' -and [string]$config.executeRelease.releaseId -eq 'CUTOVER-1.6.3' -and [string]$manifest.version -eq '1.6.3' -and $core.Contains("kernelVersion = '1.6.3'") -and $bootstrap.Contains('KI-Stack Cutover v1.6.3') -and $readmeFirst -eq '# KI-Stack Cutover Execute v1.6.3')
+ Add-Check 'Authoritative version consistency' $versionsOk 'Config, release, core, cutover module, bootstrap and README title are 1.6.3.'
 
- $entryNames=@('Start-Nur-Selbsttest.cmd','Start-KIStack-Integration-DryRun.cmd','Start-KIStack-Integration-Execute.cmd')
+ $entryNames=@('Start-Nur-Selbsttest.cmd','Start-KIStack-Cutover-DryRun.cmd','Start-KIStack-Cutover-Execute.cmd')
  $entryOk=$true
- foreach($entryName in $entryNames){$entry=Read-Text $entryName;if(-not $entry.Contains('%~dp0Bootstrap-KIStack-Integration.cmd') -or -not $entry.Contains(' /D /C ')){$entryOk=$false}}
+ foreach($entryName in $entryNames){$entry=Read-Text $entryName;if(-not $entry.Contains('%~dp0Bootstrap-KIStack-Cutover.cmd') -or -not $entry.Contains(' /D /C ')){$entryOk=$false}}
  $finishMatch=[regex]::Match($bootstrap,'(?ms)^:Finish\s*\r?\n.*?(?=^:[A-Za-z0-9_]+\s*$|\z)')
  $finish=if($finishMatch.Success){$finishMatch.Value}else{''}
  $finishBlockPrecise=($finishMatch.Success -and -not $finish.Contains(':EnsureElevation') -and -not $finish.Contains(':FindPowerShell') -and -not $finish.Contains(':Log'))
@@ -36,8 +36,8 @@ try{
  Add-Check 'CMD BOM and CRLF' $cmdEncodingOk 'All CMD files are BOM-free and CRLF encoded.'
 
  $starterModule=Read-Text 'Core\KIStack.Starter.psm1'
- $starterFilesOk=$starterModule.Contains('Bootstrap-KIStack-Integration.cmd') -and $starterModule.Contains('Start-KIStack-Integration.ps1') -and -not $starterModule.Contains('Bootstrap-KIStack-Applications.cmd') -and -not $starterModule.Contains('Start-KIStack-Applications.ps1')
- Add-Check 'Integration starter identity' $starterFilesOk 'No inherited Applications starter filenames remain.'
+ $starterFilesOk=$starterModule.Contains('Bootstrap-KIStack-Cutover.cmd') -and $starterModule.Contains('Start-KIStack-Cutover.ps1') -and -not $starterModule.Contains('Bootstrap-KIStack-Applications.cmd') -and -not $starterModule.Contains('Start-KIStack-Applications.ps1')
+ Add-Check 'Cutover starter identity' $starterFilesOk 'No inherited Applications starter filenames remain.'
 
  $preflightRelative=[string]$config.starter.embeddedPreflightRelativePath
  Add-Check 'Embedded preflight' (Test-Path -LiteralPath (Join-Path $ProjectRoot $preflightRelative) -PathType Leaf) $preflightRelative
@@ -81,19 +81,20 @@ try{
  $aggregationOk=$selfTest.Contains('$failedResults |') -and $selfTest.Contains('ForEach-Object { [string]$_.name }') -and -not [regex]::IsMatch($selfTest,'\$(?:failed|failedResults)\.name',[Text.RegularExpressions.RegexOptions]::IgnoreCase)
  Add-Check 'StrictMode failure aggregation' $aggregationOk 'Explicit enumeration supports an empty failure list.'
 
- $launcher=Read-Text 'Start-KIStack-Integration.ps1'
+ $launcher=Read-Text 'Start-KIStack-Cutover.ps1'
  $syntaxIndex=$launcher.IndexOf('Test-KIStackPowerShellSyntax.ps1');$importIndex=$launcher.IndexOf('Import-Module $starterModulePath');$historyIndex=$launcher.IndexOf('Test-KIStackHistoricalRegressions.ps1')
  Add-Check 'Gate ordering' ($syntaxIndex-ge 0 -and $importIndex-gt $syntaxIndex -and $historyIndex-gt $importIndex) 'Syntax, module import, path and historical gates execute in controlled order.'
 
  $wrapper=Read-Text 'GitHub\Invoke-IncludedGitHubUpdate.ps1'
- $wrapperOk=$wrapper.Contains('$invocationExitCode = 1') -and $wrapper.Contains('$invocationExitCode = 0') -and $wrapper.Contains('exit $invocationExitCode') -and -not [regex]::IsMatch($wrapper,'(?im)^\s*exit\s+\$LASTEXITCODE\s*$')
+ $normalizedWrapper=[regex]::Replace($wrapper,'\s+','')
+ $wrapperOk=$normalizedWrapper.Contains('$invocationExitCode=1') -and $normalizedWrapper.Contains('$invocationExitCode=0') -and $wrapper.Contains('exit $invocationExitCode') -and -not [regex]::IsMatch($wrapper,'(?im)^\s*exit\s+\$LASTEXITCODE\s*$')
  Add-Check 'GitHub wrapper exit code' $wrapperOk 'Explicit initialized exit code; no raw LASTEXITCODE exit.'
 
- $bundleZip=Join-Path $ProjectRoot 'GitHub\KI-Stack-GitHub-Update-v0.4.7.zip'
+ $bundleZip=Join-Path $ProjectRoot 'GitHub\KI-Stack-GitHub-Update-v0.5.3.zip'
  $bundleOk=Test-Path -LiteralPath $bundleZip -PathType Leaf
  if($bundleOk){
   $temp=Join-Path ([IO.Path]::GetTempPath())('KI-Stack-Historical-'+[guid]::NewGuid().ToString('N'))
-  try{Expand-Archive -LiteralPath $bundleZip -DestinationPath $temp -Force;$root=Join-Path $temp 'KI-Stack-GitHub-Update-v0.4.7';$snapshotDirs=@(Get-ChildItem -LiteralPath (Join-Path $root 'Bootstrap\Snapshots') -Directory);$bundleOk=($snapshotDirs.Count-eq 1 -and $snapshotDirs[0].Name-eq'Repo-Integration-v1.5.7-rc1')}finally{Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue}
+  try{Expand-Archive -LiteralPath $bundleZip -DestinationPath $temp -Force;$root=Join-Path $temp 'KI-Stack-GitHub-Update-v0.5.3';$snapshotDirs=@(Get-ChildItem -LiteralPath (Join-Path $root 'Bootstrap\Snapshots') -Directory);$bundleOk=($snapshotDirs.Count-eq 1 -and $snapshotDirs[0].Name-eq'Repo-Cutover-v1.6.3-rc1')}finally{Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue}
  }
  Add-Check 'GitHub target-only snapshot' $bundleOk 'Exactly one current target snapshot is embedded.'
 
@@ -104,14 +105,14 @@ try{
   $tempRelease=Join-Path ([IO.Path]::GetTempPath())('KI-Stack-Release-Contract-'+[guid]::NewGuid().ToString('N'))
   try{
    Expand-Archive -LiteralPath $bundleZip -DestinationPath $tempRelease -Force
-   $releaseRoot=Join-Path $tempRelease 'KI-Stack-GitHub-Update-v0.4.7'
+   $releaseRoot=Join-Path $tempRelease 'KI-Stack-GitHub-Update-v0.5.3'
    $releaseManifest=Get-Content -LiteralPath (Join-Path $releaseRoot 'BUNDLE-MANIFEST.json') -Raw|ConvertFrom-Json -Depth 100
    $releaseSource=Read-Text (Join-Path 'GitHub' 'Invoke-IncludedGitHubUpdate.ps1')
    $publisherSource=Get-Content -LiteralPath (Join-Path $releaseRoot 'Bootstrap\Publish-KIStack-Releases.ps1') -Raw
    $allAssetsPresent=$true
    foreach($asset in @($releaseManifest.assets)){if(-not(Test-Path -LiteralPath (Join-Path $releaseRoot ([string]$asset.path)) -PathType Leaf)){$allAssetsPresent=$false}}
    $releasePublisherOk=(
-    [string]$releaseManifest.targetTag -eq 'integration-v1.5.7-rc1' -and
+    [string]$releaseManifest.targetTag -eq 'cutover-v1.6.3-rc1' -and
     $allAssetsPresent -and
     $publisherSource.Contains('$tag = [string]$manifest.targetTag') -and
     $publisherSource.Contains('foreach ($asset in @($manifest.assets))') -and
@@ -122,8 +123,73 @@ try{
   }finally{Remove-Item -LiteralPath $tempRelease -Recurse -Force -ErrorAction SilentlyContinue}
  }
  Add-Check 'GitHub release current assets' $releasePublisherOk 'Current manifest tag and verified existing assets drive the release publisher; no stale v1.5.3 references.'
+
+$cutoverManifest=Read-Text 'Modules\08-Cutover\module.json'|ConvertFrom-Json -Depth 30
+$validationManifest=Read-Text 'Modules\99-Validation\module.json'|ConvertFrom-Json -Depth 30
+$cutoverSource=Read-Text 'Modules\08-Cutover\KIModuleCutover.psm1'
+$cutoverOk=([bool]$cutoverManifest.enabled -and [string]$cutoverManifest.version -eq '1.6.3' -and [bool]$validationManifest.enabled -and @($validationManifest.dependencies)-contains'KIModuleCutover' -and $cutoverSource.Contains('Start-KIStack.ps1') -and $cutoverSource.Contains('Test-KIStack-Health.ps1') -and $cutoverSource.Contains('Readiness-latest.json'))
+Add-Check 'Cutover and final validation contract' $cutoverOk 'Cutover and final validation are enabled with master lifecycle and report artifacts.'
+
+
+$validationSource=Read-Text 'Modules\99-Validation\KIModuleValidation.psm1'
+$selfTestSource=Read-Text 'Tests\Test-KIStackBuilderKernel.ps1'
+$validationStrictModeOk=(
+ $validationSource.Contains("Get-KIValidationTextValue") -and
+ $validationSource.Contains("DefaultValue 'UNSPECIFIED'") -and
+ $validationSource.Contains("DefaultValue 'Unknown'") -and
+ $validationSource.Contains("reportModules") -and
+ -not $validationSource.Contains('$Context.Transaction.transactionId') -and
+ -not $validationSource.Contains('$Context.Transaction.mode') -and
+ -not $validationSource.Contains('[string]$_.id')
+)
+Add-Check 'Validation optional metadata and invalid entries' $validationStrictModeOk 'Validation reads optional transaction metadata and invalid module entries without unsafe StrictMode property access.'
+$cutoverDiagnosticsOk=(
+ $selfTestSource.Contains('KI-Stack-Cutover-Bootstrap.log') -and
+ $selfTestSource.Contains('KI-Stack-Cutover-Starter.log') -and
+ $selfTestSource.Contains('KI-Stack-Cutover-Elevation.log') -and
+ $selfTestSource.Contains('KI-Stack-Cutover-SelfTest-latest.json') -and
+ -not $selfTestSource.Contains('KI-Stack-Integration-Bootstrap.log') -and
+ -not $selfTestSource.Contains('KI-Stack-Integration-Starter.log') -and
+ -not $selfTestSource.Contains('KI-Stack-Integration-Elevation.log') -and
+ -not $selfTestSource.Contains('KI-Stack-Integration-SelfTest-latest.json')
+)
+Add-Check 'Cutover diagnostic log identities' $cutoverDiagnosticsOk 'All starter and self-test diagnostics use the Cutover package identity.'
+$acceptanceExecutionOk=(
+ $selfTestSource.Contains("'KI-Validation-Acceptance-'") -and
+ $selfTestSource.Contains("TEST-VALIDATION-ACCEPTANCE") -and
+ $selfTestSource.Contains("ConvertFrom-Json -Depth 50") -and
+ -not $selfTestSource.Contains('$validationSource.Contains("status=if($passed)')
+)
+Add-Check 'Executable validation acceptance contract' $acceptanceExecutionOk 'Acceptance reporting is verified through generated JSON files instead of expandable source literals.'
+
+
+$manifestSchemaOk=$false
+if($bundleOk){
+ $tempSchema=Join-Path ([IO.Path]::GetTempPath())('KI-Stack-Manifest-Schema-'+[guid]::NewGuid().ToString('N'))
+ try{
+  Expand-Archive -LiteralPath $bundleZip -DestinationPath $tempSchema -Force
+  $schemaRoot=Join-Path $tempSchema 'KI-Stack-GitHub-Update-v0.5.3'
+  $releaseManifestPath=Join-Path $schemaRoot 'Repository\release-manifest.json'
+  $validatorPath=Join-Path $schemaRoot 'Repository\scripts\Test-Repository.ps1'
+  $releaseManifest=Get-Content -LiteralPath $releaseManifestPath -Raw|ConvertFrom-Json -Depth 100
+  $validatorSource=Get-Content -LiteralPath $validatorPath -Raw
+  $legacyVersionProperty=$releaseManifest.PSObject.Properties['packageVersion']
+  $currentVersionProperty=$releaseManifest.PSObject.Properties['version']
+  $manifestSchemaOk=(
+   $null -ne $currentVersionProperty -and [string]$currentVersionProperty.Value -eq '1.6.3' -and
+   $null -ne $legacyVersionProperty -and [string]$legacyVersionProperty.Value -eq '1.6.3' -and
+   $validatorSource.Contains('Resolve-ReleaseManifestVersion') -and
+   $validatorSource.Contains("'CurrentVersionOnly'") -and
+   $validatorSource.Contains("'LegacyPackageVersionOnly'") -and
+   $validatorSource.Contains("'ConflictingDualVersion'") -and
+   -not $validatorSource.Contains('$manifest.packageVersion')
+  )
+ }finally{Remove-Item -LiteralPath $tempSchema -Recurse -Force -ErrorAction SilentlyContinue}
+}
+Add-Check 'GitHub release manifest schema compatibility' $manifestSchemaOk 'The final bundle supports current version and legacy packageVersion manifests under StrictMode and rejects conflicting or missing fields.'
+
  $failed = @($results | Where-Object { -not [bool]$_.passed })
- $report=[pscustomobject][ordered]@{generatedAt=(Get-Date).ToString('o');release='INTEGRATION-1.5.7';passed=($failed.Count-eq 0);failedNames = @($failed | ForEach-Object { [string]$_.name });results=@($results)}
+ $report=[pscustomobject][ordered]@{generatedAt=(Get-Date).ToString('o');release='CUTOVER-1.6.3';passed=($failed.Count-eq 0);failedNames = @($failed | ForEach-Object { [string]$_.name });results=@($results)}
  $state=Join-Path $ProjectRoot 'State\Regression';New-Item -ItemType Directory -Path $state -Force|Out-Null
  $json=$report|ConvertTo-Json -Depth 20;Set-Content -LiteralPath (Join-Path $state 'Historical-Regressions-latest.json') -Value $json -Encoding UTF8
  $json

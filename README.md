@@ -73,3 +73,18 @@ Fixes StrictMode-safe LM Studio detection and exposes exact transaction failure 
 ## Applications v1.4.9-rc1
 
 Sets repository-local Git author identity before commits and annotated tags without changing global Git configuration.
+
+
+## Current release candidate
+
+`cutover-v1.6.1-rc1` adds the final cutover and acceptance layer.
+
+
+## Current corrective release candidate
+
+`cutover-v1.6.2-rc1` fixes final validation and diagnostic regression contracts.
+
+
+## Current corrective release candidate
+
+`cutover-v1.6.3-rc1` fixes release-manifest schema validation.
