@@ -1,33 +1,28 @@
 {
-  "schemaVersion": "1.0",
-  "package": "KI-Stack-Models-Workflows-Execute-v1.3.7",
-  "generatedAtUtc": "2026-07-19T16:13:01Z",
-  "passed": true,
+  "package": "KI-Stack-Applications-Execute-v1.4.10",
+  "version": "1.4.10",
+  "releaseId": "APPLICATIONS-1.4.10",
+  "scope": "StrictMode-safe Git publisher contract validation",
   "checks": [
     {
-      "name": "Version consistency",
-      "passed": true,
-      "detail": "kernel/module/release 1.3.7."
+      "name": "Literal Git author source checks",
+      "passed": true
     },
     {
-      "name": "Embedded continuation Preflight",
-      "passed": true,
-      "detail": "Preflight-Continuation-v1.3.7.zip created from three JSON source files."
+      "name": "Repository-local Git identity",
+      "passed": true
     },
     {
-      "name": "Historical snapshot classification",
-      "passed": true,
-      "detail": "Known failed snapshots are resume-only; v1.3.4 is excluded from full parser validation."
+      "name": "No global Git configuration change",
+      "passed": true
     },
     {
-      "name": "Integrated GitHub update",
-      "passed": true,
-      "detail": "v0.2.7 embedded; target tag models-workflows-v1.3.7-rc1."
+      "name": "Target-only snapshot bundle",
+      "passed": true
     },
     {
-      "name": "Runtime delta",
-      "passed": true,
-      "detail": "Runtime behavior is unchanged from target-tested v1.3.6; only release metadata and GitHub integration changed."
+      "name": "Persistent CMD chain",
+      "passed": true
     }
   ]
 }

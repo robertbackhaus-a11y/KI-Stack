@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
-set "BOOTSTRAP=%~dp0Bootstrap-KIStack-ModelsWorkflows.cmd"
+set "BOOTSTRAP=%~dp0Bootstrap-KIStack-Applications.cmd"
 
 if not exist "%BOOTSTRAP%" (
     echo.
-    echo FEHLER: Bootstrap-KIStack-ModelsWorkflows.cmd fehlt.
+    echo FEHLER: Bootstrap-KIStack-Applications.cmd fehlt.
     echo Paketpfad: %~dp0
     echo.
     echo Die Diagnosesitzung bleibt geoeffnet.
@@ -12,5 +12,5 @@ if not exist "%BOOTSTRAP%" (
     exit /b 1
 )
 
-"%ComSpec%" /D /K ""%BOOTSTRAP%" SelfTest "KI-Stack Models/Workflows - Selbsttest""
+"%ComSpec%" /D /K ""%BOOTSTRAP%" SelfTest "KI-Stack Applications - Selbsttest""
 exit /b %ERRORLEVEL%

@@ -1,3 +1,70 @@
+# KI-Stack Changelog
+
+## Applications v1.4.10-rc1
+
+- Makes Git author publisher-contract checks StrictMode-safe by using non-expandable source literals.
+- Prevents validator-side evaluation of `$GitAuthorName`, `$GitAuthorEmail`, and `$workPath`.
+- Keeps repository-local Git identity validation and target-only snapshot publication.
+
+## Applications v1.4.9-rc1
+
+- Sets repository-local Git author name and email in the temporary clone.
+- Validates both identity values before commit and annotated tag creation.
+- Leaves global Git configuration unchanged.
+- Resumes from all recognized previous tree stages.
+
+## Applications v1.4.8-rc1
+
+- Removes historical snapshot files from GitHub update bundles.
+- Recognizes previous repository stages by Git tree hash only.
+- Bundles and validates only the current target snapshot and current release assets.
+- Propagates bundle validation failures through PowerShell and CMD exit codes.
+
+
+- Fixes version validation and GitHub wrapper exit-code handling.
+
+## Applications 1.4.6-rc1 — release candidate
+
+- Fixes immutable historical snapshot handling in the GitHub update bundle.
+
+## Applications 1.4.5-rc1 — release candidate
+
+- Restores persistent CMD diagnostics by returning from the bootstrap with `exit /b`.
+- Adds a complete start-chain regression across all three entry starters.
+
+## Applications 1.4.4-rc1 — release candidate
+
+- Repairs mixed 1.4.1/1.4.2 active version metadata.
+- Aligns SelfTest contracts with the actual Python resolver implementation.
+- Adds a stale active-version regression gate.
+
+## Applications 1.4.3-rc1 — release candidate
+
+- Repairs mixed 1.4.1/1.4.2 active version metadata.
+- Aligns SelfTest contracts with the actual Python resolver implementation.
+- Adds a stale active-version regression gate.
+
+## Applications 1.4.2-rc1 — release candidate
+
+- Fixes incomplete Applications Dry-Run transaction fixture.
+- Corrects stale reference version assertions.
+- Aligns Python resolution regression with the actual implementation.
+- Repairs the embedded GitHub updater version/root mismatch.
+
+## Applications 1.4.1-rc1 — release candidate
+
+- Fixes optional Windows uninstall-registry properties under PowerShell StrictMode.
+- Resolves and validates Python 3.11/3.12 explicitly.
+- Prints the exact failed module and error for kernel exit code 30.
+- Adds transaction-local Applications diagnostics.
+
+## Applications 1.4.0-rc1 — release candidate
+
+- Adds non-destructive LM Studio installation and validation.
+- Pins Open WebUI to 0.10.2 in an isolated venv.
+- Adds local start/stop scripts and transaction-aware rollback.
+- Embeds GitHub update v0.3.0.
+
 ## Models / Workflows 1.3.7-rc1 — release candidate
 
 - Corrects GitHub bundle snapshot classification.

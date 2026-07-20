@@ -1,3 +1,5 @@
+> Current release candidate: `applications-v1.4.10-rc1`
+
 # KI-Stack – Deutsch
 
 Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer für PowerShell 7, Git, Python, ComfyUI, Modelle, LM Studio, Open WebUI, WSL und SearXNG.
@@ -17,3 +19,18 @@ Jedes Paket enthält Selbsttest, Dry-Run, Execute, Transaktionsprotokollierung, 
 
 
 Current release candidate: `models-workflows-v1.3.7-rc1`.
+
+
+## Applications v1.4.0-rc1
+
+LM Studio and Open WebUI 0.10.2 are delivered as the sixth transaction-protected Execute module.
+
+
+## Applications v1.4.3-rc1
+
+Fixes StrictMode-safe LM Studio detection and exposes exact transaction failure causes.
+
+
+## Applications v1.4.9-rc1
+
+Setzt die Git-Autoridentität vor Commit und annotiertem Tag repository-lokal, ohne die globale Git-Konfiguration zu verändern.

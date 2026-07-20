@@ -12,11 +12,11 @@ $stateRoot = Join-Path $resolvedRoot 'State\PathValidation'
 New-Item -ItemType Directory -Path $stateRoot -Force | Out-Null
 
 $requiredRelativePaths = @(
-    'Bootstrap-KIStack-ModelsWorkflows.cmd',
+    'Bootstrap-KIStack-Applications.cmd',
     'Start-Nur-Selbsttest.cmd',
-    'Start-KIStack-ModelsWorkflows-DryRun.cmd',
-    'Start-KIStack-ModelsWorkflows-Execute.cmd',
-    'Start-KIStack-ModelsWorkflows.ps1',
+    'Start-KIStack-Applications-DryRun.cmd',
+    'Start-KIStack-Applications-Execute.cmd',
+    'Start-KIStack-Applications.ps1',
     'Request-KIStack-Elevation.ps1',
     'Config\kernel-config.json',
     'Core\KIStack.Starter.psm1',
@@ -24,7 +24,7 @@ $requiredRelativePaths = @(
     'Tests\Test-KIStackBuilderKernel.ps1',
     'Tests\Test-KIStackPowerShellSyntax.ps1',
     'Tests\Test-KIStackPathResolution.ps1',
-    'Embedded\Preflight\State\Preflight-Continuation-v1.3.7.zip'
+    'Embedded\Preflight\State\Preflight-Continuation-v1.4.10.zip'
 )
 
 $scenarios = @(
@@ -36,12 +36,12 @@ $scenarios = @(
 
 $results = [System.Collections.Generic.List[object]]::new()
 try {
-    $bootstrapContent = Get-Content -LiteralPath (Join-Path $resolvedRoot 'Bootstrap-KIStack-ModelsWorkflows.cmd') -Raw
-    $launcherContent = Get-Content -LiteralPath (Join-Path $resolvedRoot 'Start-KIStack-ModelsWorkflows.ps1') -Raw
+    $bootstrapContent = Get-Content -LiteralPath (Join-Path $resolvedRoot 'Bootstrap-KIStack-Applications.cmd') -Raw
+    $launcherContent = Get-Content -LiteralPath (Join-Path $resolvedRoot 'Start-KIStack-Applications.ps1') -Raw
     $starterCmds = @(
         'Start-Nur-Selbsttest.cmd',
-        'Start-KIStack-ModelsWorkflows-DryRun.cmd',
-        'Start-KIStack-ModelsWorkflows-Execute.cmd'
+        'Start-KIStack-Applications-DryRun.cmd',
+        'Start-KIStack-Applications-Execute.cmd'
     )
 
     $semanticChecks = @(
@@ -92,7 +92,7 @@ try {
         $githubPresent = @($githubStartFiles | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }).Count
         $githubValid = $true
         if ($githubPresent -gt 0) {
-            $githubBundle = Join-Path $scenarioRoot 'GitHub\KI-Stack-GitHub-Update-v0.2.7.zip'
+            $githubBundle = Join-Path $scenarioRoot 'GitHub\KI-Stack-GitHub-Update-v0.3.10.zip'
             $githubWrapper = Join-Path $scenarioRoot 'GitHub\Invoke-IncludedGitHubUpdate.ps1'
             $githubValid = (
                 $githubPresent -eq 2 -and

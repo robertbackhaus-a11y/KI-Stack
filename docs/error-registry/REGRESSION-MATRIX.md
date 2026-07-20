@@ -39,3 +39,41 @@ A correction is incomplete until its regression test executes before final self-
 | MW-136-02 | Manifest self-test expected obsolete schema 1.0 / three entries | Validate schema 1.1, 3 managed required models and 5 local placeholders | v1.3.6 |
 
 | GH-027-01 | Known-failed snapshot v1.3.4 was revalidated with the PowerShell parser | Snapshot classes are disjoint; failed intermediates are resume-only and never execute repository release validation | v1.3.7 / GitHub v0.2.7 |
+
+| APP-140-01 | Application installer could overwrite pre-existing state or trust package-manager exit codes | Explicit transaction ownership, backup journal and end-state validation | v1.4.0 |
+| APP-140-02 | Floating Open WebUI installation could change behavior between runs | Exact pin `open-webui==0.10.2` and version validation | v1.4.0 |
+
+| APP-141-01 | StrictMode aborts while reading missing uninstall registry properties | Property-existence helper and regression test | v1.4.1 |
+| APP-141-02 | Kernel exit 30 hides the actual module error | Console failure summary and `failure-summary.json` | v1.4.1 |
+| APP-141-03 | WindowsApps/PATH Python alias can be selected without version validation | Executable candidate validation for Python 3.11/3.12 | v1.4.1 |
+
+
+## Applications v1.4.2 regressions
+
+- Dry-Run module fixtures must provide every context property used by the module, including `Transaction` and `TransactionDirectory`.
+- Reference-release tests must derive from the active package version and release ID; stale predecessor literals are forbidden.
+- Source-contract tests must use actual implementation identifiers (`$candidatePaths`) rather than invented names.
+- Embedded GitHub bundle filename, extraction working root, extracted bundle root and path-resolution tests must use the same bundle version.
+
+## Applications v1.4.3 regressions
+
+- Active Config, Release, Core, module manifest, starter, README and SelfTest must share one version.
+- Python resolver regression must validate the escaped WindowsApps regex literal used by the module.
+- Historical 1.4.1 and 1.4.2 snapshots are resume-only.
+
+## Applications v1.4.4 regressions
+
+- Active Config, Release, Core, module manifest, starter, README and SelfTest must share one version.
+- Python resolver regression must validate the escaped WindowsApps regex literal used by the module.
+- Historical 1.4.1 and 1.4.2 snapshots are resume-only.
+
+| GH-038 | Historical resume snapshots rebundled and rehashed | Bundle contains only target snapshot; previous stages recognized by Git tree hash | v0.3.8 |
+| GH-039 | Validation failure reported as successful by outer starter | PowerShell and CMD exit codes are propagated end-to-end | v0.3.8 |
+
+| GH-AUTHOR-001 | Temporary clone lacks Git author identity | Publisher sets and validates repository-local `user.name` and `user.email` before commit/tag; global config remains untouched | v1.4.9 |
+## APP-GH-STRICTMODE-001 — Publisher variables expanded in bundle validator
+
+- **Fixed in:** Applications v1.4.10 / GitHub Update v0.3.10
+- **Regression:** `Test-Bundle.ps1` must not use expandable `.Contains("...")` strings containing `$GitAuthorName`, `$GitAuthorEmail`, or `$workPath`.
+- **Expected:** Bundle validation succeeds before the publisher runs, and identity remains repository-local.
+

@@ -1,4 +1,7 @@
-KI-Stack-Models-Workflows-Execute-v1.3.7
-Pretest: passed
-GitHub update: included v0.2.7
-Known-failed snapshots: resume-only
+KI-Stack Applications v1.4.10 PRETEST
+
+- StrictMode-safe publisher source checks: PASS
+- Repository-local Git identity contract: PASS
+- No global Git identity changes: PASS
+- Target-only snapshot architecture: PASS
+- Persistent CMD chain: PASS

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0.1",
-  "planId": "INSTALL-PLAN-CONTINUATION-MODELS-WORKFLOWS-1.3.7",
-  "generatedAtUtc": "2026-07-19T16:13:01Z",
+  "planId": "INSTALL-PLAN-CONTINUATION-APPLICATIONS-1.4.10",
+  "generatedAtUtc": "2026-07-20T06:00:31Z",
   "destructiveActionsAllowed": false,
   "mode": "Continuation",
   "enabledModules": [
@@ -9,7 +9,8 @@
     "KIModuleRuntime",
     "KIModulePythonGit",
     "KIModuleComfyUI",
-    "KIModuleModels"
+    "KIModuleModels",
+    "KIModuleApplications"
   ],
   "rollbackOnFailure": true
 }

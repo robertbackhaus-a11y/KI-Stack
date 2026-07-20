@@ -9,7 +9,7 @@ set "EXITCODE=1"
 set "FAIL_MESSAGE="
 
 if not defined TEMP set "TEMP=%SystemRoot%\Temp"
-set "TEMP_LOG=%TEMP%\KI-Stack-ModelsWorkflows-Bootstrap.log"
+set "TEMP_LOG=%TEMP%\KI-Stack-Applications-Bootstrap.log"
 set "LOCAL_STATE=%PACKAGE_ROOT%State\Starter"
 set "LOCAL_LOG=%LOCAL_STATE%\Bootstrap-latest.log"
 
@@ -45,8 +45,8 @@ if not defined PWSH (
 
 call :Log "PowerShell 7: %PWSH%"
 
-if not exist "%PACKAGE_ROOT%Start-KIStack-ModelsWorkflows.ps1" (
-    set "FAIL_MESSAGE=Start-KIStack-ModelsWorkflows.ps1 fehlt."
+if not exist "%PACKAGE_ROOT%Start-KIStack-Applications.ps1" (
+    set "FAIL_MESSAGE=Start-KIStack-Applications.ps1 fehlt."
     goto :FailAfterPushd
 )
 if not exist "%PACKAGE_ROOT%Request-KIStack-Elevation.ps1" (
@@ -80,15 +80,15 @@ set "KI_STACK_LAUNCHED_FROM_CMD=1"
 call :Log "PowerShell-Starter wird aufgerufen."
 echo.
 echo ============================================================
-echo KI-Stack Models/Workflows v1.3.7 - %ACTION%
+echo KI-Stack Applications v1.4.10 - %ACTION%
 echo ============================================================
 echo Paket: %PACKAGE_ROOT%
 echo PowerShell: %PWSH%
 echo Bootstrap-Log: %TEMP_LOG%
-if /I "%ACTION%"=="Execute" echo Elevation-Log: %TEMP%\KI-Stack-ModelsWorkflows-Elevation.log
+if /I "%ACTION%"=="Execute" echo Elevation-Log: %TEMP%\KI-Stack-Applications-Elevation.log
 echo.
 
-"%PWSH%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%PACKAGE_ROOT%Start-KIStack-ModelsWorkflows.ps1" -Action "%ACTION%"
+"%PWSH%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%PACKAGE_ROOT%Start-KIStack-Applications.ps1" -Action "%ACTION%"
 set "EXITCODE=%ERRORLEVEL%"
 call :Log "PowerShell-Starter beendet. Exitcode: %EXITCODE%"
 
@@ -120,22 +120,22 @@ if "%EXITCODE%"=="0" (
     echo Vorgang fehlgeschlagen. Exitcode: %EXITCODE%
 )
 echo Bootstrap-Log: %TEMP_LOG%
-if /I "%ACTION%"=="Execute" echo Elevation-Log: %TEMP%\KI-Stack-ModelsWorkflows-Elevation.log
+if /I "%ACTION%"=="Execute" echo Elevation-Log: %TEMP%\KI-Stack-Applications-Elevation.log
 if exist "%LOCAL_LOG%" echo Paket-Log: %LOCAL_LOG%
 echo.
 echo Druecken Sie eine beliebige Taste, um dieses Fenster zu schliessen.
 pause >nul
-exit %EXITCODE%
+exit /b %EXITCODE%
 
 :EnsureElevation
 if /I "%ELEVATION_MARKER%"=="Elevated" exit /b 0
 call :Log "Execute: Administratorstatus wird geprueft; falls erforderlich wird UAC automatisch angefordert."
-"%PWSH%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%PACKAGE_ROOT%Request-KIStack-Elevation.ps1" -BootstrapPath "%PACKAGE_ROOT%Bootstrap-KIStack-ModelsWorkflows.cmd" -Action Execute -WindowTitle "%WINDOW_TITLE%"
+"%PWSH%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%PACKAGE_ROOT%Request-KIStack-Elevation.ps1" -BootstrapPath "%PACKAGE_ROOT%Bootstrap-KIStack-Applications.cmd" -Action Execute -WindowTitle "%WINDOW_TITLE%"
 set "ELEVATION_RESULT=%ERRORLEVEL%"
 call :Log "UAC-Helfer beendet. Exitcode: %ELEVATION_RESULT%"
 if "%ELEVATION_RESULT%"=="10" exit /b 20
 if not "%ELEVATION_RESULT%"=="0" (
-    set "FAIL_MESSAGE=Die automatische UAC-Elevation ist fehlgeschlagen oder wurde abgebrochen. Siehe %TEMP%\KI-Stack-ModelsWorkflows-Elevation.log"
+    set "FAIL_MESSAGE=Die automatische UAC-Elevation ist fehlgeschlagen oder wurde abgebrochen. Siehe %TEMP%\KI-Stack-Applications-Elevation.log"
     exit /b 1
 )
 exit /b 0

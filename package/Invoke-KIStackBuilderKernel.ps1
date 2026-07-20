@@ -397,5 +397,33 @@ Write-Host ("State: {0}" -f $transactionPath)
 Write-Host ("Log: {0}" -f $logPath)
 Write-Host ''
 
-if ($failureDetected) { exit 30 }
+if ($failureDetected) {
+    $failedModules = @($transaction.modules | Where-Object { [string]$_.status -eq 'Failed' })
+    $failureSummaryPath = Join-Path $transactionDirectory 'failure-summary.json'
+    $failureSummary = [pscustomobject][ordered]@{
+        schemaVersion = '1.0'
+        transactionId = [string]$transaction.transactionId
+        status = [string]$transaction.status
+        failedModules = @($failedModules | ForEach-Object {
+            [pscustomobject][ordered]@{
+                id = [string]$_.id
+                name = [string]$_.name
+                error = [string]$_.error
+                rollbackStatus = [string]$_.rollbackStatus
+            }
+        })
+        transactionPath = $transactionPath
+        logPath = $logPath
+    }
+    Write-KIJson -Value $failureSummary -Path $failureSummaryPath
+    Write-Host 'FEHLERDETAILS:' -ForegroundColor Red
+    foreach ($failedModule in $failedModules) {
+        Write-Host ("- Modul: {0}" -f [string]$failedModule.id) -ForegroundColor Red
+        Write-Host ("  Ursache: {0}" -f [string]$failedModule.error) -ForegroundColor Red
+        Write-Host ("  Rollback: {0}" -f [string]$failedModule.rollbackStatus)
+    }
+    Write-Host ("Fehlerbericht: {0}" -f $failureSummaryPath) -ForegroundColor Yellow
+    Write-Host ''
+    exit 30
+}
 exit 0

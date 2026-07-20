@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
-  "lockId": "VERSION-LOCK-CONTINUATION-MODELS-WORKFLOWS-1.3.7",
-  "generatedAtUtc": "2026-07-19T16:13:01Z",
+  "lockId": "VERSION-LOCK-CONTINUATION-APPLICATIONS-1.4.10",
+  "generatedAtUtc": "2026-07-20T06:00:31Z",
   "approved": false,
   "executable": false,
   "components": [
@@ -23,6 +23,11 @@
     {
       "id": "ModelsWorkflows",
       "referenceVersion": "1.3.7",
+      "status": "release-candidate-state-revalidated"
+    },
+    {
+      "id": "Applications",
+      "referenceVersion": "1.4.10",
       "status": "release-candidate"
     }
   ]
