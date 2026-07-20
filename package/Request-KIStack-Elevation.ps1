@@ -14,7 +14,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$tempLogPath = Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Applications-Elevation.log'
+$tempLogPath = Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Integration-Elevation.log'
 
 function Write-ElevationLog {
     param([Parameter(Mandatory)][string]$Message)
@@ -59,7 +59,7 @@ try {
 
     $escapedBootstrap = $BootstrapPath.Replace('"', '""')
     $escapedTitle = $WindowTitle.Replace('"', '""')
-    $cmdArguments = '/D /K ""{0}" {1} "{2}" Elevated"' -f `
+    $cmdArguments = '/D /C ""{0}" {1} "{2}" Elevated"' -f `
         $escapedBootstrap,
         $Action,
         $escapedTitle

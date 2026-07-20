@@ -1,10 +1,10 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
-set "BOOTSTRAP=%~dp0Bootstrap-KIStack-Applications.cmd"
+set "BOOTSTRAP=%~dp0Bootstrap-KIStack-Integration.cmd"
 
 if not exist "%BOOTSTRAP%" (
     echo.
-    echo FEHLER: Bootstrap-KIStack-Applications.cmd fehlt.
+    echo FEHLER: Bootstrap-KIStack-Integration.cmd fehlt.
     echo Paketpfad: %~dp0
     echo.
     echo Die Diagnosesitzung bleibt geoeffnet.
@@ -12,5 +12,5 @@ if not exist "%BOOTSTRAP%" (
     exit /b 1
 )
 
-"%ComSpec%" /D /K ""%BOOTSTRAP%" Execute "KI-Stack Applications - Execute""
+"%ComSpec%" /D /C ""%BOOTSTRAP%" Execute "KI-Stack Integration - Execute""
 exit /b %ERRORLEVEL%

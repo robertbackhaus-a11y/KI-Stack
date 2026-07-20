@@ -11,7 +11,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = $PSScriptRoot
-$tempLogPath = Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Applications-Starter.log'
+$tempLogPath = Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Integration-Starter.log'
 $starterLogPath = $null
 $finalExitCode = 1
 
@@ -84,7 +84,7 @@ function Write-SelfTestFailureSummary {
 
     $candidatePaths = @(
         (Join-Path $ProjectRoot 'State\SelfTest\SelfTest-latest.json'),
-        (Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Applications-SelfTest-latest.json')
+        (Join-Path ([IO.Path]::GetTempPath()) 'KI-Stack-Integration-SelfTest-latest.json')
     )
 
     $reportPath = @(
@@ -181,6 +181,23 @@ try {
     Write-StarterStatus ("Pfadprüfung-Exitcode: {0}" -f $pathExitCode)
     if ($pathExitCode -ne 0) {
         throw "Die Paket- und Pfadprüfung ist fehlgeschlagen. Exitcode: $pathExitCode"
+    }
+
+    $historicalRegressionPath = Join-Path $projectRoot 'Tests\Test-KIStackHistoricalRegressions.ps1'
+    if (-not (Test-Path -LiteralPath $historicalRegressionPath -PathType Leaf)) {
+        throw "Historisches Regressionsgate fehlt: $historicalRegressionPath"
+    }
+    Write-StarterStatus 'Vollständige historische Regressionsmatrix wird geprüft.'
+    $historicalExitCode = Invoke-ChildPwsh -Arguments @(
+        '-NoLogo',
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', $historicalRegressionPath,
+        '-ProjectRoot', $projectRoot
+    )
+    Write-StarterStatus ("Historische-Regressionsprüfung-Exitcode: {0}" -f $historicalExitCode)
+    if ($historicalExitCode -ne 0) {
+        throw "Die historische Regressionsprüfung ist fehlgeschlagen. Exitcode: $historicalExitCode"
     }
 
     if ($Action -eq 'SelfTest') {

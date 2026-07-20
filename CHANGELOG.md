@@ -1,4 +1,41 @@
+# Changelog
+
+## Integration 1.5.5-rc1 — regression-hardened release candidate
+
+- Fixes NUL-character removal from WSL distribution output.
+- Adds a mandatory historical regression gate before every action.
+- Preserves target-only GitHub snapshot architecture.
+
+## Integration 1.5.4-rc1 — regression-hardened release candidate
+
+- Fixes NUL-character removal from WSL distribution output.
+- Adds a mandatory historical regression gate before every action.
+- Preserves target-only GitHub snapshot architecture.
+
+## Integration 1.5.3-rc1 — regression-hardened release candidate
+
+- Fixes NUL-character removal from WSL distribution output.
+- Adds a mandatory historical regression gate before every action.
+- Preserves target-only GitHub snapshot architecture.
+
+## Integration 1.5.2-rc1 — release candidate
+
+- Returns an explicit four-endpoint Dry-Run contract.
+- Validates SearXNG, Open WebUI, LM Studio and ComfyUI as named endpoints.
+- Corrects Integration early-start emergency-log identity.
+- Restores the explicit StrictMode-safe embedded GitHub wrapper exit code.
+
+## Integration v1.5.1-rc1
+
+- Correct Integration starter package validation and inherited launcher identities.
+
 # KI-Stack Changelog
+
+## Integration v1.5.1-rc1
+
+- Enables WSL2/Debian and SearXNG as the seventh transacted Execute module.
+- Adopts healthy existing SearXNG JSON endpoints and installs a pinned official fallback only when needed.
+- Adds Open WebUI SearXNG environment integration, WSL keeper, health checks, and non-destructive rollback.
 
 ## Applications v1.4.10-rc1
 

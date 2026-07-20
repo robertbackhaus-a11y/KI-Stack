@@ -77,3 +77,31 @@ A correction is incomplete until its regression test executes before final self-
 - **Regression:** `Test-Bundle.ps1` must not use expandable `.Contains("...")` strings containing `$GitAuthorName`, `$GitAuthorEmail`, or `$workPath`.
 - **Expected:** Bundle validation succeeds before the publisher runs, and identity remains repository-local.
 
+## INT-WSL-SEARXNG-001 — WSL/SearXNG integration release
+
+- **Introduced in:** Integration v1.5.0
+- **Regression:** Existing healthy JSON endpoints must be adopted; managed installation is allowed only as fallback.
+- **Regression:** SearXNG configuration must enable both HTML and JSON formats.
+- **Regression:** WSL distro rollback must never unregister a distro automatically.
+
+
+
+## Integration top-level starter contract regression
+
+- **Introduced in:** Integration v1.5.0
+- **Corrected in:** Integration v1.5.1
+- **Failure:** The Integration package validator required `Bootstrap-KIStack-Applications.cmd` and `Start-KIStack-Applications.ps1`.
+- **Permanent test:** Validate all top-level Integration launchers, logs, embedded preflight and GitHub wrapper identities as one contract; explicitly reject stale Applications launcher names.
+
+| INT-152-01 | Dry-Run endpoint data missing | Validate returns four named endpoint objects | v1.5.2 |
+| INT-152-02 | Early-start test inherited Applications log | Integration emergency-log literal required | v1.5.2 |
+| INT-152-03 | Embedded updater exit-code contract drift | Explicit initialized invocationExitCode required | v1.5.2 |
+
+| INT-153-01 | String.Replace Char/empty-string overload | Execute helper with a real NUL character and require String/String overload | v1.5.3 |
+| GLOBAL-REG-01 | Known errors recur across packages | Mandatory historical regression gate before every action | v1.5.3 |
+
+| INT-153-01 | String.Replace Char/empty-string overload | Execute helper with a real NUL character and require String/String overload | v1.5.4 |
+| GLOBAL-REG-01 | Known errors recur across packages | Mandatory historical regression gate before every action | v1.5.4 |
+
+| INT-153-01 | String.Replace Char/empty-string overload | Execute helper with a real NUL character and require String/String overload | v1.5.5 |
+| GLOBAL-REG-01 | Known errors recur across packages | Mandatory historical regression gate before every action | v1.5.5 |

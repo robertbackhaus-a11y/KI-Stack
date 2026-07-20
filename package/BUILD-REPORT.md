@@ -1,12 +1,8 @@
-# KI-Stack Applications v1.4.10 – Repair Report
+# KI-Stack Integration v1.5.5 – Regression-Hardened Repair Build
 
-## Ursache
-
-`Bootstrap\Test-Bundle.ps1` prüfte den Publisher mit expandierbaren Doppelquote-Strings. Unter `Set-StrictMode -Version Latest` wurden dabei `$GitAuthorName`, `$GitAuthorEmail` und `$workPath` im Validator selbst ausgewertet, obwohl diese Variablen dort nicht definiert sind. Die Bundle-Validierung brach deshalb vor dem Publisher ab.
-
-## Korrektur
-
-- Sämtliche Publisher-Quelltextprüfungen verwenden echte PowerShell-Literale ohne Variablenexpansion.
-- Neuer Regressionstest blockiert doppelt quotierte `.Contains(...)`-Prüfungen mit `$GitAuthorName`, `$GitAuthorEmail` oder `$workPath`.
-- Git-Autoridentität bleibt repository-lokal im temporären Clone und wird vor Commit und annotiertem Tag validiert.
-- Applications-Laufzeitlogik bleibt gegenüber dem zielsystemvalidierten Stand funktional unverändert.
+- Revalidates the actual Debian WSL version before and after `wsl --set-version`; the validated end state decides instead of the native exit code alone.
+- Treats an already reached WSL2 target state as success even when WSL returns `WSL_E_VM_MODE_INVALID_STATE`.
+- Closes successful SelfTest, DryRun, Execute and GitHub windows automatically while failed runs remain visible until acknowledged.
+- Extends the mandatory historical regression matrix for WSL end-state validation and conditional window lifecycle.
+- Revalidates starter, paths, StrictMode, versions, preflight, rollback and GitHub contracts.
+- Embeds GitHub Update v0.4.5.

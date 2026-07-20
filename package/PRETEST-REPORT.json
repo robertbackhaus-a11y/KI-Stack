@@ -1,28 +1,39 @@
 {
-  "package": "KI-Stack-Applications-Execute-v1.4.10",
-  "version": "1.4.10",
-  "releaseId": "APPLICATIONS-1.4.10",
-  "scope": "StrictMode-safe Git publisher contract validation",
+  "package": "KI-Stack-Integration-Execute-v1.5.5",
+  "version": "1.5.5",
+  "releaseId": "INTEGRATION-1.5.5",
+  "status": "PASSED",
+  "generatedAtUtc": "2026-07-20T11:15:00Z",
   "checks": [
     {
-      "name": "Literal Git author source checks",
-      "passed": true
+      "name": "WSL2 end-state validation",
+      "passed": true,
+      "detail": "The actual distribution version decides success; set-version exit code alone does not."
     },
     {
-      "name": "Repository-local Git identity",
-      "passed": true
+      "name": "Conditional window lifecycle",
+      "passed": true,
+      "detail": "Successful windows close automatically; failed windows pause for diagnostics."
     },
     {
-      "name": "No global Git configuration change",
-      "passed": true
+      "name": "NUL replacement overload",
+      "passed": true,
+      "detail": "String/String Replace verified; no Char/empty-string call remains."
     },
     {
-      "name": "Target-only snapshot bundle",
-      "passed": true
+      "name": "Historical regression matrix",
+      "passed": true,
+      "detail": "23 regression classes and 76 inherited self-tests required."
     },
     {
-      "name": "Persistent CMD chain",
-      "passed": true
+      "name": "Gate ordering",
+      "passed": true,
+      "detail": "Native parser, path gate and historical regression gate precede actions."
+    },
+    {
+      "name": "GitHub target-only update",
+      "passed": true,
+      "detail": "v0.4.5 uses one current target snapshot."
     }
   ]
 }

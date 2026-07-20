@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
-  "lockId": "VERSION-LOCK-CONTINUATION-APPLICATIONS-1.4.10",
-  "generatedAtUtc": "2026-07-20T06:00:31Z",
+  "lockId": "VERSION-LOCK-CONTINUATION-INTEGRATION-1.5.5",
+  "generatedAtUtc": "2026-07-20T06:32:03Z",
   "approved": false,
   "executable": false,
   "components": [
@@ -28,6 +28,11 @@
     {
       "id": "Applications",
       "referenceVersion": "1.4.10",
+      "status": "release-candidate"
+    },
+    {
+      "id": "Integration",
+      "referenceVersion": "1.5.5",
       "status": "release-candidate"
     }
   ]

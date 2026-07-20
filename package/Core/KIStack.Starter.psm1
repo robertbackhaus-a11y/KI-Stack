@@ -115,13 +115,13 @@ function Test-KIStarterPackage {
         'Core\KIStack.BuilderKernel.Core.psm1',
         'Core\KIStack.Starter.psm1',
         'Invoke-KIStackBuilderKernel.ps1',
-        'Bootstrap-KIStack-Applications.cmd',
-        'Start-KIStack-Applications.ps1',
+        'Bootstrap-KIStack-Integration.cmd',
+        'Start-KIStack-Integration.ps1',
         'Request-KIStack-Elevation.ps1',
         'Tests\Test-KIStackPowerShellSyntax.ps1',
         'Tests\Test-KIStackBuilderKernel.ps1',
         'Tests\Test-KIStackPathResolution.ps1',
-        'Embedded\Preflight\State\Preflight-Continuation-v1.4.10.zip'
+        'Embedded\Preflight\State\Preflight-Continuation-v1.5.5.zip'
     )
 
     $missing = @(

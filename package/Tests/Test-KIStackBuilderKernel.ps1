@@ -689,19 +689,20 @@ try {
 
     $approvedIds = @($releaseConfig.executeRelease.enabledModules)
     $allowlistValid = (
-        $activeManifestIds.Count -eq 6 -and
+        $activeManifestIds.Count -eq 7 -and
         $activeManifestIds -contains 'KIModuleFoundation' -and
         $activeManifestIds -contains 'KIModuleRuntime' -and
         $activeManifestIds -contains 'KIModulePythonGit' -and
         $activeManifestIds -contains 'KIModuleComfyUI' -and
         $activeManifestIds -contains 'KIModuleModels' -and
         $activeManifestIds -contains 'KIModuleApplications' -and
+        $activeManifestIds -contains 'KIModuleIntegration' -and
         @($activeManifestIds | Where-Object { $approvedIds -notcontains $_ }).Count -eq 0
     )
 
     Add-Result -Name 'Execute-Modulfreigabe' `
         -Passed $allowlistValid `
-        -Message 'Foundation, Runtime, PythonGit, ComfyUI, Models und Applications sind für Execute aktiviert.'
+        -Message 'Foundation, Runtime, PythonGit, ComfyUI, Models, Applications und Integration sind für Execute aktiviert.'
 }
 catch {
     Add-Result -Name 'Execute-Modulfreigabe' `
@@ -1010,8 +1011,8 @@ try {
         ConvertFrom-Json -Depth 50
 
     $pythonGitApproved = (
-        [string]$releaseConfig.kernelVersion -eq '1.4.10' -and
-        [string]$releaseConfig.executeRelease.releaseId -eq 'APPLICATIONS-1.4.10' -and
+        [string]$releaseConfig.kernelVersion -eq '1.5.5' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.5' -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModulePythonGit'
     )
 
@@ -1133,8 +1134,8 @@ finally {
 try {
     $wrapperNames = @(
         'Start-Nur-Selbsttest.cmd',
-        'Start-KIStack-Applications-DryRun.cmd',
-        'Start-KIStack-Applications-Execute.cmd'
+        'Start-KIStack-Integration-DryRun.cmd',
+        'Start-KIStack-Integration-Execute.cmd'
     )
     $cmdIssues = [System.Collections.Generic.List[string]]::new()
 
@@ -1144,10 +1145,10 @@ try {
         $wrapperBytes = [IO.File]::ReadAllBytes($wrapperPath)
         $wrapperAscii = [Text.Encoding]::ASCII.GetString($wrapperBytes)
 
-        if (-not $wrapperContent.Contains('%ComSpec%" /D /K')) {
-            [void]$cmdIssues.Add("${wrapperName}: dauerhafte cmd-/K-Diagnosesitzung fehlt")
+        if (-not $wrapperContent.Contains('%ComSpec%" /D /C')) {
+            [void]$cmdIssues.Add("${wrapperName}: cmd-/C-Aufruf für automatisches Schließen bei Erfolg fehlt")
         }
-        if (-not $wrapperContent.Contains('Bootstrap-KIStack-Applications.cmd')) {
+        if (-not $wrapperContent.Contains('Bootstrap-KIStack-Integration.cmd')) {
             [void]$cmdIssues.Add("${wrapperName}: gemeinsamer Bootstrap fehlt")
         }
         if ([regex]::IsMatch($wrapperAscii, '(?<!\r)\n')) {
@@ -1155,7 +1156,7 @@ try {
         }
     }
 
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Applications.cmd'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
     $bootstrapBytes = [IO.File]::ReadAllBytes($bootstrapPath)
     $bootstrapAscii = [Text.Encoding]::ASCII.GetString($bootstrapBytes)
@@ -1166,7 +1167,7 @@ try {
     if (-not $bootstrapContent.Contains('where pwsh.exe')) {
         [void]$cmdIssues.Add('Bootstrap: PATH-Fallback fehlt')
     }
-    if (-not $bootstrapContent.Contains('KI-Stack-Applications-Bootstrap.log')) {
+    if (-not $bootstrapContent.Contains('KI-Stack-Integration-Bootstrap.log')) {
         [void]$cmdIssues.Add('Bootstrap: TEMP-Diagnoselog fehlt')
     }
     if (-not $bootstrapContent.Contains('pause >nul')) {
@@ -1179,7 +1180,7 @@ try {
     Add-Result -Name 'CMD-Starter-Robustheit' `
         -Passed ($cmdIssues.Count -eq 0) `
         -Message ($(if ($cmdIssues.Count -eq 0) {
-            'Persistente /K-Sitzung, gemeinsamer Bootstrap, Fallbacks, Logs und CRLF geprüft.'
+            'cmd /C, gemeinsamer Bootstrap, bedingte Fehlerpause, Fallbacks, Logs und CRLF geprüft.'
         } else {
             $cmdIssues -join ' | '
         }))
@@ -1191,7 +1192,7 @@ catch {
 }
 
 try {
-    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-Applications.ps1'
+    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-Integration.ps1'
     $launcherContent = Get-Content -LiteralPath $launcherPath -Raw
     $tryMatch = [regex]::Match(
         $launcherContent,
@@ -1206,7 +1207,7 @@ try {
         $importIndex -gt $tryIndex -and
         $newLogIndex -gt $tryIndex -and
         $launcherContent.Contains('Write-EmergencyStarterLog') -and
-        $launcherContent.Contains('KI-Stack-Applications-Starter.log') -and
+        $launcherContent.Contains('KI-Stack-Integration-Starter.log') -and
         -not $launcherContent.StartsWith('#Requires')
     )
 
@@ -1222,8 +1223,8 @@ catch {
 
 try {
     $elevationPath = Join-Path $ProjectRoot 'Request-KIStack-Elevation.ps1'
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Applications.cmd'
-    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-Applications.ps1'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
+    $launcherPath = Join-Path $ProjectRoot 'Start-KIStack-Integration.ps1'
 
     $elevationContent = Get-Content -LiteralPath $elevationPath -Raw
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
@@ -1233,7 +1234,7 @@ try {
         $elevationContent.Contains('[Security.Principal.WindowsBuiltInRole]::Administrator') -and
         $elevationContent.Contains('Start-Process') -and
         $elevationContent.Contains('-Verb RunAs') -and
-        $elevationContent.Contains('/D /K') -and
+        $elevationContent.Contains('/D /C') -and
         $elevationContent.Contains('exit 10') -and
         $bootstrapContent.Contains('Request-KIStack-Elevation.ps1') -and
         $bootstrapContent.Contains('ELEVATION_MARKER') -and
@@ -1244,7 +1245,7 @@ try {
 
     Add-Result -Name 'Execute-automatische-UAC-Elevation' `
         -Passed $automaticElevationValid `
-        -Message 'Execute erkennt fehlende Rechte und startet selbstständig einen erhöhten, persistenten Diagnoseprozess.'
+        -Message 'Execute erkennt fehlende Rechte und startet selbstständig einen erhöhten Prozess; Erfolg schließt automatisch, Fehler bleiben sichtbar.'
 }
 catch {
     Add-Result -Name 'Execute-automatische-UAC-Elevation' `
@@ -1264,7 +1265,7 @@ try {
         [string]$starterConfig.starter.preflightSelectionMode -eq 'EmbeddedDefault' -and
         [bool]$starterConfig.starter.allowExplicitPreflightOverride -and
         [string]$starterConfig.starter.embeddedPreflightRelativePath -eq
-            'Embedded\Preflight\State\Preflight-Continuation-v1.4.10.zip' -and
+            'Embedded\Preflight\State\Preflight-Continuation-v1.5.5.zip' -and
         @($starterConfig.starter.preflightSearchRoots).Count -ge 2
     )
 
@@ -1303,11 +1304,11 @@ try {
         $embeddedPreflightValid = (
             [bool]$embeddedValidation.valid -and
             [string]$embeddedReport.reportId -eq
-                'PREFLIGHT-CONTINUATION-APPLICATIONS-1.4.10' -and
+                'PREFLIGHT-CONTINUATION-INTEGRATION-1.5.5' -and
             [string]$embeddedLock.lockId -eq
-                'VERSION-LOCK-CONTINUATION-APPLICATIONS-1.4.10' -and
+                'VERSION-LOCK-CONTINUATION-INTEGRATION-1.5.5' -and
             [string]$embeddedPlan.planId -eq
-                'INSTALL-PLAN-CONTINUATION-APPLICATIONS-1.4.10'
+                'INSTALL-PLAN-CONTINUATION-INTEGRATION-1.5.5'
         )
         Add-Result -Name 'Paketinterner-Fortsetzungs-Preflight' `
             -Passed $embeddedPreflightValid `
@@ -1391,9 +1392,9 @@ try {
     $releaseConfig = Get-Content -LiteralPath $configPath -Raw |
         ConvertFrom-Json -Depth 100
     $comfyApproved = (
-        [string]$releaseConfig.kernelVersion -eq '1.4.10' -and
-        [string]$releaseConfig.executeRelease.releaseId -eq 'APPLICATIONS-1.4.10' -and
-        @($releaseConfig.executeRelease.enabledModules).Count -eq 6 -and
+        [string]$releaseConfig.kernelVersion -eq '1.5.5' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.5' -and
+        @($releaseConfig.executeRelease.enabledModules).Count -eq 7 -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModuleComfyUI'
     )
     Add-Result -Name 'ComfyUI-Execute-Freigabe' `
@@ -1521,7 +1522,7 @@ try {
         Join-Path $ProjectRoot 'Modules\05-Models\KIModuleModels.psm1'
     ) -Raw
     $modelsApproved = (
-        @($releaseConfig.executeRelease.enabledModules).Count -eq 6 -and
+        @($releaseConfig.executeRelease.enabledModules).Count -eq 7 -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModuleModels' -and
         $modelModule.Contains('KIModuleModels.rollback.json') -and
         $modelModule.Contains('Invoke-KIResumableHttpDownload') -and
@@ -1624,7 +1625,7 @@ catch {
 
 try {
     $syntaxTestPath = Join-Path $ProjectRoot 'Tests\Test-KIStackPowerShellSyntax.ps1'
-    $starterPath = Join-Path $ProjectRoot 'Start-KIStack-Applications.ps1'
+    $starterPath = Join-Path $ProjectRoot 'Start-KIStack-Integration.ps1'
     $starterContent = Get-Content -LiteralPath $starterPath -Raw
     $syntaxTestExists = Test-Path -LiteralPath $syntaxTestPath -PathType Leaf
     $syntaxGateValid = (
@@ -1644,15 +1645,15 @@ catch {
 }
 
 try {
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Applications.cmd'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
     $versionLabelValid = (
-        $bootstrapContent.Contains('KI-Stack Applications v1.4.10 - %ACTION%') -and
+        $bootstrapContent.Contains('KI-Stack Integration v1.5.5 - %ACTION%') -and
         -not [regex]::IsMatch($bootstrapContent, 'PythonGit v1\\.1\\.[0-9]+')
     )
     Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
         -Passed $versionLabelValid `
-        -Message 'Der sichtbare CMD-Kopf entspricht dem Paket v1.4.10.'
+        -Message 'Der sichtbare CMD-Kopf entspricht dem Paket v1.5.5.'
 }
 catch {
     Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
@@ -1708,8 +1709,8 @@ catch {
 try {
     $starterSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Core\KIStack.Starter.psm1') -Raw
     $trailingCommaRemoved = (
-        -not $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.4.10.zip',") -and
-        $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.4.10.zip'")
+        -not $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.5.5.zip',") -and
+        $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.5.5.zip'")
     )
     Add-Result -Name 'PowerShell-Array-ohne-abschliessendes-Komma' `
         -Passed $trailingCommaRemoved `
@@ -1720,7 +1721,7 @@ catch {
 }
 
 try {
-    $launcherSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Start-KIStack-Applications.ps1') -Raw
+    $launcherSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Start-KIStack-Integration.ps1') -Raw
     $syntaxIndex = $launcherSource.IndexOf('Native PowerShell-Syntaxprüfung wird vor jedem Modulimport gestartet.')
     $importIndex = $launcherSource.IndexOf('Import-Module $starterModulePath')
     $pathGateIndex = $launcherSource.IndexOf('Tests\Test-KIStackPathResolution.ps1')
@@ -1745,7 +1746,7 @@ try {
         $pathSource.Contains('Doppelt verschachtelt') -and
         $pathSource.Contains('Leerzeichen und doppelte Verschachtelung') -and
         $pathSource.Contains('Start-Validate-GitHub-Update.cmd') -and
-        $pathSource.Contains('Preflight-Continuation-v1.4.10.zip')
+        $pathSource.Contains('Preflight-Continuation-v1.5.5.zip')
     )
     Add-Result -Name 'Pfade-doppelt-verschachtelt-und-mit-Leerzeichen' `
         -Passed $pathRegressionValid `
@@ -1764,7 +1765,7 @@ try {
     $applicationModulePath = Join-Path $ProjectRoot 'Modules\06-Applications\KIModuleApplications.psm1'
     $applicationModule = Get-Content -LiteralPath $applicationModulePath -Raw
     $applicationsApproved = (
-        @($applicationConfig.executeRelease.enabledModules).Count -eq 6 -and
+        @($applicationConfig.executeRelease.enabledModules).Count -eq 7 -and
         @($applicationConfig.executeRelease.enabledModules) -contains 'KIModuleApplications' -and
         [string]$applicationConfig.applications.openWebUI.version -eq '0.10.2' -and
         [string]$applicationConfig.applications.lmStudio.packageId -eq 'ElementLabs.LMStudio' -and
@@ -1858,52 +1859,52 @@ try {
         Join-Path $ProjectRoot 'Config\kernel-config.json'
     ) -Raw | ConvertFrom-Json -Depth 100
     $versionModule = Get-Content -LiteralPath (
-        Join-Path $ProjectRoot 'Modules\06-Applications\module.json'
+        Join-Path $ProjectRoot 'Modules\07-Integration\module.json'
     ) -Raw | ConvertFrom-Json -Depth 100
     $versionCore = Get-Content -LiteralPath (
         Join-Path $ProjectRoot 'Core\KIStack.BuilderKernel.Core.psm1'
     ) -Raw
     $versionBootstrap = Get-Content -LiteralPath (
-        Join-Path $ProjectRoot 'Bootstrap-KIStack-Applications.cmd'
+        Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
     ) -Raw
     $versionReadmeTitle = [string](Get-Content -LiteralPath (
         Join-Path $ProjectRoot 'README.md'
     ) -TotalCount 1)
 
     $authoritativeVersionValid = (
-        [string]$versionConfig.kernelVersion -eq '1.4.10' -and
-        [string]$versionConfig.executeRelease.releaseId -eq 'APPLICATIONS-1.4.10' -and
-        [string]$versionModule.version -eq '1.4.10' -and
-        $versionCore.Contains("kernelVersion = '1.4.10'") -and
-        $versionBootstrap.Contains('KI-Stack Applications v1.4.10 - %ACTION%') -and
-        $versionReadmeTitle -eq '# KI-Stack Applications Execute v1.4.10'
+        [string]$versionConfig.kernelVersion -eq '1.5.5' -and
+        [string]$versionConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.5' -and
+        [string]$versionModule.version -eq '1.5.5' -and
+        $versionCore.Contains("kernelVersion = '1.5.5'") -and
+        $versionBootstrap.Contains('KI-Stack Integration v1.5.5 - %ACTION%') -and
+        $versionReadmeTitle -eq '# KI-Stack Integration Execute v1.5.5'
     )
 
-    Add-Result -Name 'Applications-aktive-Versionskonsolidierung' `
+    Add-Result -Name 'Integration-aktive-Versionskonsolidierung' `
         -Passed $authoritativeVersionValid `
         -Message 'Autoritative Versionsfelder in Config, Release, Core, Modul, Starter und README-Titel sind konsistent; historische Hinweise werden nicht als aktive Version bewertet.'
 }
 catch {
-    Add-Result -Name 'Applications-aktive-Versionskonsolidierung' `
+    Add-Result -Name 'Integration-aktive-Versionskonsolidierung' `
         -Passed $false -Message $_.Exception.Message
 }
 
 
 try {
-    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Applications.cmd'
+    $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
     $entryStarterFiles = @(
         'Start-Nur-Selbsttest.cmd',
-        'Start-KIStack-Applications-DryRun.cmd',
-        'Start-KIStack-Applications-Execute.cmd'
+        'Start-KIStack-Integration-DryRun.cmd',
+        'Start-KIStack-Integration-Execute.cmd'
     )
-    $persistentEntryStarters = $true
+    $conditionalEntryStarters = $true
     foreach ($entryStarterFile in $entryStarterFiles) {
         $entryStarterContent = Get-Content -LiteralPath (
             Join-Path $ProjectRoot $entryStarterFile
         ) -Raw
-        if (-not $entryStarterContent.Contains('"%ComSpec%" /D /K')) {
-            $persistentEntryStarters = $false
+        if (-not $entryStarterContent.Contains('"%ComSpec%" /D /C')) {
+            $conditionalEntryStarters = $false
         }
     }
     $finishSectionIndex = $bootstrapContent.LastIndexOf(':Finish')
@@ -1916,10 +1917,12 @@ try {
         Join-Path $ProjectRoot 'Request-KIStack-Elevation.ps1'
     ) -Raw
     $elevationLogIdentityValid = (
-        $elevationSource.Contains('KI-Stack-Applications-Elevation.log') -and
+        $elevationSource.Contains('KI-Stack-Integration-Elevation.log') -and
         -not $elevationSource.Contains('KI-Stack-ModelsWorkflows-Elevation.log')
     )
-    $bootstrapReturnsToPersistentShell = (
+    $conditionalBootstrapLifecycle = (
+        $finishSection.Contains('if "%EXITCODE%"=="0" (') -and
+        $finishSection.Contains('exit /b 0') -and
         $finishSection.Contains('pause >nul') -and
         $finishSection.Contains('exit /b %EXITCODE%') -and
         -not [regex]::IsMatch(
@@ -1927,9 +1930,15 @@ try {
             '(?im)^\s*exit\s+%EXITCODE%\s*$'
         )
     )
+    $integrationTopLevelContract = (
+        (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Start-KIStack-Integration.ps1') -PathType Leaf) -and
+        -not (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Bootstrap-KIStack-Applications.cmd') -PathType Leaf) -and
+        -not (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Start-KIStack-Applications.ps1') -PathType Leaf)
+    )
     Add-Result -Name 'CMD-Diagnosefenster-bleibt-offen' `
-        -Passed ($persistentEntryStarters -and $bootstrapReturnsToPersistentShell -and $elevationLogIdentityValid) `
-        -Message 'Alle Einstiegsstarter verwenden cmd /K; der Bootstrap kehrt mit exit /b zurück und beendet die Diagnosesitzung nicht.'
+        -Passed ($conditionalEntryStarters -and $conditionalBootstrapLifecycle -and $elevationLogIdentityValid -and $integrationTopLevelContract) `
+        -Message 'Integration-Einstiegsstarter schließen bei Erfolg automatisch; Fehlerpause, Bootstrap, Logs und Elevation sind konsistent.'
 }
 catch {
     Add-Result -Name 'CMD-Diagnosefenster-bleibt-offen' `
@@ -1942,7 +1951,7 @@ try {
     if (Test-Path -LiteralPath $includedWrapperPath -PathType Leaf) {
         $includedWrapperSource = Get-Content -LiteralPath $includedWrapperPath -Raw
         $includedWrapperValid = (
-            $includedWrapperSource.Contains('$bundleName=''KI-Stack-GitHub-Update-v0.3.10''') -and
+            $includedWrapperSource.Contains('$bundleName=''KI-Stack-GitHub-Update-v0.4.5''') -and
             $includedWrapperSource.Contains('$invocationExitCode = 1') -and
             $includedWrapperSource.Contains('$invocationExitCode = 0') -and
             $includedWrapperSource.Contains('exit $invocationExitCode') -and
@@ -1958,6 +1967,138 @@ catch {
         -Passed $false -Message $_.Exception.Message
 }
 
+
+try {
+    $integrationConfig = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Config\kernel-config.json') -Raw | ConvertFrom-Json -Depth 100
+    $integrationModulePath = Join-Path $ProjectRoot 'Modules\07-Integration\KIModuleIntegration.psm1'
+    $integrationModuleContent = Get-Content -LiteralPath $integrationModulePath -Raw
+    $integrationManifest = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Modules\07-Integration\module.json') -Raw | ConvertFrom-Json -Depth 30
+    $integrationApproved = (
+        [bool]$integrationManifest.enabled -and
+        [string]$integrationManifest.version -eq '1.5.5' -and
+        [bool]$integrationManifest.supportsRollback -and
+        @($integrationConfig.executeRelease.enabledModules) -contains 'KIModuleIntegration' -and
+        @($integrationConfig.executeRelease.enabledModules).Count -eq 7 -and
+        [string]$integrationConfig.integration.wslDistribution -eq 'Debian' -and
+        [string]$integrationConfig.integration.searxngRef -eq '277d8469c' -and
+        [string]$integrationConfig.integration.searxngQueryUrl -eq 'http://localhost/searxng/search?q=<query>' -and
+        $integrationModuleContent.Contains('KIModuleIntegration.rollback.json') -and
+        $integrationModuleContent.Contains('Start-KIStack-OpenWebUI-WithSearch.cmd') -and
+        $integrationModuleContent.Contains('ENABLE_WEB_SEARCH=True') -and
+        $integrationModuleContent.Contains('WEB_SEARCH_ENGINE=searxng') -and
+        $integrationModuleContent.Contains('SEARXNG_QUERY_URL=__QUERY_URL__') -and
+        $integrationModuleContent.Contains('exit 42') -eq $false
+    )
+    Add-Result -Name 'Integration-Execute-Freigabe' -Passed $integrationApproved -Message 'WSL2, Debian, gepinntes SearXNG, JSON-API, Keeper und Open-WebUI-Websuche sind als siebtes Execute-Modul freigegeben.'
+}
+catch { Add-Result -Name 'Integration-Execute-Freigabe' -Passed $false -Message $_.Exception.Message }
+
+try {
+    $installerPath = Join-Path $ProjectRoot 'Integration\Linux\install-ki-stack-searxng.sh'
+    $rollbackPath = Join-Path $ProjectRoot 'Integration\Linux\rollback-ki-stack-searxng.sh'
+    $installerContent = Get-Content -LiteralPath $installerPath -Raw
+    $linuxAssetsValid = (
+        (Test-Path -LiteralPath $installerPath -PathType Leaf) -and
+        (Test-Path -LiteralPath $rollbackPath -PathType Leaf) -and
+        $installerContent.Contains('formats:') -and
+        $installerContent.Contains('    - json') -and
+        $installerContent.Contains('valkey://localhost:6379/0') -and
+        $installerContent.Contains('systemd=true') -and
+        $installerContent.Contains('git -C "$ROOT/src" checkout --detach FETCH_HEAD') -and
+        $installerContent.Contains('write_marker ''adopted-existing''') -and
+        $installerContent.Contains('write_marker ''managed''')
+    )
+    Add-Result -Name 'SearXNG-Linux-Installationsvertrag' -Passed $linuxAssetsValid -Message 'Bestehende JSON-Endpunkte werden übernommen; Neuinstallationen nutzen systemd, Valkey, nginx, uWSGI und einen gepinnten Commit.'
+}
+catch { Add-Result -Name 'SearXNG-Linux-Installationsvertrag' -Passed $false -Message $_.Exception.Message }
+
+try {
+    $integrationModuleContent = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Modules\07-Integration\KIModuleIntegration.psm1') -Raw
+    $integrationSafety = (
+        -not [regex]::IsMatch($integrationModuleContent,'(?im)^\s*\$input\s*=') -and
+        $integrationModuleContent.Contains('distroInstalledByTransaction') -and
+        $integrationModuleContent.Contains('eine neu installierte WSL-Distribution bleibt aus Sicherheitsgründen registriert') -and
+        $integrationModuleContent.Contains('ConvertTo-KIShellSingleQuoted') -and
+        $integrationModuleContent.Contains('base64 -d') -and
+        $integrationModuleContent.Contains('Test-KIIntegrationJsonEndpoint')
+    )
+    Add-Result -Name 'Integration-Rollback-und-Quoting' -Passed $integrationSafety -Message 'Dateitransfer, Shell-Quoting, JSON-Healthcheck und nichtdestruktiver Rollback sind enthalten.'
+}
+catch { Add-Result -Name 'Integration-Rollback-und-Quoting' -Passed $false -Message $_.Exception.Message }
+
+
+try {
+    $integrationModulePath = Join-Path $ProjectRoot 'Modules\07-Integration\KIModuleIntegration.psm1'
+    $integrationModuleSource = Get-Content -LiteralPath $integrationModulePath -Raw
+    $moduleInfo = Import-Module $integrationModulePath -Force -PassThru -DisableNameChecking -ErrorAction Stop
+    try {
+        $nulSample = 'Debian' + [char]0
+        $nulResult = & (Get-Command Remove-KIIntegrationNullCharacters -Module $moduleInfo.Name) -Value $nulSample
+        $nulRegressionValid = (
+            $nulResult -eq 'Debian' -and
+            $integrationModuleSource.Contains("Replace(([char]0).ToString(), [string]::Empty)") -and
+            -not [regex]::IsMatch($integrationModuleSource, '\.Replace\(\s*\[char\]\s*0\s*,\s*[''\"]{2}\s*\)')
+        )
+        Add-Result -Name 'Integration-NUL-Entfernung-ohne-Char-Overload' `
+            -Passed $nulRegressionValid `
+            -Message 'WSL-Ausgaben entfernen NUL-Zeichen über den String/String-Overload und nicht über Char plus leeren String.'
+    }
+    finally {
+        Remove-Module -ModuleInfo $moduleInfo -Force -ErrorAction SilentlyContinue
+    }
+}
+catch {
+    Add-Result -Name 'Integration-NUL-Entfernung-ohne-Char-Overload' -Passed $false -Message $_.Exception.Message
+}
+
+
+
+try {
+    $integrationModulePath = Join-Path $ProjectRoot 'Modules\07-Integration\KIModuleIntegration.psm1'
+    $integrationSource = Get-Content -LiteralPath $integrationModulePath -Raw
+    $wslEndStateContract = (
+        $integrationSource.Contains('function Get-KIIntegrationDistributionVersion') -and
+        $integrationSource.Contains('function Test-KIIntegrationDistributionWsl2') -and
+        $integrationSource.Contains('$wslVersionBefore = Get-KIIntegrationDistributionVersion') -and
+        $integrationSource.Contains('$wslVersionAfter = Get-KIIntegrationDistributionVersion') -and
+        $integrationSource.Contains('$wslVersionAfter -ne 2') -and
+        $integrationSource.Contains('Der Endzustand entscheidet.') -and
+        -not [regex]::IsMatch($integrationSource, 'setVersion\.exitCode\s+-ne\s+0\s+-and\s+\(')
+    )
+    Add-Result -Name 'Integration-WSL2-Endzustand-entscheidet' `
+        -Passed $wslEndStateContract `
+        -Message 'Die validierte WSL-Distributionsversion entscheidet; ein fehlerhafter set-version-Exitcode allein führt nicht zum Abbruch.'
+}
+catch {
+    Add-Result -Name 'Integration-WSL2-Endzustand-entscheidet' -Passed $false -Message $_.Exception.Message
+}
+
+try {
+    $bootstrapLifecycle = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd') -Raw
+    $elevationLifecycle = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Request-KIStack-Elevation.ps1') -Raw
+    $entryLifecycleOk = $true
+    foreach ($entryLifecycleName in @('Start-Nur-Selbsttest.cmd','Start-KIStack-Integration-DryRun.cmd','Start-KIStack-Integration-Execute.cmd')) {
+        $entryLifecycleSource = Get-Content -LiteralPath (Join-Path $ProjectRoot $entryLifecycleName) -Raw
+        if (-not $entryLifecycleSource.Contains('"%ComSpec%" /D /C')) { $entryLifecycleOk = $false }
+    }
+    $finishLifecycleIndex = $bootstrapLifecycle.LastIndexOf(':Finish')
+    $finishLifecycle = if ($finishLifecycleIndex -ge 0) { $bootstrapLifecycle.Substring($finishLifecycleIndex) } else { '' }
+    $windowLifecycleValid = (
+        $entryLifecycleOk -and
+        $elevationLifecycle.Contains('$cmdArguments = ''/D /C') -and
+        $finishLifecycle.Contains('if "%EXITCODE%"=="0" (') -and
+        $finishLifecycle.Contains('exit /b 0') -and
+        $finishLifecycle.Contains('pause >nul') -and
+        $finishLifecycle.IndexOf('exit /b 0') -lt $finishLifecycle.IndexOf('pause >nul')
+    )
+    Add-Result -Name 'Integration-Fenster-Lifecycle' `
+        -Passed $windowLifecycleValid `
+        -Message 'Erfolgreiche Starter schließen automatisch; nur Fehler bleiben bis zur Bestätigung sichtbar.'
+}
+catch {
+    Add-Result -Name 'Integration-Fenster-Lifecycle' -Passed $false -Message $_.Exception.Message
+}
+
 $failedResults = @(
     $results |
     Where-Object { -not [bool]$_.passed }
@@ -1965,7 +2106,7 @@ $failedResults = @(
 
 $summary = [pscustomobject][ordered]@{
     generatedAt = (Get-Date).ToString('o')
-    packageVersion = '1.4.10'
+    packageVersion = '1.5.5'
     passed = ($failedResults.Count -eq 0)
     failedNames = @(
         $failedResults |
@@ -1991,7 +2132,7 @@ try {
 catch {
     try {
         $tempSelfTestPath = Join-Path ([IO.Path]::GetTempPath()) `
-            'KI-Stack-Applications-SelfTest-latest.json'
+            'KI-Stack-Integration-SelfTest-latest.json'
         Set-Content -LiteralPath $tempSelfTestPath -Value $selfTestJson `
             -Encoding UTF8 -ErrorAction SilentlyContinue
     }

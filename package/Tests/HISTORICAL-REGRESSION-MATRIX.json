@@ -1,0 +1,208 @@
+{
+  "schemaVersion": "1.0",
+  "scope": "all-projects",
+  "release": "INTEGRATION-1.5.5",
+  "generatedAtUtc": "2026-07-20T11:15:00Z",
+  "policy": {
+    "completeFilesOnly": true,
+    "noPatchInstructions": true,
+    "automaticNextVersionAfterFailure": true,
+    "historicalRegressionGateRequired": true,
+    "nativePowerShellParserRequired": true
+  },
+  "regressions": [
+    {
+      "id": "REG-START-001",
+      "class": "starter-window",
+      "requirement": "cmd /C entry chain; success closes automatically; failure pauses; bootstrap returns with exit /b"
+    },
+    {
+      "id": "REG-PATH-001",
+      "class": "path-resolution",
+      "requirement": "simple, double-nested, spaces and foreign working directory"
+    },
+    {
+      "id": "REG-ENC-001",
+      "class": "cmd-encoding",
+      "requirement": "UTF-8 without BOM and CRLF"
+    },
+    {
+      "id": "REG-PS-001",
+      "class": "powershell-syntax",
+      "requirement": "native Parser gate before module import"
+    },
+    {
+      "id": "REG-STRICT-001",
+      "class": "automatic-variables",
+      "requirement": "no assignment to Matches or input; null discard allowed"
+    },
+    {
+      "id": "REG-STRICT-002",
+      "class": "empty-list-aggregation",
+      "requirement": "explicit ForEach-Object; no implicit .name"
+    },
+    {
+      "id": "REG-CONFIG-001",
+      "class": "dryrun-fixture",
+      "requirement": "real full release configuration"
+    },
+    {
+      "id": "REG-VERSION-001",
+      "class": "version-consistency",
+      "requirement": "config/release/core/module/starter/readme consistent"
+    },
+    {
+      "id": "REG-PREFLIGHT-001",
+      "class": "preflight",
+      "requirement": "embedded fallback and explicit override"
+    },
+    {
+      "id": "REG-UAC-001",
+      "class": "elevation",
+      "requirement": "automatic UAC and second administrator gate"
+    },
+    {
+      "id": "REG-ROLLBACK-001",
+      "class": "rollback",
+      "requirement": "partial transactional journal and non-destructive rollback"
+    },
+    {
+      "id": "REG-GH-001",
+      "class": "github-wrapper",
+      "requirement": "explicit exit code; no unguarded LASTEXITCODE after scripts"
+    },
+    {
+      "id": "REG-GH-002",
+      "class": "github-snapshots",
+      "requirement": "target-only snapshot; historical stages by tree hash"
+    },
+    {
+      "id": "REG-GH-003",
+      "class": "git-identity",
+      "requirement": "repository-local author name/email before commit/tag"
+    },
+    {
+      "id": "REG-TEXT-001",
+      "class": "source-literals",
+      "requirement": "non-expandable literal source checks"
+    },
+    {
+      "id": "REG-PS-002",
+      "class": "boolean-cmdlets",
+      "requirement": "no direct Test-Path ... -and chaining"
+    },
+    {
+      "id": "REG-GATE-001",
+      "class": "regression-gate-precision",
+      "requirement": "AST-based cmdlet detection must not flag parenthesized boolean expressions"
+    },
+    {
+      "id": "REG-PS-003",
+      "class": "array-syntax",
+      "requirement": "no trailing comma in PowerShell arrays"
+    },
+    {
+      "id": "REG-INT-001",
+      "class": "endpoint-contract",
+      "requirement": "exactly four named integration endpoints independent of module count"
+    },
+    {
+      "id": "REG-INT-002",
+      "class": "nul-removal",
+      "requirement": "string overload when removing NUL; never char plus empty string"
+    },
+    {
+      "id": "REG-INT-003",
+      "class": "wsl2-end-state",
+      "requirement": "validated WSL distribution version decides success; native set-version exit code alone never decides"
+    },
+    {
+      "id": "REG-START-002",
+      "class": "conditional-window-lifecycle",
+      "requirement": "successful scripts close automatically; failed scripts remain visible until acknowledged"
+    },
+    {
+      "id": "REG-REF-001",
+      "class": "reference-modules",
+      "requirement": "all validated predecessor modules remain byte-identical"
+    }
+  ],
+  "requiredSelfTests": [
+    "Applications Dry-Run",
+    "Applications-Execute-Freigabe",
+    "Applications-Python-Auflösung",
+    "Applications-Registry-StrictMode",
+    "Applications-Starter-und-Automatikvariablen",
+    "Automatische Variablen",
+    "CMD-Diagnosefenster-bleibt-offen",
+    "CMD-Starter-Robustheit",
+    "CMD-UTF8-ohne-BOM-und-CRLF",
+    "ComfyUI Dry-Run",
+    "ComfyUI-Execute-Freigabe",
+    "ComfyUI-Quelltextliteral-ohne-Interpolation",
+    "ComfyUI-Releasekonfiguration-vollständig",
+    "ComfyUI-Start-Stop-und-Matches-Regression",
+    "ComfyUI-Transaktion-und-Rollback",
+    "ComfyUI-kein-ungeprüftes-Master-Update",
+    "Core-Modul",
+    "Download-Manager Dry-Run",
+    "Execute-Modulfreigabe",
+    "Execute-Sicherheitsgates",
+    "Execute-automatische-UAC-Elevation",
+    "FLUX2-Pflichtmodelle-offiziell-und-hashgebunden",
+    "Git-Windows-Version-Normalisierung",
+    "GitHub-Wrapper-StrictMode-Exitcode",
+    "HuggingFace-Token-nicht-im-Log",
+    "Integration Dry-Run",
+    "Integration-WSL2-Endzustand-entscheidet",
+    "Integration-Fenster-Lifecycle",
+    "Integration-Endpunktvertrag-vier-Endpunkte",
+    "Integration-Execute-Freigabe",
+    "Integration-Rollback-und-Quoting",
+    "Integration-aktive-Versionskonsolidierung",
+    "Keine-rohen-SystemVersion-Vergleiche",
+    "Kernel-Konfiguration",
+    "Kernel-sichtbare-Fehlerursache",
+    "Modellmanifest",
+    "Models-Downloadstream-keine-Input-Kollision",
+    "Models-Workflows-Execute-Freigabe",
+    "Modulergebnis-Normalisierung",
+    "Modulgraph",
+    "Null-Discard-keine-Automatikvariablen-Kollision",
+    "OpenWebUI-FLUX2-API-flach-Node92",
+    "Paketinterner-Fortsetzungs-Preflight",
+    "Pfade-doppelt-verschachtelt-und-mit-Leerzeichen",
+    "PowerShell-AST-Syntaxgate-vor-Ausführung",
+    "PowerShell-Array-ohne-abschliessendes-Komma",
+    "PowerShell-Cmdlet-nicht-direkt-mit-and-verkettet",
+    "PowerShell-Fruehstart-Diagnose",
+    "Preflight-Rekursion-und-Zeitstempel",
+    "PythonGit Dry-Run",
+    "PythonGit-Referenzfreigabe-beibehalten",
+    "PythonGit-Testkonfiguration-vollständig",
+    "PythonGit-transaktionsgebundener-Rollback",
+    "PythonGit-uv-Fallback",
+    "Release-Versionskonsistenz",
+    "Rollback-Parser-Sicherheit-v2",
+    "Runtime-Ausgabe-und-Rollbackschutz",
+    "Runtime-Endzustand-entscheidet",
+    "Runtime-Modul Dry-Run",
+    "Runtime-Revalidierung-gegen-Konfiguration",
+    "Runtime-State-Roundtrip",
+    "Runtime-winget-Revalidierung",
+    "Schema-Kompatibilitätsmatrix",
+    "SearXNG-Linux-Installationsvertrag",
+    "Sichere Modulstatus-Auflösung",
+    "Starter-Konfiguration",
+    "Starter-Paketvollständigkeit",
+    "Starter-sichtbare-Versionskonsistenz",
+    "Syntaxgate-vor-Startermodul-und-Pfadgate",
+    "Transaktionsmodell",
+    "Validation-Modul Leermenge und Fehlerfall",
+    "Validation-Modul ungültiger Statuseintrag",
+    "Versionsnormalisierung-ohne-Matches-Kollision",
+    "Vollständige-Fehleraggregation",
+    "Workflowkatalog-vollständig",
+    "Integration-NUL-Entfernung-ohne-Char-Overload"
+  ]
+}

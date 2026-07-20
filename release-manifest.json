@@ -1,22 +1,23 @@
 {
   "schemaVersion": "1.0",
-  "repositoryVersion": "1.4.10-rc1",
-  "packageName": "KI-Stack-Applications-Execute-v1.4.10",
-  "packageVersion": "1.4.10",
-  "releaseId": "APPLICATIONS-1.4.10",
+  "repositoryVersion": "1.5.5-rc1",
+  "packageName": "KI-Stack-Integration-Execute-v1.5.5",
+  "packageVersion": "1.5.5",
+  "releaseId": "INTEGRATION-1.5.5",
   "status": "release-candidate",
-  "tag": "applications-v1.4.10-rc1",
+  "tag": "integration-v1.5.5-rc1",
   "targetSystemValidated": false,
-  "baseReference": "KI-Stack-Applications-Execute-v1.4.9",
+  "baseReference": "KI-Stack-Integration-Execute-v1.5.4",
   "enabledModules": [
     "KIModuleFoundation",
     "KIModuleRuntime",
     "KIModulePythonGit",
     "KIModuleComfyUI",
     "KIModuleModels",
-    "KIModuleApplications"
+    "KIModuleApplications",
+    "KIModuleIntegration"
   ],
-  "originalAssetSha256": "a2a9fe1ce0e324ec2cdd0ee07cdd88894442b882c9d09f459e887f067e428492",
-  "sourceArtifact": "KI-Stack-Applications-Execute-v1.4.10-core.zip",
+  "originalAssetSha256": "796b8ba5cb9d3681bf446f271a2d38a2a9387a4e9cf2b614546cff79a1f0ef9b",
+  "sourceArtifact": "KI-Stack-Integration-Execute-v1.5.5-core.zip",
   "publishedAt": "2026-07-20"
 }

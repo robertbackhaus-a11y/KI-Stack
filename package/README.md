@@ -1,86 +1,32 @@
-# KI-Stack Applications Execute v1.4.10
+# KI-Stack Integration Execute v1.5.5
 
-## Korrektur v1.4.10
+Siebter Execute-Baustein auf Basis von Applications v1.4.10.
 
-- GitHub-Bundle-Validator prüft Git-Autorparameter und Identitätsaufruf ausschließlich mit nicht expandierbaren PowerShell-Literalen.
-- `Set-StrictMode` kann im Validator keine nicht definierten Publishervariablen mehr auswerten.
-- Integriertes GitHub-Update v0.3.10.
+## Umfang
 
-## Korrektur v1.4.9
+- WSL2- und Debian-Erkennung; Debian-Installation nur wenn erforderlich.
+- systemd-Aktivierung mit kontrolliertem WSL-Neustart.
+- Übernahme eines bereits funktionierenden SearXNG-JSON-Endpunkts.
+- Andernfalls reproduzierbare native Debian-Installation des offiziellen SearXNG-Commits `277d8469c`.
+- Valkey, uWSGI und nginx mit lokalem Endpunkt `http://localhost/searxng`.
+- JSON-Format für Open WebUI.
+- WSL-Keeper sowie Start-/Stop-Skripte für den integrierten Stack.
+- Nichtdestruktiver Rollback: neu installierte WSL-Distributionen werden niemals automatisch abgemeldet.
+- GitHub Update v0.4.5 direkt im Paket.
 
-- Der integrierte GitHub-Publisher setzt Git-Autorname und -E-Mail repository-lokal im temporären Clone.
-- Commit und annotierte Tags funktionieren auch ohne globale Git-Identität.
-- Die globale Git-Konfiguration wird nicht verändert.
-- Integriertes GitHub-Update v0.3.9.
-
-
-## Korrektur v1.4.9
-
-- Versionskonsistenz wird nur über autoritative Felder bewertet; historische Hinweise bleiben zulässig.
-- Integrierter GitHub-Wrapper und Bundle-Validator verwenden keine uninitialisierte `$LASTEXITCODE`-Variable mehr.
-- Integriertes GitHub-Update v0.3.9.
-
-
-## Korrektur v1.4.9
-
-- Applications v1.4.5 ist zielsystemvalidiert; v1.4.9 korrigiert die GitHub-/Snapshot-Verpackung.
-- Historische Snapshots bleiben bytegenau und werden nur noch über feste Git-Tree-Hashes erkannt.
-- Integriertes GitHub-Update v0.3.9.
-
-
-## Korrektur v1.4.9
-
-- Persistente CMD-Diagnosesitzung vollständig wiederhergestellt.
-- Einstiegsstarter verwenden `cmd /K`; der Bootstrap kehrt am Ende ausschließlich mit `exit /b` zurück.
-- Neuer End-to-End-Regressionscheck prüft die gesamte Startkette.
-- Integriertes GitHub-Update v0.3.9.
-
-Sechster transaktionsgesicherter Baustein des KI-Stacks.
-
-## Referenzstände
-
-- Foundation/Runtime v1.0.9
-- PythonGit v1.1.5
-- ComfyUI v1.2.1
-- Models/Workflows v1.3.7
-
-## Anwendungen
-
-- LM Studio über den exakten winget-Paketbezeichner `ElementLabs.LMStudio`; vorhandene Installationen werden wiederverwendet.
-- Open WebUI ist reproduzierbar auf Version `0.10.2` gepinnt und wird im isolierten Venv `C:\KI-Stack\python\venvs\openwebui` installiert.
-- Persistente Daten liegen unter `C:\KI-Stack\OpenWebUI\data`.
-- Open WebUI ist initial für den lokalen OpenAI-kompatiblen LM-Studio-Endpunkt `http://127.0.0.1:1234/v1` vorbereitet.
-- Beide Dienste binden standardmäßig ausschließlich an `127.0.0.1`.
-
-## Erzeugte Laufzeitstarter
-
-Nach erfolgreichem Execute:
-
-- `C:\KI-Stack\modules\applications\Start-KIStack-LMStudio.cmd`
-- `C:\KI-Stack\modules\applications\Start-KIStack-OpenWebUI.cmd`
-- `C:\KI-Stack\modules\applications\Start-KIStack-Applications.cmd`
-- `C:\KI-Stack\modules\applications\Stop-KIStack-Applications.cmd`
-
-## Paketstart
+## Reihenfolge
 
 1. `Start-Nur-Selbsttest.cmd`
-2. `Start-KIStack-Applications-DryRun.cmd`
-3. `Start-KIStack-Applications-Execute.cmd`
-4. UAC bestätigen und `EXECUTE` eingeben.
-5. Nach erfolgreichem Zielsystemlauf `Start-Validate-GitHub-Update.cmd` und `Start-Publish-GitHub-Update.cmd` ausführen.
+2. `Start-KIStack-Integration-DryRun.cmd`
+3. `Start-KIStack-Integration-Execute.cmd`
+4. Nach erfolgreichem Zielsystemlauf: `Start-Validate-GitHub-Update.cmd`
+5. Danach: `Start-Publish-GitHub-Update.cmd`
 
-Das Paket enthält einen eingebetteten Fortsetzungs-Preflight und benötigt kein separates Preflight-ZIP.
+## v1.5.5 correction
 
-## Korrekturen v1.4.9
+The package validation now requires the Integration bootstrap and launcher names and rejects inherited Applications top-level launcher names.
 
-- Vollständiger Transaktionskontext im Applications-Dry-Run-Selbsttest.
-- Referenztests verwenden konsistent Kernel/Release v1.4.9.
-- Python-Auflösungsprüfung entspricht der tatsächlichen Implementierung und schließt WindowsApps-Aliase aus.
-- Eingebetteter GitHub-Wrapper verwendet durchgängig v0.3.9.
+## v1.5.5 regression hardening
 
-## Korrekturen v1.4.9
-
-- Vollstaendige Konsolidierung aller aktiven Versionsquellen.
-- Robuster Python-Aufloesungs-Regressionsvertrag.
-- Permanentes Gate gegen gemischte aktive Paketversionen.
-- Integriertes GitHub-Update v0.3.9.
+- Fixes WSL NUL-character removal.
+- Adds the mandatory historical regression matrix for all future package actions.

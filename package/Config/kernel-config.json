@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "kernelVersion": "1.4.10",
+  "kernelVersion": "1.5.5",
   "stackRoot": "C:\\KI-Stack",
   "stateRoot": "C:\\KI-Stack\\state",
   "logRoot": "C:\\KI-Stack\\logs",
@@ -161,23 +161,40 @@
     }
   },
   "integration": {
+    "moduleRoot": "C:\\KI-Stack\\modules\\integration",
+    "installationMarker": "C:\\KI-Stack\\modules\\integration\\installation.json",
+    "keeperPidFile": "C:\\KI-Stack\\modules\\integration\\wsl-keeper.pid",
     "wslDistribution": "Debian",
+    "allowWslInstall": true,
+    "requireWsl2": true,
+    "requireSystemd": true,
+    "searxngRepository": "https://github.com/searxng/searxng.git",
+    "searxngRef": "277d8469c",
+    "searxngRefType": "commit",
+    "linuxRoot": "/opt/ki-stack/searxng",
+    "linuxIntegrationRoot": "/opt/ki-stack/integration",
+    "backendPort": 8888,
     "searxngUrl": "http://localhost/searxng",
+    "searxngQueryUrl": "http://localhost/searxng/search?q=<query>",
     "openWebUIUrl": "http://127.0.0.1:8080",
     "lmStudioUrl": "http://127.0.0.1:1234",
     "comfyUIUrl": "http://127.0.0.1:8188",
-    "timeoutSeconds": 10,
-    "cutoverEnabled": false
+    "timeoutSeconds": 20,
+    "cutoverEnabled": false,
+    "webSearchResultCount": 5,
+    "webSearchConcurrentRequests": 3,
+    "webLoaderConcurrentRequests": 5
   },
   "executeRelease": {
-    "releaseId": "APPLICATIONS-1.4.10",
+    "releaseId": "INTEGRATION-1.5.5",
     "enabledModules": [
       "KIModuleFoundation",
       "KIModuleRuntime",
       "KIModulePythonGit",
       "KIModuleComfyUI",
       "KIModuleModels",
-      "KIModuleApplications"
+      "KIModuleApplications",
+      "KIModuleIntegration"
     ],
     "confirmationToken": "EXECUTE",
     "allowWingetInstall": true,
@@ -194,7 +211,7 @@
     "searchRecursively": true,
     "sortBy": "LastWriteTimeUtc",
     "preflightSelectionMode": "EmbeddedDefault",
-    "embeddedPreflightRelativePath": "Embedded\\Preflight\\State\\Preflight-Continuation-v1.4.10.zip",
+    "embeddedPreflightRelativePath": "Embedded\\Preflight\\State\\Preflight-Continuation-v1.5.5.zip",
     "allowExplicitPreflightOverride": true
   }
 }
