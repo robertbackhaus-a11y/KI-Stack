@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 umask 027
 
-RELEASE="${KI_RELEASE:-1.5.5}"
+RELEASE="${KI_RELEASE:-1.5.7}"
 REPOSITORY="${KI_SEARXNG_REPOSITORY:-https://github.com/searxng/searxng.git}"
 REF="${KI_SEARXNG_REF:-277d8469c}"
 BASE_URL="${KI_SEARXNG_BASE_URL:-http://localhost/searxng/}"

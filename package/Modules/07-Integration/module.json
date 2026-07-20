@@ -3,7 +3,7 @@
   "id": "KIModuleIntegration",
   "order": 70,
   "name": "WSL SearXNG Integration",
-  "version": "1.5.5",
+  "version": "1.5.7",
   "enabled": true,
   "script": "KIModuleIntegration.psm1",
   "supportsRollback": true,

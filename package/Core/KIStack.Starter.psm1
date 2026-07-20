@@ -121,7 +121,7 @@ function Test-KIStarterPackage {
         'Tests\Test-KIStackPowerShellSyntax.ps1',
         'Tests\Test-KIStackBuilderKernel.ps1',
         'Tests\Test-KIStackPathResolution.ps1',
-        'Embedded\Preflight\State\Preflight-Continuation-v1.5.5.zip'
+        'Embedded\Preflight\State\Preflight-Continuation-v1.5.7.zip'
     )
 
     $missing = @(

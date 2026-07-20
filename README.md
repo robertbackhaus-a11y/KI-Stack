@@ -1,4 +1,4 @@
-> Current release candidate: `integration-v1.5.5-rc1`
+> Current release candidate: `integration-v1.5.7-rc1`
 
 # KI-Stack
 
@@ -13,7 +13,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | ComfyUI | 1.2.1 | Stable; target-system validated |
 | Models / Workflows | 1.3.7-rc1 | Release candidate |
 | Applications | 1.4.9-rc1 | Release candidate; runtime already target-system validated, publisher correction |
-| Integration | 1.5.5-rc1 | Release candidate; regression-hardened |
+| Integration | 1.5.7-rc1 | Release candidate; precise CMD finish-block lifecycle gate |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
 

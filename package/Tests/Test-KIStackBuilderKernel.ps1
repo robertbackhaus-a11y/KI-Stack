@@ -1011,8 +1011,8 @@ try {
         ConvertFrom-Json -Depth 50
 
     $pythonGitApproved = (
-        [string]$releaseConfig.kernelVersion -eq '1.5.5' -and
-        [string]$releaseConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.5' -and
+        [string]$releaseConfig.kernelVersion -eq '1.5.7' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.7' -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModulePythonGit'
     )
 
@@ -1180,7 +1180,7 @@ try {
     Add-Result -Name 'CMD-Starter-Robustheit' `
         -Passed ($cmdIssues.Count -eq 0) `
         -Message ($(if ($cmdIssues.Count -eq 0) {
-            'cmd /C, gemeinsamer Bootstrap, bedingte Fehlerpause, Fallbacks, Logs und CRLF geprüft.'
+            'cmd /C, gemeinsamer Bootstrap, Ergebnis-/Exitcodeanzeige, Tastendruckabschluss, Fallbacks, Logs und CRLF geprüft.'
         } else {
             $cmdIssues -join ' | '
         }))
@@ -1245,7 +1245,7 @@ try {
 
     Add-Result -Name 'Execute-automatische-UAC-Elevation' `
         -Passed $automaticElevationValid `
-        -Message 'Execute erkennt fehlende Rechte und startet selbstständig einen erhöhten Prozess; Erfolg schließt automatisch, Fehler bleiben sichtbar.'
+        -Message 'Execute erkennt fehlende Rechte und startet einen erhöhten Prozess; das Ergebnis bleibt bis zum Tastendruck sichtbar.'
 }
 catch {
     Add-Result -Name 'Execute-automatische-UAC-Elevation' `
@@ -1265,7 +1265,7 @@ try {
         [string]$starterConfig.starter.preflightSelectionMode -eq 'EmbeddedDefault' -and
         [bool]$starterConfig.starter.allowExplicitPreflightOverride -and
         [string]$starterConfig.starter.embeddedPreflightRelativePath -eq
-            'Embedded\Preflight\State\Preflight-Continuation-v1.5.5.zip' -and
+            'Embedded\Preflight\State\Preflight-Continuation-v1.5.7.zip' -and
         @($starterConfig.starter.preflightSearchRoots).Count -ge 2
     )
 
@@ -1304,11 +1304,11 @@ try {
         $embeddedPreflightValid = (
             [bool]$embeddedValidation.valid -and
             [string]$embeddedReport.reportId -eq
-                'PREFLIGHT-CONTINUATION-INTEGRATION-1.5.5' -and
+                'PREFLIGHT-CONTINUATION-INTEGRATION-1.5.7' -and
             [string]$embeddedLock.lockId -eq
-                'VERSION-LOCK-CONTINUATION-INTEGRATION-1.5.5' -and
+                'VERSION-LOCK-CONTINUATION-INTEGRATION-1.5.7' -and
             [string]$embeddedPlan.planId -eq
-                'INSTALL-PLAN-CONTINUATION-INTEGRATION-1.5.5'
+                'INSTALL-PLAN-CONTINUATION-INTEGRATION-1.5.7'
         )
         Add-Result -Name 'Paketinterner-Fortsetzungs-Preflight' `
             -Passed $embeddedPreflightValid `
@@ -1392,8 +1392,8 @@ try {
     $releaseConfig = Get-Content -LiteralPath $configPath -Raw |
         ConvertFrom-Json -Depth 100
     $comfyApproved = (
-        [string]$releaseConfig.kernelVersion -eq '1.5.5' -and
-        [string]$releaseConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.5' -and
+        [string]$releaseConfig.kernelVersion -eq '1.5.7' -and
+        [string]$releaseConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.7' -and
         @($releaseConfig.executeRelease.enabledModules).Count -eq 7 -and
         @($releaseConfig.executeRelease.enabledModules) -contains 'KIModuleComfyUI'
     )
@@ -1648,12 +1648,12 @@ try {
     $bootstrapPath = Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
     $bootstrapContent = Get-Content -LiteralPath $bootstrapPath -Raw
     $versionLabelValid = (
-        $bootstrapContent.Contains('KI-Stack Integration v1.5.5 - %ACTION%') -and
+        $bootstrapContent.Contains('KI-Stack Integration v1.5.7 - %ACTION%') -and
         -not [regex]::IsMatch($bootstrapContent, 'PythonGit v1\\.1\\.[0-9]+')
     )
     Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
         -Passed $versionLabelValid `
-        -Message 'Der sichtbare CMD-Kopf entspricht dem Paket v1.5.5.'
+        -Message 'Der sichtbare CMD-Kopf entspricht dem Paket v1.5.7.'
 }
 catch {
     Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
@@ -1709,8 +1709,8 @@ catch {
 try {
     $starterSource = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Core\KIStack.Starter.psm1') -Raw
     $trailingCommaRemoved = (
-        -not $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.5.5.zip',") -and
-        $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.5.5.zip'")
+        -not $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.5.7.zip',") -and
+        $starterSource.Contains("'Embedded\Preflight\State\Preflight-Continuation-v1.5.7.zip'")
     )
     Add-Result -Name 'PowerShell-Array-ohne-abschliessendes-Komma' `
         -Passed $trailingCommaRemoved `
@@ -1746,7 +1746,7 @@ try {
         $pathSource.Contains('Doppelt verschachtelt') -and
         $pathSource.Contains('Leerzeichen und doppelte Verschachtelung') -and
         $pathSource.Contains('Start-Validate-GitHub-Update.cmd') -and
-        $pathSource.Contains('Preflight-Continuation-v1.5.5.zip')
+        $pathSource.Contains('Preflight-Continuation-v1.5.7.zip')
     )
     Add-Result -Name 'Pfade-doppelt-verschachtelt-und-mit-Leerzeichen' `
         -Passed $pathRegressionValid `
@@ -1872,12 +1872,12 @@ try {
     ) -TotalCount 1)
 
     $authoritativeVersionValid = (
-        [string]$versionConfig.kernelVersion -eq '1.5.5' -and
-        [string]$versionConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.5' -and
-        [string]$versionModule.version -eq '1.5.5' -and
-        $versionCore.Contains("kernelVersion = '1.5.5'") -and
-        $versionBootstrap.Contains('KI-Stack Integration v1.5.5 - %ACTION%') -and
-        $versionReadmeTitle -eq '# KI-Stack Integration Execute v1.5.5'
+        [string]$versionConfig.kernelVersion -eq '1.5.7' -and
+        [string]$versionConfig.executeRelease.releaseId -eq 'INTEGRATION-1.5.7' -and
+        [string]$versionModule.version -eq '1.5.7' -and
+        $versionCore.Contains("kernelVersion = '1.5.7'") -and
+        $versionBootstrap.Contains('KI-Stack Integration v1.5.7 - %ACTION%') -and
+        $versionReadmeTitle -eq '# KI-Stack Integration Execute v1.5.7'
     )
 
     Add-Result -Name 'Integration-aktive-Versionskonsolidierung' `
@@ -1907,9 +1907,12 @@ try {
             $conditionalEntryStarters = $false
         }
     }
-    $finishSectionIndex = $bootstrapContent.LastIndexOf(':Finish')
-    $finishSection = if ($finishSectionIndex -ge 0) {
-        $bootstrapContent.Substring($finishSectionIndex)
+    $finishSectionMatch = [regex]::Match(
+        $bootstrapContent,
+        '(?ms)^:Finish\s*\r?\n.*?(?=^:[A-Za-z0-9_]+\s*$|\z)'
+    )
+    $finishSection = if ($finishSectionMatch.Success) {
+        $finishSectionMatch.Value
     } else {
         ''
     }
@@ -1920,11 +1923,12 @@ try {
         $elevationSource.Contains('KI-Stack-Integration-Elevation.log') -and
         -not $elevationSource.Contains('KI-Stack-ModelsWorkflows-Elevation.log')
     )
-    $conditionalBootstrapLifecycle = (
-        $finishSection.Contains('if "%EXITCODE%"=="0" (') -and
-        $finishSection.Contains('exit /b 0') -and
+    $acknowledgedBootstrapLifecycle = (
+        $finishSection.Contains('Vorgang erfolgreich abgeschlossen. Exitcode: 0') -and
+        $finishSection.Contains('Vorgang fehlgeschlagen. Exitcode: %EXITCODE%') -and
         $finishSection.Contains('pause >nul') -and
         $finishSection.Contains('exit /b %EXITCODE%') -and
+        -not $finishSection.Contains('exit /b 0') -and
         -not [regex]::IsMatch(
             $finishSection,
             '(?im)^\s*exit\s+%EXITCODE%\s*$'
@@ -1937,8 +1941,8 @@ try {
         -not (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Start-KIStack-Applications.ps1') -PathType Leaf)
     )
     Add-Result -Name 'CMD-Diagnosefenster-bleibt-offen' `
-        -Passed ($conditionalEntryStarters -and $conditionalBootstrapLifecycle -and $elevationLogIdentityValid -and $integrationTopLevelContract) `
-        -Message 'Integration-Einstiegsstarter schließen bei Erfolg automatisch; Fehlerpause, Bootstrap, Logs und Elevation sind konsistent.'
+        -Passed ($conditionalEntryStarters -and $acknowledgedBootstrapLifecycle -and $elevationLogIdentityValid -and $integrationTopLevelContract) `
+        -Message 'Integration-Einstiegsstarter zeigen Erfolg und Fehler samt Exitcode, warten auf Tastendruck und schließen danach; Bootstrap, Logs und Elevation sind konsistent.'
 }
 catch {
     Add-Result -Name 'CMD-Diagnosefenster-bleibt-offen' `
@@ -1951,7 +1955,7 @@ try {
     if (Test-Path -LiteralPath $includedWrapperPath -PathType Leaf) {
         $includedWrapperSource = Get-Content -LiteralPath $includedWrapperPath -Raw
         $includedWrapperValid = (
-            $includedWrapperSource.Contains('$bundleName=''KI-Stack-GitHub-Update-v0.4.5''') -and
+            $includedWrapperSource.Contains('$bundleName=''KI-Stack-GitHub-Update-v0.4.7''') -and
             $includedWrapperSource.Contains('$invocationExitCode = 1') -and
             $includedWrapperSource.Contains('$invocationExitCode = 0') -and
             $includedWrapperSource.Contains('exit $invocationExitCode') -and
@@ -1975,7 +1979,7 @@ try {
     $integrationManifest = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Modules\07-Integration\module.json') -Raw | ConvertFrom-Json -Depth 30
     $integrationApproved = (
         [bool]$integrationManifest.enabled -and
-        [string]$integrationManifest.version -eq '1.5.5' -and
+        [string]$integrationManifest.version -eq '1.5.7' -and
         [bool]$integrationManifest.supportsRollback -and
         @($integrationConfig.executeRelease.enabledModules) -contains 'KIModuleIntegration' -and
         @($integrationConfig.executeRelease.enabledModules).Count -eq 7 -and
@@ -2081,22 +2085,95 @@ try {
         $entryLifecycleSource = Get-Content -LiteralPath (Join-Path $ProjectRoot $entryLifecycleName) -Raw
         if (-not $entryLifecycleSource.Contains('"%ComSpec%" /D /C')) { $entryLifecycleOk = $false }
     }
-    $finishLifecycleIndex = $bootstrapLifecycle.LastIndexOf(':Finish')
-    $finishLifecycle = if ($finishLifecycleIndex -ge 0) { $bootstrapLifecycle.Substring($finishLifecycleIndex) } else { '' }
+    $finishLifecycleMatch = [regex]::Match(
+        $bootstrapLifecycle,
+        '(?ms)^:Finish\s*\r?\n.*?(?=^:[A-Za-z0-9_]+\s*$|\z)'
+    )
+    $finishLifecycle = if ($finishLifecycleMatch.Success) { $finishLifecycleMatch.Value } else { '' }
     $windowLifecycleValid = (
         $entryLifecycleOk -and
         $elevationLifecycle.Contains('$cmdArguments = ''/D /C') -and
-        $finishLifecycle.Contains('if "%EXITCODE%"=="0" (') -and
-        $finishLifecycle.Contains('exit /b 0') -and
+        $finishLifecycle.Contains('Vorgang erfolgreich abgeschlossen. Exitcode: 0') -and
+        $finishLifecycle.Contains('Vorgang fehlgeschlagen. Exitcode: %EXITCODE%') -and
         $finishLifecycle.Contains('pause >nul') -and
-        $finishLifecycle.IndexOf('exit /b 0') -lt $finishLifecycle.IndexOf('pause >nul')
+        $finishLifecycle.Contains('exit /b %EXITCODE%') -and
+        -not $finishLifecycle.Contains('exit /b 0')
     )
     Add-Result -Name 'Integration-Fenster-Lifecycle' `
         -Passed $windowLifecycleValid `
-        -Message 'Erfolgreiche Starter schließen automatisch; nur Fehler bleiben bis zur Bestätigung sichtbar.'
+        -Message 'Erfolgreiche und fehlgeschlagene Starter bleiben bis zum Tastendruck sichtbar und schließen anschließend.'
 }
 catch {
     Add-Result -Name 'Integration-Fenster-Lifecycle' -Passed $false -Message $_.Exception.Message
+}
+
+
+
+try {
+    $releaseBundlePath = Join-Path $ProjectRoot 'GitHub\KI-Stack-GitHub-Update-v0.4.7.zip'
+    $releaseContractValid = Test-Path -LiteralPath $releaseBundlePath -PathType Leaf
+    if ($releaseContractValid) {
+        $releaseTemp = Join-Path ([IO.Path]::GetTempPath()) ('KI-Stack-Release-Test-' + [guid]::NewGuid().ToString('N'))
+        try {
+            Expand-Archive -LiteralPath $releaseBundlePath -DestinationPath $releaseTemp -Force
+            $releaseBundleRoot = Join-Path $releaseTemp 'KI-Stack-GitHub-Update-v0.4.7'
+            $releaseManifest = Get-Content -LiteralPath (Join-Path $releaseBundleRoot 'BUNDLE-MANIFEST.json') -Raw | ConvertFrom-Json -Depth 100
+            $releasePublisher = Get-Content -LiteralPath (Join-Path $releaseBundleRoot 'Bootstrap\Publish-KIStack-Releases.ps1') -Raw
+            $releaseAssetsValid = $true
+            foreach ($releaseAsset in @($releaseManifest.assets)) {
+                $releaseAssetPath = Join-Path $releaseBundleRoot ([string]$releaseAsset.path)
+                if (-not (Test-Path -LiteralPath $releaseAssetPath -PathType Leaf)) { $releaseAssetsValid = $false; break }
+                $releaseAssetHash = (Get-FileHash -LiteralPath $releaseAssetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+                if ($releaseAssetHash -ne ([string]$releaseAsset.sha256).ToLowerInvariant()) { $releaseAssetsValid = $false; break }
+            }
+            $releaseContractValid = (
+                [string]$releaseManifest.targetTag -eq 'integration-v1.5.7-rc1' -and
+                $releaseAssetsValid -and
+                $releasePublisher.Contains('$tag = [string]$manifest.targetTag') -and
+                $releasePublisher.Contains('foreach ($asset in @($manifest.assets))') -and
+                $releasePublisher.Contains('Get-FileHash') -and
+                -not $releasePublisher.Contains('integration-v1.5.3-rc1') -and
+                -not $releasePublisher.Contains('v1.5.3-core.zip')
+            )
+        }
+        finally { Remove-Item -LiteralPath $releaseTemp -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+    Add-Result -Name 'GitHub-Releasepublisher-aktuelle-Artefakte' `
+        -Passed $releaseContractValid `
+        -Message 'Tag und Assets werden aus dem aktuellen Manifest abgeleitet, vorab auf Existenz und SHA256 geprüft und enthalten keine veralteten v1.5.3-Referenzen.'
+}
+catch {
+    Add-Result -Name 'GitHub-Releasepublisher-aktuelle-Artefakte' -Passed $false -Message $_.Exception.Message
+}
+
+
+
+try {
+    $precisionBootstrap = Get-Content -LiteralPath (
+        Join-Path $ProjectRoot 'Bootstrap-KIStack-Integration.cmd'
+    ) -Raw
+    $precisionMatch = [regex]::Match(
+        $precisionBootstrap,
+        '(?ms)^:Finish\s*\r?\n.*?(?=^:[A-Za-z0-9_]+\s*$|\z)'
+    )
+    $precisionBlock = if ($precisionMatch.Success) { $precisionMatch.Value } else { '' }
+    $precisionValid = (
+        $precisionMatch.Success -and
+        $precisionBlock.Contains('Vorgang erfolgreich abgeschlossen. Exitcode: 0') -and
+        $precisionBlock.Contains('Vorgang fehlgeschlagen. Exitcode: %EXITCODE%') -and
+        $precisionBlock.Contains('pause >nul') -and
+        $precisionBlock.Contains('exit /b %EXITCODE%') -and
+        -not $precisionBlock.Contains(':EnsureElevation') -and
+        -not $precisionBlock.Contains(':FindPowerShell') -and
+        -not $precisionBlock.Contains(':Log') -and
+        -not $precisionBlock.Contains('exit /b 0')
+    )
+    Add-Result -Name 'CMD-Finishblock-Praezision' `
+        -Passed $precisionValid `
+        -Message 'Der Lifecycle-Test wertet ausschließlich den :Finish-Block bis zum nächsten CMD-Label aus.'
+}
+catch {
+    Add-Result -Name 'CMD-Finishblock-Praezision' -Passed $false -Message $_.Exception.Message
 }
 
 $failedResults = @(
@@ -2106,7 +2183,7 @@ $failedResults = @(
 
 $summary = [pscustomobject][ordered]@{
     generatedAt = (Get-Date).ToString('o')
-    packageVersion = '1.5.5'
+    packageVersion = '1.5.7'
     passed = ($failedResults.Count -eq 0)
     failedNames = @(
         $failedResults |

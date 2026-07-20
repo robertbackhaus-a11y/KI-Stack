@@ -1,5 +1,17 @@
 # Changelog
 
+## Integration 1.5.7-rc1 — CMD lifecycle gate precision
+
+- Keeps result/exitcode visible until one key is pressed.
+- Restricts lifecycle checks to the exact `:Finish` label block.
+- Prevents helper-function `exit /b 0` returns from causing false failures.
+
+## Integration 1.5.6-rc1 — acknowledged result and release publisher repair
+
+- Restores keypress-to-close behavior for successful and failed CMD runs.
+- Replaces stale hard-coded release assets with the current bundle manifest.
+- Validates every release asset before GitHub CLI invocation.
+
 ## Integration 1.5.5-rc1 — regression-hardened release candidate
 
 - Fixes NUL-character removal from WSL distribution output.

@@ -80,7 +80,7 @@ set "KI_STACK_LAUNCHED_FROM_CMD=1"
 call :Log "PowerShell-Starter wird aufgerufen."
 echo.
 echo ============================================================
-echo KI-Stack Integration v1.5.5 - %ACTION%
+echo KI-Stack Integration v1.5.7 - %ACTION%
 echo ============================================================
 echo Paket: %PACKAGE_ROOT%
 echo PowerShell: %PWSH%
@@ -115,13 +115,10 @@ set "EXITCODE=1"
 :Finish
 echo.
 if "%EXITCODE%"=="0" (
-    echo Vorgang erfolgreich abgeschlossen.
-    echo Bootstrap-Log: %TEMP_LOG%
-    if /I "%ACTION%"=="Execute" echo Elevation-Log: %TEMP%\KI-Stack-Integration-Elevation.log
-    if exist "%LOCAL_LOG%" echo Paket-Log: %LOCAL_LOG%
-    exit /b 0
+    echo Vorgang erfolgreich abgeschlossen. Exitcode: 0
+) else (
+    echo Vorgang fehlgeschlagen. Exitcode: %EXITCODE%
 )
-echo Vorgang fehlgeschlagen. Exitcode: %EXITCODE%
 echo Bootstrap-Log: %TEMP_LOG%
 if /I "%ACTION%"=="Execute" echo Elevation-Log: %TEMP%\KI-Stack-Integration-Elevation.log
 if exist "%LOCAL_LOG%" echo Paket-Log: %LOCAL_LOG%

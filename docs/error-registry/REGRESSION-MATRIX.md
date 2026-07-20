@@ -105,3 +105,8 @@ A correction is incomplete until its regression test executes before final self-
 
 | INT-153-01 | String.Replace Char/empty-string overload | Execute helper with a real NUL character and require String/String overload | v1.5.5 |
 | GLOBAL-REG-01 | Known errors recur across packages | Mandatory historical regression gate before every action | v1.5.5 |
+
+| REG-START-003 | Successful CMD closed before result acknowledgement | Always display result/exitcode, pause once, then close | v1.5.6 |
+| REG-GH-004 | Release publisher references stale tag/assets | Derive tag/assets from current manifest and prevalidate existence/SHA256 | v1.5.6 |
+
+| REG-GATE-002 | CMD lifecycle gate scanned helper labels after `:Finish` | Parse only the exact label block up to the next CMD label | v1.5.7 |

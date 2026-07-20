@@ -14,16 +14,18 @@ try{
  $core=Read-Text 'Core\KIStack.BuilderKernel.Core.psm1'
  $bootstrap=Read-Text 'Bootstrap-KIStack-Integration.cmd'
  $readmeFirst=(Get-Content -LiteralPath (Join-Path $ProjectRoot 'README.md') -TotalCount 1)
- $versionsOk=([string]$config.kernelVersion -eq '1.5.5' -and [string]$config.executeRelease.releaseId -eq 'INTEGRATION-1.5.5' -and [string]$manifest.version -eq '1.5.5' -and $core.Contains("kernelVersion = '1.5.5'") -and $bootstrap.Contains('KI-Stack Integration v1.5.5') -and $readmeFirst.Contains('v1.5.5'))
- Add-Check 'Authoritative version consistency' $versionsOk 'Config, release, core, module, bootstrap and README title are 1.5.5.'
+ $versionsOk=([string]$config.kernelVersion -eq '1.5.7' -and [string]$config.executeRelease.releaseId -eq 'INTEGRATION-1.5.7' -and [string]$manifest.version -eq '1.5.7' -and $core.Contains("kernelVersion = '1.5.7'") -and $bootstrap.Contains('KI-Stack Integration v1.5.7') -and $readmeFirst.Contains('v1.5.7'))
+ Add-Check 'Authoritative version consistency' $versionsOk 'Config, release, core, module, bootstrap and README title are 1.5.7.'
 
  $entryNames=@('Start-Nur-Selbsttest.cmd','Start-KIStack-Integration-DryRun.cmd','Start-KIStack-Integration-Execute.cmd')
  $entryOk=$true
  foreach($entryName in $entryNames){$entry=Read-Text $entryName;if(-not $entry.Contains('%~dp0Bootstrap-KIStack-Integration.cmd') -or -not $entry.Contains(' /D /C ')){$entryOk=$false}}
- $finishIndex=$bootstrap.LastIndexOf(':Finish')
- $finish=if($finishIndex-ge 0){$bootstrap.Substring($finishIndex)}else{''}
- $entryOk=$entryOk -and $finish.Contains('if "%EXITCODE%"=="0" (') -and $finish.Contains('exit /b 0') -and $finish.Contains('pause >nul') -and $finish.Contains('exit /b %EXITCODE%') -and -not [regex]::IsMatch($finish,'(?im)^\s*exit\s+%EXITCODE%\s*$')
- Add-Check 'Conditional CMD lifecycle' $entryOk 'cmd /C entry points close on success; bootstrap pauses only on failure and returns with exit /b.'
+ $finishMatch=[regex]::Match($bootstrap,'(?ms)^:Finish\s*\r?\n.*?(?=^:[A-Za-z0-9_]+\s*$|\z)')
+ $finish=if($finishMatch.Success){$finishMatch.Value}else{''}
+ $finishBlockPrecise=($finishMatch.Success -and -not $finish.Contains(':EnsureElevation') -and -not $finish.Contains(':FindPowerShell') -and -not $finish.Contains(':Log'))
+ $entryOk=$entryOk -and $finishBlockPrecise -and $finish.Contains('Vorgang erfolgreich abgeschlossen. Exitcode: 0') -and $finish.Contains('Vorgang fehlgeschlagen. Exitcode: %EXITCODE%') -and $finish.Contains('pause >nul') -and $finish.Contains('exit /b %EXITCODE%') -and -not $finish.Contains('exit /b 0') -and -not [regex]::IsMatch($finish,'(?im)^\s*exit\s+%EXITCODE%\s*$')
+ Add-Check 'Acknowledged CMD lifecycle' $entryOk 'The exact :Finish label block displays status/logs, waits for one key and returns with exit /b.'
+ Add-Check 'CMD finish-block precision' $finishBlockPrecise 'Lifecycle checks stop at the next CMD label and never inspect helper-function returns.'
 
  $cmdEncodingOk=$true
  foreach($file in Get-ChildItem -LiteralPath $ProjectRoot -Recurse -File -Filter '*.cmd'){
@@ -87,16 +89,41 @@ try{
  $wrapperOk=$wrapper.Contains('$invocationExitCode = 1') -and $wrapper.Contains('$invocationExitCode = 0') -and $wrapper.Contains('exit $invocationExitCode') -and -not [regex]::IsMatch($wrapper,'(?im)^\s*exit\s+\$LASTEXITCODE\s*$')
  Add-Check 'GitHub wrapper exit code' $wrapperOk 'Explicit initialized exit code; no raw LASTEXITCODE exit.'
 
- $bundleZip=Join-Path $ProjectRoot 'GitHub\KI-Stack-GitHub-Update-v0.4.5.zip'
+ $bundleZip=Join-Path $ProjectRoot 'GitHub\KI-Stack-GitHub-Update-v0.4.7.zip'
  $bundleOk=Test-Path -LiteralPath $bundleZip -PathType Leaf
  if($bundleOk){
   $temp=Join-Path ([IO.Path]::GetTempPath())('KI-Stack-Historical-'+[guid]::NewGuid().ToString('N'))
-  try{Expand-Archive -LiteralPath $bundleZip -DestinationPath $temp -Force;$root=Join-Path $temp 'KI-Stack-GitHub-Update-v0.4.5';$snapshotDirs=@(Get-ChildItem -LiteralPath (Join-Path $root 'Bootstrap\Snapshots') -Directory);$bundleOk=($snapshotDirs.Count-eq 1 -and $snapshotDirs[0].Name-eq'Repo-Integration-v1.5.5-rc1')}finally{Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue}
+  try{Expand-Archive -LiteralPath $bundleZip -DestinationPath $temp -Force;$root=Join-Path $temp 'KI-Stack-GitHub-Update-v0.4.7';$snapshotDirs=@(Get-ChildItem -LiteralPath (Join-Path $root 'Bootstrap\Snapshots') -Directory);$bundleOk=($snapshotDirs.Count-eq 1 -and $snapshotDirs[0].Name-eq'Repo-Integration-v1.5.7-rc1')}finally{Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue}
  }
  Add-Check 'GitHub target-only snapshot' $bundleOk 'Exactly one current target snapshot is embedded.'
 
+
+
+ $releasePublisherOk=$false
+ if($bundleOk){
+  $tempRelease=Join-Path ([IO.Path]::GetTempPath())('KI-Stack-Release-Contract-'+[guid]::NewGuid().ToString('N'))
+  try{
+   Expand-Archive -LiteralPath $bundleZip -DestinationPath $tempRelease -Force
+   $releaseRoot=Join-Path $tempRelease 'KI-Stack-GitHub-Update-v0.4.7'
+   $releaseManifest=Get-Content -LiteralPath (Join-Path $releaseRoot 'BUNDLE-MANIFEST.json') -Raw|ConvertFrom-Json -Depth 100
+   $releaseSource=Read-Text (Join-Path 'GitHub' 'Invoke-IncludedGitHubUpdate.ps1')
+   $publisherSource=Get-Content -LiteralPath (Join-Path $releaseRoot 'Bootstrap\Publish-KIStack-Releases.ps1') -Raw
+   $allAssetsPresent=$true
+   foreach($asset in @($releaseManifest.assets)){if(-not(Test-Path -LiteralPath (Join-Path $releaseRoot ([string]$asset.path)) -PathType Leaf)){$allAssetsPresent=$false}}
+   $releasePublisherOk=(
+    [string]$releaseManifest.targetTag -eq 'integration-v1.5.7-rc1' -and
+    $allAssetsPresent -and
+    $publisherSource.Contains('$tag = [string]$manifest.targetTag') -and
+    $publisherSource.Contains('foreach ($asset in @($manifest.assets))') -and
+    $publisherSource.Contains('Get-FileHash') -and
+    -not $publisherSource.Contains('integration-v1.5.3-rc1') -and
+    -not $publisherSource.Contains('v1.5.3-core.zip')
+   )
+  }finally{Remove-Item -LiteralPath $tempRelease -Recurse -Force -ErrorAction SilentlyContinue}
+ }
+ Add-Check 'GitHub release current assets' $releasePublisherOk 'Current manifest tag and verified existing assets drive the release publisher; no stale v1.5.3 references.'
  $failed = @($results | Where-Object { -not [bool]$_.passed })
- $report=[pscustomobject][ordered]@{generatedAt=(Get-Date).ToString('o');release='INTEGRATION-1.5.5';passed=($failed.Count-eq 0);failedNames = @($failed | ForEach-Object { [string]$_.name });results=@($results)}
+ $report=[pscustomobject][ordered]@{generatedAt=(Get-Date).ToString('o');release='INTEGRATION-1.5.7';passed=($failed.Count-eq 0);failedNames = @($failed | ForEach-Object { [string]$_.name });results=@($results)}
  $state=Join-Path $ProjectRoot 'State\Regression';New-Item -ItemType Directory -Path $state -Force|Out-Null
  $json=$report|ConvertTo-Json -Depth 20;Set-Content -LiteralPath (Join-Path $state 'Historical-Regressions-latest.json') -Value $json -Encoding UTF8
  $json

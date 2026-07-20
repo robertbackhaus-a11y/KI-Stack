@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "kernelVersion": "1.5.5",
+  "kernelVersion": "1.5.7",
   "stackRoot": "C:\\KI-Stack",
   "stateRoot": "C:\\KI-Stack\\state",
   "logRoot": "C:\\KI-Stack\\logs",
@@ -186,7 +186,7 @@
     "webLoaderConcurrentRequests": 5
   },
   "executeRelease": {
-    "releaseId": "INTEGRATION-1.5.5",
+    "releaseId": "INTEGRATION-1.5.7",
     "enabledModules": [
       "KIModuleFoundation",
       "KIModuleRuntime",
@@ -211,7 +211,7 @@
     "searchRecursively": true,
     "sortBy": "LastWriteTimeUtc",
     "preflightSelectionMode": "EmbeddedDefault",
-    "embeddedPreflightRelativePath": "Embedded\\Preflight\\State\\Preflight-Continuation-v1.5.5.zip",
+    "embeddedPreflightRelativePath": "Embedded\\Preflight\\State\\Preflight-Continuation-v1.5.7.zip",
     "allowExplicitPreflightOverride": true
   }
 }

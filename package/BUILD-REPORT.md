@@ -1,8 +1,7 @@
-# KI-Stack Integration v1.5.5 – Regression-Hardened Repair Build
+# KI-Stack Integration v1.5.7 – CMD Lifecycle Gate Precision Repair
 
-- Revalidates the actual Debian WSL version before and after `wsl --set-version`; the validated end state decides instead of the native exit code alone.
-- Treats an already reached WSL2 target state as success even when WSL returns `WSL_E_VM_MODE_INVALID_STATE`.
-- Closes successful SelfTest, DryRun, Execute and GitHub windows automatically while failed runs remain visible until acknowledged.
-- Extends the mandatory historical regression matrix for WSL end-state validation and conditional window lifecycle.
-- Revalidates starter, paths, StrictMode, versions, preflight, rollback and GitHub contracts.
-- Embeds GitHub Update v0.4.5.
+- Keeps the requested lifecycle: every result remains visible until one key is pressed.
+- Fixes the false-positive historical gate by parsing only the exact `:Finish` CMD label block.
+- Applies the same label-block precision to normal package SelfTests.
+- Adds permanent regression `REG-GATE-002` and SelfTest `CMD-Finishblock-Praezision`.
+- Embeds GitHub Update v0.4.7.

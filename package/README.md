@@ -1,4 +1,4 @@
-# KI-Stack Integration Execute v1.5.5
+# KI-Stack Integration Execute v1.5.7
 
 Siebter Execute-Baustein auf Basis von Applications v1.4.10.
 
@@ -12,7 +12,7 @@ Siebter Execute-Baustein auf Basis von Applications v1.4.10.
 - JSON-Format für Open WebUI.
 - WSL-Keeper sowie Start-/Stop-Skripte für den integrierten Stack.
 - Nichtdestruktiver Rollback: neu installierte WSL-Distributionen werden niemals automatisch abgemeldet.
-- GitHub Update v0.4.5 direkt im Paket.
+- GitHub Update v0.4.7 direkt im Paket.
 
 ## Reihenfolge
 
@@ -22,11 +22,22 @@ Siebter Execute-Baustein auf Basis von Applications v1.4.10.
 4. Nach erfolgreichem Zielsystemlauf: `Start-Validate-GitHub-Update.cmd`
 5. Danach: `Start-Publish-GitHub-Update.cmd`
 
-## v1.5.5 correction
+## v1.5.6 correction
 
 The package validation now requires the Integration bootstrap and launcher names and rejects inherited Applications top-level launcher names.
 
-## v1.5.5 regression hardening
+## v1.5.6 regression hardening
 
 - Fixes WSL NUL-character removal.
 - Adds the mandatory historical regression matrix for all future package actions.
+
+## v1.5.6 release-publisher and window lifecycle repair
+
+- Every result remains visible until one key is pressed.
+- GitHub releases use only current manifest assets and validate them before upload.
+
+## v1.5.7 lifecycle-gate precision repair
+
+- The requested lifecycle remains: result and exit code are shown, one key closes the window.
+- CMD lifecycle validation now inspects only the exact `:Finish` label block and ignores helper-function returns.
+- The same label-block precision is enforced in both historical and normal SelfTests.

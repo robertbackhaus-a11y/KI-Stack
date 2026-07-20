@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "lockId": "VERSION-LOCK-CONTINUATION-INTEGRATION-1.5.5",
+  "lockId": "VERSION-LOCK-CONTINUATION-INTEGRATION-1.5.7",
   "generatedAtUtc": "2026-07-20T06:32:03Z",
   "approved": false,
   "executable": false,
@@ -32,7 +32,7 @@
     },
     {
       "id": "Integration",
-      "referenceVersion": "1.5.5",
+      "referenceVersion": "1.5.7",
       "status": "release-candidate"
     }
   ]

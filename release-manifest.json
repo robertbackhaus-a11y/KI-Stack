@@ -1,13 +1,13 @@
 {
   "schemaVersion": "1.0",
-  "repositoryVersion": "1.5.5-rc1",
-  "packageName": "KI-Stack-Integration-Execute-v1.5.5",
-  "packageVersion": "1.5.5",
-  "releaseId": "INTEGRATION-1.5.5",
+  "repositoryVersion": "1.5.7-rc1",
+  "packageName": "KI-Stack-Integration-Execute-v1.5.7",
+  "packageVersion": "1.5.7",
+  "releaseId": "INTEGRATION-1.5.7",
   "status": "release-candidate",
-  "tag": "integration-v1.5.5-rc1",
+  "tag": "integration-v1.5.7-rc1",
   "targetSystemValidated": false,
-  "baseReference": "KI-Stack-Integration-Execute-v1.5.4",
+  "baseReference": "KI-Stack-Integration-Execute-v1.5.6",
   "enabledModules": [
     "KIModuleFoundation",
     "KIModuleRuntime",
@@ -17,7 +17,7 @@
     "KIModuleApplications",
     "KIModuleIntegration"
   ],
-  "originalAssetSha256": "796b8ba5cb9d3681bf446f271a2d38a2a9387a4e9cf2b614546cff79a1f0ef9b",
-  "sourceArtifact": "KI-Stack-Integration-Execute-v1.5.5-core.zip",
+  "originalAssetSha256": "43cb840293afc2b6359353ecc53f1ed4d43a0d1565568631b4518b9a65ccad0c",
+  "sourceArtifact": "KI-Stack-Integration-Execute-v1.5.7-core.zip",
   "publishedAt": "2026-07-20"
 }

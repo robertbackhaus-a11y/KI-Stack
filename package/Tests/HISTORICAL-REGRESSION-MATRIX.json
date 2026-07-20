@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "scope": "all-projects",
-  "release": "INTEGRATION-1.5.5",
-  "generatedAtUtc": "2026-07-20T11:15:00Z",
+  "release": "INTEGRATION-1.5.7",
+  "generatedAtUtc": "2026-07-20T09:29:41Z",
   "policy": {
     "completeFilesOnly": true,
     "noPatchInstructions": true,
@@ -14,7 +14,7 @@
     {
       "id": "REG-START-001",
       "class": "starter-window",
-      "requirement": "cmd /C entry chain; success closes automatically; failure pauses; bootstrap returns with exit /b"
+      "requirement": "cmd /C entry chain; every result shows exit status and waits for one key; bootstrap returns with exit /b"
     },
     {
       "id": "REG-PATH-001",
@@ -118,13 +118,23 @@
     },
     {
       "id": "REG-START-002",
-      "class": "conditional-window-lifecycle",
-      "requirement": "successful scripts close automatically; failed scripts remain visible until acknowledged"
+      "class": "acknowledged-window-lifecycle",
+      "requirement": "successful and failed scripts remain visible until acknowledged, then close"
     },
     {
       "id": "REG-REF-001",
       "class": "reference-modules",
       "requirement": "all validated predecessor modules remain byte-identical"
+    },
+    {
+      "id": "REG-GH-004",
+      "class": "github-release-assets",
+      "requirement": "release tag and assets come from current bundle manifest; every asset exists and hash matches before gh invocation; no stale version literals"
+    },
+    {
+      "id": "REG-GATE-002",
+      "class": "cmd-label-block-precision",
+      "requirement": "CMD lifecycle checks inspect only the requested label block up to the next label; helper-function exit /b 0 is ignored"
     }
   ],
   "requiredSelfTests": [
@@ -203,6 +213,8 @@
     "Versionsnormalisierung-ohne-Matches-Kollision",
     "Vollständige-Fehleraggregation",
     "Workflowkatalog-vollständig",
-    "Integration-NUL-Entfernung-ohne-Char-Overload"
+    "Integration-NUL-Entfernung-ohne-Char-Overload",
+    "GitHub-Releasepublisher-aktuelle-Artefakte",
+    "CMD-Finishblock-Praezision"
   ]
 }

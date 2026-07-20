@@ -1,39 +1,29 @@
 {
-  "package": "KI-Stack-Integration-Execute-v1.5.5",
-  "version": "1.5.5",
-  "releaseId": "INTEGRATION-1.5.5",
+  "package": "KI-Stack-Integration-Execute-v1.5.7",
+  "version": "1.5.7",
+  "releaseId": "INTEGRATION-1.5.7",
   "status": "PASSED",
-  "generatedAtUtc": "2026-07-20T11:15:00Z",
+  "generatedAtUtc": "2026-07-20T09:29:41Z",
   "checks": [
     {
-      "name": "WSL2 end-state validation",
+      "name": "Exact Finish label block",
       "passed": true,
-      "detail": "The actual distribution version decides success; set-version exit code alone does not."
+      "detail": "Lifecycle inspection stops at the next CMD label."
     },
     {
-      "name": "Conditional window lifecycle",
+      "name": "Requested acknowledgement lifecycle",
       "passed": true,
-      "detail": "Successful windows close automatically; failed windows pause for diagnostics."
+      "detail": "Success and failure show status/exitcode, wait for one key, then close."
     },
     {
-      "name": "NUL replacement overload",
+      "name": "Helper returns excluded",
       "passed": true,
-      "detail": "String/String Replace verified; no Char/empty-string call remains."
+      "detail": "exit /b 0 in :EnsureElevation/:FindPowerShell/:Log cannot trigger a lifecycle false positive."
     },
     {
       "name": "Historical regression matrix",
       "passed": true,
-      "detail": "23 regression classes and 76 inherited self-tests required."
-    },
-    {
-      "name": "Gate ordering",
-      "passed": true,
-      "detail": "Native parser, path gate and historical regression gate precede actions."
-    },
-    {
-      "name": "GitHub target-only update",
-      "passed": true,
-      "detail": "v0.4.5 uses one current target snapshot."
+      "detail": "25 cross-project classes and 78 inherited tests required."
     }
   ]
 }

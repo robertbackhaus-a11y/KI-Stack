@@ -24,7 +24,7 @@ $requiredRelativePaths = @(
     'Tests\Test-KIStackBuilderKernel.ps1',
     'Tests\Test-KIStackPowerShellSyntax.ps1',
     'Tests\Test-KIStackPathResolution.ps1',
-    'Embedded\Preflight\State\Preflight-Continuation-v1.5.5.zip'
+    'Embedded\Preflight\State\Preflight-Continuation-v1.5.7.zip'
 )
 
 $scenarios = @(
@@ -92,7 +92,7 @@ try {
         $githubPresent = @($githubStartFiles | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }).Count
         $githubValid = $true
         if ($githubPresent -gt 0) {
-            $githubBundle = Join-Path $scenarioRoot 'GitHub\KI-Stack-GitHub-Update-v0.4.5.zip'
+            $githubBundle = Join-Path $scenarioRoot 'GitHub\KI-Stack-GitHub-Update-v0.4.7.zip'
             $githubWrapper = Join-Path $scenarioRoot 'GitHub\Invoke-IncludedGitHubUpdate.ps1'
             $githubValid = (
                 $githubPresent -eq 2 -and

@@ -1,4 +1,4 @@
-> Current release candidate: `integration-v1.5.5-rc1`
+> Current release candidate: `integration-v1.5.7-rc1`
 
 # KI-Stack – Deutsch
 
