@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0",
+  "status": "TARGET_SYSTEM_ACCEPTANCE_PASSED",
+  "completedAtUtc": "2026-07-21T12:15:06.4833454Z",
+  "recovery": {
+    "version": "1.7.0-r7",
+    "status": "TargetSystemAccepted",
+    "sha256": "0b4b28c886f01939fb45a9d7f3ce9f5323f57a8208e42381088544afa5955c59"
+  },
+  "targetAcceptance": {
+    "version": "1.0.10",
+    "sha256": "bbfe6e79438406fecbc301f8883a7b629ca0c1ff5736917c267c02ec79fce0d6"
+  },
+  "endpoints": [
+    { "name": "SearXNG", "passed": true, "attempts": 1 },
+    { "name": "Open WebUI", "passed": true, "attempts": 1 },
+    { "name": "LM Studio", "passed": true, "attempts": 1 },
+    { "name": "ComfyUI", "passed": true, "attempts": 1 }
+  ],
+  "rawTargetReportPublished": false,
+  "containsPersonalOrSystemPaths": false
+}

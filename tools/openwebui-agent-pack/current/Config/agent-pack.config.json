@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "openWebUIVersion": "0.10.2",
   "endpoint": "http://127.0.0.1:8080",
   "baseModelId": null,
@@ -11,6 +11,8 @@
   "webSearch": {
     "profileSettingAvailable": false,
     "runtimeFeatureField": "features.web_search",
-    "globalDependency": "SearXNG configured in OpenWebUI"
+    "globalDependency": "SearXNG configured in OpenWebUI",
+    "integrationMinimumVersion": "1.5.8",
+    "requiredEndpoint": "http://localhost/searxng/search?q=ki-stack&format=json"
   }
 }

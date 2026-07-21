@@ -1,15 +1,22 @@
-# KI-Stack Production Recovery v1.7.0-r6
+# KI-Stack Production Recovery v1.7.0-r7
 
 Zielsystemakzeptierter Production-Recovery-Stand mit veröffentlichtem Cutover Runtime-Core v1.6.3 und 32 operationalen Overlay-Dateien.
 
-Status: `TargetSystemAccepted`. Vorgänger ist der veröffentlichte und akzeptierte Stand Production Recovery `1.7.0-r5`. r6 wurde mit Target Acceptance `1.0.9` gegen das Zielsystem validiert.
+Status: `TargetSystemAccepted`. Vorgänger ist der veröffentlichte und akzeptierte Stand Production Recovery `1.7.0-r6`. Dessen SearXNG-Nachweis belegte keinen Kaltstart und wurde nicht als Beleg für r7 verwendet.
 
-## Korrektur r6
+## Korrektur r7
+
+- Der Starter verwendet die tatsächlich installierte Debian-Standardkette `valkey-server`, `uwsgi` und `nginx`; eine nicht vorhandene produktspezifische systemd-Unit wird nicht vorausgesetzt.
+- Keeper-PIDs werden vor Wiederverwendung oder Beendigung anhand Prozessname und Kommandozeile verifiziert. Veraltete oder fremde PIDs werden nicht beendet.
+- Erfolg erfordert TCP-Port 80, die HTML-Seite sowie eine parsebare JSON-Suche mit Ergebnisvertrag.
+- Eine vorhandene kalte Standardinstallation wird übernommen; unvollständige oder defekte Konfigurationen führen nicht zu einer parallelen Installation.
+
+## Übernommene Korrekturen aus r6
 
 - Persönliche LM-Studio-Pfade wurden durch portable Laufzeitauflösung ersetzt.
 - Der kontrollierte ComfyUI-Stop ist gegen bereits während der Inventarisierung beendete Prozesse idempotent.
 - Release-, Overlay- und Prüfsummenverträge wurden an den vorbereiteten Quellenstand angepasst.
-- Der finale r6-Artefaktvertrag wurde nach der Zielsystemvalidierung neu gebaut und im Abschlusslauf bestätigt.
+- Der finale r6-Artefaktvertrag wurde nach der damaligen Zielsystemvalidierung gebaut und veröffentlicht.
 
 ## Übernommene Korrekturen aus r5
 
@@ -20,4 +27,4 @@ Status: `TargetSystemAccepted`. Vorgänger ist der veröffentlichte und akzeptie
 
 Die historische Byteidentität zum verlorenen Vollpaket wird nicht behauptet.
 
-Der Runtime-Core ist Cutover v1.6.3. Die im validierten Operational Overlay erhaltenen Installationsmarker für Integration und Cutover tragen weiterhin v1.6.2, weil v1.6.3 ausschließlich den Repository-/Manifestvertrag des Runtime-Pakets korrigierte und diese installierten Komponenten nicht neu schrieb.
+Der Runtime-Core ist Cutover v1.6.3. Der r7-Overlaymarker kennzeichnet die reparierte Integration 1.5.8; der Cutover-Marker bleibt historisch unverändert.

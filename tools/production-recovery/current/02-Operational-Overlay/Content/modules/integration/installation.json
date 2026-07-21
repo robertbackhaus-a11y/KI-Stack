@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "managedBy": "KI-STACK-INTEGRATION-MANAGED",
-  "release": "KI-Stack-Integration-Execute-v1.6.2",
+  "release": "KI-Stack-Integration-Execute-v1.5.8",
   "installedAt": "2026-07-20T12:37:58.3055727+02:00",
   "transactionId": "KI-STACK-TX-20260720-123705",
   "distribution": "Debian",

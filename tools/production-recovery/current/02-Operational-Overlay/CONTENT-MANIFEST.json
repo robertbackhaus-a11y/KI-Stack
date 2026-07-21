@@ -1,15 +1,15 @@
 {
   "schemaVersion": "1.0",
-  "purpose": "Recovered operational overlay with verified Open WebUI console launcher, non-interactive controlled stop and ComfyUI default SQLite directory initialization",
+  "purpose": "Operational overlay with repaired standard SearXNG service chain, verified keeper lifecycle, portable application resolution and controlled component stop/start",
   "sourceCapture": {
     "name": "KI-Stack-Recovery-Input-20260720-203556.zip",
     "sha256": "3b9b1498eb7561212e3ace28ef86fb2b7fda93a99ff3419136a269757f574026",
     "fileCount": 937,
     "totalBytes": 44099018,
-    "generatedAtUtc": "2026-07-20T18:36:14.7979350Z"
+    "generatedAtUtc": "2026-07-20T18:36:14.797935Z"
   },
   "overlayFileCount": 32,
-  "overlayTotalBytes": 39475,
+  "overlayTotalBytes": 41432,
   "files": [
     {
       "path": "data/comfyui/user/default/workflows/KI-Stack/FLUX2-Klein-9B-OpenWebUI-API-FLAT.json",
@@ -51,7 +51,7 @@
       "path": "modules/applications/Start-KIStack-LMStudio.cmd",
       "size": 1170,
       "sha256": "f2d9a7f4bffc3edb48469754fb20d086afcdb2ad57f5121eca98f8cbc45735c4",
-      "lastWriteTimeUtc": "2026-07-20T10:37:44.7852040Z"
+      "lastWriteTimeUtc": "2026-07-20T10:37:44.785204Z"
     },
     {
       "path": "modules/applications/Start-KIStack-OpenWebUI.cmd",
@@ -63,7 +63,7 @@
       "path": "modules/applications/Stop-KIStack-Applications.cmd",
       "size": 595,
       "sha256": "7666032afcc06293257bfa62f3da1e6d8f51073a7406ec22c5a7ff825fea865b",
-      "lastWriteTimeUtc": "2026-07-20T10:37:44.7972330Z"
+      "lastWriteTimeUtc": "2026-07-20T10:37:44.797233Z"
     },
     {
       "path": "modules/applications/Stop-KIStack-Applications.ps1",
@@ -169,9 +169,9 @@
     },
     {
       "path": "modules/integration/Start-KIStack-SearXNG.ps1",
-      "size": 1404,
-      "sha256": "52d313569323733953d55fe192d31b36022d0473f78158586a4d0eb7bceec89e",
-      "lastWriteTimeUtc": "2026-07-20T10:37:58.2933600Z"
+      "size": 2859,
+      "sha256": "11eda48a4c4264921e6ddf6fdbd0fc896b0c049cedc0ce627a30321a389297cc",
+      "lastWriteTimeUtc": "2026-07-20T10:37:58.29336Z"
     },
     {
       "path": "modules/integration/Stop-KIStack-IntegratedStack.cmd",
@@ -187,14 +187,14 @@
     },
     {
       "path": "modules/integration/Stop-KIStack-SearXNG.ps1",
-      "size": 602,
-      "sha256": "6ccd622b48cd7306243c4dc6f90e64f3ce1ee207c2de869f80a08799a23eff4f",
+      "size": 1104,
+      "sha256": "302bf94ce8678b0916cd001698de776dfeef9c82c33ec466876c3f4a31876fc5",
       "lastWriteTimeUtc": "2026-07-20T10:37:58.2963646Z"
     },
     {
       "path": "modules/integration/installation.json",
       "size": 377,
-      "sha256": "de8b7ec134acf7ba3483f24acc9d2768926afec78ed179212d4231a781766f74",
+      "sha256": "6289b36fbc17d8d2e17e719d7eeca7273ca8290027572d5ed2b33c0d218eca4a",
       "lastWriteTimeUtc": "2026-07-20T10:37:58.3088787Z"
     },
     {

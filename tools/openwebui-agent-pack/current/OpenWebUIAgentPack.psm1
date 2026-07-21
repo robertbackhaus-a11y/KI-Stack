@@ -85,7 +85,7 @@ function New-AgentPackModelForm {
             skillIds = @()
             functionIds = @()
             managedBy = 'KI-STACK-OPENWEBUI-AGENT-PACK'
-            agentPackVersion = '1.8.0'
+            agentPackVersion = '1.8.1'
         }
         params = [ordered]@{
             system = [string]$Definition.systemPrompt

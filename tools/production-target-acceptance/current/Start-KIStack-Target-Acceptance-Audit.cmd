@@ -1,18 +1,18 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
-echo === KI-Stack Production Target Acceptance v1.0.9 - Audit ===
+echo === KI-Stack Production Target Acceptance v1.0.10 - Audit ===
 if not exist "%~dp0VERSION" (
   echo FEHLER: VERSION-Datei fehlt.
   pause
   exit /b 1
 )
 set /p "PACKAGE_VERSION="<"%~dp0VERSION"
-if not "%PACKAGE_VERSION%"=="1.0.9" (
-  echo FEHLER: Falsche Paketversion. Erwartet 1.0.9, gefunden %PACKAGE_VERSION%.
+if not "%PACKAGE_VERSION%"=="1.0.10" (
+  echo FEHLER: Falsche Paketversion. Erwartet 1.0.10, gefunden %PACKAGE_VERSION%.
   pause
   exit /b 1
 )
-title KI-Stack Production Target Acceptance v1.0.9 - Audit
+title KI-Stack Production Target Acceptance v1.0.10 - Audit
 set "PWSH="
 if defined ProgramW6432 if exist "%ProgramW6432%\PowerShell\7\pwsh.exe" set "PWSH=%ProgramW6432%\PowerShell\7\pwsh.exe"
 if not defined PWSH if defined ProgramFiles if exist "%ProgramFiles%\PowerShell\7\pwsh.exe" set "PWSH=%ProgramFiles%\PowerShell\7\pwsh.exe"
