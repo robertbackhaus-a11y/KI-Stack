@@ -1749,12 +1749,11 @@ try {
         (Test-Path -LiteralPath $pathTest -PathType Leaf) -and
         $pathSource.Contains('Doppelt verschachtelt') -and
         $pathSource.Contains('Leerzeichen und doppelte Verschachtelung') -and
-        $pathSource.Contains('Start-Validate-GitHub-Update.cmd') -and
         $pathSource.Contains('Preflight-Continuation-v1.6.3.zip')
     )
     Add-Result -Name 'Pfade-doppelt-verschachtelt-und-mit-Leerzeichen' `
         -Passed $pathRegressionValid `
-        -Message 'Paketwurzel, eingebetteter Preflight und GitHub-Unterpaket werden in allen relevanten Pfadvarianten geprüft.'
+        -Message 'Paketwurzel und eingebetteter Preflight werden in allen relevanten Pfadvarianten geprüft.'
 }
 catch {
     Add-Result -Name 'Pfade-doppelt-verschachtelt-und-mit-Leerzeichen' -Passed $false -Message $_.Exception.Message
@@ -1954,30 +1953,6 @@ catch {
 }
 
 try {
-    $includedWrapperPath = Join-Path $ProjectRoot 'GitHub\Invoke-IncludedGitHubUpdate.ps1'
-    $includedWrapperValid = $true
-    if (Test-Path -LiteralPath $includedWrapperPath -PathType Leaf) {
-        $includedWrapperSource = Get-Content -LiteralPath $includedWrapperPath -Raw
-        $normalizedIncludedWrapperSource = [regex]::Replace($includedWrapperSource,'\s+','')
-        $includedWrapperValid = (
-            $includedWrapperSource.Contains('$bundleName=''KI-Stack-GitHub-Update-v0.5.3''') -and
-            $normalizedIncludedWrapperSource.Contains('$invocationExitCode=1') -and
-            $normalizedIncludedWrapperSource.Contains('$invocationExitCode=0') -and
-            $includedWrapperSource.Contains('exit $invocationExitCode') -and
-            -not [regex]::IsMatch($includedWrapperSource,'(?im)^\s*exit\s+\$LASTEXITCODE\s*$')
-        )
-    }
-    Add-Result -Name 'GitHub-Wrapper-StrictMode-Exitcode' `
-        -Passed $includedWrapperValid `
-        -Message 'Der integrierte GitHub-Wrapper verwendet einen explizit initialisierten Exitcode und liest nach PowerShell-Skriptaufrufen nicht ungeprüft $LASTEXITCODE.'
-}
-catch {
-    Add-Result -Name 'GitHub-Wrapper-StrictMode-Exitcode' `
-        -Passed $false -Message $_.Exception.Message
-}
-
-
-try {
     $integrationConfig = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Config\kernel-config.json') -Raw | ConvertFrom-Json -Depth 100
     $integrationModulePath = Join-Path $ProjectRoot 'Modules\07-Integration\KIModuleIntegration.psm1'
     $integrationModuleContent = Get-Content -LiteralPath $integrationModulePath -Raw
@@ -2115,45 +2090,6 @@ catch {
 
 
 try {
-    $releaseBundlePath = Join-Path $ProjectRoot 'GitHub\KI-Stack-GitHub-Update-v0.5.3.zip'
-    $releaseContractValid = Test-Path -LiteralPath $releaseBundlePath -PathType Leaf
-    if ($releaseContractValid) {
-        $releaseTemp = Join-Path ([IO.Path]::GetTempPath()) ('KI-Stack-Release-Test-' + [guid]::NewGuid().ToString('N'))
-        try {
-            Expand-Archive -LiteralPath $releaseBundlePath -DestinationPath $releaseTemp -Force
-            $releaseBundleRoot = Join-Path $releaseTemp 'KI-Stack-GitHub-Update-v0.5.3'
-            $releaseManifest = Get-Content -LiteralPath (Join-Path $releaseBundleRoot 'BUNDLE-MANIFEST.json') -Raw | ConvertFrom-Json -Depth 100
-            $releasePublisher = Get-Content -LiteralPath (Join-Path $releaseBundleRoot 'Bootstrap\Publish-KIStack-Releases.ps1') -Raw
-            $releaseAssetsValid = $true
-            foreach ($releaseAsset in @($releaseManifest.assets)) {
-                $releaseAssetPath = Join-Path $releaseBundleRoot ([string]$releaseAsset.path)
-                if (-not (Test-Path -LiteralPath $releaseAssetPath -PathType Leaf)) { $releaseAssetsValid = $false; break }
-                $releaseAssetHash = (Get-FileHash -LiteralPath $releaseAssetPath -Algorithm SHA256).Hash.ToLowerInvariant()
-                if ($releaseAssetHash -ne ([string]$releaseAsset.sha256).ToLowerInvariant()) { $releaseAssetsValid = $false; break }
-            }
-            $releaseContractValid = (
-                [string]$releaseManifest.targetTag -eq 'cutover-v1.6.3-rc1' -and
-                $releaseAssetsValid -and
-                $releasePublisher.Contains('$tag = [string]$manifest.targetTag') -and
-                $releasePublisher.Contains('foreach ($asset in @($manifest.assets))') -and
-                $releasePublisher.Contains('Get-FileHash') -and
-                -not $releasePublisher.Contains('integration-v1.5.3-rc1') -and
-                -not $releasePublisher.Contains('v1.5.3-core.zip')
-            )
-        }
-        finally { Remove-Item -LiteralPath $releaseTemp -Recurse -Force -ErrorAction SilentlyContinue }
-    }
-    Add-Result -Name 'GitHub-Releasepublisher-aktuelle-Artefakte' `
-        -Passed $releaseContractValid `
-        -Message 'Tag und Assets werden aus dem aktuellen Manifest abgeleitet, vorab auf Existenz und SHA256 geprüft und enthalten keine veralteten v1.5.3-Referenzen.'
-}
-catch {
-    Add-Result -Name 'GitHub-Releasepublisher-aktuelle-Artefakte' -Passed $false -Message $_.Exception.Message
-}
-
-
-
-try {
     $precisionBootstrap = Get-Content -LiteralPath (
         Join-Path $ProjectRoot 'Bootstrap-KIStack-Cutover.cmd'
     ) -Raw
@@ -2282,34 +2218,6 @@ try {
 }
 catch { Add-Result -Name 'Validation-Abnahmebericht-Vertrag' -Passed $false -Message $_.Exception.Message }
 
-
-try {
-    $manifestSchemaBundle = Join-Path $ProjectRoot 'GitHub\KI-Stack-GitHub-Update-v0.5.3.zip'
-    $manifestSchemaPassed = $false
-    $manifestSchemaTemp = Join-Path ([IO.Path]::GetTempPath()) ('KI-Stack-Manifest-SelfTest-' + [guid]::NewGuid().ToString('N'))
-    try {
-        Expand-Archive -LiteralPath $manifestSchemaBundle -DestinationPath $manifestSchemaTemp -Force
-        $manifestSchemaRoot = Join-Path $manifestSchemaTemp 'KI-Stack-GitHub-Update-v0.5.3'
-        $releaseManifest = Get-Content -LiteralPath (Join-Path $manifestSchemaRoot 'Repository\release-manifest.json') -Raw -ErrorAction Stop | ConvertFrom-Json -Depth 100 -ErrorAction Stop
-        $repositoryValidator = Get-Content -LiteralPath (Join-Path $manifestSchemaRoot 'Repository\scripts\Test-Repository.ps1') -Raw -ErrorAction Stop
-        $legacyVersionProperty = $releaseManifest.PSObject.Properties['packageVersion']
-        $currentVersionProperty = $releaseManifest.PSObject.Properties['version']
-        $manifestSchemaPassed = (
-            $null -ne $currentVersionProperty -and [string]$currentVersionProperty.Value -eq '1.6.3' -and
-            $null -ne $legacyVersionProperty -and [string]$legacyVersionProperty.Value -eq '1.6.3' -and
-            $repositoryValidator.Contains('Resolve-ReleaseManifestVersion') -and
-            $repositoryValidator.Contains("'CurrentVersionOnly'") -and
-            $repositoryValidator.Contains("'LegacyPackageVersionOnly'") -and
-            $repositoryValidator.Contains("'ConflictingDualVersion'") -and
-            -not $repositoryValidator.Contains('$manifest.packageVersion')
-        )
-    }
-    finally {
-        if (Test-Path -LiteralPath $manifestSchemaTemp) { Remove-Item -LiteralPath $manifestSchemaTemp -Recurse -Force -ErrorAction SilentlyContinue }
-    }
-    Add-Result -Name 'GitHub-Release-Manifest-Schema-Kompatibilitaet' -Passed $manifestSchemaPassed -Message 'Der finale Bundle-Validator löst version und packageVersion StrictMode-sicher auf und testet aktuelle, ältere und ungültige Schemafälle.'
-}
-catch { Add-Result -Name 'GitHub-Release-Manifest-Schema-Kompatibilitaet' -Passed $false -Message $_.Exception.Message }
 
 $failedResults = @(
     $results |

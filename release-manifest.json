@@ -1,6 +1,7 @@
 {
   "schemaVersion": "1.1",
   "releaseId": "CUTOVER-1.6.3",
+  "packageName": "KI-Stack-Cutover-Execute-v1.6.3",
   "version": "1.6.3",
   "packageVersion": "1.6.3",
   "tag": "cutover-v1.6.3-rc1",

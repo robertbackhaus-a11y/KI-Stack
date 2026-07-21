@@ -11,15 +11,21 @@ $OutputDirectory=[IO.Path]::GetFullPath($OutputDirectory)
 & (Join-Path $RootPath 'scripts/Test-Repository.ps1') -RootPath $RootPath
 
 $manifest=Get-Content (Join-Path $RootPath 'release-manifest.json') -Raw | ConvertFrom-Json -Depth 100
-$packageName=[string]$manifest.packageName
-if([string]::IsNullOrWhiteSpace($packageName)){throw 'release-manifest.json does not define packageName.'}
+$packageNameProperty=$manifest.PSObject.Properties['packageName']
+$packageDirectoryProperty=$manifest.PSObject.Properties['packageDirectory']
+if($null -eq $packageNameProperty -or [string]::IsNullOrWhiteSpace([string]$packageNameProperty.Value)){throw 'release-manifest.json does not define packageName.'}
+if($null -eq $packageDirectoryProperty -or [string]::IsNullOrWhiteSpace([string]$packageDirectoryProperty.Value)){throw 'release-manifest.json does not define packageDirectory.'}
+$packageName=[string]$packageNameProperty.Value
+$packageDirectory=[string]$packageDirectoryProperty.Value
+$packageSource=Join-Path $RootPath $packageDirectory
+if(-not(Test-Path -LiteralPath $packageSource -PathType Container)){throw "Package directory does not exist: $packageDirectory"}
 
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 $tempRoot=Join-Path ([IO.Path]::GetTempPath()) ('KI-Stack-Release-'+[guid]::NewGuid().ToString('N'))
 $stage=Join-Path $tempRoot $packageName
 New-Item -ItemType Directory -Path $stage -Force | Out-Null
 try {
-    Copy-Item -Path (Join-Path $RootPath 'package/*') -Destination $stage -Recurse -Force
+    Copy-Item -Path (Join-Path $packageSource '*') -Destination $stage -Recurse -Force
     $sumFile=Join-Path $stage 'SHA256SUMS.txt'
     Remove-Item -LiteralPath $sumFile -Force -ErrorAction SilentlyContinue
     $lines=@()

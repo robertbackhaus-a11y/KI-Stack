@@ -12,7 +12,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Python / Git | 1.1.5 | Stable; target-system validated |
 | ComfyUI | 1.2.1 | Stable; target-system validated |
 | Models / Workflows | 1.3.7-rc1 | Release candidate |
-| Applications | 1.4.9-rc1 | Release candidate; runtime already target-system validated, publisher correction |
+| Applications | 1.4.10-rc1 | Release candidate; StrictMode-safe publisher contract |
 | Integration | 1.5.7-rc1 | Release candidate; precise CMD finish-block lifecycle gate |
 | Cutover runtime | 1.6.3 | Accepted runtime baseline |
 | Production recovery | 1.7.0-r5 | Reconstructed and content-validated |

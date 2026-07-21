@@ -11,7 +11,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | Foundation / Runtime | 1.0.9 | Stabiler Referenzstand, auf Zielsystem validiert |
 | Python / Git | 1.1.5 | Stabil, auf Zielsystem validiert |
 | ComfyUI | 1.2.1 | Stabil; auf dem Zielsystem validiert |
-| Modelle / Workflows | 1.3.4-rc1 | Release Candidate; Zielsystemtest ausstehend |
+| Modelle / Workflows | 1.3.7-rc1 | Release Candidate; im akzeptierten Production-Stand enthalten |
 | Applications | 1.4.10-rc1 | Release Candidate; Laufzeit auf dem Zielsystem validiert |
 | Integration | 1.5.7-rc1 | Release Candidate; präzises CMD-Lifecycle-Gate |
 | Cutover Runtime | 1.6.3 | Akzeptierter Runtime-Basisstand |

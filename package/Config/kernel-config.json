@@ -118,8 +118,7 @@
       "%USERPROFILE%\\Downloads",
       "%USERPROFILE%\\ComfyUI\\models",
       "%USERPROFILE%\\Documents\\ComfyUI\\models",
-      "C:\\ComfyUI\\models",
-      "C:\\Users\\okami\\ComfyUI\\models"
+      "C:\\ComfyUI\\models"
     ],
     "directories": [
       "checkpoints",

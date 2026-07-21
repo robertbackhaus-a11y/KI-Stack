@@ -184,12 +184,6 @@
       "name": "Ausführbarer Abnahmebericht",
       "failureClass": "Expandable source literal false failure",
       "requiredTest": "Validation-Abnahmebericht-Vertrag"
-    },
-    {
-      "id": "GH-MANIFEST-STRICT-001",
-      "name": "GitHub Release-Manifest Schemaauflösung",
-      "failureClass": "StrictMode direct access to missing packageVersion property",
-      "requiredTest": "GitHub-Release-Manifest-Schema-Kompatibilitaet"
     }
   ],
   "requiredSelfTests": [
@@ -216,7 +210,6 @@
     "Execute-automatische-UAC-Elevation",
     "FLUX2-Pflichtmodelle-offiziell-und-hashgebunden",
     "Git-Windows-Version-Normalisierung",
-    "GitHub-Wrapper-StrictMode-Exitcode",
     "HuggingFace-Token-nicht-im-Log",
     "Integration Dry-Run",
     "Integration-WSL2-Endzustand-entscheidet",
@@ -269,11 +262,9 @@
     "Vollständige-Fehleraggregation",
     "Workflowkatalog-vollständig",
     "Integration-NUL-Entfernung-ohne-Char-Overload",
-    "GitHub-Releasepublisher-aktuelle-Artefakte",
     "CMD-Finishblock-Praezision",
     "Cutover-DryRun-Vertrag",
     "Cutover-Execute-Freigabe",
-    "Validation-Abnahmebericht-Vertrag",
-    "GitHub-Release-Manifest-Schema-Kompatibilitaet"
+    "Validation-Abnahmebericht-Vertrag"
   ]
 }

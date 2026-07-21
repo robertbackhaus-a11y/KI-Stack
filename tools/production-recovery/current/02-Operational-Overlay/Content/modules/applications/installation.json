@@ -6,7 +6,7 @@
   "lmStudio": {
     "packageId": "ElementLabs.LMStudio",
     "executablePath": "C:\\Program Files\\LM Studio\\LM Studio.exe",
-    "lmsPath": "C:\\Users\\okami\\.lmstudio\\bin\\lms.exe",
+    "lmsPath": "%USERPROFILE%\\.lmstudio\\bin\\lms.exe",
     "serverUrl": "http://127.0.0.1:1234"
   },
   "openWebUI": {

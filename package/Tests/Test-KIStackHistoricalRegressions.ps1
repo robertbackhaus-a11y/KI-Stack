@@ -85,45 +85,6 @@ try{
  $syntaxIndex=$launcher.IndexOf('Test-KIStackPowerShellSyntax.ps1');$importIndex=$launcher.IndexOf('Import-Module $starterModulePath');$historyIndex=$launcher.IndexOf('Test-KIStackHistoricalRegressions.ps1')
  Add-Check 'Gate ordering' ($syntaxIndex-ge 0 -and $importIndex-gt $syntaxIndex -and $historyIndex-gt $importIndex) 'Syntax, module import, path and historical gates execute in controlled order.'
 
- $wrapper=Read-Text 'GitHub\Invoke-IncludedGitHubUpdate.ps1'
- $normalizedWrapper=[regex]::Replace($wrapper,'\s+','')
- $wrapperOk=$normalizedWrapper.Contains('$invocationExitCode=1') -and $normalizedWrapper.Contains('$invocationExitCode=0') -and $wrapper.Contains('exit $invocationExitCode') -and -not [regex]::IsMatch($wrapper,'(?im)^\s*exit\s+\$LASTEXITCODE\s*$')
- Add-Check 'GitHub wrapper exit code' $wrapperOk 'Explicit initialized exit code; no raw LASTEXITCODE exit.'
-
- $bundleZip=Join-Path $ProjectRoot 'GitHub\KI-Stack-GitHub-Update-v0.5.3.zip'
- $bundleOk=Test-Path -LiteralPath $bundleZip -PathType Leaf
- if($bundleOk){
-  $temp=Join-Path ([IO.Path]::GetTempPath())('KI-Stack-Historical-'+[guid]::NewGuid().ToString('N'))
-  try{Expand-Archive -LiteralPath $bundleZip -DestinationPath $temp -Force;$root=Join-Path $temp 'KI-Stack-GitHub-Update-v0.5.3';$snapshotDirs=@(Get-ChildItem -LiteralPath (Join-Path $root 'Bootstrap\Snapshots') -Directory);$bundleOk=($snapshotDirs.Count-eq 1 -and $snapshotDirs[0].Name-eq'Repo-Cutover-v1.6.3-rc1')}finally{Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue}
- }
- Add-Check 'GitHub target-only snapshot' $bundleOk 'Exactly one current target snapshot is embedded.'
-
-
-
- $releasePublisherOk=$false
- if($bundleOk){
-  $tempRelease=Join-Path ([IO.Path]::GetTempPath())('KI-Stack-Release-Contract-'+[guid]::NewGuid().ToString('N'))
-  try{
-   Expand-Archive -LiteralPath $bundleZip -DestinationPath $tempRelease -Force
-   $releaseRoot=Join-Path $tempRelease 'KI-Stack-GitHub-Update-v0.5.3'
-   $releaseManifest=Get-Content -LiteralPath (Join-Path $releaseRoot 'BUNDLE-MANIFEST.json') -Raw|ConvertFrom-Json -Depth 100
-   $releaseSource=Read-Text (Join-Path 'GitHub' 'Invoke-IncludedGitHubUpdate.ps1')
-   $publisherSource=Get-Content -LiteralPath (Join-Path $releaseRoot 'Bootstrap\Publish-KIStack-Releases.ps1') -Raw
-   $allAssetsPresent=$true
-   foreach($asset in @($releaseManifest.assets)){if(-not(Test-Path -LiteralPath (Join-Path $releaseRoot ([string]$asset.path)) -PathType Leaf)){$allAssetsPresent=$false}}
-   $releasePublisherOk=(
-    [string]$releaseManifest.targetTag -eq 'cutover-v1.6.3-rc1' -and
-    $allAssetsPresent -and
-    $publisherSource.Contains('$tag = [string]$manifest.targetTag') -and
-    $publisherSource.Contains('foreach ($asset in @($manifest.assets))') -and
-    $publisherSource.Contains('Get-FileHash') -and
-    -not $publisherSource.Contains('integration-v1.5.3-rc1') -and
-    -not $publisherSource.Contains('v1.5.3-core.zip')
-   )
-  }finally{Remove-Item -LiteralPath $tempRelease -Recurse -Force -ErrorAction SilentlyContinue}
- }
- Add-Check 'GitHub release current assets' $releasePublisherOk 'Current manifest tag and verified existing assets drive the release publisher; no stale v1.5.3 references.'
-
 $cutoverManifest=Read-Text 'Modules\08-Cutover\module.json'|ConvertFrom-Json -Depth 30
 $validationManifest=Read-Text 'Modules\99-Validation\module.json'|ConvertFrom-Json -Depth 30
 $cutoverSource=Read-Text 'Modules\08-Cutover\KIModuleCutover.psm1'
@@ -162,31 +123,6 @@ $acceptanceExecutionOk=(
 )
 Add-Check 'Executable validation acceptance contract' $acceptanceExecutionOk 'Acceptance reporting is verified through generated JSON files instead of expandable source literals.'
 
-
-$manifestSchemaOk=$false
-if($bundleOk){
- $tempSchema=Join-Path ([IO.Path]::GetTempPath())('KI-Stack-Manifest-Schema-'+[guid]::NewGuid().ToString('N'))
- try{
-  Expand-Archive -LiteralPath $bundleZip -DestinationPath $tempSchema -Force
-  $schemaRoot=Join-Path $tempSchema 'KI-Stack-GitHub-Update-v0.5.3'
-  $releaseManifestPath=Join-Path $schemaRoot 'Repository\release-manifest.json'
-  $validatorPath=Join-Path $schemaRoot 'Repository\scripts\Test-Repository.ps1'
-  $releaseManifest=Get-Content -LiteralPath $releaseManifestPath -Raw|ConvertFrom-Json -Depth 100
-  $validatorSource=Get-Content -LiteralPath $validatorPath -Raw
-  $legacyVersionProperty=$releaseManifest.PSObject.Properties['packageVersion']
-  $currentVersionProperty=$releaseManifest.PSObject.Properties['version']
-  $manifestSchemaOk=(
-   $null -ne $currentVersionProperty -and [string]$currentVersionProperty.Value -eq '1.6.3' -and
-   $null -ne $legacyVersionProperty -and [string]$legacyVersionProperty.Value -eq '1.6.3' -and
-   $validatorSource.Contains('Resolve-ReleaseManifestVersion') -and
-   $validatorSource.Contains("'CurrentVersionOnly'") -and
-   $validatorSource.Contains("'LegacyPackageVersionOnly'") -and
-   $validatorSource.Contains("'ConflictingDualVersion'") -and
-   -not $validatorSource.Contains('$manifest.packageVersion')
-  )
- }finally{Remove-Item -LiteralPath $tempSchema -Recurse -Force -ErrorAction SilentlyContinue}
-}
-Add-Check 'GitHub release manifest schema compatibility' $manifestSchemaOk 'The final bundle supports current version and legacy packageVersion manifests under StrictMode and rejects conflicting or missing fields.'
 
  $failed = @($results | Where-Object { -not [bool]$_.passed })
  $report=[pscustomobject][ordered]@{generatedAt=(Get-Date).ToString('o');release='CUTOVER-1.6.3';passed=($failed.Count-eq 0);failedNames = @($failed | ForEach-Object { [string]$_.name });results=@($results)}

@@ -9,7 +9,7 @@
     "generatedAtUtc": "2026-07-20T18:36:14.7979350Z"
   },
   "overlayFileCount": 32,
-  "overlayTotalBytes": 38479,
+  "overlayTotalBytes": 39080,
   "files": [
     {
       "path": "data/comfyui/user/default/workflows/KI-Stack/FLUX2-Klein-9B-OpenWebUI-API-FLAT.json",
@@ -49,8 +49,8 @@
     },
     {
       "path": "modules/applications/Start-KIStack-LMStudio.cmd",
-      "size": 1204,
-      "sha256": "e2a570a4ca5f4783f47afece911cf7fd31b848326693eb339dc8f1c7fbce803d",
+      "size": 1170,
+      "sha256": "f2d9a7f4bffc3edb48469754fb20d086afcdb2ad57f5121eca98f8cbc45735c4",
       "lastWriteTimeUtc": "2026-07-20T10:37:44.7852040Z"
     },
     {
@@ -67,14 +67,14 @@
     },
     {
       "path": "modules/applications/Stop-KIStack-Applications.ps1",
-      "size": 912,
-      "sha256": "2249aead66cfff6e8b0489f3c0dddeab9ba3f09389379d68ccce3fad671ac17f",
+      "size": 1535,
+      "sha256": "8e311745da5a984ba5b9384c4bd5c9481427fa2158739b1959ab2cc52682dfee",
       "lastWriteTimeUtc": "2026-07-20T10:37:44.7937203Z"
     },
     {
       "path": "modules/applications/installation.json",
-      "size": 642,
-      "sha256": "55e93c078675e303a00f75cf4a91f3dc089e49e993c325422cb367ac745d769b",
+      "size": 639,
+      "sha256": "e20b8164ab8dffe866522dc4d431e01b33ccefd24ec41e43ef382cd454dd5ad8",
       "lastWriteTimeUtc": "2026-07-20T10:37:44.8002341Z"
     },
     {

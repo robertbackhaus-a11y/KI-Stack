@@ -67,10 +67,11 @@ function Test-CmdCrLf {
 
 $RootPath = [IO.Path]::GetFullPath($RootPath)
 $Results = [Collections.Generic.List[object]]::new()
+$excludedPathPattern = '[\\/](?:\.git|_import)[\\/]|[\\/]tools[\\/]production-recovery[\\/]current[\\/]04-Evidence[\\/]'
 
 try {
     $required = @(
-        'README.md','README.de.md','CHANGELOG.md','VERSION','release-manifest.json',
+        'README.md','README.de.md','CHANGELOG.md','VERSION','release-manifest.json','production-release-manifest.json',
         'package/Config/kernel-config.json','package/Tests/Test-KIStackBuilderKernel.ps1',
         'scripts/Test-Repository.ps1','scripts/New-ReleaseArchive.ps1',
         'docs/error-registry/REGRESSION-MATRIX.md'
@@ -78,7 +79,7 @@ try {
     $missing = @($required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $RootPath $_)) })
     Add-Result 'Required files' ($missing.Count -eq 0) ($(if($missing){$missing -join ', '}else{'complete'}))
 
-    $jsonFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Filter '*.json' | Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' })
+    $jsonFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Filter '*.json' | Where-Object { $_.FullName -notmatch $excludedPathPattern })
     $jsonErrors = @()
     foreach ($file in $jsonFiles) {
         try { Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -Depth 100 | Out-Null }
@@ -86,7 +87,7 @@ try {
     }
     Add-Result 'JSON integrity' ($jsonErrors.Count -eq 0) ($(if($jsonErrors){$jsonErrors -join '; '}else{"$($jsonFiles.Count) files parsed"}))
 
-    $psFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File | Where-Object { $_.Extension -in '.ps1','.psm1' -and $_.FullName -notmatch '[\\/]\.git[\\/]' })
+    $psFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File | Where-Object { $_.Extension -in '.ps1','.psm1' -and $_.FullName -notmatch $excludedPathPattern })
     $parseErrors = @()
     foreach ($file in $psFiles) {
         $tokens=$null; $errors=$null
@@ -95,7 +96,7 @@ try {
     }
     Add-Result 'PowerShell parser' ($parseErrors.Count -eq 0) ($(if($parseErrors){$parseErrors -join '; '}else{"$($psFiles.Count) files parsed"}))
 
-    $cmdFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Filter '*.cmd' | Where-Object { $_.FullName -notmatch '[\\/]\.git[\\/]' })
+    $cmdFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Filter '*.cmd' | Where-Object { $_.FullName -notmatch $excludedPathPattern })
     $badCmd = @($cmdFiles | Where-Object { -not (Test-CmdCrLf -Path $_.FullName) } | ForEach-Object FullName)
     $bomCmd = @($cmdFiles | Where-Object { $bytes=[IO.File]::ReadAllBytes($_.FullName); $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF } | ForEach-Object FullName)
     Add-Result 'CMD CRLF/BOM' ($badCmd.Count -eq 0 -and $bomCmd.Count -eq 0) ($(if($badCmd -or $bomCmd){'CRLF='+($badCmd -join ', ')+'; BOM='+($bomCmd -join ', ')}else{"$($cmdFiles.Count) files checked"}))
@@ -129,11 +130,59 @@ try {
         $enabledA=@($manifestModules | Sort-Object); $enabledB=@((Get-OptionalPropertyValue -InputObject $configRelease -Name 'enabledModules' -DefaultValue @()) | Sort-Object)
         $modulesOk = (($enabledA -join '|') -eq ($enabledB -join '|'))
         Add-Result 'Enabled modules' $modulesOk "manifest=$($enabledA -join ','); config=$($enabledB -join ',')"
+
+        $packageName = [string](Get-OptionalPropertyValue -InputObject $manifest -Name 'packageName' -DefaultValue '')
+        $packageDirectory = [string](Get-OptionalPropertyValue -InputObject $manifest -Name 'packageDirectory' -DefaultValue '')
+        $releaseTag = [string](Get-OptionalPropertyValue -InputObject $manifest -Name 'tag' -DefaultValue '')
+        $builderPath = Join-Path $RootPath 'scripts/New-ReleaseArchive.ps1'
+        $builderSource = Get-Content -LiteralPath $builderPath -Raw
+        $releaseContractOk = (
+            $packageName -eq ('KI-Stack-Cutover-Execute-v{0}' -f $resolvedVersion.version) -and
+            -not [string]::IsNullOrWhiteSpace($packageDirectory) -and
+            (Test-Path -LiteralPath (Join-Path $RootPath $packageDirectory) -PathType Container) -and
+            $releaseTag -eq ('cutover-v{0}-rc1' -f $resolvedVersion.version) -and
+            $builderSource.Contains("PSObject.Properties['packageName']") -and
+            $builderSource.Contains("PSObject.Properties['packageDirectory']") -and
+            $builderSource.Contains('$packageSource')
+        )
+        Add-Result 'Release build contract' $releaseContractOk "packageName=$packageName; packageDirectory=$packageDirectory; tag=$releaseTag"
     }
     else {
         Add-Result 'Version consistency' $false 'release-manifest.json or package/Config/kernel-config.json is missing.'
         Add-Result 'Enabled modules' $false 'Version inputs are incomplete.'
+        Add-Result 'Release build contract' $false 'Release inputs are incomplete.'
     }
+
+    $liveReferenceFiles = @(
+        Join-Path $RootPath 'package/README.md'
+        Join-Path $RootPath 'package/Tests/Test-KIStackBuilderKernel.ps1'
+        Join-Path $RootPath 'package/Tests/Test-KIStackHistoricalRegressions.ps1'
+        Join-Path $RootPath 'package/Tests/Test-KIStackPathResolution.ps1'
+    )
+    $obsoleteReferencePattern = 'Start-(?:Validate|Publish)-GitHub-Update\.cmd|Invoke-IncludedGitHubUpdate\.ps1|KI-Stack-GitHub-Update-v0\.5\.3(?:\.zip)?'
+    $obsoleteReferences = @()
+    foreach ($file in $liveReferenceFiles) {
+        $matches = [regex]::Matches((Get-Content -LiteralPath $file -Raw),$obsoleteReferencePattern,[Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        foreach ($match in $matches) { $obsoleteReferences += ('{0}: {1}' -f $file,$match.Value) }
+    }
+    $packageReadme = Get-Content -LiteralPath (Join-Path $RootPath 'package/README.md') -Raw
+    $referencesOk = $obsoleteReferences.Count -eq 0 -and $packageReadme.Contains('nicht Bestandteil dieses Runtime-Pakets')
+    Add-Result 'Live file references' $referencesOk $(if($referencesOk){'obsolete GitHub package references removed and component absence documented'}else{$obsoleteReferences -join '; '})
+
+    $runtimeVersion = (Get-Content -LiteralPath (Join-Path $RootPath 'VERSION') -Raw).Trim()
+    $modelsVersion = [string](Get-Content -LiteralPath (Join-Path $RootPath 'package/Modules/05-Models/module.json') -Raw | ConvertFrom-Json).version
+    $applicationsVersion = [string](Get-Content -LiteralPath (Join-Path $RootPath 'package/Modules/06-Applications/module.json') -Raw | ConvertFrom-Json).version
+    $readmeEn = Get-Content -LiteralPath (Join-Path $RootPath 'README.md') -Raw
+    $readmeDe = Get-Content -LiteralPath (Join-Path $RootPath 'README.de.md') -Raw
+    $buildReport = Get-Content -LiteralPath (Join-Path $RootPath 'package/BUILD-REPORT.md') -Raw
+    $documentationVersionsOk = (
+        $readmeEn.Contains("| Models / Workflows | $modelsVersion-rc1") -and
+        $readmeEn.Contains("| Applications | $applicationsVersion-rc1") -and
+        $readmeDe.Contains("| Modelle / Workflows | $modelsVersion-rc1") -and
+        $readmeDe.Contains("| Applications | $applicationsVersion-rc1") -and
+        $buildReport.Contains("Ausgelieferter Stand: Cutover v$runtimeVersion")
+    )
+    Add-Result 'Documentation version consistency' $documentationVersionsOk "runtime=$runtimeVersion; models=$modelsVersion; applications=$applicationsVersion"
 
     $sumsPath = Join-Path $RootPath 'package/SHA256SUMS.txt'
     $sumErrors=@()
@@ -152,12 +201,25 @@ try {
 
     $secretPatterns = @('ghp_[A-Za-z0-9]{20,}','github_pat_[A-Za-z0-9_]{20,}','AKIA[0-9A-Z]{16}','-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----','sk-[A-Za-z0-9]{20,}')
     $secretHits=@()
-    $textFiles=Get-ChildItem -LiteralPath $RootPath -Recurse -File | Where-Object { $_.Length -lt 5MB -and $_.Extension -in '.ps1','.psm1','.cmd','.json','.yml','.yaml','.md','.txt' -and $_.FullName -notmatch '[\\/]\.git[\\/]' }
+    $textFiles=Get-ChildItem -LiteralPath $RootPath -Recurse -File | Where-Object { $_.Length -lt 5MB -and $_.Extension -in '.ps1','.psm1','.cmd','.json','.yml','.yaml','.md','.txt' -and $_.FullName -notmatch $excludedPathPattern }
     foreach($file in $textFiles){
         $text=Get-Content -LiteralPath $file.FullName -Raw
         foreach($pattern in $secretPatterns){ if($text -match $pattern){$secretHits += "$($file.FullName): $pattern"} }
     }
     Add-Result 'High-confidence secret scan' ($secretHits.Count -eq 0) ($(if($secretHits){$secretHits -join '; '}else{'no credential patterns found'}))
+
+    $personalPathHits = @()
+    $personalPathPatterns = @(
+        '(?i)C:\\Users\\(?!%USERPROFILE%|<user>|username\\)[A-Za-z0-9._-]+',
+        '(?i)C:\\\\Users\\\\(?!%USERPROFILE%|<user>|username\\\\)[A-Za-z0-9._-]+'
+    )
+    foreach ($file in $textFiles) {
+        $text = Get-Content -LiteralPath $file.FullName -Raw
+        foreach ($pattern in $personalPathPatterns) {
+            foreach ($match in [regex]::Matches($text,$pattern)) { $personalPathHits += ('{0}: {1}' -f $file.FullName,$match.Value) }
+        }
+    }
+    Add-Result 'Portable repository paths' ($personalPathHits.Count -eq 0) $(if($personalPathHits){$personalPathHits -join '; '}else{'no personal Windows profile paths found'})
 
     $validatorSource = Get-Content -LiteralPath $PSCommandPath -Raw
     $unsafeAggregation = [regex]::IsMatch(

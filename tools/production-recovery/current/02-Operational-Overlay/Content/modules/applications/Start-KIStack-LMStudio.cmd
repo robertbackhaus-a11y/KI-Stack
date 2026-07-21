@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 title KI-Stack LM Studio
-set "LMS_CLI=C:\Users\okami\.lmstudio\bin\lms.exe"
+set "LMS_CLI="
 set "LMSTUDIO_EXE=C:\Program Files\LM Studio\LM Studio.exe"
 if not defined LMS_CLI for /f "delims=" %%I in ('where lms.exe 2^>nul') do if not defined LMS_CLI set "LMS_CLI=%%~fI"
 if not defined LMS_CLI for /f "delims=" %%I in ('where lms.cmd 2^>nul') do if not defined LMS_CLI set "LMS_CLI=%%~fI"
