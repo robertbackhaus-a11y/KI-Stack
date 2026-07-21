@@ -74,7 +74,14 @@ try {
         'README.md','README.de.md','CHANGELOG.md','VERSION','release-manifest.json','production-release-manifest.json',
         'package/Config/kernel-config.json','package/Tests/Test-KIStackBuilderKernel.ps1',
         'scripts/Test-Repository.ps1','scripts/New-ReleaseArchive.ps1',
-        'docs/error-registry/REGRESSION-MATRIX.md'
+        'docs/error-registry/REGRESSION-MATRIX.md',
+        'tools/openwebui-agent-pack/current/VERSION',
+        'tools/openwebui-agent-pack/current/MANIFEST.json',
+        'tools/openwebui-agent-pack/current/Definitions/ki-stack-it-technik.json',
+        'tools/openwebui-agent-pack/current/Definitions/ki-stack-allgemein.json',
+        'tools/openwebui-agent-pack/current/OpenWebUIAgentPack.psm1',
+        'tools/openwebui-agent-pack/current/Invoke-OpenWebUIAgentPack.ps1',
+        'tools/openwebui-agent-pack/current/Test-OpenWebUIAgentPack.ps1'
     )
     $missing = @($required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $RootPath $_)) })
     Add-Result 'Required files' ($missing.Count -eq 0) ($(if($missing){$missing -join ', '}else{'complete'}))
@@ -186,6 +193,30 @@ try {
         $buildReport.Contains("Ausgelieferter Stand: Cutover v$runtimeVersion")
     )
     Add-Result 'Documentation version consistency' $documentationVersionsOk "runtime=$runtimeVersion; models=$modelsVersion; applications=$applicationsVersion; integration=$integrationVersion"
+
+    $agentRoot = Join-Path $RootPath 'tools/openwebui-agent-pack/current'
+    $agentVersion = (Get-Content -LiteralPath (Join-Path $agentRoot 'VERSION') -Raw).Trim()
+    $agentManifest = Get-Content -LiteralPath (Join-Path $agentRoot 'MANIFEST.json') -Raw | ConvertFrom-Json -Depth 30
+    $agentConfig = Get-Content -LiteralPath (Join-Path $agentRoot 'Config/agent-pack.config.json') -Raw | ConvertFrom-Json -Depth 30
+    $agentDefinitions = @(Get-ChildItem -LiteralPath (Join-Path $agentRoot 'Definitions') -File -Filter '*.json' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -Depth 30 })
+    $agentIds = @($agentDefinitions.id | Sort-Object)
+    $agentSchemaOk = (
+        $agentVersion -eq '1.8.0' -and $agentManifest.version -eq $agentVersion -and $agentConfig.version -eq $agentVersion -and
+        ($agentIds -join '|') -eq 'ki-stack-allgemein|ki-stack-it-technik' -and
+        @($agentDefinitions | Where-Object { $_.schemaVersion -ne '1.0' -or [string]::IsNullOrWhiteSpace([string]$_.systemPrompt) }).Count -eq 0 -and
+        @($agentDefinitions | Where-Object { @($_.knowledge).Count -or @($_.toolIds).Count -or @($_.skillIds).Count -or @($_.functionIds).Count }).Count -eq 0
+    )
+    Add-Result 'OpenWebUI Agent Pack contract' $agentSchemaOk "version=$agentVersion; ids=$($agentIds -join ',')"
+
+    $agentSumErrors = @()
+    foreach ($line in Get-Content -LiteralPath (Join-Path $agentRoot 'SHA256SUMS.txt')) {
+        if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith('#')) { continue }
+        if ($line -notmatch '^([0-9a-fA-F]{64})\s+\*?(.+)$') { $agentSumErrors += "Invalid line: $line"; continue }
+        $target = Join-Path $agentRoot $Matches[2].Replace('/',[IO.Path]::DirectorySeparatorChar)
+        if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { $agentSumErrors += "Missing: $($Matches[2])"; continue }
+        if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Matches[1].ToLowerInvariant()) { $agentSumErrors += "Mismatch: $($Matches[2])" }
+    }
+    Add-Result 'OpenWebUI Agent Pack SHA256' ($agentSumErrors.Count -eq 0) $(if($agentSumErrors){$agentSumErrors -join '; '}else{'all listed files verified'})
 
     $sumsPath = Join-Path $RootPath 'package/SHA256SUMS.txt'
     $sumErrors=@()

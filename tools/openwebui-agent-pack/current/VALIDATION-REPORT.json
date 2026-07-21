@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "package": "KI-Stack OpenWebUI Agent Pack",
+  "version": "1.8.0",
+  "status": "TargetSystemValidated",
+  "validatedAtUtc": "2026-07-21T11:28:47.0068811Z",
+  "openWebUIVersion": "0.10.2",
+  "managedModelIds": [
+    "ki-stack-it-technik",
+    "ki-stack-allgemein"
+  ],
+  "baseModelUsed": "qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved",
+  "results": {
+    "firstExecute": true,
+    "secondExecuteIdempotent": true,
+    "rollbackExecuted": true,
+    "finalExecute": true,
+    "apiReadback": true,
+    "searxngWebSearch": true,
+    "itTechnikChat": true,
+    "allgemeinChat": true,
+    "otherResourcesUnchanged": true,
+    "chatHistoryCreated": false,
+    "backupCreated": true
+  },
+  "containsSecrets": false,
+  "containsPersonalPaths": false
+}
