@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "package": "KI-Stack OpenWebUI Agent Pack",
+  "version": "1.8.0",
+  "status": "TargetSystemValidated",
+  "sourceContract": "two canonical workspace models",
+  "deployment": "OpenWebUI 0.10.2 HTTP API",
+  "containsSecrets": false,
+  "containsPersonalPaths": false,
+  "deterministicArchive": true
+}

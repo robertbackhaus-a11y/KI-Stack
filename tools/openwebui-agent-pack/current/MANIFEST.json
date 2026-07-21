@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "KI-STACK-OPENWEBUI-AGENT-PACK",
+  "version": "1.8.0",
+  "status": "TargetSystemValidated",
+  "validatedAtUtc": "2026-07-21T11:28:47.0068811Z",
+  "targetApplication": {
+    "name": "OpenWebUI",
+    "version": "0.10.2"
+  },
+  "managedModelIds": [
+    "ki-stack-it-technik",
+    "ki-stack-allgemein"
+  ],
+  "deployment": {
+    "kind": "OpenWebUI HTTP API",
+    "create": "/api/v1/models/create",
+    "update": "/api/v1/models/model/update",
+    "readback": "/api/v1/models/model",
+    "delete": "/api/v1/models/model/delete",
+    "authentication": "runtime Bearer token as SecureString"
+  },
+  "webSearch": {
+    "profileSettingAvailable": false,
+    "validationFeature": "features.web_search",
+    "dependency": "global SearXNG configuration",
+    "targetTestPassed": true
+  }
+}

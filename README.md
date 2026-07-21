@@ -18,6 +18,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Production recovery | 1.7.0-r6 | Target-system accepted; portable runtime resolution |
 | Universal package Validation Gate | 1.0.2 | Activated on the target system |
 | Production Target Acceptance | 1.0.9 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
+| OpenWebUI Agent Pack | 1.8.0 | Stable; OpenWebUI 0.10.2 target-system validated |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
 
@@ -98,5 +99,9 @@ Sets repository-local Git author identity before commits and annotated tags with
 ## Production recovery and target acceptance
 
 The repository includes complete reusable sources for Production Recovery `1.7.0-r6`, Universal Package Validation Gate `1.0.2`, and Production Target Acceptance `1.0.9`. ZIP binaries remain GitHub Release assets and are referenced by explicit artifact contracts. The published r5 state remains documented as the accepted predecessor.
+
+## OpenWebUI Agent Pack
+
+OpenWebUI Agent Pack `1.8.0` manages exactly the workspace models `KI & IT-Technik` and `Allgemein` through the supported OpenWebUI 0.10.2 HTTP API. Model binding is supplied at runtime; tokens, personal paths, knowledge bases, tools, skills and functions are not embedded.
 
 Overall status: `TARGET_SYSTEM_ACCEPTANCE_PASSED`.

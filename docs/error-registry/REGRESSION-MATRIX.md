@@ -127,3 +127,10 @@ A correction is incomplete until its regression test executes before final self-
 | COMFY-DB-006 | ComfyUI SQLite parent directory did not exist | Create `C:\KI-Stack\ComfyUI\user` before startup | Target Acceptance 1.0.6 |
 | ACC-CONTENT-007 | Self-test omitted the real `02-Operational-Overlay/Content` path segment | Resolve and verify starters below the extracted Content root | Target Acceptance 1.0.8 |
 | REC-STOP-008 | ComfyUI exited between process inventory and the stop request | Treat a missing inventoried PID as already stopped and verify that no matching process remains | Production Recovery 1.7.0-r6 |
+
+## OpenWebUI Agent Pack regressions
+
+| ID | Defect | Permanent regression | Fixed in |
+|---|---|---|---|
+| OWUI-EMPTY-001 | StrictMode member enumeration failed for empty API resource lists | Enumerate IDs explicitly through the pipeline and accept empty collections | Agent Pack 1.8.0 |
+| OWUI-BACKUP-002 | Second-resolution transaction IDs could overwrite backups during rapid idempotence runs | Use fractional-second transaction IDs and verify separate backup contracts | Agent Pack 1.8.0 |

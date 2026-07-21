@@ -1,5 +1,14 @@
 # Changelog
 
+## OpenWebUI Agent Pack 1.8.0 — stable and target-system validated
+
+- Adds canonical definitions for exactly `KI & IT-Technik` and `Allgemein` with stable technical IDs.
+- Uses the supported OpenWebUI 0.10.2 model create, update, readback and delete APIs with runtime-only Bearer authentication.
+- Provides SelfTest, DryRun, idempotent install, affected-object backup, validation and rollback.
+- Keeps model binding configurable and leaves knowledge bases, tools, skills, functions and other user content unchanged.
+- Documents global SearXNG configuration as the web-search runtime dependency because 0.10.2 has no model-profile web-search field.
+- Confirms idempotent Execute, affected-object backup and rollback, API readback, isolated resource scope and real chats including SearXNG-backed web search.
+
 ## Production Target Acceptance 1.0.9 — target-system validated
 
 - Promoted Production Recovery `1.7.0-r6` to `TargetSystemAccepted` using the final deterministic recovery artifact.
