@@ -176,9 +176,9 @@ try {
     $readmeDe = Get-Content -LiteralPath (Join-Path $RootPath 'README.de.md') -Raw
     $buildReport = Get-Content -LiteralPath (Join-Path $RootPath 'package/BUILD-REPORT.md') -Raw
     $documentationVersionsOk = (
-        $readmeEn.Contains("| Models / Workflows | $modelsVersion-rc1") -and
+        $readmeEn.Contains("| Models / Workflows | $modelsVersion |") -and
         $readmeEn.Contains("| Applications | $applicationsVersion-rc1") -and
-        $readmeDe.Contains("| Modelle / Workflows | $modelsVersion-rc1") -and
+        $readmeDe.Contains("| Modelle / Workflows | $modelsVersion |") -and
         $readmeDe.Contains("| Applications | $applicationsVersion-rc1") -and
         $buildReport.Contains("Ausgelieferter Stand: Cutover v$runtimeVersion")
     )

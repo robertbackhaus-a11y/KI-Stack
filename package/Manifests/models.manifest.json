@@ -1,6 +1,15 @@
 {
   "schemaVersion": "1.1",
-  "profile": "flux2-klein-9b-operational",
+  "profile": "flux2-klein-9b-required-stable",
+  "releaseProfile": {
+    "id": "flux2-klein-9b",
+    "status": "stable",
+    "required": true,
+    "optionalAddOnProfiles": [
+      "krea-realism",
+      "pony-control"
+    ]
+  },
   "models": [
     {
       "id": "flux2-klein-9b-fp8",
@@ -49,6 +58,8 @@
     },
     {
       "id": "flux1-krea-dev-fp8",
+      "profile": "krea-realism",
+      "profileRole": "optional-addon",
       "displayName": "FLUX.1 Krea Dev FP8 Scaled",
       "enabled": true,
       "required": false,
@@ -64,6 +75,8 @@
     },
     {
       "id": "clip-l",
+      "profile": "krea-realism",
+      "profileRole": "optional-addon",
       "displayName": "CLIP-L",
       "enabled": true,
       "required": false,
@@ -79,6 +92,8 @@
     },
     {
       "id": "t5xxl-fp16",
+      "profile": "krea-realism",
+      "profileRole": "optional-addon",
       "displayName": "T5XXL FP16",
       "enabled": true,
       "required": false,
@@ -94,6 +109,8 @@
     },
     {
       "id": "flux-ae",
+      "profile": "krea-realism",
+      "profileRole": "optional-addon",
       "displayName": "FLUX AE VAE",
       "enabled": true,
       "required": false,
@@ -109,6 +126,8 @@
     },
     {
       "id": "pony-v6-xl",
+      "profile": "pony-control",
+      "profileRole": "optional-addon",
       "displayName": "Pony Diffusion V6 XL",
       "enabled": true,
       "required": false,
