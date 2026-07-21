@@ -13,7 +13,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | ComfyUI | 1.2.1 | Stabil; auf dem Zielsystem validiert |
 | Modelle / Workflows | 1.3.7 | Stabil; FLUX2-Pflichtprofil validiert, KREA und Pony optional |
 | Applications | 1.4.10 | Stabil; LM Studio und Open WebUI 0.10.2 auf dem Zielsystem akzeptiert |
-| Integration | 1.5.7-rc1 | Release Candidate; präzises CMD-Lifecycle-Gate |
+| Integration | 1.5.7 | Stabil; präzises CMD-Finish-Block-Lifecycle-Gate beibehalten |
 | Cutover Runtime | 1.6.3 | Akzeptierter Runtime-Basisstand |
 | Production Recovery | 1.7.0-r5 | Rekonstruiert und inhaltlich validiert |
 | Universeller Paket-Validation-Gate | 1.0.2 | Auf dem Zielsystem aktiviert |

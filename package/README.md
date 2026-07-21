@@ -17,6 +17,8 @@ Models / Workflows `1.3.7` verwendet FLUX2 als stabiles Pflichtprofil. KREA und 
 
 Applications `1.4.10` ist der stabile Baustein für LM Studio und Open WebUI `0.10.2`. Der bestehende Installations-, Starter-, Validierungs- und Rollbackvertrag bleibt unverändert.
 
+Integration `1.5.7` ist stabil. Der vorhandene Integrationsumfang und das präzise CMD-`:Finish`-Block-Lifecycle-Gate bleiben unverändert.
+
 ## Ausführung
 
 1. `Start-Nur-Selbsttest.cmd`

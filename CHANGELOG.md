@@ -9,8 +9,9 @@
 - Completed controlled stop/start and endpoint acceptance for SearXNG, Open WebUI, LM Studio and ComfyUI.
 - Kept the accepted runtime version at Cutover 1.6.3; Production Recovery 1.7.0-r5 is not a runtime-version increment.
 
-## Integration 1.5.7-rc1 — CMD lifecycle gate precision
+## Integration 1.5.7 — stable
 
+- Promotes the unchanged integration implementation using Production Target Acceptance 1.0.8 as the target-system evidence.
 - Keeps result/exitcode visible until one key is pressed.
 - Restricts lifecycle checks to the exact `:Finish` label block.
 - Prevents helper-function `exit /b 0` returns from causing false failures.
