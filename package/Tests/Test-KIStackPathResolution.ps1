@@ -87,23 +87,7 @@ try {
         $embeddedPath = Join-Path $scenarioRoot ([string]$config.starter.embeddedPreflightRelativePath)
         $embeddedExists = Test-Path -LiteralPath $embeddedPath -PathType Leaf
 
-        $githubStartFiles = @(
-            Join-Path $scenarioRoot 'Start-Validate-GitHub-Update.cmd',
-            Join-Path $scenarioRoot 'Start-Publish-GitHub-Update.cmd'
-        )
-        $githubPresent = @($githubStartFiles | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }).Count
-        $githubValid = $true
-        if ($githubPresent -gt 0) {
-            $githubBundle = Join-Path $scenarioRoot 'GitHub\KI-Stack-GitHub-Update-v0.5.3.zip'
-            $githubWrapper = Join-Path $scenarioRoot 'GitHub\Invoke-IncludedGitHubUpdate.ps1'
-            $githubValid = (
-                $githubPresent -eq 2 -and
-                (Test-Path -LiteralPath $githubBundle -PathType Leaf) -and
-                (Test-Path -LiteralPath $githubWrapper -PathType Leaf)
-            )
-        }
-
-        $passed = ($missing.Count -eq 0 -and $embeddedExists -and $githubValid)
+        $passed = ($missing.Count -eq 0 -and $embeddedExists)
         [void]$results.Add([pscustomobject][ordered]@{
             name = [string]$scenario.name
             path = $scenarioRoot
@@ -111,8 +95,6 @@ try {
             missing = @($missing)
             embeddedPreflight = $embeddedPath
             embeddedPreflightExists = $embeddedExists
-            githubIncluded = ($githubPresent -gt 0)
-            githubPathsValid = $githubValid
         })
     }
 }

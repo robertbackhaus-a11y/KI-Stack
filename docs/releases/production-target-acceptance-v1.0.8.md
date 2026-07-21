@@ -20,7 +20,7 @@ Target-system acceptance completed successfully on 2026-07-21.
 - LM Studio endpoint passed;
 - ComfyUI endpoint passed;
 - drift repair and backup creation passed with no post-apply errors;
-- the raw target-system report is retained as a release artifact because it contains user- and system-specific paths; the committed JSON is a sanitized summary tied to raw-report SHA-256 `f92e593f66f2d72f2da388044471a5e9687657ca46bc362deabc4bf5a888a9e5`.
+- the raw target-system report was deliberately not published because it contains user- and system-specific paths; the committed JSON is a sanitized summary tied to raw-report SHA-256 `f92e593f66f2d72f2da388044471a5e9687657ca46bc362deabc4bf5a888a9e5`.
 
 ## Artifact identities
 

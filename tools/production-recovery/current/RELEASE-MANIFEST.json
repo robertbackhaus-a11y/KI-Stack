@@ -1,9 +1,16 @@
 {
   "schemaVersion": "1.3",
-  "releaseId": "PRODUCTION-RECOVERY-1.7.0-r5",
+  "releaseId": "PRODUCTION-RECOVERY-1.7.0-r6",
   "productVersion": "1.7.0",
-  "recoveryRevision": "r5",
-  "status": "Recovered",
+  "recoveryRevision": "r6",
+  "status": "SourcePrepared",
+  "targetSystemValidated": false,
+  "predecessor": {
+    "releaseId": "PRODUCTION-RECOVERY-1.7.0-r5",
+    "version": "1.7.0-r5",
+    "status": "PublishedAndAccepted",
+    "targetSystemValidated": true
+  },
   "generatedAtUtc": "2026-07-21T06:50:21.866839Z",
   "runtime": {
     "name": "KI-Stack-Cutover-Execute-v1.6.3-core.zip",
@@ -46,7 +53,7 @@
   },
   "operationalOverlay": {
     "fileCount": 32,
-    "totalBytes": 38494,
+    "totalBytes": 39080,
     "manifest": "02-Operational-Overlay/CONTENT-MANIFEST.json",
     "sourceCaptureSha256": "3b9b1498eb7561212e3ace28ef86fb2b7fda93a99ff3419136a269757f574026",
     "sourceTreeNormalizations": [
@@ -55,6 +62,18 @@
         "change": "LF line endings normalized to CRLF for the repository source contract",
         "releaseArtifactSha256": "fd1284a42e28bff46fbfdc1876dc33bdc001d4f924ddddde4e10b7fbb90cbab2",
         "sourceTreeSha256": "55feb5e25a04a0da3f7b8a1afa9a4a7d097500663b6c4ea9f1cf1fc7df1f99a6"
+      },
+      {
+        "path": "02-Operational-Overlay/Content/modules/applications/Start-KIStack-LMStudio.cmd",
+        "change": "Personal LM Studio CLI path replaced by PATH and USERPROFILE runtime resolution"
+      },
+      {
+        "path": "02-Operational-Overlay/Content/modules/applications/Stop-KIStack-Applications.ps1",
+        "change": "Personal LM Studio CLI path replaced by Get-Command and HOME runtime resolution"
+      },
+      {
+        "path": "02-Operational-Overlay/Content/modules/applications/installation.json",
+        "change": "Personal LM Studio CLI path replaced by a portable USERPROFILE marker"
       }
     ]
   },
@@ -62,5 +81,5 @@
   "repositoryOperationsUsed": false,
   "historicalRuntimeByteIdentityClaimed": false,
   "originalOuterArchiveByteIdentityClaimed": false,
-  "recoveryScope": "Published and internally verified Cutover v1.6.3 core asset plus recovered installed operational scripts, configuration markers and workflows; r5 uses the installed Open WebUI console launcher and creates ComfyUI's actual default SQLite parent directory."
+  "recoveryScope": "Source-prepared successor to the published and accepted r5 recovery. It retains the verified Cutover v1.6.3 core reference and recovered operational overlay while replacing personal LM Studio paths with portable runtime resolution. The r6 source state is not yet target-system validated."
 }

@@ -11,14 +11,14 @@ Finaler Cutover- und Gesamtvalidierungsbaustein des modularen KI-Stacks.
 - Readiness- und Acceptance-Berichte
 - paketinterner Fortsetzungs-Preflight
 - vollständige historische Regressionsmatrix
-- GitHub Update v0.5.3 direkt im Paket
+- Repository-Veröffentlichung ist nicht Bestandteil dieses Runtime-Pakets
 
 ## Ausführung
 
 1. `Start-Nur-Selbsttest.cmd`
 2. `Start-KIStack-Cutover-DryRun.cmd`
 3. `Start-KIStack-Cutover-Execute.cmd`
-4. `Start-Validate-GitHub-Update.cmd`
-5. `Start-Publish-GitHub-Update.cmd`
+
+GitHub-Publishing-Starter und eingebettete GitHub-Update-Bundles gehören nicht mehr zum Paket. Releases werden ausschließlich über die Repository-Release-Werkzeuge erzeugt.
 
 Nach Execute liegen die operativen Gesamtstarter unter `C:\KI-Stack\modules\cutover`.

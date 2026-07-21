@@ -1,8 +1,8 @@
 # KI-Stack Cutover v1.6.3 Repair Report
 
-- Basis: Cutover v1.6.2
+- Ausgelieferter Stand: Cutover v1.6.3; die Korrektur baut auf dem v1.6.2-Vorgänger auf
 - GitHub-Repository-Validator unterstützt `version` und Legacy-`packageVersion`
 - StrictMode-sichere Manifest-Feldauflösung ohne direkten Zugriff auf optionale Properties
 - Schema-Fixtures für current, legacy, dual, conflict und missing
 - Release-Manifest enthält kompatiblen Alias `packageVersion`
-- GitHub Update v0.5.3 integriert
+- GitHub-Update-Bundle und Publishing-Starter sind nicht Bestandteil des Runtime-Pakets
