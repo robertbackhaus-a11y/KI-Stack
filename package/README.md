@@ -15,6 +15,8 @@ Finaler Cutover- und Gesamtvalidierungsbaustein des modularen KI-Stacks.
 
 Models / Workflows `1.3.7` verwendet FLUX2 als stabiles Pflichtprofil. KREA und Pony sind optionale Zusatzprofile; fehlende optionale Modelle verhindern die Freigabe des Pflichtprofils nicht.
 
+Applications `1.4.10` ist der stabile Baustein für LM Studio und Open WebUI `0.10.2`. Der bestehende Installations-, Starter-, Validierungs- und Rollbackvertrag bleibt unverändert.
+
 ## Ausführung
 
 1. `Start-Nur-Selbsttest.cmd`

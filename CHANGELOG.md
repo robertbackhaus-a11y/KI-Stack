@@ -58,8 +58,9 @@
 - Adopts healthy existing SearXNG JSON endpoints and installs a pinned official fallback only when needed.
 - Adds Open WebUI SearXNG environment integration, WSL keeper, health checks, and non-destructive rollback.
 
-## Applications v1.4.10-rc1
+## Applications v1.4.10 — stable
 
+- Promotes the unchanged LM Studio and Open WebUI 0.10.2 implementation using Production Target Acceptance 1.0.8 as the target-system evidence.
 - Makes Git author publisher-contract checks StrictMode-safe by using non-expandable source literals.
 - Prevents validator-side evaluation of `$GitAuthorName`, `$GitAuthorEmail`, and `$workPath`.
 - Keeps repository-local Git identity validation and target-only snapshot publication.

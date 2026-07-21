@@ -177,9 +177,9 @@ try {
     $buildReport = Get-Content -LiteralPath (Join-Path $RootPath 'package/BUILD-REPORT.md') -Raw
     $documentationVersionsOk = (
         $readmeEn.Contains("| Models / Workflows | $modelsVersion |") -and
-        $readmeEn.Contains("| Applications | $applicationsVersion-rc1") -and
+        $readmeEn.Contains("| Applications | $applicationsVersion |") -and
         $readmeDe.Contains("| Modelle / Workflows | $modelsVersion |") -and
-        $readmeDe.Contains("| Applications | $applicationsVersion-rc1") -and
+        $readmeDe.Contains("| Applications | $applicationsVersion |") -and
         $buildReport.Contains("Ausgelieferter Stand: Cutover v$runtimeVersion")
     )
     Add-Result 'Documentation version consistency' $documentationVersionsOk "runtime=$runtimeVersion; models=$modelsVersion; applications=$applicationsVersion"
