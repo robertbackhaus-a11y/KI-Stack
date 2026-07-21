@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 umask 027
 
-RELEASE="${KI_RELEASE:-1.5.7}"
+RELEASE="${KI_RELEASE:-1.5.8}"
 REPOSITORY="${KI_SEARXNG_REPOSITORY:-https://github.com/searxng/searxng.git}"
 REF="${KI_SEARXNG_REF:-277d8469c}"
 BASE_URL="${KI_SEARXNG_BASE_URL:-http://localhost/searxng/}"
@@ -71,6 +71,24 @@ if json_healthy 'http://127.0.0.1/searxng/search?q=ki-stack&format=json'; then
   write_marker 'adopted-existing' 'http://127.0.0.1/searxng' 'false'
   log 'Vorhandener SearXNG-JSON-Endpunkt wurde übernommen.'
   exit 0
+fi
+
+if [ -e /etc/uwsgi/apps-enabled/searxng.ini ] || [ -e /etc/nginx/default.d/searxng.conf ] || [ -f /etc/searxng/settings.yml ]; then
+  if [ ! -e /etc/uwsgi/apps-enabled/searxng.ini ] || [ ! -e /etc/nginx/default.d/searxng.conf ] || [ ! -f /etc/searxng/settings.yml ]; then
+    log 'Unvollständige vorhandene SearXNG-Standardkonfiguration; parallele Installation wird verweigert.'
+    exit 56
+  fi
+  systemctl start "$VALKEY_SERVICE" uwsgi nginx
+  for attempt in $(seq 1 30); do
+    if json_healthy 'http://127.0.0.1/searxng/search?q=ki-stack&format=json'; then
+      write_marker 'adopted-existing' 'uwsgi.service + nginx.service' 'false'
+      log 'Vorhandene SearXNG-Standarddienstkette wurde kalt gestartet und übernommen.'
+      exit 0
+    fi
+    sleep 1
+  done
+  log 'Vorhandene SearXNG-Standarddienstkette ist konfiguriert, aber nicht funktionsfähig.'
+  exit 57
 fi
 
 install -d -m 0750 "$BACKUP_DIR"

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
-  "packageName": "KI-Stack-Production-Target-Acceptance-v1.0.9",
-  "packageVersion": "1.0.9",
+  "packageName": "KI-Stack-Production-Target-Acceptance-v1.0.10",
+  "packageVersion": "1.0.10",
   "coverage": [
     {
       "id": "REG-004-HASHTABLE-KEYS",
@@ -112,6 +112,16 @@
       "id": "REG-027-RECOVERY-OVERLAY-CONTENT-ROOT",
       "status": "covered",
       "method": "Der Selbsttest berechnet den realen Pfad direkt aus Recovery-Wurzel plus 02-Operational-Overlay\\Content, gleicht ihn mit overlayContentRoot ab und prüft dort beide Starter im finalen eingebetteten Recovery."
+    },
+    {
+      "id": "REG-028-SEARXNG-STANDARD-SERVICE-CHAIN",
+      "status": "covered",
+      "method": "Recovery r7 starts and verifies the installed Debian standard chain valkey-server, uwsgi and nginx, then requires both the HTML page and a parsed JSON result contract."
+    },
+    {
+      "id": "REG-029-SEARXNG-KEEPER-PID-IDENTITY",
+      "status": "covered",
+      "method": "Recovery r7 accepts or stops a keeper PID only when CIM identifies the expected wsl.exe Debian sleep-infinity command; stale and foreign PIDs are removed from the marker without terminating the process."
     }
   ]
 }

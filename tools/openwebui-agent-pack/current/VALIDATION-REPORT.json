@@ -1,9 +1,9 @@
 {
   "schemaVersion": "1.0",
   "package": "KI-Stack OpenWebUI Agent Pack",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "status": "TargetSystemValidated",
-  "validatedAtUtc": "2026-07-21T11:28:47.0068811Z",
+  "validatedAtUtc": "2026-07-21T15:03:24.0541004Z",
   "openWebUIVersion": "0.10.2",
   "managedModelIds": [
     "ki-stack-it-technik",
@@ -21,7 +21,11 @@
     "allgemeinChat": true,
     "otherResourcesUnchanged": true,
     "chatHistoryCreated": false,
-    "backupCreated": true
+    "backupCreated": true,
+    "integrationMarker": "1.5.8",
+    "duplicateProfiles": false,
+    "technicalChatCharacters": 274,
+    "webSearchChatCharacters": 95
   },
   "containsSecrets": false,
   "containsPersonalPaths": false

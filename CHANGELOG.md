@@ -1,5 +1,15 @@
 # Changelog
 
+## SearXNG runtime repair — Integration 1.5.8, Recovery r7, Target Acceptance 1.0.10, Agent Pack 1.8.1
+
+- Repairs cold starts by using the installed Debian standard chain `valkey-server`, `uwsgi` and `nginx`; no nonexistent product-specific systemd unit is assumed.
+- Replaces blind keeper PID trust with CIM identity checks and the stable `wsl.exe --exec sleep infinity` invocation.
+- Prevents a parallel SearXNG installation when a standard configuration exists, and requires HTML plus nonempty JSON-search evidence.
+- Validates cold start, stale-PID recovery, idempotent restart, partial uWSGI repair, controlled stop/start and all four production endpoints.
+- Promotes Production Recovery `1.7.0-r7` to `TargetSystemAccepted` through Target Acceptance `1.0.10` against the final recovery artifact.
+- Validates OpenWebUI Agent Pack `1.8.1` with Integration 1.5.8, duplicate-free profile readback, a technical chat and a real SearXNG-backed web-search chat.
+- Supersedes the SearXNG runtime-evidence claims of r6/Target Acceptance 1.0.9 and Agent Pack 1.8.0 without deleting their historical release records.
+
 ## OpenWebUI Agent Pack 1.8.0 — stable and target-system validated
 
 - Adds canonical definitions for exactly `KI & IT-Technik` and `Allgemein` with stable technical IDs.

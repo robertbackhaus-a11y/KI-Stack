@@ -1,9 +1,9 @@
 {
   "schemaVersion": "1.0",
   "packageId": "KI-STACK-OPENWEBUI-AGENT-PACK",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "status": "TargetSystemValidated",
-  "validatedAtUtc": "2026-07-21T11:28:47.0068811Z",
+  "validatedAtUtc": "2026-07-21T15:03:24.0541004Z",
   "targetApplication": {
     "name": "OpenWebUI",
     "version": "0.10.2"
@@ -23,7 +23,8 @@
   "webSearch": {
     "profileSettingAvailable": false,
     "validationFeature": "features.web_search",
-    "dependency": "global SearXNG configuration",
+    "dependency": "global SearXNG configuration backed by Integration 1.5.8 or newer",
+    "requiredEndpoint": "http://localhost/searxng/search?q=ki-stack&format=json",
     "targetTestPassed": true
   }
 }

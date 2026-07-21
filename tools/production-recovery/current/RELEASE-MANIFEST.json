@@ -1,14 +1,14 @@
 {
   "schemaVersion": "1.3",
-  "releaseId": "PRODUCTION-RECOVERY-1.7.0-r6",
+  "releaseId": "PRODUCTION-RECOVERY-1.7.0-r7",
   "productVersion": "1.7.0",
-  "recoveryRevision": "r6",
+  "recoveryRevision": "r7",
   "status": "TargetSystemAccepted",
   "targetSystemValidated": true,
-  "acceptedAtUtc": "2026-07-21T10:33:33.3727334Z",
+  "acceptedAtUtc": "2026-07-21T12:12:58.7287573Z",
   "predecessor": {
-    "releaseId": "PRODUCTION-RECOVERY-1.7.0-r5",
-    "version": "1.7.0-r5",
+    "releaseId": "PRODUCTION-RECOVERY-1.7.0-r6",
+    "version": "1.7.0-r6",
     "status": "PublishedAndAccepted",
     "targetSystemValidated": true
   },
@@ -86,5 +86,5 @@
   "repositoryOperationsUsed": false,
   "historicalRuntimeByteIdentityClaimed": false,
   "originalOuterArchiveByteIdentityClaimed": false,
-  "recoveryScope": "Source-prepared successor to the published and accepted r5 recovery. It retains the verified Cutover v1.6.3 core reference and recovered operational overlay while replacing personal LM Studio paths with portable runtime resolution. The r6 source state is not yet target-system validated."
+  "recoveryScope": "Source-prepared successor to the published and accepted r6 recovery. It retains the verified Cutover v1.6.3 core reference and recovered operational overlay while repairing the real SearXNG standard service chain (valkey-server, uwsgi and nginx) and keeper lifecycle. The r7 source state is not yet target-system validated."
 }

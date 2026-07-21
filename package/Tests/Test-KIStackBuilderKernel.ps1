@@ -1657,7 +1657,7 @@ try {
     )
     Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
         -Passed $versionLabelValid `
-        -Message 'Der sichtbare CMD-Kopf entspricht dem Paket v1.5.7.'
+        -Message 'Der sichtbare CMD-Kopf entspricht dem Paket v1.5.8.'
 }
 catch {
     Add-Result -Name 'Starter-sichtbare-Versionskonsistenz' `
@@ -1959,7 +1959,7 @@ try {
     $integrationManifest = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Modules\07-Integration\module.json') -Raw | ConvertFrom-Json -Depth 30
     $integrationApproved = (
         [bool]$integrationManifest.enabled -and
-        [string]$integrationManifest.version -eq '1.5.7' -and
+        [string]$integrationManifest.version -eq '1.5.8' -and
         [bool]$integrationManifest.supportsRollback -and
         @($integrationConfig.executeRelease.enabledModules) -contains 'KIModuleIntegration' -and
         @($integrationConfig.executeRelease.enabledModules).Count -eq 9 -and
@@ -1990,11 +1990,31 @@ try {
         $installerContent.Contains('systemd=true') -and
         $installerContent.Contains('git -C "$ROOT/src" checkout --detach FETCH_HEAD') -and
         $installerContent.Contains('write_marker ''adopted-existing''') -and
+        $installerContent.Contains('systemctl start "$VALKEY_SERVICE" uwsgi nginx') -and
+        $installerContent.Contains('/etc/uwsgi/apps-enabled/searxng.ini') -and
+        $installerContent.Contains('/etc/nginx/default.d/searxng.conf') -and
+        $installerContent.Contains('parallele Installation wird verweigert') -and
         $installerContent.Contains('write_marker ''managed''')
     )
     Add-Result -Name 'SearXNG-Linux-Installationsvertrag' -Passed $linuxAssetsValid -Message 'Bestehende JSON-Endpunkte werden übernommen; Neuinstallationen nutzen systemd, Valkey, nginx, uWSGI und einen gepinnten Commit.'
 }
 catch { Add-Result -Name 'SearXNG-Linux-Installationsvertrag' -Passed $false -Message $_.Exception.Message }
+
+try {
+    $integrationModuleContent = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Modules\07-Integration\KIModuleIntegration.psm1') -Raw
+    $lifecycleValid = (
+        $integrationModuleContent.Contains("systemctl start valkey-server uwsgi nginx") -and
+        $integrationModuleContent.Contains("systemctl is-active --quiet valkey-server") -and
+        $integrationModuleContent.Contains("systemctl is-active --quiet uwsgi") -and
+        $integrationModuleContent.Contains("systemctl is-active --quiet nginx") -and
+        $integrationModuleContent.Contains("Win32_Process") -and
+        $integrationModuleContent.Contains("exec sleep infinity") -and
+        $integrationModuleContent.Contains("application/json") -and
+        $integrationModuleContent.Contains("PSObject.Properties['results']")
+    )
+    Add-Result -Name 'SearXNG-Standarddienstkette-und-Keeper' -Passed $lifecycleValid -Message 'Starter prüft den verwalteten Keeper sowie valkey-server, uwsgi, nginx, HTML und JSON; fremde oder veraltete PID-Dateien werden nicht blind beendet.'
+}
+catch { Add-Result -Name 'SearXNG-Standarddienstkette-und-Keeper' -Passed $false -Message $_.Exception.Message }
 
 try {
     $integrationModuleContent = Get-Content -LiteralPath (Join-Path $ProjectRoot 'Modules\07-Integration\KIModuleIntegration.psm1') -Raw

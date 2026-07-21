@@ -1,12 +1,12 @@
 {
   "schemaVersion": "1.0",
-  "acceptancePackageVersion": "1.0.9",
+  "acceptancePackageVersion": "1.0.10",
   "productVersion": "1.7.0",
-  "recoveryRevision": "r6",
+  "recoveryRevision": "r7",
   "recoveryArtifact": {
-    "name": "KI-Stack-Production-Recovery-v1.7.0-r6.zip",
-    "sha256": "826c325780ef25b3a8604b30cdbbdf3895d685ce243f9b08b49ab4d55698a282",
-    "releaseId": "PRODUCTION-RECOVERY-1.7.0-r6"
+    "name": "KI-Stack-Production-Recovery-v1.7.0-r7.zip",
+    "sha256": "0b4b28c886f01939fb45a9d7f3ce9f5323f57a8208e42381088544afa5955c59",
+    "releaseId": "PRODUCTION-RECOVERY-1.7.0-r7"
   },
   "defaultTargetRoot": "C:\\KI-Stack",
   "distribution": "Debian",

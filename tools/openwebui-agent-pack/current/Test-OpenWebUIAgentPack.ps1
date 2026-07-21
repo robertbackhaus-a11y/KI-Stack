@@ -15,7 +15,7 @@ foreach ($relative in $required) {
 $version = (Get-Content -LiteralPath (Join-Path $PackageRoot 'VERSION') -Raw).Trim()
 $config = Get-Content -LiteralPath (Join-Path $PackageRoot 'Config\agent-pack.config.json') -Raw | ConvertFrom-Json -Depth 20
 $manifest = Get-Content -LiteralPath (Join-Path $PackageRoot 'MANIFEST.json') -Raw | ConvertFrom-Json -Depth 20
-if ($version -ne '1.8.0' -or $config.version -ne $version -or $manifest.version -ne $version) { $failures.Add('Versionskonsistenz') }
+if ($version -ne '1.8.1' -or $config.version -ne $version -or $manifest.version -ne $version) { $failures.Add('Versionskonsistenz') }
 $definitions = @(Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Definitions') -File -Filter '*.json' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -Depth 30 })
 if (($definitions.id | Sort-Object) -join '|' -ne 'ki-stack-allgemein|ki-stack-it-technik') { $failures.Add('Technische IDs') }
 foreach ($definition in $definitions) {
@@ -29,6 +29,6 @@ $moduleText = Get-Content -LiteralPath (Join-Path $PackageRoot 'OpenWebUIAgentPa
 foreach ($contract in @('/api/v1/models','/api/v1/models/create','/api/v1/models/model/update','/api/v1/models/model/delete','function_calling')) {
     if (-not $moduleText.Contains($contract)) { $failures.Add("API-Vertrag: $contract") }
 }
-$report = [ordered]@{ version='1.8.0'; action='SelfTest'; passed=($failures.Count -eq 0); checks=7; failures=@($failures) }
+$report = [ordered]@{ version='1.8.1'; action='SelfTest'; passed=($failures.Count -eq 0); checks=7; failures=@($failures) }
 $report | ConvertTo-Json -Depth 10
 if ($failures.Count) { throw ('Agent-Pack-SelfTest fehlgeschlagen: ' + ($failures -join '; ')) }

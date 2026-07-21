@@ -1,4 +1,4 @@
-# KI-Stack OpenWebUI Agent Pack 1.8.0
+# KI-Stack OpenWebUI Agent Pack 1.8.1
 
 Status: `TargetSystemValidated` mit OpenWebUI 0.10.2.
 
