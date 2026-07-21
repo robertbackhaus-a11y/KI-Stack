@@ -71,8 +71,24 @@ function Resolve-AgentPackBaseModel {
     return $usable[0]
 }
 
+function Get-AgentPackRegisteredExtensionToolIds {
+    param([string]$Endpoint,[Security.SecureString]$ApiToken)
+    try {
+        $tool = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/api/v1/tools/id/ki_stack_generate_image'
+        if ([string]$tool.id -eq 'ki_stack_generate_image' -and
+            [string]$tool.meta.manifest.managedBy -eq 'KI-STACK-OPENWEBUI-IMAGE-PACK' -and
+            [string]$tool.meta.manifest.version -eq '1.9.0' -and
+            [string]$tool.meta.manifest.canonical_id -eq 'ki-stack-generate-image') { return @('ki_stack_generate_image') }
+        return @()
+    }
+    catch {
+        if ($_.Exception.Response.StatusCode.value__ -eq 404) { return @() }
+        throw
+    }
+}
+
 function New-AgentPackModelForm {
-    param([Parameter(Mandatory)][object]$Definition,[Parameter(Mandatory)][string]$BaseModelId)
+    param([Parameter(Mandatory)][object]$Definition,[Parameter(Mandatory)][string]$BaseModelId,[string[]]$ExtensionToolIds=@())
     return [ordered]@{
         id = [string]$Definition.id
         base_model_id = $BaseModelId
@@ -81,11 +97,11 @@ function New-AgentPackModelForm {
             description = [string]$Definition.description
             capabilities = [ordered]@{}
             knowledge = @()
-            toolIds = @()
+            toolIds = @($ExtensionToolIds)
             skillIds = @()
             functionIds = @()
             managedBy = 'KI-STACK-OPENWEBUI-AGENT-PACK'
-            agentPackVersion = '1.8.1'
+            agentPackVersion = '1.8.2'
         }
         params = [ordered]@{
             system = [string]$Definition.systemPrompt
@@ -144,9 +160,10 @@ function Install-OpenWebUIAgentPack {
     param([string]$PackageRoot,[string]$Endpoint,[Security.SecureString]$ApiToken,[string]$BaseModelId,[string]$BackupDirectory)
     $offered = Get-AgentPackOfferedModels -Endpoint $Endpoint -ApiToken $ApiToken
     $baseModel = Resolve-AgentPackBaseModel -OfferedModels $offered -BaseModelId $BaseModelId
+    $extensionToolIds = @(Get-AgentPackRegisteredExtensionToolIds -Endpoint $Endpoint -ApiToken $ApiToken)
     $backupPath = Backup-OpenWebUIAgentPack -PackageRoot $PackageRoot -Endpoint $Endpoint -ApiToken $ApiToken -BackupDirectory $BackupDirectory
     $actions = foreach ($definition in Get-AgentPackDefinitions -PackageRoot $PackageRoot) {
-        $form = New-AgentPackModelForm -Definition $definition -BaseModelId ([string]$baseModel.id)
+        $form = New-AgentPackModelForm -Definition $definition -BaseModelId ([string]$baseModel.id) -ExtensionToolIds $extensionToolIds
         $current = Get-AgentPackManagedModel -Endpoint $Endpoint -ApiToken $ApiToken -Id ([string]$definition.id)
         if ($null -eq $current) {
             $null = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/api/v1/models/create' -Method POST -Body $form
@@ -169,6 +186,7 @@ function Test-OpenWebUIAgentPack {
     [CmdletBinding()]
     param([string]$PackageRoot,[string]$Endpoint,[Security.SecureString]$ApiToken,[string]$BaseModelId)
     $failures = [Collections.Generic.List[string]]::new()
+    $extensionToolIds = @(Get-AgentPackRegisteredExtensionToolIds -Endpoint $Endpoint -ApiToken $ApiToken)
     foreach ($definition in Get-AgentPackDefinitions -PackageRoot $PackageRoot) {
         $model = Get-AgentPackManagedModel -Endpoint $Endpoint -ApiToken $ApiToken -Id ([string]$definition.id)
         if ($null -eq $model) { $failures.Add("Fehlt: $($definition.id)"); continue }
@@ -176,7 +194,7 @@ function Test-OpenWebUIAgentPack {
         if ([string]$model.base_model_id -ne $BaseModelId) { $failures.Add("Basismodell: $($definition.id)") }
         if (([string]$model.params.system).Replace("`r`n","`n") -cne ([string]$definition.systemPrompt).Replace("`r`n","`n")) { $failures.Add("System-Prompt: $($definition.id)") }
         if ([string]$model.params.function_calling -ne 'native') { $failures.Add("Function Calling: $($definition.id)") }
-        if (@($model.meta.knowledge).Count -ne 0 -or @($model.meta.toolIds).Count -ne 0 -or @($model.meta.skillIds).Count -ne 0 -or @($model.meta.functionIds).Count -ne 0) { $failures.Add("Unerwünschte Bindung: $($definition.id)") }
+        if ((@($model.meta.toolIds) -join '|') -ne ($extensionToolIds -join '|') -or @($model.meta.knowledge).Count -ne 0 -or @($model.meta.skillIds).Count -ne 0 -or @($model.meta.functionIds).Count -ne 0) { $failures.Add("Unerwünschte Bindung: $($definition.id)") }
         if (-not (Test-AgentPackSafeValue -Text ($model | ConvertTo-Json -Depth 30 -Compress))) { $failures.Add("Secret oder persönlicher Pfad: $($definition.id)") }
     }
     $listed = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/api/v1/models/list?page=1'

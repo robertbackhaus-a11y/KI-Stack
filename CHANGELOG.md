@@ -1,5 +1,13 @@
 # Changelog
 
+## OpenWebUI direct image generation — Agent Pack 1.8.2 and Image Pack 1.9.0
+
+- Adds exactly one managed OpenWebUI tool, `ki-stack-generate-image`, backed by the existing FLUX2 Klein 9B ComfyUI workflow.
+- Supports prompt, `1:1`, `16:9` and `9:16` output plus an optional seed without downloading models or enabling optional KREA/Pony profiles.
+- Updates both managed Agent Pack profiles to preserve only the registered KI-Stack Image Pack tool binding and remain unbound when the extension is absent.
+- Provides deterministic package builders, SelfTest, DryRun, targeted backup, rollback and target validation sources.
+- Target-system validation passed with real 512 x 512 and 768 x 432 PNG renders, non-image routing, invalid-ratio rejection, rollback, final reinstall and API readback.
+
 ## SearXNG runtime repair — Integration 1.5.8, Recovery r7, Target Acceptance 1.0.10, Agent Pack 1.8.1
 
 - Repairs cold starts by using the installed Debian standard chain `valkey-server`, `uwsgi` and `nginx`; no nonexistent product-specific systemd unit is assumed.

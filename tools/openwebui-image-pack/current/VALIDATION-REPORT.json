@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0",
+  "package": "KI-Stack OpenWebUI Image Pack",
+  "version": "1.9.0",
+  "status": "TargetSystemValidated",
+  "validatedAtUtc": "2026-07-21T17:45:03Z",
+  "target": {"openWebUI":"0.10.2","comfyUI":"1.2.1","agentPack":"1.8.2"},
+  "results": {
+    "install": true,
+    "secondInstallIdempotent": true,
+    "apiReadback": true,
+    "generalImage": {"format":"PNG","width":512,"height":512,"bytes":295616,"realComfyUIRender":true},
+    "technicalImage": {"format":"PNG","width":768,"height":432,"bytes":440053,"realComfyUIRender":true},
+    "nonImageChatWithoutRender": true,
+    "invalidAspectRatioRejectedByAdapter": true,
+    "agentToolBindingPreserved": true,
+    "rollback": true,
+    "finalReinstall": true,
+    "finalApiReadback": true,
+    "searxngSearch": true,
+    "imageConfigurationUnchanged": true,
+    "duplicateProfiles": false
+  },
+  "containsSecrets": false,
+  "containsPersonalPaths": false,
+  "containsRawTargetReport": false
+}

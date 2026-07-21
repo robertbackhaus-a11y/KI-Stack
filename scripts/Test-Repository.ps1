@@ -81,7 +81,24 @@ try {
         'tools/openwebui-agent-pack/current/Definitions/ki-stack-allgemein.json',
         'tools/openwebui-agent-pack/current/OpenWebUIAgentPack.psm1',
         'tools/openwebui-agent-pack/current/Invoke-OpenWebUIAgentPack.ps1',
-        'tools/openwebui-agent-pack/current/Test-OpenWebUIAgentPack.ps1'
+        'tools/openwebui-agent-pack/current/Test-OpenWebUIAgentPack.ps1',
+        'tools/openwebui-image-pack/current/VERSION',
+        'tools/openwebui-image-pack/current/MANIFEST.json',
+        'tools/openwebui-image-pack/current/Config/image-pack.config.json',
+        'tools/openwebui-image-pack/current/Tool/ki-stack-generate-image.py',
+        'tools/openwebui-image-pack/current/Workflow/FLUX2-Klein-9B-OpenWebUI-API-FLAT.json',
+        'tools/openwebui-image-pack/current/OpenWebUIImagePack.psm1',
+        'tools/openwebui-image-pack/current/Invoke-OpenWebUIImagePack.ps1',
+        'tools/openwebui-image-pack/current/Test-OpenWebUIImagePack.ps1',
+        'tools/openwebui-image-pack/current/Test-OpenWebUIImagePackWorkflow.ps1',
+        'tools/openwebui-image-pack/current/Test-OpenWebUIImagePackTarget.ps1',
+        'tools/openwebui-image-pack/current/New-OpenWebUIImagePackArchive.ps1',
+        'tools/openwebui-image-pack/current/Start-OpenWebUI-Image-Pack-Execute.cmd',
+        'tools/openwebui-image-pack/current/Start-OpenWebUI-Image-Pack-DryRun.cmd',
+        'tools/openwebui-image-pack/current/Start-OpenWebUI-Image-Pack-SelfTest.cmd',
+        'tools/openwebui-image-pack/current/BUILD-REPORT.json',
+        'tools/openwebui-image-pack/current/VALIDATION-REPORT.json',
+        'tools/openwebui-image-pack/current/SHA256SUMS.txt'
     )
     $missing = @($required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $RootPath $_)) })
     Add-Result 'Required files' ($missing.Count -eq 0) ($(if($missing){$missing -join ', '}else{'complete'}))
@@ -201,7 +218,7 @@ try {
     $agentDefinitions = @(Get-ChildItem -LiteralPath (Join-Path $agentRoot 'Definitions') -File -Filter '*.json' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -Depth 30 })
     $agentIds = @($agentDefinitions.id | Sort-Object)
     $agentSchemaOk = (
-        $agentVersion -eq '1.8.1' -and $agentManifest.version -eq $agentVersion -and $agentConfig.version -eq $agentVersion -and
+        $agentVersion -eq '1.8.2' -and $agentManifest.version -eq $agentVersion -and $agentConfig.version -eq $agentVersion -and $agentManifest.status -eq 'TargetSystemValidated' -and
         ($agentIds -join '|') -eq 'ki-stack-allgemein|ki-stack-it-technik' -and
         @($agentDefinitions | Where-Object { $_.schemaVersion -ne '1.0' -or [string]::IsNullOrWhiteSpace([string]$_.systemPrompt) }).Count -eq 0 -and
         @($agentDefinitions | Where-Object { @($_.knowledge).Count -or @($_.toolIds).Count -or @($_.skillIds).Count -or @($_.functionIds).Count }).Count -eq 0
@@ -217,6 +234,31 @@ try {
         if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Matches[1].ToLowerInvariant()) { $agentSumErrors += "Mismatch: $($Matches[2])" }
     }
     Add-Result 'OpenWebUI Agent Pack SHA256' ($agentSumErrors.Count -eq 0) $(if($agentSumErrors){$agentSumErrors -join '; '}else{'all listed files verified'})
+
+    $imageRoot = Join-Path $RootPath 'tools/openwebui-image-pack/current'
+    $imageVersion = (Get-Content -LiteralPath (Join-Path $imageRoot 'VERSION') -Raw).Trim()
+    $imageManifest = Get-Content -LiteralPath (Join-Path $imageRoot 'MANIFEST.json') -Raw | ConvertFrom-Json -Depth 30
+    $imageConfig = Get-Content -LiteralPath (Join-Path $imageRoot 'Config/image-pack.config.json') -Raw | ConvertFrom-Json -Depth 30
+    $agentExtension = @($agentManifest.registeredExtensions | Where-Object { $_.canonicalToolId -eq 'ki-stack-generate-image' -and $_.openWebUIToolId -eq 'ki_stack_generate_image' -and $_.version -eq $imageVersion })
+    $imageContractOk = $imageVersion -eq '1.9.0' -and $imageManifest.version -eq $imageVersion -and $imageConfig.version -eq $imageVersion -and $imageManifest.status -eq 'TargetSystemValidated' -and $imageManifest.managedTool.id -eq 'ki-stack-generate-image' -and $imageManifest.managedTool.openWebUIId -eq 'ki_stack_generate_image' -and $imageManifest.managedTool.managedBy -eq 'KI-STACK-OPENWEBUI-IMAGE-PACK' -and $agentExtension.Count -eq 1
+    Add-Result 'OpenWebUI Image Pack contract' $imageContractOk "version=$imageVersion; tool=$($imageManifest.managedTool.id)"
+    $imageSumErrors = @()
+    foreach ($line in Get-Content -LiteralPath (Join-Path $imageRoot 'SHA256SUMS.txt')) {
+        if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith('#')) { continue }
+        if ($line -notmatch '^([0-9a-fA-F]{64})\s+\*?(.+)$') { $imageSumErrors += "Invalid line: $line"; continue }
+        $target = Join-Path $imageRoot $Matches[2].Replace('/',[IO.Path]::DirectorySeparatorChar)
+        if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { $imageSumErrors += "Missing: $($Matches[2])"; continue }
+        if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Matches[1].ToLowerInvariant()) { $imageSumErrors += "Mismatch: $($Matches[2])" }
+    }
+    Add-Result 'OpenWebUI Image Pack SHA256' ($imageSumErrors.Count -eq 0) $(if($imageSumErrors){$imageSumErrors -join '; '}else{'all listed files verified'})
+
+    $trackedFiles = @(& git -C $RootPath ls-files)
+    $forbiddenImageArtifacts = @($trackedFiles | Where-Object {
+        $_ -match '^(?:_import/|tools/openwebui-image-pack/current/(?:backups?|history|output)/)' -or
+        $_ -match '^tools/openwebui-image-pack/current/.+\.(?:png|jpe?g|webp|gif|zip|pyc)$' -or
+        $_ -match '^tools/openwebui-image-pack/current/.*/__pycache__/'
+    })
+    Add-Result 'OpenWebUI Image Pack repository artifacts' ($forbiddenImageArtifacts.Count -eq 0) $(if($forbiddenImageArtifacts){$forbiddenImageArtifacts -join ', '}else{'no rendered images, archives, backups, bytecode or private import files tracked'})
 
     $sumsPath = Join-Path $RootPath 'package/SHA256SUMS.txt'
     $sumErrors=@()

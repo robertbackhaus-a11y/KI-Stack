@@ -1,0 +1,1 @@
+{"schemaVersion":"1.0","package":"KI-Stack OpenWebUI Image Pack","version":"1.9.0","status":"TargetSystemValidated","implementation":"one managed OpenWebUI tool backed by the existing FLUX2 workflow","containsModels":false,"containsSecrets":false,"containsPersonalPaths":false,"deterministicArchive":true}
