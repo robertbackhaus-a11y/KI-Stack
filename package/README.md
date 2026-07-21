@@ -13,6 +13,8 @@ Finaler Cutover- und Gesamtvalidierungsbaustein des modularen KI-Stacks.
 - vollständige historische Regressionsmatrix
 - Repository-Veröffentlichung ist nicht Bestandteil dieses Runtime-Pakets
 
+Models / Workflows `1.3.7` verwendet FLUX2 als stabiles Pflichtprofil. KREA und Pony sind optionale Zusatzprofile; fehlende optionale Modelle verhindern die Freigabe des Pflichtprofils nicht.
+
 ## Ausführung
 
 1. `Start-Nur-Selbsttest.cmd`

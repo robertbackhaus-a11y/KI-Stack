@@ -3,6 +3,8 @@
   "workflows": [
     {
       "id": "flux2-klein-9b-ui",
+      "profile": "flux2-klein-9b",
+      "profileRole": "required-release",
       "file": "FLUX2-Klein-9B-Text-to-Image.json",
       "required": true,
       "kind": "comfyui-ui",
@@ -14,6 +16,8 @@
     },
     {
       "id": "flux2-klein-9b-openwebui-api",
+      "profile": "flux2-klein-9b",
+      "profileRole": "required-release",
       "file": "FLUX2-Klein-9B-OpenWebUI-API-FLAT.json",
       "required": true,
       "kind": "comfyui-api",
@@ -26,6 +30,8 @@
     },
     {
       "id": "krea-realism",
+      "profile": "krea-realism",
+      "profileRole": "optional-addon",
       "file": "KREA-Realism-Official-Template.json",
       "required": false,
       "kind": "comfyui-api",
@@ -38,6 +44,8 @@
     },
     {
       "id": "pony-control",
+      "profile": "pony-control",
+      "profileRole": "optional-addon",
       "file": "PONY-Control-QuickTest-v2.json",
       "required": false,
       "kind": "comfyui-api",

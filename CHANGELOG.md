@@ -123,8 +123,10 @@
 - Adds local start/stop scripts and transaction-aware rollback.
 - Embeds GitHub update v0.3.0.
 
-## Models / Workflows 1.3.7-rc1 — release candidate
+## Models / Workflows 1.3.7 — stable
 
+- Promotes the target-system accepted FLUX2 model and workflow set to the required release profile.
+- Classifies KREA and Pony as optional add-on profiles whose absent models do not block release validation.
 - Corrects GitHub bundle snapshot classification.
 - Keeps known failed historical snapshots as resume-only states.
 - Embeds GitHub update v0.2.7.
