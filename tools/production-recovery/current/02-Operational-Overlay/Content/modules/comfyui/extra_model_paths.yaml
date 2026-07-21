@@ -1,0 +1,20 @@
+# KI-STACK-COMFYUI-MANAGED
+ki_stack:
+  base_path: C:\KI-Stack\models
+  is_default: true
+  checkpoints: checkpoints
+  text_encoders: |
+    text_encoders
+    clip
+  clip_vision: clip_vision
+  configs: configs
+  controlnet: controlnet
+  diffusion_models: |
+    diffusion_models
+    unet
+  embeddings: embeddings
+  loras: loras
+  upscale_models: upscale_models
+  vae: vae
+  audio_encoders: audio_encoders
+  model_patches: model_patches

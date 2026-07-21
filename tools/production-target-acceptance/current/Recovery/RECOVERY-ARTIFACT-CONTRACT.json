@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0",
+  "artifactRole": "ProductionRecoveryInput",
+  "name": "KI-Stack-Production-Recovery-v1.7.0-r5.zip",
+  "releaseId": "PRODUCTION-RECOVERY-1.7.0-r5",
+  "version": "1.7.0-r5",
+  "sha256": "d8bc13492e54b1fa7a7d723fd9ef29ff7311b5ad70794c87c53e0750f74807e6",
+  "repositoryPath": null,
+  "distribution": "GitHub Release asset",
+  "requiredForPackageAssembly": true,
+  "committedToSourceTree": false
+}

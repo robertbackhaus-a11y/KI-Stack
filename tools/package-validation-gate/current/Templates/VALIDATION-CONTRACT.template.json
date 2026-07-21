@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "packageName": "REPLACE-WITH-PACKAGE-NAME",
+  "packageVersion": "0.0.0",
+  "packageType": "Generic",
+  "selfTestEntryPoint": "Test-Package.ps1",
+  "selfTestArguments": [],
+  "allowRepositoryOperations": false,
+  "requiredFiles": [
+    "VERSION",
+    "SHA256SUMS.txt",
+    "Validation/VALIDATION-CONTRACT.json",
+    "Validation/REGRESSION-COVERAGE.json",
+    "Test-Package.ps1"
+  ],
+  "requiredRegressionIds": [
+    "REG-004-HASHTABLE-KEYS",
+    "REG-005-DOUBLE-BACKSLASH-PREFIX",
+    "REG-006-BROAD-GIT-TEXT-SCAN",
+    "REG-007-NESTED-EXTRACTION-PATHS",
+    "REG-009-POWERSHELL7-RESOLUTION",
+    "REG-012-SELFTEST-AGGREGATION",
+    "REG-014-COMPLETE-LOGGING",
+    "REG-015-FINAL-ZIP-NOT-WORKDIR",
+    "REG-016-ZIP-PATH-SECURITY",
+    "REG-017-EXACT-MANIFEST-SET",
+    "REG-018-SIDECAR-IDENTITY",
+    "REG-019-NATIVE-PARSER-REQUIRED",
+    "REG-020-UNEXECUTED-NOT-PASSED"
+  ],
+  "targetSystemAcceptanceRequired": false,
+  "notes": "Add package-specific regression IDs and required files. Do not remove globally applicable regression IDs.",
+  "regressionCoverageFile": "Validation/REGRESSION-COVERAGE.json"
+}

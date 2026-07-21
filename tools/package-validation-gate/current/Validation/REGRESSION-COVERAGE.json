@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "1.0",
+  "packageName": "KI-Stack-Universal-Package-Validation-Gate",
+  "packageVersion": "1.0.2",
+  "coverage": [
+    {
+      "id": "REG-001-OLD-CUTOVER-ASSET-NAME",
+      "status": "covered",
+      "method": "Static regression rule and package-specific release provenance validation."
+    },
+    {
+      "id": "REG-002-HASH-CONTRACT-MIX",
+      "status": "covered",
+      "method": "Static regression rule separates historical and published asset identities."
+    },
+    {
+      "id": "REG-003-EMBEDDED-MANIFEST-ASSUMPTION",
+      "status": "covered",
+      "method": "Contract-driven validation; embedded manifests are inspected only when present or explicitly required."
+    },
+    {
+      "id": "REG-004-HASHTABLE-KEYS",
+      "status": "covered",
+      "method": "Static rule plus native fixture rejection in gate self-test."
+    },
+    {
+      "id": "REG-005-DOUBLE-BACKSLASH-PREFIX",
+      "status": "covered",
+      "method": "Static rule and canonical Path.GetRelativePath extraction logic."
+    },
+    {
+      "id": "REG-006-BROAD-GIT-TEXT-SCAN",
+      "status": "covered",
+      "method": "Native AST command inspection; harmless text is not treated as an executed command."
+    },
+    {
+      "id": "REG-007-NESTED-EXTRACTION-PATHS",
+      "status": "covered",
+      "method": "Self-test validates a final ZIP from a duplicated nested directory containing spaces."
+    },
+    {
+      "id": "REG-008-SELF-ELEVATION",
+      "status": "covered",
+      "method": "Installer implements explicit UAC elevation with ProcessStartInfo.ArgumentList."
+    },
+    {
+      "id": "REG-009-POWERSHELL7-RESOLUTION",
+      "status": "covered",
+      "method": "CMD launchers and module resolve pwsh.exe through PATH and standard installation paths."
+    },
+    {
+      "id": "REG-010-PREFLIGHT-DISCOVERY",
+      "status": "notApplicable",
+      "justification": "Not applicable to the validation gate itself; required for packages that discover preflight state."
+    },
+    {
+      "id": "REG-011-VERSION-NORMALIZATION",
+      "status": "covered",
+      "method": "Schema-driven JSON contract; no optional packageVersion assumption."
+    },
+    {
+      "id": "REG-012-SELFTEST-AGGREGATION",
+      "status": "covered",
+      "method": "Any failed check or unhandled exception yields REJECTED and non-zero exit."
+    },
+    {
+      "id": "REG-013-ROLLBACK-PARTIAL-STATE",
+      "status": "covered",
+      "method": "Publish finalizer uses staging and moves artifacts only after gate success."
+    },
+    {
+      "id": "REG-014-COMPLETE-LOGGING",
+      "status": "covered",
+      "method": "JSON, Markdown, static report, stdout and stderr are produced or captured."
+    },
+    {
+      "id": "REG-015-FINAL-ZIP-NOT-WORKDIR",
+      "status": "covered",
+      "method": "Gate validates the delivered ZIP after fresh safe extraction."
+    },
+    {
+      "id": "REG-016-ZIP-PATH-SECURITY",
+      "status": "covered",
+      "method": "Independent Python and native PowerShell safe extraction checks."
+    },
+    {
+      "id": "REG-017-EXACT-MANIFEST-SET",
+      "status": "covered",
+      "method": "Exact SHA256SUMS set, missing, extra and drift checks; self-test fixtures."
+    },
+    {
+      "id": "REG-018-SIDECAR-IDENTITY",
+      "status": "covered",
+      "method": "Exact outer ZIP name and SHA256 sidecar comparison."
+    },
+    {
+      "id": "REG-019-NATIVE-PARSER-REQUIRED",
+      "status": "covered",
+      "method": "Release status cannot exceed STATIC_VALIDATION_PASSED without native parser and AST."
+    },
+    {
+      "id": "REG-020-UNEXECUTED-NOT-PASSED",
+      "status": "covered",
+      "method": "Not-executed checks are listed and never counted as passed."
+    },
+    {
+      "id": "REG-021-PYTHON-BYTECODE-PACKAGE-MUTATION",
+      "status": "covered",
+      "method": "Gate self-test verifies package integrity before execution, copies Python tests and validator into an isolated temporary tree, runs Python with -B and PYTHONDONTWRITEBYTECODE=1, and proves the original extracted package remains byte-identical afterwards."
+    },
+    {
+      "id": "REG-022-NESTED-LEGACY-POLICY-SCOPE",
+      "status": "covered",
+      "method": "Independent validator applies strict release policy to the outer package and nested packages with their own validation contract. Immutable nested legacy archives without a contract remain subject to safe-path, duplicate, symlink, CRC, JSON/Python syntax and declared-hash verification; untracked legacy files and CMD line-ending deviations are reported as warnings."
+    }
+  ]
+}

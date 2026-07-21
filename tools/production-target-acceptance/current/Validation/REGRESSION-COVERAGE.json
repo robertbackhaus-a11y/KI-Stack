@@ -1,0 +1,117 @@
+{
+  "schemaVersion": "1.0",
+  "packageName": "KI-Stack-Production-Target-Acceptance-v1.0.8",
+  "packageVersion": "1.0.8",
+  "coverage": [
+    {
+      "id": "REG-004-HASHTABLE-KEYS",
+      "status": "covered",
+      "method": "Statische Gate-Prüfung und Exact-Manifest-Regressionsfälle im nativen Paketselbsttest."
+    },
+    {
+      "id": "REG-005-DOUBLE-BACKSLASH-PREFIX",
+      "status": "covered",
+      "method": "Kanonische ZIP-Zielpfadprüfung über Path.GetRelativePath; realer verschachtelter Recovery-Pfad im Selbsttest."
+    },
+    {
+      "id": "REG-006-BROAD-GIT-TEXT-SCAN",
+      "status": "covered",
+      "method": "AST-orientierter Gate-Vertrag; keine breite Textablehnung harmloser .git-Zeichenfolgen."
+    },
+    {
+      "id": "REG-007-NESTED-EXTRACTION-PATHS",
+      "status": "covered",
+      "method": "CMD nutzt %~dp0; Gate prüft finale ZIP-Struktur; Selbsttest nutzt realen verschachtelten Recovery-Pfad."
+    },
+    {
+      "id": "REG-008-SELF-ELEVATION",
+      "status": "covered",
+      "method": "Execute-Skript prüft Administratorstatus und startet sich mit erhaltenen Argumenten erhöht neu."
+    },
+    {
+      "id": "REG-009-POWERSHELL7-RESOLUTION",
+      "status": "covered",
+      "method": "Beide CMD-Starter suchen ProgramW6432, ProgramFiles und where pwsh.exe."
+    },
+    {
+      "id": "REG-012-SELFTEST-AGGREGATION",
+      "status": "covered",
+      "method": "Selbsttest aggregiert Einzelprüfungen, schreibt JSON und beendet bei jeder fehlgeschlagenen Prüfung mit Exitcode 1."
+    },
+    {
+      "id": "REG-013-ROLLBACK-PARTIAL-STATE",
+      "status": "covered",
+      "method": "Overlay-Restore sichert abweichende Dateien vor Ersatz und schreibt atomar; Bericht enthält Backup-Pfad."
+    },
+    {
+      "id": "REG-014-COMPLETE-LOGGING",
+      "status": "covered",
+      "method": "Maschinenlesbare Transaktions- und latest-Berichte enthalten Checks, Fehler, Exitcodes, Warnungen und Pfade."
+    },
+    {
+      "id": "REG-015-FINAL-ZIP-NOT-WORKDIR",
+      "status": "covered",
+      "method": "Dieses Artefakt wird als finales ZIP mit Sidecar durch den unabhängigen Gate-Validator geprüft."
+    },
+    {
+      "id": "REG-016-ZIP-PATH-SECURITY",
+      "status": "covered",
+      "method": "Selbsttest deckt Traversal, absolute Pfade, ADS, Gerätenamen, Duplikate und realen sicheren Pfad ab."
+    },
+    {
+      "id": "REG-017-EXACT-MANIFEST-SET",
+      "status": "covered",
+      "method": "Selbsttest deckt gültigen, zusätzlichen, fehlenden und hashveränderten Dateisatz ab."
+    },
+    {
+      "id": "REG-018-SIDECAR-IDENTITY",
+      "status": "covered",
+      "method": "Finaler ZIP-SHA256 und exakter Dateiname werden in separater .zip.sha256-Datei geprüft."
+    },
+    {
+      "id": "REG-019-NATIVE-PARSER-REQUIRED",
+      "status": "covered",
+      "method": "Native PowerShell-Ausführung und Parserprüfung erfolgen auf dem Windows-Zielsystem vor der eigentlichen Abnahme."
+    },
+    {
+      "id": "REG-020-UNEXECUTED-NOT-PASSED",
+      "status": "covered",
+      "method": "Berichte unterscheiden Paketprüfung und reale Zielsystemabnahme; nicht ausgeführte Zielprüfung erhält keinen Pass-Status."
+    },
+    {
+      "id": "REG-021-PYTHON-BYTECODE-PACKAGE-MUTATION",
+      "status": "covered",
+      "method": "Dieses Paket führt keine Python-Validatoren im eigenen Paketbaum aus; der externe Gate läuft isoliert."
+    },
+    {
+      "id": "REG-022-OVERLAY-MANIFEST-COUNT-SCHEMA",
+      "status": "covered",
+      "method": "Recovery-Prüfung liest overlayFileCount schemafest, akzeptiert fileCount nur als Legacy-Fallback und gleicht den Wert gegen die tatsächliche files-Liste ab."
+    },
+    {
+      "id": "REG-023-NONINTERACTIVE-CONTROLLED-STOP",
+      "status": "covered",
+      "method": "Recovery r4 Stop-KIStack.ps1 invokes component PowerShell stop scripts directly; no interactive CMD pause is on the controlled stop path."
+    },
+    {
+      "id": "REG-024-COMFYUI-DATABASE-DIRECTORY",
+      "status": "covered",
+      "method": "Recovery r5 creates input, output, configured user directory and the actual default SQLite parent C:\\KI-Stack\\ComfyUI\\user before starting main.py."
+    },
+    {
+      "id": "REG-025-OPENWEBUI-CONSOLE-LAUNCHER",
+      "status": "covered",
+      "method": "Recovery r5 requires and invokes python/venvs/openwebui/Scripts/open-webui.exe serve; the invalid python -m open_webui invocation is forbidden by the package self-test."
+    },
+    {
+      "id": "REG-026-COMFYUI-DEFAULT-SQLITE-PARENT",
+      "status": "covered",
+      "method": "Recovery r5 creates C:\\KI-Stack\\ComfyUI\\user, matching the default database path derived by the installed ComfyUI cli_args.py."
+    },
+    {
+      "id": "REG-027-RECOVERY-OVERLAY-CONTENT-ROOT",
+      "status": "covered",
+      "method": "Der Selbsttest berechnet den realen Pfad direkt aus Recovery-Wurzel plus 02-Operational-Overlay\\Content, gleicht ihn mit overlayContentRoot ab und prüft dort beide Starter im finalen eingebetteten Recovery."
+    }
+  ]
+}

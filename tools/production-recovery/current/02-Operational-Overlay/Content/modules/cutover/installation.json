@@ -1,0 +1,9 @@
+{
+  "managedBy": "KI-STACK-CUTOVER-MANAGED",
+  "schemaVersion": "1.0",
+  "release": "KI-Stack-Cutover-Execute-v1.6.2",
+  "installedAt": "2026-07-20T12:38:05.8130379+02:00",
+  "transactionId": "KI-STACK-TX-20260720-123705",
+  "moduleRoot": "C:\\KI-Stack\\modules\\cutover",
+  "readinessReport": "C:\\KI-Stack\\reports\\cutover\\Readiness-latest.json"
+}

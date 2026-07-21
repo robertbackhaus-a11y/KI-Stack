@@ -1,0 +1,54 @@
+{
+  "managedBy": "KI-STACK-MODELS-WORKFLOWS-MANAGED",
+  "release": "KI-Stack-Models-Workflows-Execute-v1.3.7",
+  "installedAt": "2026-07-20T12:37:25.8188057+02:00",
+  "transactionId": "KI-STACK-TX-20260720-123705",
+  "models": [
+    {
+      "id": "flux2-klein-9b-fp8",
+      "status": "Reused",
+      "path": "C:\\KI-Stack\\models\\diffusion_models\\flux-2-klein-9b-fp8.safetensors"
+    },
+    {
+      "id": "qwen-3-8b-fp8mixed",
+      "status": "Reused",
+      "path": "C:\\KI-Stack\\models\\text_encoders\\qwen_3_8b_fp8mixed.safetensors"
+    },
+    {
+      "id": "flux2-vae",
+      "status": "Reused",
+      "path": "C:\\KI-Stack\\models\\vae\\flux2-vae.safetensors"
+    },
+    {
+      "id": "flux1-krea-dev-fp8",
+      "status": "OptionalMissing",
+      "path": "C:\\KI-Stack\\models\\diffusion_models\\flux1-krea-dev_fp8_scaled.safetensors"
+    },
+    {
+      "id": "clip-l",
+      "status": "OptionalMissing",
+      "path": "C:\\KI-Stack\\models\\text_encoders\\clip_l.safetensors"
+    },
+    {
+      "id": "t5xxl-fp16",
+      "status": "OptionalMissing",
+      "path": "C:\\KI-Stack\\models\\text_encoders\\t5xxl_fp16.safetensors"
+    },
+    {
+      "id": "flux-ae",
+      "status": "OptionalMissing",
+      "path": "C:\\KI-Stack\\models\\vae\\ae.safetensors"
+    },
+    {
+      "id": "pony-v6-xl",
+      "status": "OptionalMissing",
+      "path": "C:\\KI-Stack\\models\\checkpoints\\ponyDiffusionV6XL_v6StartWithThisOne.safetensors"
+    }
+  ],
+  "workflows": [
+    "FLUX2-Klein-9B-Text-to-Image.json",
+    "FLUX2-Klein-9B-OpenWebUI-API-FLAT.json",
+    "KREA-Realism-Official-Template.json",
+    "PONY-Control-QuickTest-v2.json"
+  ]
+}

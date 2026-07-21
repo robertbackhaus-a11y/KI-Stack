@@ -1,5 +1,14 @@
 # Changelog
 
+## Production Target Acceptance 1.0.8 — target-system validated
+
+- Recorded `TARGET_SYSTEM_ACCEPTANCE_PASSED` from the sanitized target-system report.
+- Published complete reusable source trees for Validation Gate 1.0.2, Target Acceptance 1.0.8 and Production Recovery 1.7.0-r5.
+- Kept Recovery, Target Acceptance and Runtime Core ZIP binaries as release assets referenced by SHA-256 artifact contracts.
+- Repaired two operational-overlay drift files and validated the remaining 30 files unchanged.
+- Completed controlled stop/start and endpoint acceptance for SearXNG, Open WebUI, LM Studio and ComfyUI.
+- Kept the accepted runtime version at Cutover 1.6.3; Production Recovery 1.7.0-r5 is not a runtime-version increment.
+
 ## Integration 1.5.7-rc1 — CMD lifecycle gate precision
 
 - Keeps result/exitcode visible until one key is pressed.

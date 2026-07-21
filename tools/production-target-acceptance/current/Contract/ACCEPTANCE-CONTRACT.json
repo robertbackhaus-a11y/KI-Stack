@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1.0",
+  "acceptancePackageVersion": "1.0.8",
+  "productVersion": "1.7.0",
+  "recoveryRevision": "r5",
+  "recoveryArtifact": {
+    "name": "KI-Stack-Production-Recovery-v1.7.0-r5.zip",
+    "sha256": "d8bc13492e54b1fa7a7d723fd9ef29ff7311b5ad70794c87c53e0750f74807e6",
+    "releaseId": "PRODUCTION-RECOVERY-1.7.0-r5"
+  },
+  "defaultTargetRoot": "C:\\KI-Stack",
+  "distribution": "Debian",
+  "requiredMarkers": [
+    {
+      "path": "modules/applications/installation.json",
+      "managedBy": "KI-STACK-APPLICATIONS-MANAGED"
+    },
+    {
+      "path": "modules/comfyui/installation.json",
+      "managedBy": "KI-STACK-COMFYUI-MANAGED"
+    },
+    {
+      "path": "modules/models-workflows/installation.json",
+      "managedBy": "KI-STACK-MODELS-WORKFLOWS-MANAGED"
+    },
+    {
+      "path": "modules/integration/installation.json",
+      "managedBy": "KI-STACK-INTEGRATION-MANAGED"
+    },
+    {
+      "path": "modules/cutover/installation.json",
+      "managedBy": "KI-STACK-CUTOVER-MANAGED"
+    }
+  ],
+  "requiredFiles": [
+    "modules/cutover/Start-KIStack.ps1",
+    "modules/cutover/Stop-KIStack.ps1",
+    "modules/cutover/Test-KIStack-Health.ps1",
+    "modules/integration/Start-KIStack-SearXNG.ps1",
+    "modules/applications/Start-KIStack-LMStudio.cmd",
+    "modules/integration/Start-KIStack-OpenWebUI-WithSearch.cmd",
+    "modules/comfyui/Start-KIStack-ComfyUI.cmd",
+    "ComfyUI/main.py",
+    "python/venvs/comfyui/Scripts/python.exe",
+    "python/venvs/openwebui/Scripts/python.exe",
+    "python/venvs/openwebui/Scripts/open-webui.exe"
+  ],
+  "requiredModels": [
+    "models/diffusion_models/flux-2-klein-9b-fp8.safetensors",
+    "models/text_encoders/qwen_3_8b_fp8mixed.safetensors",
+    "models/vae/flux2-vae.safetensors"
+  ],
+  "endpoints": [
+    {
+      "name": "SearXNG",
+      "kind": "searxng",
+      "url": "http://localhost/searxng/search?q=ki-stack&format=json"
+    },
+    {
+      "name": "Open WebUI",
+      "kind": "web",
+      "url": "http://127.0.0.1:8080"
+    },
+    {
+      "name": "LM Studio",
+      "kind": "openai",
+      "url": "http://127.0.0.1:1234/v1/models"
+    },
+    {
+      "name": "ComfyUI",
+      "kind": "json",
+      "url": "http://127.0.0.1:8188/system_stats"
+    }
+  ]
+}

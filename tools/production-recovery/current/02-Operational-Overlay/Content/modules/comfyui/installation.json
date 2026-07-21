@@ -1,0 +1,20 @@
+{
+  "managedBy": "KI-STACK-COMFYUI-MANAGED",
+  "schemaVersion": "1.0",
+  "installedAt": "2026-07-20T12:37:09.4434115+02:00",
+  "transactionId": "KI-STACK-TX-20260720-123705",
+  "release": "KI-Stack-ComfyUI-Execute-v1.2.1",
+  "repository": "https://github.com/Comfy-Org/ComfyUI.git",
+  "tag": "v0.28.0",
+  "commit": "700821e1364eaab0e8f21c538a2131719fec57bf",
+  "pythonVersion": "3.12.10",
+  "torchVersion": "2.13.0+cu130",
+  "torchCudaVersion": "13.0",
+  "cudaAvailable": true,
+  "deviceName": "NVIDIA GeForce RTX 5090",
+  "computeCapability": [
+    12,
+    0
+  ],
+  "url": "http://127.0.0.1:8188"
+}

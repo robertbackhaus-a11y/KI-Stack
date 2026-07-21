@@ -1,4 +1,4 @@
-> Current release candidate: `integration-v1.5.7-rc1`
+> Current production acceptance: `production-target-acceptance-v1.0.8`
 
 # KI-Stack
 
@@ -14,6 +14,10 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Models / Workflows | 1.3.7-rc1 | Release candidate |
 | Applications | 1.4.9-rc1 | Release candidate; runtime already target-system validated, publisher correction |
 | Integration | 1.5.7-rc1 | Release candidate; precise CMD finish-block lifecycle gate |
+| Cutover runtime | 1.6.3 | Accepted runtime baseline |
+| Production recovery | 1.7.0-r5 | Reconstructed and content-validated |
+| Universal package Validation Gate | 1.0.2 | Activated on the target system |
+| Production Target Acceptance | 1.0.8 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
 
@@ -37,6 +41,8 @@ scripts/                 Repository validation and release tooling
 docs/                    Architecture, release records and regression registry
 .github/workflows/       GitHub Actions validation and controlled release workflow
 release-manifest.json    Machine-readable status of the checked-out package
+production-release-manifest.json  Production recovery and acceptance status
+tools/                  Reproducible Validation Gate, Recovery and Acceptance sources
 VERSION                  Repository/package line version
 ```
 
@@ -57,7 +63,7 @@ pwsh -NoProfile -File .\scripts\New-ReleaseArchive.ps1
 Do not commit credentials, access tokens, private keys, personal transaction logs or machine-specific state. No open-source license has been selected yet; public visibility alone does not grant reuse rights.
 
 
-Current release candidate: `models-workflows-v1.3.7-rc1`.
+The current repository runtime remains Cutover `1.6.3`. Production Recovery `1.7.0-r5` is a recovery line, not a new runtime version.
 
 
 ## Applications v1.4.0-rc1
@@ -75,16 +81,22 @@ Fixes StrictMode-safe LM Studio detection and exposes exact transaction failure 
 Sets repository-local Git author identity before commits and annotated tags without changing global Git configuration.
 
 
-## Current release candidate
+## Cutover release history
 
 `cutover-v1.6.1-rc1` adds the final cutover and acceptance layer.
 
 
-## Current corrective release candidate
+## Cutover corrective release history
 
 `cutover-v1.6.2-rc1` fixes final validation and diagnostic regression contracts.
 
 
-## Current corrective release candidate
+## Current accepted runtime
 
 `cutover-v1.6.3-rc1` fixes release-manifest schema validation.
+
+## Production recovery and target acceptance
+
+The repository includes complete reusable sources for Production Recovery `1.7.0-r5`, Universal Package Validation Gate `1.0.2`, and Production Target Acceptance `1.0.8`. ZIP binaries remain GitHub Release assets and are referenced by explicit artifact contracts.
+
+Overall status: `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
