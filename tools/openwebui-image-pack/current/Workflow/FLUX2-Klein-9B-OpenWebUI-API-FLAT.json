@@ -1,0 +1,17 @@
+{
+  "78":{"inputs":{"filename_prefix":"Flux2-Klein","images":["82",0]},"class_type":"SaveImage","_meta":{"title":"Save Image"}},
+  "80":{"inputs":{"sampler_name":"euler"},"class_type":"KSamplerSelect","_meta":{"title":"KSamplerSelect"}},
+  "81":{"inputs":{"noise":["86",0],"guider":["90",0],"sampler":["80",0],"sigmas":["93",0],"latent_image":["83",0]},"class_type":"SamplerCustomAdvanced","_meta":{"title":"SamplerCustomAdvanced"}},
+  "82":{"inputs":{"samples":["81",0],"vae":["89",0]},"class_type":"VAEDecode","_meta":{"title":"VAE Decode"}},
+  "83":{"inputs":{"width":["84",0],"height":["85",0],"batch_size":1},"class_type":"EmptyFlux2LatentImage","_meta":{"title":"Empty Flux 2 Latent"}},
+  "84":{"inputs":{"value":1024},"class_type":"PrimitiveInt","_meta":{"title":"Width"}},
+  "85":{"inputs":{"value":1024},"class_type":"PrimitiveInt","_meta":{"title":"Height"}},
+  "86":{"inputs":{"noise_seed":225949935358103},"class_type":"RandomNoise","_meta":{"title":"RandomNoise"}},
+  "87":{"inputs":{"unet_name":"flux-2-klein-9b-fp8.safetensors","weight_dtype":"default"},"class_type":"UNETLoader","_meta":{"title":"Load Diffusion Model"}},
+  "88":{"inputs":{"clip_name":"qwen_3_8b_fp8mixed.safetensors","type":"flux2","device":"default"},"class_type":"CLIPLoader","_meta":{"title":"Load CLIP"}},
+  "89":{"inputs":{"vae_name":"flux2-vae.safetensors"},"class_type":"VAELoader","_meta":{"title":"Load VAE"}},
+  "90":{"inputs":{"cfg":1,"model":["87",0],"positive":["92",0],"negative":["91",0]},"class_type":"CFGGuider","_meta":{"title":"CFG Guider"}},
+  "91":{"inputs":{"conditioning":["92",0]},"class_type":"ConditioningZeroOut","_meta":{"title":"ConditioningZeroOut"}},
+  "92":{"inputs":{"text":"cinematic portrait of a female astronaut, dramatic rim light, ultra detailed, realistic skin, 85mm lens, shallow depth of field","clip":["88",0]},"class_type":"CLIPTextEncode","_meta":{"title":"CLIP Text Encode (Positive Prompt)"}},
+  "93":{"inputs":{"steps":4,"width":["84",0],"height":["85",0]},"class_type":"Flux2Scheduler","_meta":{"title":"Flux2Scheduler"}}
+}

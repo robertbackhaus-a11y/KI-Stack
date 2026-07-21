@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "openWebUIVersion": "0.10.2",
   "endpoint": "http://127.0.0.1:8080",
   "baseModelId": null,
@@ -8,6 +8,7 @@
     "ki-stack-it-technik",
     "ki-stack-allgemein"
   ],
+  "registeredExtensionToolIds": ["ki_stack_generate_image"],
   "webSearch": {
     "profileSettingAvailable": false,
     "runtimeFeatureField": "features.web_search",

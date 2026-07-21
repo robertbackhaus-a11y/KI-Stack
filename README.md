@@ -18,7 +18,8 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Production recovery | 1.7.0-r7 | Target-system accepted; portable runtime resolution |
 | Universal package Validation Gate | 1.0.2 | Activated on the target system |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
-| OpenWebUI Agent Pack | 1.8.1 | Stable; OpenWebUI 0.10.2 target-system validated |
+| OpenWebUI Agent Pack | 1.8.2 | Stable; registered Image Pack binding target-system validated |
+| OpenWebUI Image Pack | 1.9.0 | Stable; direct FLUX2 generation target-system validated |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
 
@@ -102,6 +103,8 @@ The repository includes complete reusable sources for Production Recovery `1.7.0
 
 ## OpenWebUI Agent Pack
 
-OpenWebUI Agent Pack `1.8.1` manages exactly the workspace models `KI & IT-Technik` and `Allgemein` through the supported OpenWebUI 0.10.2 HTTP API. Model binding is supplied at runtime; tokens, personal paths, knowledge bases, tools, skills and functions are not embedded.
+OpenWebUI Agent Pack `1.8.2` manages exactly the workspace models `KI & IT-Technik` and `Allgemein` through the supported OpenWebUI 0.10.2 HTTP API. It preserves only the registered Image Pack tool binding when present; otherwise both profiles remain unbound.
+
+OpenWebUI Image Pack `1.9.0` manages exactly one canonical tool, `ki-stack-generate-image`, for direct generation through the existing FLUX2 Klein workflow and local ComfyUI 1.2.1. OpenWebUI 0.10.2 binds its required identifier-safe internal ID `ki_stack_generate_image`. The pack downloads no models and adds no KREA or Pony dependency.
 
 Overall status: `TARGET_SYSTEM_ACCEPTANCE_PASSED`.

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0",
+  "version": "1.9.0",
+  "openWebUIVersion": "0.10.2",
+  "comfyUIVersion": "1.2.1",
+  "endpoint": "http://127.0.0.1:8080",
+  "comfyEndpoint": "http://127.0.0.1:8188",
+  "managedToolId": "ki-stack-generate-image",
+  "openWebUIToolId": "ki_stack_generate_image",
+  "managedProfileIds": ["ki-stack-it-technik", "ki-stack-allgemein"],
+  "aspectRatios": {"1:1": [512, 512], "16:9": [768, 432], "9:16": [432, 768]}
+}
