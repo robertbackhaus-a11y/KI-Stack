@@ -1,4 +1,4 @@
-> Current production acceptance: `production-target-acceptance-v1.0.8`
+> Current production acceptance: `production-target-acceptance-v1.0.9`
 
 # KI-Stack
 
@@ -15,9 +15,9 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
 | Integration | 1.5.7 | Stable; precise CMD finish-block lifecycle gate retained |
 | Cutover runtime | 1.6.3 | Accepted runtime baseline |
-| Production recovery | 1.7.0-r5 | Reconstructed and content-validated |
+| Production recovery | 1.7.0-r6 | Target-system accepted; portable runtime resolution |
 | Universal package Validation Gate | 1.0.2 | Activated on the target system |
-| Production Target Acceptance | 1.0.8 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
+| Production Target Acceptance | 1.0.9 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
 
@@ -63,7 +63,7 @@ pwsh -NoProfile -File .\scripts\New-ReleaseArchive.ps1
 Do not commit credentials, access tokens, private keys, personal transaction logs or machine-specific state. No open-source license has been selected yet; public visibility alone does not grant reuse rights.
 
 
-The current repository runtime remains Cutover `1.6.3`. Production Recovery `1.7.0-r5` is a recovery line, not a new runtime version.
+The current repository runtime remains Cutover `1.6.3`. Production Recovery `1.7.0-r6` is a recovery line, not a new runtime version; r5 remains its published and accepted predecessor.
 
 
 ## Applications v1.4.0-rc1
@@ -97,6 +97,6 @@ Sets repository-local Git author identity before commits and annotated tags with
 
 ## Production recovery and target acceptance
 
-The repository includes complete reusable sources for Production Recovery `1.7.0-r5`, Universal Package Validation Gate `1.0.2`, and Production Target Acceptance `1.0.8`. ZIP binaries remain GitHub Release assets and are referenced by explicit artifact contracts.
+The repository includes complete reusable sources for Production Recovery `1.7.0-r6`, Universal Package Validation Gate `1.0.2`, and Production Target Acceptance `1.0.9`. ZIP binaries remain GitHub Release assets and are referenced by explicit artifact contracts. The published r5 state remains documented as the accepted predecessor.
 
 Overall status: `TARGET_SYSTEM_ACCEPTANCE_PASSED`.

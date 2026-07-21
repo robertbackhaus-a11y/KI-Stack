@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "releaseId": "PRODUCTION-1.7.0-R5",
+  "releaseId": "PRODUCTION-1.7.0-R6",
   "productVersion": "1.7.0",
-  "recoveryRevision": "r5",
+  "recoveryRevision": "r6",
   "status": "TargetSystemAccepted",
-  "acceptedAtUtc": "2026-07-21T07:32:37Z",
+  "acceptedAtUtc": "2026-07-21T10:42:01.1554558Z",
   "runtime": {
     "version": "1.6.3",
     "releaseId": "CUTOVER-1.6.3",
@@ -15,8 +15,8 @@
     "historicalByteIdentityClaimed": false
   },
   "recovery": {
-    "name": "KI-Stack-Production-Recovery-v1.7.0-r5.zip",
-    "sha256": "d8bc13492e54b1fa7a7d723fd9ef29ff7311b5ad70794c87c53e0750f74807e6",
+    "name": "KI-Stack-Production-Recovery-v1.7.0-r6.zip",
+    "sha256": "826c325780ef25b3a8604b30cdbbdf3895d685ce243f9b08b49ab4d55698a282",
     "sourceDirectory": "tools/production-recovery/current",
     "artifactContract": "tools/production-recovery/current/01-Runtime/RUNTIME-CORE-ARTIFACT-CONTRACT.json"
   },
@@ -28,9 +28,9 @@
     "activatedOnTargetSystem": true
   },
   "targetAcceptance": {
-    "name": "KI-Stack-Production-Target-Acceptance-v1.0.8.zip",
-    "version": "1.0.8",
-    "sha256": "237d461b636e8109bfbe2f864e2b44830d78fcb4a04d20069f67a211dfe09bd4",
+    "name": "KI-Stack-Production-Target-Acceptance-v1.0.9.zip",
+    "version": "1.0.9",
+    "sha256": "b671c895619450e973a1d2864eda4d0403e137d477bb4de79eac9eaf884c5f69",
     "sourceDirectory": "tools/production-target-acceptance/current",
     "artifactContract": "tools/production-target-acceptance/current/Recovery/RECOVERY-ARTIFACT-CONTRACT.json",
     "status": "TARGET_SYSTEM_ACCEPTANCE_PASSED"

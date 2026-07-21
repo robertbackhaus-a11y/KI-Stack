@@ -1,4 +1,4 @@
-> Aktuelle Produktionsabnahme: `production-target-acceptance-v1.0.8`
+> Aktuelle Produktionsabnahme: `production-target-acceptance-v1.0.9`
 
 # KI-Stack – Deutsch
 
@@ -15,16 +15,16 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | Applications | 1.4.10 | Stabil; LM Studio und Open WebUI 0.10.2 auf dem Zielsystem akzeptiert |
 | Integration | 1.5.7 | Stabil; präzises CMD-Finish-Block-Lifecycle-Gate beibehalten |
 | Cutover Runtime | 1.6.3 | Akzeptierter Runtime-Basisstand |
-| Production Recovery | 1.7.0-r5 | Rekonstruiert und inhaltlich validiert |
+| Production Recovery | 1.7.0-r6 | Auf dem Zielsystem akzeptiert; portable Laufzeitauflösung |
 | Universeller Paket-Validation-Gate | 1.0.2 | Auf dem Zielsystem aktiviert |
-| Production Target Acceptance | 1.0.8 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` am 21.07.2026 |
+| Production Target Acceptance | 1.0.9 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` am 21.07.2026 |
 
 Vollständige Paketquellen liegen im Verzeichnis `package`. Fertige ZIP-Pakete werden als GitHub-Release-Artefakte veröffentlicht und nicht dauerhaft in die normale Git-Historie aufgenommen.
 
 Jedes Paket enthält Selbsttest, Dry-Run, Execute, Transaktionsprotokollierung, Diagnose und Rollback. Neue Pakete müssen sämtliche bekannten und bereits behobenen Fehler als Regressionstests abdecken.
 
 
-Die Repository-Runtime bleibt Cutover `1.6.3`. Production Recovery `1.7.0-r5` ist eine Wiederherstellungslinie und keine neue Runtime-Version.
+Die Repository-Runtime bleibt Cutover `1.6.3`. Production Recovery `1.7.0-r6` ist eine Wiederherstellungslinie und keine neue Runtime-Version; r5 bleibt als veröffentlichter und akzeptierter Vorgänger dokumentiert.
 
 
 ## Applications v1.4.0-rc1
@@ -43,6 +43,6 @@ Setzt die Git-Autoridentität vor Commit und annotiertem Tag repository-lokal, o
 
 ## Produktionswiederherstellung und Zielsystemabnahme
 
-Das Repository enthält vollständige wiederverwendbare Quellen für Production Recovery `1.7.0-r5`, Universal Package Validation Gate `1.0.2` und Production Target Acceptance `1.0.8`. ZIP-Binärdateien bleiben GitHub-Release-Artefakte und werden über explizite Artefaktverträge referenziert.
+Das Repository enthält vollständige wiederverwendbare Quellen für Production Recovery `1.7.0-r6`, Universal Package Validation Gate `1.0.2` und Production Target Acceptance `1.0.9`. ZIP-Binärdateien bleiben GitHub-Release-Artefakte und werden über explizite Artefaktverträge referenziert. Der veröffentlichte r5-Stand bleibt als akzeptierter Vorgänger dokumentiert.
 
 Gesamtstatus: `TARGET_SYSTEM_ACCEPTANCE_PASSED`.

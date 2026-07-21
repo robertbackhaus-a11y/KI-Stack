@@ -3,8 +3,9 @@
   "releaseId": "PRODUCTION-RECOVERY-1.7.0-r6",
   "productVersion": "1.7.0",
   "recoveryRevision": "r6",
-  "status": "SourcePrepared",
-  "targetSystemValidated": false,
+  "status": "TargetSystemAccepted",
+  "targetSystemValidated": true,
+  "acceptedAtUtc": "2026-07-21T10:33:33.3727334Z",
   "predecessor": {
     "releaseId": "PRODUCTION-RECOVERY-1.7.0-r5",
     "version": "1.7.0-r5",
@@ -53,7 +54,7 @@
   },
   "operationalOverlay": {
     "fileCount": 32,
-    "totalBytes": 39080,
+    "totalBytes": 39475,
     "manifest": "02-Operational-Overlay/CONTENT-MANIFEST.json",
     "sourceCaptureSha256": "3b9b1498eb7561212e3ace28ef86fb2b7fda93a99ff3419136a269757f574026",
     "sourceTreeNormalizations": [
@@ -74,6 +75,10 @@
       {
         "path": "02-Operational-Overlay/Content/modules/applications/installation.json",
         "change": "Personal LM Studio CLI path replaced by a portable USERPROFILE marker"
+      },
+      {
+        "path": "02-Operational-Overlay/Content/modules/comfyui/Stop-KIStack-ComfyUI.ps1",
+        "change": "Controlled stop treats a process that exits after inventory as already stopped and verifies remaining processes"
       }
     ]
   },

@@ -9,7 +9,7 @@
     "generatedAtUtc": "2026-07-20T18:36:14.7979350Z"
   },
   "overlayFileCount": 32,
-  "overlayTotalBytes": 39080,
+  "overlayTotalBytes": 39475,
   "files": [
     {
       "path": "data/comfyui/user/default/workflows/KI-Stack/FLUX2-Klein-9B-OpenWebUI-API-FLAT.json",
@@ -91,8 +91,8 @@
     },
     {
       "path": "modules/comfyui/Stop-KIStack-ComfyUI.ps1",
-      "size": 824,
-      "sha256": "957768597862ea5e2122b5e053047219f491053b37c94bcaf8b3b68f651d55fe",
+      "size": 1219,
+      "sha256": "ad30355c0c5ef8565aec5fdeb2cc9b6ae996fdc72eb553bcd3692fbd900b69b4",
       "lastWriteTimeUtc": "2026-07-20T10:37:09.4391298Z"
     },
     {

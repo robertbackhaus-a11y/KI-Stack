@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
-  "packageName": "KI-Stack-Production-Target-Acceptance-v1.0.8",
-  "packageVersion": "1.0.8",
+  "packageName": "KI-Stack-Production-Target-Acceptance-v1.0.9",
+  "packageVersion": "1.0.9",
   "packageType": "TargetAcceptance",
   "selfTestEntryPoint": "Test-KIStack-Target-Acceptance-Package.ps1",
   "selfTestArguments": [],
@@ -17,7 +17,7 @@
     "Invoke-KIStack-Target-Acceptance.ps1",
     "Core/KIStack.TargetAcceptance.Core.psm1",
     "Contract/ACCEPTANCE-CONTRACT.json",
-    "Recovery/KI-Stack-Production-Recovery-v1.7.0-r5.zip"
+    "Recovery/KI-Stack-Production-Recovery-v1.7.0-r6.zip"
   ],
   "requiredRegressionIds": [
     "REG-004-HASHTABLE-KEYS",

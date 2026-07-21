@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
-  "packageName": "KI-Stack-Production-Target-Acceptance-v1.0.8",
-  "packageVersion": "1.0.8",
+  "packageName": "KI-Stack-Production-Target-Acceptance-v1.0.9",
+  "packageVersion": "1.0.9",
   "coverage": [
     {
       "id": "REG-004-HASHTABLE-KEYS",
