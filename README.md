@@ -13,7 +13,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | ComfyUI | 1.2.1 | Stable; target-system validated |
 | Models / Workflows | 1.3.7 | Stable; FLUX2 required profile validated, KREA and Pony optional |
 | Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
-| Integration | 1.5.7-rc1 | Release candidate; precise CMD finish-block lifecycle gate |
+| Integration | 1.5.7 | Stable; precise CMD finish-block lifecycle gate retained |
 | Cutover runtime | 1.6.3 | Accepted runtime baseline |
 | Production recovery | 1.7.0-r5 | Reconstructed and content-validated |
 | Universal package Validation Gate | 1.0.2 | Activated on the target system |

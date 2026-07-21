@@ -172,17 +172,20 @@ try {
     $runtimeVersion = (Get-Content -LiteralPath (Join-Path $RootPath 'VERSION') -Raw).Trim()
     $modelsVersion = [string](Get-Content -LiteralPath (Join-Path $RootPath 'package/Modules/05-Models/module.json') -Raw | ConvertFrom-Json).version
     $applicationsVersion = [string](Get-Content -LiteralPath (Join-Path $RootPath 'package/Modules/06-Applications/module.json') -Raw | ConvertFrom-Json).version
+    $integrationVersion = [string](Get-Content -LiteralPath (Join-Path $RootPath 'package/Modules/07-Integration/module.json') -Raw | ConvertFrom-Json).version
     $readmeEn = Get-Content -LiteralPath (Join-Path $RootPath 'README.md') -Raw
     $readmeDe = Get-Content -LiteralPath (Join-Path $RootPath 'README.de.md') -Raw
     $buildReport = Get-Content -LiteralPath (Join-Path $RootPath 'package/BUILD-REPORT.md') -Raw
     $documentationVersionsOk = (
         $readmeEn.Contains("| Models / Workflows | $modelsVersion |") -and
         $readmeEn.Contains("| Applications | $applicationsVersion |") -and
+        $readmeEn.Contains("| Integration | $integrationVersion |") -and
         $readmeDe.Contains("| Modelle / Workflows | $modelsVersion |") -and
         $readmeDe.Contains("| Applications | $applicationsVersion |") -and
+        $readmeDe.Contains("| Integration | $integrationVersion |") -and
         $buildReport.Contains("Ausgelieferter Stand: Cutover v$runtimeVersion")
     )
-    Add-Result 'Documentation version consistency' $documentationVersionsOk "runtime=$runtimeVersion; models=$modelsVersion; applications=$applicationsVersion"
+    Add-Result 'Documentation version consistency' $documentationVersionsOk "runtime=$runtimeVersion; models=$modelsVersion; applications=$applicationsVersion; integration=$integrationVersion"
 
     $sumsPath = Join-Path $RootPath 'package/SHA256SUMS.txt'
     $sumErrors=@()
