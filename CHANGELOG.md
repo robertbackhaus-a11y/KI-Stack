@@ -1,5 +1,13 @@
 # Changelog
 
+## Production Target Acceptance 1.0.9 — target-system validated
+
+- Promoted Production Recovery `1.7.0-r6` to `TargetSystemAccepted` using the final deterministic recovery artifact.
+- Reused the existing acceptance logic with the r6 artifact contract and Target Acceptance package `1.0.9`.
+- Replaced personal LM Studio paths with portable runtime resolution and hardened controlled ComfyUI stop against process-exit races.
+- Confirmed idempotence, drift repair with backup, controlled stop/start and SearXNG, Open WebUI 0.10.2, LM Studio and ComfyUI endpoints.
+- Retained Production Recovery `1.7.0-r5` as the published and accepted predecessor.
+
 ## Production Target Acceptance 1.0.8 — target-system validated
 
 - Recorded `TARGET_SYSTEM_ACCEPTANCE_PASSED` from the sanitized target-system report.

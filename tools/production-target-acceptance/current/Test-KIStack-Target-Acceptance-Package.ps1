@@ -3,7 +3,7 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$expectedPackageVersion = '1.0.8'
+$expectedPackageVersion = '1.0.9'
 $packageVersion = (Get-Content -LiteralPath (Join-Path $root 'VERSION') -Raw -Encoding UTF8).Trim()
 if ($packageVersion -ne $expectedPackageVersion) { throw "Falsche Paketversion. Erwartet=$expectedPackageVersion; Ist=$packageVersion" }
 Import-Module (Join-Path $root 'Core\KIStack.TargetAcceptance.Core.psm1') -Force
@@ -66,7 +66,7 @@ try {
         Out-Null
     $nestedZip = Join-Path $zipRegressionRoot 'nested.zip'
     $nestedRelative = (
-        'KI-Stack-Production-Recovery-v1.7.0-r5/' +
+        'KI-Stack-Production-Recovery-v1.7.0-r6/' +
         '01-Runtime/' +
         'KI-Stack-Cutover-Execute-v1.6.3-core.zip'
     )

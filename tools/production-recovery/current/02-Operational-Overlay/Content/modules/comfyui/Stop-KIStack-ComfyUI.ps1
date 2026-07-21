@@ -19,6 +19,15 @@ if ($matchingProcesses.Count -eq 0) {
     exit 0
 }
 foreach ($processEntry in $matchingProcesses) {
-    Stop-Process -Id ([int]$processEntry.ProcessId) -Force -ErrorAction Stop
-    Write-Host ('ComfyUI-Prozess beendet: PID {0}' -f $processEntry.ProcessId)
+    $processId = [int]$processEntry.ProcessId
+    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+    if ($null -eq $process) {
+        Write-Host ('ComfyUI-Prozess bereits beendet: PID {0}' -f $processId)
+        continue
+    }
+    Stop-Process -InputObject $process -Force -ErrorAction SilentlyContinue
+    if (Get-Process -Id $processId -ErrorAction SilentlyContinue) {
+        throw ('ComfyUI-Prozess konnte nicht beendet werden: PID {0}' -f $processId)
+    }
+    Write-Host ('ComfyUI-Prozess beendet: PID {0}' -f $processId)
 }

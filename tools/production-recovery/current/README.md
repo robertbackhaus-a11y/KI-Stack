@@ -1,14 +1,15 @@
 # KI-Stack Production Recovery v1.7.0-r6
 
-Vorbereiteter, noch nicht zielsystemvalidierter Production-Recovery-Quellstand mit veröffentlichtem Cutover Runtime-Core v1.6.3 und 32 operationalen Overlay-Dateien.
+Zielsystemakzeptierter Production-Recovery-Stand mit veröffentlichtem Cutover Runtime-Core v1.6.3 und 32 operationalen Overlay-Dateien.
 
-Status: `SourcePrepared`. Vorgänger ist der veröffentlichte und akzeptierte Stand Production Recovery `1.7.0-r5`. Das Production Release Manifest und Target Acceptance `1.0.8` referenzieren weiterhin ausschließlich diesen validierten Vorgänger.
+Status: `TargetSystemAccepted`. Vorgänger ist der veröffentlichte und akzeptierte Stand Production Recovery `1.7.0-r5`. r6 wurde mit Target Acceptance `1.0.9` gegen das Zielsystem validiert.
 
 ## Korrektur r6
 
 - Persönliche LM-Studio-Pfade wurden durch portable Laufzeitauflösung ersetzt.
+- Der kontrollierte ComfyUI-Stop ist gegen bereits während der Inventarisierung beendete Prozesse idempotent.
 - Release-, Overlay- und Prüfsummenverträge wurden an den vorbereiteten Quellenstand angepasst.
-- Dieser Stand darf erst nach einer erneuten Zielsystemvalidierung als akzeptierter Production-Recovery-Stand bezeichnet werden.
+- Der finale r6-Artefaktvertrag wurde nach der Zielsystemvalidierung neu gebaut und im Abschlusslauf bestätigt.
 
 ## Übernommene Korrekturen aus r5
 

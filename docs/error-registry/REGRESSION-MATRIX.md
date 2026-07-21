@@ -126,3 +126,4 @@ A correction is incomplete until its regression test executes before final self-
 | APP-OWUI-005 | Open WebUI was started through unsupported `python -m open_webui` | Require and execute `open-webui.exe serve` | Target Acceptance 1.0.6 |
 | COMFY-DB-006 | ComfyUI SQLite parent directory did not exist | Create `C:\KI-Stack\ComfyUI\user` before startup | Target Acceptance 1.0.6 |
 | ACC-CONTENT-007 | Self-test omitted the real `02-Operational-Overlay/Content` path segment | Resolve and verify starters below the extracted Content root | Target Acceptance 1.0.8 |
+| REC-STOP-008 | ComfyUI exited between process inventory and the stop request | Treat a missing inventoried PID as already stopped and verify that no matching process remains | Production Recovery 1.7.0-r6 |
