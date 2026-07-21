@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.0",
+  "policyId": "KI-STACK-UNIVERSAL-RELEASE-GATE",
+  "policyVersion": "1.0.2",
+  "effectiveFor": "all future KI-Stack packages",
+  "releaseRules": {
+    "finalZipMustBeValidated": true,
+    "sha256SidecarRequired": true,
+    "exactInternalSha256ManifestRequired": true,
+    "validationContractRequired": true,
+    "nativePowerShellParserRequiredForRelease": true,
+    "finalExtractedPackageSelfTestRequired": true,
+    "repositoryOperationsAllowed": false,
+    "minimumReleaseStatus": "NATIVE_PACKAGE_VALIDATION_PASSED",
+    "targetPackagesMinimumStatus": "TARGET_SYSTEM_ACCEPTANCE_PASSED",
+    "knownRegressionReexecutionRequired": true,
+    "unexecutedChecksMustBeReported": true,
+    "openFailuresAllowed": false,
+    "selfTestMustNotMutateDeliveredPackage": true
+  },
+  "allowedStatuses": [
+    "REJECTED",
+    "STATIC_VALIDATION_PASSED",
+    "NATIVE_PACKAGE_VALIDATION_PASSED",
+    "TARGET_SYSTEM_ACCEPTANCE_PASSED"
+  ],
+  "mandatoryArtifacts": [
+    "VERSION",
+    "SHA256SUMS.txt",
+    "Validation/VALIDATION-CONTRACT.json",
+    "Validation/REGRESSION-COVERAGE.json",
+    "a native package self-test entry point"
+  ]
+}

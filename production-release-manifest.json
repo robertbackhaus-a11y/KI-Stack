@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0",
+  "releaseId": "PRODUCTION-1.7.0-R5",
+  "productVersion": "1.7.0",
+  "recoveryRevision": "r5",
+  "status": "TargetSystemAccepted",
+  "acceptedAtUtc": "2026-07-21T07:32:37Z",
+  "runtime": {
+    "version": "1.6.3",
+    "releaseId": "CUTOVER-1.6.3",
+    "releaseTag": "cutover-v1.6.3-rc1",
+    "publishedAsset": "KI-Stack-Cutover-Execute-v1.6.3-core.zip",
+    "publishedAssetSha256": "e387199493575131045c888ebbd4c1313bb985b13e3a1f72c3f99efe9bf2b85d",
+    "historicalValidatedArchiveSha256": "dac28224c7456d19b3046582059abed37ad1ae3a155f198007c6734fc8a6e00a",
+    "historicalByteIdentityClaimed": false
+  },
+  "recovery": {
+    "name": "KI-Stack-Production-Recovery-v1.7.0-r5.zip",
+    "sha256": "d8bc13492e54b1fa7a7d723fd9ef29ff7311b5ad70794c87c53e0750f74807e6",
+    "sourceDirectory": "tools/production-recovery/current",
+    "artifactContract": "tools/production-recovery/current/01-Runtime/RUNTIME-CORE-ARTIFACT-CONTRACT.json"
+  },
+  "validationGate": {
+    "name": "KI-Stack-Universal-Package-Validation-Gate-v1.0.2.zip",
+    "version": "1.0.2",
+    "sha256": "a03dd59df2322bc37b763d8d16ff6127f04b969069a698b361e6c52099a7db81",
+    "sourceDirectory": "tools/package-validation-gate/current",
+    "activatedOnTargetSystem": true
+  },
+  "targetAcceptance": {
+    "name": "KI-Stack-Production-Target-Acceptance-v1.0.8.zip",
+    "version": "1.0.8",
+    "sha256": "237d461b636e8109bfbe2f864e2b44830d78fcb4a04d20069f67a211dfe09bd4",
+    "sourceDirectory": "tools/production-target-acceptance/current",
+    "artifactContract": "tools/production-target-acceptance/current/Recovery/RECOVERY-ARTIFACT-CONTRACT.json",
+    "status": "TARGET_SYSTEM_ACCEPTANCE_PASSED"
+  }
+}

@@ -110,3 +110,19 @@ A correction is incomplete until its regression test executes before final self-
 | REG-GH-004 | Release publisher references stale tag/assets | Derive tag/assets from current manifest and prevalidate existence/SHA256 | v1.5.6 |
 
 | REG-GATE-002 | CMD lifecycle gate scanned helper labels after `:Finish` | Parse only the exact label block up to the next CMD label | v1.5.7 |
+
+## Production recovery and acceptance regressions
+
+| ID | Defect | Permanent regression | Fixed in |
+|---|---|---|---|
+| REC-ASSET-001 | Recovery builder assumed a non-existent runtime asset name | Select the unique exact published asset and reject missing or duplicate assets | Recovery Builder 1.0.1 |
+| REC-HASH-002 | Historical validated archive hash was compared with the separately published core ZIP | Keep historical acceptance identity and published core identity as separate contracts | Recovery Builder 1.0.2 |
+| REC-MANIFEST-003 | Embedded release manifest was assumed although the real core ZIP has none | External provenance plus internal SHA256SUMS; embedded manifest remains optional | Recovery Builder 1.0.3 |
+| ACC-MANIFEST-001 | Hashtable `.Key` was used instead of `.Keys` | Exact manifest valid, extra, missing and drift fixtures | Target Acceptance 1.0.1 |
+| ACC-PATH-002 | Double-backslash string prefix comparison rejected safe nested ZIP paths | Canonical paths plus `Path.GetRelativePath()` | Target Acceptance 1.0.2 |
+| GATE-MUTATION-001 | Python tests created `__pycache__` inside the package before exact-set validation | Isolated temporary execution with pre/post package snapshots | Validation Gate 1.0.1 |
+| ACC-SCHEMA-003 | Direct access to a missing `fileCount` property failed under StrictMode | Optional-property resolution with actual entry-count fallback | Target Acceptance 1.0.4 |
+| ACC-STOP-004 | Controlled stop called a pause-bearing CMD and timed out | Direct PowerShell stop invocation with bounded timeout | Target Acceptance 1.0.5 |
+| APP-OWUI-005 | Open WebUI was started through unsupported `python -m open_webui` | Require and execute `open-webui.exe serve` | Target Acceptance 1.0.6 |
+| COMFY-DB-006 | ComfyUI SQLite parent directory did not exist | Create `C:\KI-Stack\ComfyUI\user` before startup | Target Acceptance 1.0.6 |
+| ACC-CONTENT-007 | Self-test omitted the real `02-Operational-Overlay/Content` path segment | Resolve and verify starters below the extracted Content root | Target Acceptance 1.0.8 |

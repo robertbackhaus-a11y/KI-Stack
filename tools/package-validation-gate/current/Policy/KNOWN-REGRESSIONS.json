@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "1.0",
+  "registryVersion": "1.0.2",
+  "regressions": [
+    {
+      "id": "REG-001-OLD-CUTOVER-ASSET-NAME",
+      "description": "Incorrect expectation of KI-Stack-Cutover-Execute-v1.6.3.zip instead of the published -core.zip asset."
+    },
+    {
+      "id": "REG-002-HASH-CONTRACT-MIX",
+      "description": "Historical full archive SHA256 must not be compared with the published runtime-core SHA256."
+    },
+    {
+      "id": "REG-003-EMBEDDED-MANIFEST-ASSUMPTION",
+      "description": "Do not require an embedded release manifest unless the real asset contract contains one."
+    },
+    {
+      "id": "REG-004-HASHTABLE-KEYS",
+      "description": "PowerShell hashtable key enumeration must use .Keys, not .Key."
+    },
+    {
+      "id": "REG-005-DOUBLE-BACKSLASH-PREFIX",
+      "description": "Do not build canonical path prefixes using a two-character backslash string."
+    },
+    {
+      "id": "REG-006-BROAD-GIT-TEXT-SCAN",
+      "description": "Do not reject harmless .git exclusion strings through broad text matching."
+    },
+    {
+      "id": "REG-007-NESTED-EXTRACTION-PATHS",
+      "description": "Launchers must work from paths containing spaces and duplicated nested package directories."
+    },
+    {
+      "id": "REG-008-SELF-ELEVATION",
+      "description": "Execute launchers that modify protected locations must self-elevate and preserve arguments and working directory."
+    },
+    {
+      "id": "REG-009-POWERSHELL7-RESOLUTION",
+      "description": "Resolve PowerShell 7 robustly when pwsh.exe is not directly in PATH."
+    },
+    {
+      "id": "REG-010-PREFLIGHT-DISCOVERY",
+      "description": "Preflight selection must use verified paths and deterministic recency/version rules."
+    },
+    {
+      "id": "REG-011-VERSION-NORMALIZATION",
+      "description": "Support documented manifest schemas and normalize versions without assuming optional fields."
+    },
+    {
+      "id": "REG-012-SELFTEST-AGGREGATION",
+      "description": "A failed or unhandled self-test condition must reject the package."
+    },
+    {
+      "id": "REG-013-ROLLBACK-PARTIAL-STATE",
+      "description": "Writes require backup, atomic completion and explicit partial-state handling."
+    },
+    {
+      "id": "REG-014-COMPLETE-LOGGING",
+      "description": "Errors, exit codes and affected paths must be recorded in machine-readable reports."
+    },
+    {
+      "id": "REG-015-FINAL-ZIP-NOT-WORKDIR",
+      "description": "Validation must run against the final delivered ZIP after fresh extraction, not only the build directory."
+    },
+    {
+      "id": "REG-016-ZIP-PATH-SECURITY",
+      "description": "Reject traversal, absolute paths, ADS, device names, duplicates, case collisions and symlink entries."
+    },
+    {
+      "id": "REG-017-EXACT-MANIFEST-SET",
+      "description": "Reject missing, unexpected and hash-drifted files relative to SHA256SUMS.txt."
+    },
+    {
+      "id": "REG-018-SIDECAR-IDENTITY",
+      "description": "The outer SHA256 sidecar must name and match the exact delivered ZIP."
+    },
+    {
+      "id": "REG-019-NATIVE-PARSER-REQUIRED",
+      "description": "Static lexical checks cannot replace the native PowerShell parser and AST for release approval."
+    },
+    {
+      "id": "REG-020-UNEXECUTED-NOT-PASSED",
+      "description": "Checks not actually executed must never be reported as passed."
+    },
+    {
+      "id": "REG-021-PYTHON-BYTECODE-PACKAGE-MUTATION",
+      "description": "Python unit tests must not create __pycache__ or .pyc files inside the delivered package before exact-manifest validation."
+    },
+    {
+      "id": "REG-022-NESTED-LEGACY-POLICY-SCOPE",
+      "description": "Strict current-package formatting and exact-set rules must not be retroactively imposed on immutable nested legacy archives without a validation contract; their paths, bytes and declared hashes remain mandatory."
+    }
+  ]
+}

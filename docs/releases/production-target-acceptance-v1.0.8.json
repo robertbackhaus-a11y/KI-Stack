@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "1.0",
+  "reportedAtUtc": "2026-07-21T07:31:17.2348066Z",
+  "source": {
+    "type": "sanitizedTargetSystemReport",
+    "rawReportFile": "KI-Stack-Production-Target-Acceptance-v1.0.8.TARGET-REPORT.json",
+    "rawReportSha256": "f92e593f66f2d72f2da388044471a5e9687657ca46bc362deabc4bf5a888a9e5",
+    "rawReportCommitted": false,
+    "sanitization": "User, installation, temporary, backup and target-system paths and captured process output were omitted."
+  },
+  "package": "KI-Stack-Production-Target-Acceptance-v1.0.8.zip",
+  "packageSha256": "237d461b636e8109bfbe2f864e2b44830d78fcb4a04d20069f67a211dfe09bd4",
+  "productVersion": "1.7.0",
+  "recoveryRevision": "r5",
+  "recoveryArtifactSha256": "d8bc13492e54b1fa7a7d723fd9ef29ff7311b5ad70794c87c53e0750f74807e6",
+  "mode": "Execute",
+  "passed": true,
+  "status": "TARGET_SYSTEM_ACCEPTANCE_PASSED",
+  "checks": {
+    "acceptancePackageIntegrity": true,
+    "recoveryArtifactIntegrity": true,
+    "administrator": true,
+    "powerShell7": true,
+    "requiredModels": true,
+    "requiredRuntimeFiles": true,
+    "installationMarkers": true,
+    "controlledStackStop": {
+      "passed": true,
+      "exitCode": 0,
+      "timedOut": false
+    },
+    "controlledStackStart": {
+      "passed": true,
+      "exitCode": 0,
+      "timedOut": false
+    },
+    "operationalOverlay": {
+      "passed": true,
+      "fileCount": 32,
+      "changed": 2,
+      "unchanged": 30,
+      "detectedDrift": 2,
+      "postApplyErrors": 0
+    },
+    "endpoints": [
+      { "name": "SearXNG", "passed": true, "attempts": 1 },
+      { "name": "Open WebUI", "passed": true, "attempts": 7 },
+      { "name": "LM Studio", "passed": true, "attempts": 1 },
+      { "name": "ComfyUI", "passed": true, "attempts": 1 }
+    ]
+  },
+  "failedCriticalChecks": [],
+  "warnings": [],
+  "stackLeftRunning": true,
+  "runtimeCoreInstalledFromRecovery": false,
+  "recoveryArtifactValidatedOnTargetSystem": true
+}

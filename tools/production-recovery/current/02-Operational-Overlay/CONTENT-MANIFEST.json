@@ -1,0 +1,207 @@
+{
+  "schemaVersion": "1.0",
+  "purpose": "Recovered operational overlay with verified Open WebUI console launcher, non-interactive controlled stop and ComfyUI default SQLite directory initialization",
+  "sourceCapture": {
+    "name": "KI-Stack-Recovery-Input-20260720-203556.zip",
+    "sha256": "3b9b1498eb7561212e3ace28ef86fb2b7fda93a99ff3419136a269757f574026",
+    "fileCount": 937,
+    "totalBytes": 44099018,
+    "generatedAtUtc": "2026-07-20T18:36:14.7979350Z"
+  },
+  "overlayFileCount": 32,
+  "overlayTotalBytes": 38479,
+  "files": [
+    {
+      "path": "data/comfyui/user/default/workflows/KI-Stack/FLUX2-Klein-9B-OpenWebUI-API-FLAT.json",
+      "size": 3338,
+      "sha256": "697ea261e1c62a8e32d775ee9cba5c5c5c3548c6bd082a63a84c71f53c3123a5",
+      "lastWriteTimeUtc": "2026-07-20T10:35:51.9250472Z"
+    },
+    {
+      "path": "data/comfyui/user/default/workflows/KI-Stack/FLUX2-Klein-9B-Text-to-Image.json",
+      "size": 4681,
+      "sha256": "88f269de77c26b637f1d2903b3ea424c2a4dfee9920edd871978509f04e5788f",
+      "lastWriteTimeUtc": "2026-07-20T10:35:51.9280538Z"
+    },
+    {
+      "path": "data/comfyui/user/default/workflows/KI-Stack/KREA-Realism-Official-Template.json",
+      "size": 2554,
+      "sha256": "9d853da60e72e80eb1069cbf418698c275e83a22aeb43e16913b2b51460a12d5",
+      "lastWriteTimeUtc": "2026-07-20T10:35:51.9312742Z"
+    },
+    {
+      "path": "data/comfyui/user/default/workflows/KI-Stack/OpenWebUI-ComfyUI-Generation-Mapping.json",
+      "size": 503,
+      "sha256": "ff7fd828feca8d5bb2ba9ad3ba42fd1edd7a32c49e805dd27ac33108b2c3f51a",
+      "lastWriteTimeUtc": "2026-07-20T10:35:51.9347852Z"
+    },
+    {
+      "path": "data/comfyui/user/default/workflows/KI-Stack/PONY-Control-QuickTest-v2.json",
+      "size": 2426,
+      "sha256": "09f969172c1e527058681d71050b56613a004403f4a93fe512364efa99a1d165",
+      "lastWriteTimeUtc": "2026-07-20T10:35:51.9367973Z"
+    },
+    {
+      "path": "modules/applications/Start-KIStack-Applications.cmd",
+      "size": 319,
+      "sha256": "8cf510d96e2c48b94fd8eb4ced4bda326bbeaf4f78f1bc0f0526054466342dcc",
+      "lastWriteTimeUtc": "2026-07-20T10:37:44.7902043Z"
+    },
+    {
+      "path": "modules/applications/Start-KIStack-LMStudio.cmd",
+      "size": 1204,
+      "sha256": "e2a570a4ca5f4783f47afece911cf7fd31b848326693eb339dc8f1c7fbce803d",
+      "lastWriteTimeUtc": "2026-07-20T10:37:44.7852040Z"
+    },
+    {
+      "path": "modules/applications/Start-KIStack-OpenWebUI.cmd",
+      "size": 1077,
+      "sha256": "9b5ad96f861a7fb564ee48b84a309cdc8781f0333ad09f34a5f3decac3f3889b",
+      "lastWriteTimeUtc": "2026-07-21T06:50:21.866839Z"
+    },
+    {
+      "path": "modules/applications/Stop-KIStack-Applications.cmd",
+      "size": 595,
+      "sha256": "7666032afcc06293257bfa62f3da1e6d8f51073a7406ec22c5a7ff825fea865b",
+      "lastWriteTimeUtc": "2026-07-20T10:37:44.7972330Z"
+    },
+    {
+      "path": "modules/applications/Stop-KIStack-Applications.ps1",
+      "size": 912,
+      "sha256": "2249aead66cfff6e8b0489f3c0dddeab9ba3f09389379d68ccce3fad671ac17f",
+      "lastWriteTimeUtc": "2026-07-20T10:37:44.7937203Z"
+    },
+    {
+      "path": "modules/applications/installation.json",
+      "size": 642,
+      "sha256": "55e93c078675e303a00f75cf4a91f3dc089e49e993c325422cb367ac745d769b",
+      "lastWriteTimeUtc": "2026-07-20T10:37:44.8002341Z"
+    },
+    {
+      "path": "modules/comfyui/Start-KIStack-ComfyUI.cmd",
+      "size": 1320,
+      "sha256": "d89cc14759d1750a11c78bc46cb6ada17a6267c21d4b755418ba3dff34c9896b",
+      "lastWriteTimeUtc": "2026-07-21T06:50:21.866839Z"
+    },
+    {
+      "path": "modules/comfyui/Stop-KIStack-ComfyUI.cmd",
+      "size": 745,
+      "sha256": "55feb5e25a04a0da3f7b8a1afa9a4a7d097500663b6c4ea9f1cf1fc7df1f99a6",
+      "lastWriteTimeUtc": "2026-07-20T10:37:09.4426385Z"
+    },
+    {
+      "path": "modules/comfyui/Stop-KIStack-ComfyUI.ps1",
+      "size": 824,
+      "sha256": "957768597862ea5e2122b5e053047219f491053b37c94bcaf8b3b68f651d55fe",
+      "lastWriteTimeUtc": "2026-07-20T10:37:09.4391298Z"
+    },
+    {
+      "path": "modules/comfyui/extra_model_paths.yaml",
+      "size": 431,
+      "sha256": "a9562cf6b118ecc3d8d3ce99c17ed4af644ca8c63dcd6628b9b674161c037faa",
+      "lastWriteTimeUtc": "2026-07-20T10:37:09.4316246Z"
+    },
+    {
+      "path": "modules/comfyui/installation.json",
+      "size": 619,
+      "sha256": "af4ec2ba2b4f15075048e5a1e3b414bf016dc53d165146b11830f5cccf40e6fd",
+      "lastWriteTimeUtc": "2026-07-20T10:37:09.4476431Z"
+    },
+    {
+      "path": "modules/cutover/Start-KIStack.cmd",
+      "size": 904,
+      "sha256": "5059f83b007d5e6f91c6941d103ec45fa6591df19570ae80f824f211af14e3f7",
+      "lastWriteTimeUtc": "2026-07-20T10:37:59.2125024Z"
+    },
+    {
+      "path": "modules/cutover/Start-KIStack.ps1",
+      "size": 2224,
+      "sha256": "61771202f8c0770ef9a7d692ad73f6061bdcd0f94e088f7a5ad10db02037fb51",
+      "lastWriteTimeUtc": "2026-07-20T10:37:59.2175043Z"
+    },
+    {
+      "path": "modules/cutover/Stop-KIStack.cmd",
+      "size": 903,
+      "sha256": "252ef017662fbb58d6bc366a23f58c97b253ee12ab71ce3d9e4f49f9fb04d01f",
+      "lastWriteTimeUtc": "2026-07-20T10:37:59.2235897Z"
+    },
+    {
+      "path": "modules/cutover/Stop-KIStack.ps1",
+      "size": 1596,
+      "sha256": "73933f4d55d78ec0a747708f65899c8b04ae62d6c61f1642ffa15de4668b1ddf",
+      "lastWriteTimeUtc": "2026-07-21T06:36:18.504922Z"
+    },
+    {
+      "path": "modules/cutover/Test-KIStack-Health.cmd",
+      "size": 910,
+      "sha256": "d7d6a9beabaee768568e970aa01ad030d088a8510e9d8d6bee19917d7c6a5b98",
+      "lastWriteTimeUtc": "2026-07-20T10:37:59.2155023Z"
+    },
+    {
+      "path": "modules/cutover/Test-KIStack-Health.ps1",
+      "size": 3175,
+      "sha256": "79ad5906de8006b909d7ba4eb2db10eb9f0b2d49354e966778bed84b4cfeeca9",
+      "lastWriteTimeUtc": "2026-07-20T10:37:59.2039974Z"
+    },
+    {
+      "path": "modules/cutover/installation.json",
+      "size": 359,
+      "sha256": "00ba087767351de597b8f9455c597775b3facac50c820e30e3485e006db1bfdc",
+      "lastWriteTimeUtc": "2026-07-20T10:38:05.8158586Z"
+    },
+    {
+      "path": "modules/integration/Start-KIStack-IntegratedStack.cmd",
+      "size": 389,
+      "sha256": "6d149740cf8f7c3e9a81b807041752e7a838158344c0f38894779794f90d217f",
+      "lastWriteTimeUtc": "2026-07-20T10:37:58.2993646Z"
+    },
+    {
+      "path": "modules/integration/Start-KIStack-OpenWebUI-WithSearch.cmd",
+      "size": 394,
+      "sha256": "fbb0fb17322dc5980de05151e12aef5a3d10332fa12499eea1acf7165215b8e2",
+      "lastWriteTimeUtc": "2026-07-20T10:37:58.2803425Z"
+    },
+    {
+      "path": "modules/integration/Start-KIStack-SearXNG.cmd",
+      "size": 591,
+      "sha256": "3f644dd078960ac0ea523d1003e8ca7018c023cf8e26d5388797ab2c608d9c99",
+      "lastWriteTimeUtc": "2026-07-20T10:37:58.3018698Z"
+    },
+    {
+      "path": "modules/integration/Start-KIStack-SearXNG.ps1",
+      "size": 1404,
+      "sha256": "52d313569323733953d55fe192d31b36022d0473f78158586a4d0eb7bceec89e",
+      "lastWriteTimeUtc": "2026-07-20T10:37:58.2933600Z"
+    },
+    {
+      "path": "modules/integration/Stop-KIStack-IntegratedStack.cmd",
+      "size": 191,
+      "sha256": "4c612077e96c09356ed8d102d818c3f96fdc59c2fa4b770acfa8d197e2ef59a6",
+      "lastWriteTimeUtc": "2026-07-20T10:37:58.2908569Z"
+    },
+    {
+      "path": "modules/integration/Stop-KIStack-SearXNG.cmd",
+      "size": 590,
+      "sha256": "85f99cd3e9f61563271080121035c5f110f3e11e20dae56f57051c94ed078bb1",
+      "lastWriteTimeUtc": "2026-07-20T10:37:58.3048776Z"
+    },
+    {
+      "path": "modules/integration/Stop-KIStack-SearXNG.ps1",
+      "size": 602,
+      "sha256": "6ccd622b48cd7306243c4dc6f90e64f3ce1ee207c2de869f80a08799a23eff4f",
+      "lastWriteTimeUtc": "2026-07-20T10:37:58.2963646Z"
+    },
+    {
+      "path": "modules/integration/installation.json",
+      "size": 377,
+      "sha256": "de8b7ec134acf7ba3483f24acc9d2768926afec78ed179212d4231a781766f74",
+      "lastWriteTimeUtc": "2026-07-20T10:37:58.3088787Z"
+    },
+    {
+      "path": "modules/models-workflows/installation.json",
+      "size": 1695,
+      "sha256": "6dcc6c8d82d6526fdf377d701989d3012d43b7a7460461f19201c3c952b4125e",
+      "lastWriteTimeUtc": "2026-07-20T10:37:25.8191751Z"
+    }
+  ]
+}

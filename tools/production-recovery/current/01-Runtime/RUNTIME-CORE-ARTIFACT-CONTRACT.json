@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "artifactRole": "RuntimeCoreInput",
+  "repository": "robertbackhaus-a11y/KI-Stack",
+  "releaseTag": "cutover-v1.6.3-rc1",
+  "name": "KI-Stack-Cutover-Execute-v1.6.3-core.zip",
+  "releaseId": "CUTOVER-1.6.3",
+  "version": "1.6.3",
+  "sha256": "e387199493575131045c888ebbd4c1313bb985b13e3a1f72c3f99efe9bf2b85d",
+  "repositoryPath": null,
+  "distribution": "GitHub Release asset",
+  "requiredForPackageAssembly": true,
+  "committedToSourceTree": false,
+  "historicalValidatedArchiveByteIdentityClaimed": false
+}
