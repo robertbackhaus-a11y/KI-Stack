@@ -21,10 +21,13 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | OpenWebUI Agent Pack | 1.8.2 | Stabil; registrierte Image-Pack-Bindung zielsystemvalidiert |
 | OpenWebUI Image Pack | 1.9.0 | Stabil; direkte FLUX2-Erzeugung zielsystemvalidiert |
 | Complete Installer | 2.0.0 | Zielsystemvalidiert für Audit, Abgleich, Reparatur, Resume und Lebenszyklus |
+| System Cleanup Audit | 1.0.0 | Audit abgeschlossen; Bereinigungsplan wartet auf ausdrückliche Freigabe |
 
 Vollständige Paketquellen liegen im Verzeichnis `package`. Fertige ZIP-Pakete werden als GitHub-Release-Artefakte veröffentlicht und nicht dauerhaft in die normale Git-Historie aufgenommen.
 
 Jedes Paket enthält Selbsttest, Dry-Run, Execute, Transaktionsprotokollierung, Diagnose und Rollback. Neue Pakete müssen sämtliche bekannten und bereits behobenen Fehler als Regressionstests abdecken.
+
+`tools/system-cleanup/current` inventarisiert ausschließlich lesend und klassifiziert konservativ. Der erzeugte Bereinigungsplan ist per SHA256 gebunden und ohne getrennte ausdrückliche Freigabe nicht ausführbar; Version 1.0.0 löscht nichts.
 
 
 Die Repository-Runtime bleibt Cutover `1.6.3`. Production Recovery `1.7.0-r7` ist eine Wiederherstellungslinie und keine neue Runtime-Version; r5 bleibt als veröffentlichter Vorgänger dokumentiert.

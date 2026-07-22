@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "type":"object","required":["schemaVersion","transactionId","planSha256","moves","status"],
+  "properties":{"schemaVersion":{"const":"1.0"},"transactionId":{"type":"string"},"planSha256":{"pattern":"^[0-9a-f]{64}$"},"moves":{"type":"array"},"status":{"enum":["Quarantined","RolledBack","Partial"]}}
+}
