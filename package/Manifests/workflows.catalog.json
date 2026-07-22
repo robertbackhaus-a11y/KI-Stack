@@ -5,9 +5,11 @@
       "id": "flux2-klein-9b-ui",
       "profile": "flux2-klein-9b",
       "profileRole": "required-release",
-      "file": "FLUX2-Klein-9B-Text-to-Image.json",
+      "file": "KI-Stack-FLUX2-Text-to-Image-v1.3.8.json",
       "required": true,
       "kind": "comfyui-ui",
+      "sha256": "331b7a5a14b284d7d130d60bdcd0168f0ddc3169a164d2adfbc4e49b8cd4ab58",
+      "status": "TargetSystemAccepted",
       "requiredModels": [
         "flux2-klein-9b-fp8",
         "qwen-3-8b-fp8mixed",
@@ -21,36 +23,12 @@
       "file": "FLUX2-Klein-9B-OpenWebUI-API-FLAT.json",
       "required": true,
       "kind": "comfyui-api",
+      "sha256": "697ea261e1c62a8e32d775ee9cba5c5c5c3548c6bd082a63a84c71f53c3123a5",
       "mapping": "OpenWebUI-ComfyUI-Generation-Mapping.json",
       "requiredModels": [
         "flux2-klein-9b-fp8",
         "qwen-3-8b-fp8mixed",
         "flux2-vae"
-      ]
-    },
-    {
-      "id": "krea-realism",
-      "profile": "krea-realism",
-      "profileRole": "optional-addon",
-      "file": "KREA-Realism-Official-Template.json",
-      "required": false,
-      "kind": "comfyui-api",
-      "requiredModels": [
-        "flux1-krea-dev-fp8",
-        "clip-l",
-        "t5xxl-fp16",
-        "flux-ae"
-      ]
-    },
-    {
-      "id": "pony-control",
-      "profile": "pony-control",
-      "profileRole": "optional-addon",
-      "file": "PONY-Control-QuickTest-v2.json",
-      "required": false,
-      "kind": "comfyui-api",
-      "requiredModels": [
-        "pony-v6-xl"
       ]
     }
   ]

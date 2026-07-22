@@ -1,0 +1,26 @@
+[CmdletBinding()]
+param([Parameter(Mandatory)][string]$OutputDirectory)
+Set-StrictMode -Version Latest
+$ErrorActionPreference='Stop'
+$repositoryRoot=Split-Path -Parent $PSScriptRoot
+$source=Join-Path $repositoryRoot 'package'
+$stage=Join-Path $OutputDirectory 'KI-Stack-Models-Workflows-Execute-v1.3.8'
+if(Test-Path $stage){Remove-Item $stage -Recurse -Force}
+New-Item $stage -ItemType Directory -Force|Out-Null
+Get-ChildItem $source -Force|Where-Object{$_.Name -notin @('State')}|Copy-Item -Destination $stage -Recurse
+foreach($relative in @('Modules/08-Cutover','Start-KIStack-Cutover-DryRun.cmd','Start-KIStack-Cutover-Execute.cmd','Start-KIStack-Cutover.ps1')){
+    $path=Join-Path $stage $relative;if(Test-Path $path){Remove-Item $path -Recurse -Force}
+}
+Set-Content (Join-Path $stage 'VERSION') '1.3.8' -Encoding ASCII
+@{schemaVersion='1.0';packageId='KI-STACK-MODELS-WORKFLOWS';name='KI-Stack Models / Workflows';version='1.3.8';status='TargetSystemAccepted';workflow='KI-Stack-FLUX2-Text-to-Image-v1.3.8.json';workflowSha256='331b7a5a14b284d7d130d60bdcd0168f0ddc3169a164d2adfbc4e49b8cd4ab58';apiWorkflowSha256='697ea261e1c62a8e32d775ee9cba5c5c5c3548c6bd082a63a84c71f53c3123a5';containsModels=$false;containsSecrets=$false;containsPersonalPaths=$false}|ConvertTo-Json -Depth 20|Set-Content (Join-Path $stage 'MANIFEST.json') -Encoding UTF8
+@{schemaVersion='1.0';package='KI-Stack Models / Workflows';version='1.3.8';status='TargetSystemAccepted';deterministicArchive=$true;containsModels=$false;containsSecrets=$false;containsPersonalPaths=$false}|ConvertTo-Json -Compress|Set-Content (Join-Path $stage 'BUILD-REPORT.json') -Encoding UTF8
+@{schemaVersion='1.0';package='KI-Stack Models / Workflows';version='1.3.8';status='TargetSystemAccepted';validatedAtUtc='2026-07-22T14:43:00.7821326Z';results=@{graphValidator=$true;loadTests=2;manualUserAcceptance=$true;quick=$true;standard=$true;quality=$true;targetInstall=$true;targetValidate=$true;completeReconcile='SkippedAlreadyCompliant';requiredModelsReused=3;modelsDownloaded=$false;apiWorkflowUnchanged=$true};containsRawTargetReport=$false;containsRenderedImages=$false;containsPersonalPaths=$false}|ConvertTo-Json -Depth 20 -Compress|Set-Content (Join-Path $stage 'VALIDATION-REPORT.json') -Encoding UTF8
+$files=Get-ChildItem $stage -Recurse -File|Where-Object Name -ne 'SHA256SUMS.txt'|Sort-Object{[IO.Path]::GetRelativePath($stage,$_.FullName).Replace('\','/')}
+$lines=$files|ForEach-Object{$rel=[IO.Path]::GetRelativePath($stage,$_.FullName).Replace('\','/');"$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()) *$rel"}
+Set-Content (Join-Path $stage 'SHA256SUMS.txt') $lines -Encoding ASCII
+$zip=Join-Path $OutputDirectory 'KI-Stack-Models-Workflows-Execute-v1.3.8.zip';if(Test-Path $zip){Remove-Item $zip -Force}
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$epoch=[DateTimeOffset]::Parse('2000-01-01T00:00:00Z');$stream=[IO.File]::Open($zip,[IO.FileMode]::CreateNew)
+try{$archive=[IO.Compression.ZipArchive]::new($stream,[IO.Compression.ZipArchiveMode]::Create,$false);try{foreach($file in Get-ChildItem $stage -Recurse -File|Sort-Object FullName){$rel=[IO.Path]::GetRelativePath((Split-Path $stage -Parent),$file.FullName).Replace('\','/');$entry=$archive.CreateEntry($rel,[IO.Compression.CompressionLevel]::Optimal);$entry.LastWriteTime=$epoch;$input=[IO.File]::OpenRead($file.FullName);$output=$entry.Open();try{$input.CopyTo($output)}finally{$output.Dispose();$input.Dispose()}}}finally{$archive.Dispose()}}finally{$stream.Dispose()}
+$hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant();Set-Content "$zip.sha256" "$hash *$(Split-Path -Leaf $zip)" -Encoding ASCII
+[pscustomobject]@{zip=$zip;sizeBytes=(Get-Item $zip).Length;sha256=$hash}

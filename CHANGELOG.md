@@ -259,3 +259,10 @@
 ## 1.6.3
 
 - Fixed GitHub repository validator manifest schema compatibility under StrictMode.
+# Models / Workflows 1.3.8 and Complete Installer 2.1.1
+
+- Replaces the incomplete synthetic FLUX2 UI graph with the ComfyUI-saved, target-system-accepted `KI-Stack-FLUX2-Text-to-Image-v1.3.8.json` workflow.
+- Fixes `No link found in parent graph for id [11] slot [0] clip`; the complete graph has 6 nodes, 5 links, one sampling path, PreviewImage and SaveImage and passed manual user acceptance.
+- Keeps the OpenWebUI API workflow byte-identical and documents the FP8 diffusion model, FP8-mixed Qwen encoder, FLUX2 VAE, Euler sampler, Flux2Scheduler and Guidance 1 contract.
+- Defers KREA, Pony and ControlNet without placeholder workflows or automatic optional-model downloads.
+- Complete Installer 2.1.1 upgrades only Models / Workflows 1.3.7 to 1.3.8 and preserves every other component and user-owned path.
