@@ -15,4 +15,7 @@ tools/production-target-acceptance/current/** -text
 tools/production-recovery/current/** -text
 tools/openwebui-agent-pack/current/** -text
 tools/openwebui-image-pack/current/** -text
+tools/comfyui/current/** -text
+tools/integration/current/** -text
+tools/complete-installer/current/** -text
 tools/** whitespace=cr-at-eol

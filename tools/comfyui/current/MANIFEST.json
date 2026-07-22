@@ -1,0 +1,1 @@
+{"schemaVersion":"1.0","packageId":"KI-STACK-COMFYUI","version":"1.2.2","status":"TargetSystemValidated","installMethod":"verified HTTPS payload archive","runtimeGitDependency":false,"targetRoot":"C:\\KI-Stack\\ComfyUI","preserved":["models","custom_nodes","input","output","temp","user","C:\\KI-Stack\\data\\comfyui","C:\\KI-Stack\\models","workflows"]}

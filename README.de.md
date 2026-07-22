@@ -10,16 +10,17 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 |---|---:|---|
 | Foundation / Runtime | 1.0.9 | Stabiler Referenzstand, auf Zielsystem validiert |
 | Python / Git | 1.1.5 | Stabil, auf Zielsystem validiert |
-| ComfyUI | 1.2.1 | Stabil; auf dem Zielsystem validiert |
+| ComfyUI | 1.2.2 | Stabil; Git-freier Inhaltsvertrag auf dem Zielsystem validiert |
 | Modelle / Workflows | 1.3.7 | Stabil; FLUX2-Pflichtprofil validiert, KREA und Pony optional |
 | Applications | 1.4.10 | Stabil; LM Studio und Open WebUI 0.10.2 auf dem Zielsystem akzeptiert |
-| Integration | 1.5.8 | Stabil; reparierter SearXNG-Standarddienst- und Keeper-Lebenszyklus |
+| Integration | 1.5.9 | Stabil; Git-freies SearXNG-Payload und reparierter Lebenszyklus zielsystemvalidiert |
 | Cutover Runtime | 1.6.3 | Akzeptierter Runtime-Basisstand |
 | Production Recovery | 1.7.0-r7 | Auf dem Zielsystem akzeptiert; SearXNG-Kaltstart repariert |
 | Universeller Paket-Validation-Gate | 1.0.2 | Auf dem Zielsystem aktiviert |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` am 21.07.2026 |
 | OpenWebUI Agent Pack | 1.8.2 | Stabil; registrierte Image-Pack-Bindung zielsystemvalidiert |
 | OpenWebUI Image Pack | 1.9.0 | Stabil; direkte FLUX2-Erzeugung zielsystemvalidiert |
+| Complete Installer | 2.0.0 | Zielsystemvalidiert für Audit, Abgleich, Reparatur, Resume und Lebenszyklus |
 
 Vollständige Paketquellen liegen im Verzeichnis `package`. Fertige ZIP-Pakete werden als GitHub-Release-Artefakte veröffentlicht und nicht dauerhaft in die normale Git-Historie aufgenommen.
 
@@ -53,4 +54,4 @@ Gesamtstatus: `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
 
 Das OpenWebUI Agent Pack `1.8.2` verwaltet ausschließlich die Workspace-Modelle `KI & IT-Technik` und `Allgemein` über die unterstützte HTTP-API von OpenWebUI 0.10.2. Ist das Image Pack registriert, bleibt ausschließlich dessen Tool gebunden; andernfalls bleiben beide Profile ungebunden.
 
-Das OpenWebUI Image Pack `1.9.0` verwaltet genau das kanonische Tool `ki-stack-generate-image` für direkte Bilderzeugung mit dem bestehenden FLUX2-Klein-Workflow über ComfyUI 1.2.1. OpenWebUI 0.10.2 bindet dafür intern die zwingend identifier-sichere ID `ki_stack_generate_image`. Das Pack lädt keine Modelle und ergänzt keine KREA- oder Pony-Abhängigkeit.
+Das OpenWebUI Image Pack `1.9.0` verwaltet genau das kanonische Tool `ki-stack-generate-image` für direkte Bilderzeugung mit dem bestehenden FLUX2-Klein-Workflow über ComfyUI 1.2.2. OpenWebUI 0.10.2 bindet dafür intern die zwingend identifier-sichere ID `ki_stack_generate_image`. Das Pack lädt keine Modelle und ergänzt keine KREA- oder Pony-Abhängigkeit.

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "offline": false,
+  "embedded": ["CutoverRuntime","ComfyUI","Integration","ProductionRecovery","ValidationGate","TargetAcceptance","OpenWebUIAgentPack","OpenWebUIImagePack"],
+  "external": [
+    {"id":"flux2-klein-9b-fp8","fileName":"flux-2-klein-9b-fp8.safetensors","sizeBytes":9433061528,"sha256":"865ba09f5b4c3cbd3468a4bd3acb9fcb2f8740c54317482f0bcd4ed1d3655cee","target":"models/diffusion_models","source":"https://huggingface.co/black-forest-labs/FLUX.2-klein-9b-fp8/resolve/main/flux-2-klein-9b-fp8.safetensors","license":"FLUX Non-Commercial License","gated":true},
+    {"id":"qwen-3-8b-fp8mixed","fileName":"qwen_3_8b_fp8mixed.safetensors","sizeBytes":8664848742,"sha256":"abad16806e0cbabc54e0325d6565847443fe396d5f0be38bb3cd3fe75a1201d6","target":"models/text_encoders","source":"https://huggingface.co/Comfy-Org/vae-text-encorder-for-flux-klein-9b/resolve/main/split_files/text_encoders/qwen_3_8b_fp8mixed.safetensors","license":"Repository license applies","gated":false},
+    {"id":"flux2-vae","fileName":"flux2-vae.safetensors","sizeBytes":336213556,"sha256":"d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5","target":"models/vae","source":"https://huggingface.co/Comfy-Org/flux2-dev/resolve/main/split_files/vae/flux2-vae.safetensors","license":"Repository license applies","gated":false}
+  ],
+  "optionalUserProvided": ["flux1-krea-dev_fp8_scaled.safetensors","clip_l.safetensors","t5xxl_fp16.safetensors","ae.safetensors","ponyDiffusionV6XL_v6StartWithThisOne.safetensors"]
+}

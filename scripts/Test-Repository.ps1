@@ -196,7 +196,7 @@ try {
     $runtimeVersion = (Get-Content -LiteralPath (Join-Path $RootPath 'VERSION') -Raw).Trim()
     $modelsVersion = [string](Get-Content -LiteralPath (Join-Path $RootPath 'package/Modules/05-Models/module.json') -Raw | ConvertFrom-Json).version
     $applicationsVersion = [string](Get-Content -LiteralPath (Join-Path $RootPath 'package/Modules/06-Applications/module.json') -Raw | ConvertFrom-Json).version
-    $integrationVersion = [string](Get-Content -LiteralPath (Join-Path $RootPath 'package/Modules/07-Integration/module.json') -Raw | ConvertFrom-Json).version
+    $integrationVersion = (Get-Content -LiteralPath (Join-Path $RootPath 'tools/integration/current/VERSION') -Raw).Trim()
     $readmeEn = Get-Content -LiteralPath (Join-Path $RootPath 'README.md') -Raw
     $readmeDe = Get-Content -LiteralPath (Join-Path $RootPath 'README.de.md') -Raw
     $buildReport = Get-Content -LiteralPath (Join-Path $RootPath 'package/BUILD-REPORT.md') -Raw
@@ -259,6 +259,32 @@ try {
         $_ -match '^tools/openwebui-image-pack/current/.*/__pycache__/'
     })
     Add-Result 'OpenWebUI Image Pack repository artifacts' ($forbiddenImageArtifacts.Count -eq 0) $(if($forbiddenImageArtifacts){$forbiddenImageArtifacts -join ', '}else{'no rendered images, archives, backups, bytecode or private import files tracked'})
+
+    $gitFreePackages=@(
+        @{name='ComfyUI';root='tools/comfyui/current';version='1.2.2'},
+        @{name='Integration';root='tools/integration/current';version='1.5.9'},
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.0.0'}
+    )
+    foreach($packageContract in $gitFreePackages){
+        $packageRoot=Join-Path $RootPath $packageContract.root
+        $version=(Get-Content (Join-Path $packageRoot 'VERSION') -Raw).Trim()
+        $manifest=Get-Content (Join-Path $packageRoot 'MANIFEST.json') -Raw|ConvertFrom-Json -Depth 50
+        $sumErrors=@()
+        foreach($line in Get-Content (Join-Path $packageRoot 'SHA256SUMS.txt')){if([string]::IsNullOrWhiteSpace($line)){continue};if($line-notmatch'^([0-9a-fA-F]{64})\s+\*?(.+)$'){$sumErrors+="Invalid: $line";continue};$file=Join-Path $packageRoot $Matches[2].Replace('/',[IO.Path]::DirectorySeparatorChar);if(-not(Test-Path $file)){$sumErrors+="Missing: $($Matches[2])";continue};if((Get-FileHash $file -Algorithm SHA256).Hash.ToLowerInvariant()-ne$Matches[1].ToLowerInvariant()){$sumErrors+="Mismatch: $($Matches[2])"}}
+        Add-Result "$($packageContract.name) version and SHA256 contract" ($version-eq$packageContract.version-and[string]$manifest.version-eq$version-and$sumErrors.Count-eq0) "version=$version; status=$($manifest.status); errors=$($sumErrors -join ', ')"
+    }
+    $completeRoot=Join-Path $RootPath 'tools/complete-installer/current'
+    $completeRequired=@('CompleteInstaller.psm1','Invoke-KIStackCompleteInstaller.ps1','Test-KIStackCompleteInstaller.ps1','Test-KIStackCompleteInstallerTarget.ps1','New-KIStackCompleteInstallerArchive.ps1','Contracts/COMPONENTS.json','Contracts/PAYLOADS.json','Contracts/TRANSACTION.schema.json','Contracts/RESUME.schema.json','Contracts/ROLLBACK.md','Start-KIStack-Installer.cmd','Start-KIStack-Audit.cmd','Start-KIStack-Repair.cmd','Start-KIStack-Validate.cmd','Start-KIStack-Rollback.cmd','Start-KIStack.cmd','Stop-KIStack.cmd')
+    $completeMissing=@($completeRequired|Where-Object{-not(Test-Path (Join-Path $completeRoot $_))})
+    Add-Result 'Complete Installer source completeness' ($completeMissing.Count-eq0) $(if($completeMissing){$completeMissing-join', '}else{'complete'})
+    $completeComponents=Get-Content (Join-Path $completeRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json
+    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.2' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.9')
+    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.2; Integration=1.5.9'
+    $completeExecutable=Get-ChildItem $completeRoot -Recurse -File|Where-Object{$_.Extension-in'.ps1','.psm1','.cmd'-and$_.Name-ne'Test-KIStackCompleteInstaller.ps1'}|ForEach-Object{Get-Content $_.FullName -Raw}
+    $forbiddenRuntime=('(?im)\b'+'git'+'\s+(?:cl'+'one|check'+'out|pu'+'ll|fetch|rev-parse|describe)\b|\.'+'git'+'(?:[/\\]|\b)|\bor'+'igin\b|comm'+'it[- ]hash|tr'+'ee[- ]hash')
+    Add-Result 'Complete Installer Git-free runtime' (-not(($completeExecutable-join"`n")-match$forbiddenRuntime)) 'no Git acquisition or metadata dependency in executable sources'
+    $forbiddenCompleteArtifacts=@($trackedFiles|Where-Object{$_-match'^(?:_import/|tools/(?:comfyui|integration|complete-installer)/.+\.(?:zip|pyc)$)'-or$_-match'/__pycache__/'})
+    Add-Result 'Git-free package repository artifacts' ($forbiddenCompleteArtifacts.Count-eq0) $(if($forbiddenCompleteArtifacts){$forbiddenCompleteArtifacts-join', '}else{'no private imports, ZIPs or bytecode tracked'})
 
     $sumsPath = Join-Path $RootPath 'package/SHA256SUMS.txt'
     $sumErrors=@()

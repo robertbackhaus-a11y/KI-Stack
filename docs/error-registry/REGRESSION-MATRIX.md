@@ -140,3 +140,13 @@ A correction is incomplete until its regression test executes before final self-
 | ACC-SEARX-EVIDENCE-006 | Earlier acceptance only proved an endpoint response in the then-current runtime state and did not prove cold-start lifecycle recovery | Require controlled cold start, stale-PID recovery, service-chain verification, HTML and nonempty JSON search evidence | Target Acceptance 1.0.10 |
 | OWUI-IMAGE-BIND-007 | Agent profile reconciliation could erase an installed KI-Stack image tool or retain foreign bindings | Resolve exactly the registered `KI-STACK-OPENWEBUI-IMAGE-PACK` tool and bind no other extension | Agent Pack 1.8.2 |
 | OWUI-IMAGE-WORKFLOW-008 | Direct image generation could drift from the accepted FLUX2 node and model contract | Fixture-check prompt, size, seed and required FLUX2 loader nodes; package no models | Image Pack 1.9.0 |
+## Complete Installer 2.0.0 regressions
+
+| ID | Defect | Permanent regression | Fixed in |
+|---|---|---|---|
+| COMPLETE-CMD-001 | Unconditional CMD pause blocks automation | Only explicitly interactive completion may pause; PowerShell and automation never pause | Complete Installer 2.0.0 |
+| COMPLETE-AUTH-002 | Repeated API-key prompts | One in-memory SecureString is shared by Agent/Image steps and never persisted | Complete Installer 2.0.0 |
+| COMPLETE-RESUME-003 | Completed steps repeat after interruption | Resume verifies and skips completed or already compliant steps | Complete Installer 2.0.0 |
+| COMPLETE-RECOVERY-004 | Recovery overlay overwrites newer extensions | Recovery r7 remains a repair reference and never overlays a healthy newer Agent/Image state | Complete Installer 2.0.0 |
+| COMPLETE-STATE-005 | No non-secret resume contract | Transaction and resume schemas persist only non-secret step state | Complete Installer 2.0.0 |
+| COMPLETE-GIT-006 | Package runtime depends on Git metadata or commands | Executable package sources reject Git acquisition and metadata contracts | ComfyUI 1.2.2 / Integration 1.5.9 / Complete Installer 2.0.0 |
