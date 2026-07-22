@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "type":"object","required":["schemaVersion","version","status","auditSha256","entries","approved","quarantineRoot"],
+  "properties":{"schemaVersion":{"const":"1.0"},"version":{"const":"1.0.0"},"status":{"const":"PendingCleanupApproval"},"auditSha256":{"pattern":"^[0-9a-f]{64}$"},"approved":{"const":false},"entries":{"type":"array"},"quarantineRoot":{"type":"string"}}
+}

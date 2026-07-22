@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "KI-STACK-SYSTEM-CLEANUP",
+  "version": "1.0.0",
+  "status": "AuditCompletedPendingCleanupApproval",
+  "defaultMode": "Audit",
+  "executeRequiresApprovedPlan": true,
+  "quarantineRoot": "C:\\KI-Stack-Cleanup-Quarantine",
+  "irreversibleDeletionSupported": false,
+  "entryPoints": ["Start-KIStack-Cleanup-Audit.cmd", "Start-KIStack-Cleanup-Execute.cmd", "Start-KIStack-Cleanup-Rollback.cmd", "Start-KIStack-Cleanup-SelfTest.cmd"]
+}

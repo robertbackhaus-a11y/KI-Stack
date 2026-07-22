@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "paths": [
+    {"path":"%KI_STACK_ROOT%","reason":"current production root"},
+    {"path":"%REPOSITORY_ROOT%","reason":"current development repository"},
+    {"path":"%KI_STACK_ROOT%\\OpenWebUI\\data","reason":"OpenWebUI user data and database"},
+    {"path":"%KI_STACK_ROOT%\\models","reason":"models including FLUX2"},
+    {"path":"%KI_STACK_ROOT%\\data\\comfyui","reason":"ComfyUI workflows, input and output"},
+    {"path":"%KI_STACK_ROOT%\\python\\venvs","reason":"current managed virtual environments"},
+    {"path":"%KI_STACK_ROOT%\\modules","reason":"current starters, configuration and component markers"}
+  ],
+  "protectedKinds": ["foreign-git-worktree","model","workflow","user-data","current-backup","current-wsl-distribution"]
+}

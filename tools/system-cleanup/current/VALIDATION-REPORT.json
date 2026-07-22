@@ -1,0 +1,1 @@
+{"schemaVersion":"1.0","package":"KI-Stack System Cleanup","version":"1.0.0","status":"AuditCompletedPendingCleanupApproval","results":{"selfTest":true,"fixtureAudit":true,"classificationFixtures":true,"quarantineFixture":true,"rollbackFixture":true,"realAudit":true,"productFunctionalProof":true,"cleanupExecuted":false},"containsSecrets":false,"containsPersonalPaths":false}

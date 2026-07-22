@@ -1,5 +1,12 @@
 # Changelog
 
+## System Cleanup Audit 1.0.0
+
+- Adds a read-only inventory for plausible KI-Stack locations, relevant WSL distributions, tasks, firewall rules, environment variables, processes and ports.
+- Protects the production root, repository, user data, models, workflows, current runtime and foreign Git worktrees through conservative classification.
+- Produces a sanitized audit and SHA256-bound pending cleanup plan; Execute remains disabled until a separate explicit approval and irreversible deletion is not implemented.
+- Validates classification, quarantine and rollback behavior only in isolated fixtures; no real file was moved or deleted.
+
 ## Git-free component payloads and Complete Installer 2.0.0
 
 - Promotes ComfyUI 1.2.2 and Integration 1.5.9 with immutable file, size and SHA256 contracts and no Git dependency at package runtime.

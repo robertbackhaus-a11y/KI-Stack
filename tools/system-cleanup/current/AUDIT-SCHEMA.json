@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "type":"object","required":["schemaVersion","version","status","generatedAtUtc","findings","summary","mutatesSystem"],
+  "properties":{"schemaVersion":{"const":"1.0"},"version":{"const":"1.0.0"},"status":{"const":"AuditCompletedPendingCleanupApproval"},"mutatesSystem":{"const":false},"findings":{"type":"array"},"summary":{"type":"object"}}
+}

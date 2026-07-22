@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0",
+  "safeRules": [
+    {"id":"stale-pid","pattern":"*.pid","requiresNotRunning":true},
+    {"id":"python-bytecode","pattern":"*.pyc","requiresOutsideProtectedPath":true},
+    {"id":"python-cache","directoryName":"__pycache__","requiresOutsideProtectedPath":true},
+    {"id":"temporary-validation","pattern":"KI-Stack-*.tmp","requiresOutsideProtectedPath":true}
+  ],
+  "archiveRules": ["old-package", "old-release-staging", "old-build-evidence", "orphan-backup", "repository-import"],
+  "manualRules": ["desktop-shortcut", "download-package", "old-runner", "old-installation", "environment-variable", "firewall-rule"],
+  "blockedRules": ["protected-path", "running-process", "foreign-git-worktree", "active-task", "current-recovery-backup"]
+}

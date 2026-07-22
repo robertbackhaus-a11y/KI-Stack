@@ -21,6 +21,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | OpenWebUI Agent Pack | 1.8.2 | Stable; registered Image Pack binding target-system validated |
 | OpenWebUI Image Pack | 1.9.0 | Stable; direct FLUX2 generation target-system validated |
 | Complete Installer | 2.0.0 | Target-system validated for audit, reconcile, repair, resume and lifecycle |
+| System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
 
@@ -48,6 +49,8 @@ production-release-manifest.json  Production recovery and acceptance status
 tools/                  Reproducible Validation Gate, Recovery and Acceptance sources
 VERSION                  Repository/package line version
 ```
+
+`tools/system-cleanup/current` provides a read-only, conservatively classified system inventory. Its generated cleanup plan is SHA256-bound and cannot execute without a separate explicit approval; version 1.0.0 performs no deletion.
 
 ## Validate locally
 
