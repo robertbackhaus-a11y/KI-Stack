@@ -53,12 +53,12 @@ function Install-ComfyPayload {
     $marker = Join-Path $moduleRoot 'installation.json'
     if ($audit.passed) {
         $current = if (Test-Path $marker) { Read-ComfyJson $marker } else { $null }
-        if ($current -and [string]$current.release -eq 'KI-Stack-ComfyUI-Execute-v1.2.2') { return [pscustomobject]@{passed=$true;changed=$false;status='SkippedAlreadyCompliant';backup=$null} }
+        if ($current -and [string]$current.release -eq 'KI-Stack-ComfyUI-Execute-v1.2.2' -and [string]$current.payloadSha256 -eq '6d5d66394152cbfc6a8ae28e8ba89588d792292ee3a879f8e50f7bbc097fe4ac') { return [pscustomobject]@{passed=$true;changed=$false;status='SkippedAlreadyCompliant';backup=$null} }
         $backup = Join-Path $BackupRoot ([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
         New-Item -ItemType Directory $backup -Force | Out-Null
         if (Test-Path $marker) { Copy-Item $marker (Join-Path $backup 'installation.json') -Force }
         New-Item -ItemType Directory $moduleRoot -Force | Out-Null
-        [ordered]@{schemaVersion='1.0';managedBy='KI-STACK-COMFYUI-MANAGED';version='1.2.2';release='KI-Stack-ComfyUI-Execute-v1.2.2';installedAt=[DateTime]::UtcNow.ToString('o');payloadId='KI-STACK-COMFYUI-SOURCE-V0.28.0';payloadSha256='da0efd7c587e672128fd764cad8265fd83b0b085176c46c7b9d7e1e69ebe3813';migration='content-verified-no-reinstall';runtimeGitDependency=$false} | ConvertTo-Json -Depth 10 | Set-Content $marker -Encoding UTF8
+        [ordered]@{schemaVersion='1.0';managedBy='KI-STACK-COMFYUI-MANAGED';version='1.2.2';release='KI-Stack-ComfyUI-Execute-v1.2.2';installedAt=[DateTime]::UtcNow.ToString('o');payloadId='KI-STACK-COMFYUI-SOURCE-V0.28.0';payloadSha256='6d5d66394152cbfc6a8ae28e8ba89588d792292ee3a879f8e50f7bbc097fe4ac';migration='content-verified-no-reinstall';runtimeGitDependency=$false} | ConvertTo-Json -Depth 10 | Set-Content $marker -Encoding UTF8
         return [pscustomobject]@{passed=$true;changed=$true;status='Completed';backup=$backup;files=0;markerMigrated=$true}
     }
     $temp = Join-Path $env:TEMP ('ki-comfy-' + [guid]::NewGuid().ToString('N'))
