@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "offline": false,
-  "embedded": ["CutoverRuntime","ComfyUI","Integration","ValidationGate","OpenWebUIAgentPack","OpenWebUIImagePack"],
+  "embedded": ["CutoverRuntime","ComfyUI","Integration","ValidationGate","OpenWebUIAgentPack","OpenWebUIImagePack","OpenWebUIBallisticsPack"],
   "cutoverRuntimePolicy": {"sourceVersion":"1.6.3","excludedSupersededPaths":["Modules/04-ComfyUI","Modules/07-Integration","Integration/Linux","Tests"],"replacementComponents":{"ComfyUI":"1.2.2","Integration":"1.5.9"}},
   "external": [
     {"id":"production-recovery-r7","fileName":"KI-Stack-Production-Recovery-v1.7.0-r7.zip","sizeBytes":151051,"sha256":"0b4b28c886f01939fb45a9d7f3ce9f5323f57a8208e42381088544afa5955c59","target":"recovery reference","source":"https://github.com/robertbackhaus-a11y/KI-Stack/releases/download/production-v1.7.0-r7/KI-Stack-Production-Recovery-v1.7.0-r7.zip","license":"KI-Stack release contract","gated":false},

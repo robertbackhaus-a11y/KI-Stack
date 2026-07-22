@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"KI-Stack Ballistics Output 1.0.0","type":"object","required":["schema_version","solver","inputs","calculated_rows","assumptions","not_considered","notice"]}

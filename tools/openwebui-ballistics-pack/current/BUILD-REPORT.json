@@ -1,0 +1,1 @@
+{"schemaVersion":"1.0","package":"KI-Stack OpenWebUI Ballistics Pack","version":"1.0.0","status":"BuiltAndTargetSystemValidated","deterministic":true,"payloadContract":"Contracts/PAYLOADS.json","wheelSha256":"6a17eb8c40f9606ac5878b0a5d30575f7cc83cc549375e1371c100e2bdab36a4","containsPersonalPaths":false,"containsSecrets":false}

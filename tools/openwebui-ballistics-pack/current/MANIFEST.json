@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0",
+  "package": "KI-Stack OpenWebUI Ballistics Pack",
+  "version": "1.0.0",
+  "status": "TargetSystemValidated",
+  "managedBy": "KI-STACK-OPENWEBUI-BALLISTICS-PACK",
+  "profile": {"id":"ki-stack-18bravo","displayName":"18Bravo","functionCalling":"native"},
+  "tool": {"canonicalId":"ki-stack-ballistics-calculator","openWebUIId":"ki_stack_ballistics_calculator"},
+  "solver": {"package":"pyballistic","version":"2.2.0","engine":"RK4IntegrationEngine","dragModels":["G1","G7"],"wheelSha256":"6a17eb8c40f9606ac5878b0a5d30575f7cc83cc549375e1371c100e2bdab36a4"},
+  "runtime": {"openWebUI":"0.10.2","python":">=3.9","gitRequired":false},
+  "dataDirectories": ["profiles","exports","backups"]
+}
