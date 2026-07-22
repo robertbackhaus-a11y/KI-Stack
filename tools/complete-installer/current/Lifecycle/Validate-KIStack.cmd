@@ -1,6 +1,8 @@
 @echo off
 setlocal
-set "PWSH=%ProgramFiles%\PowerShell\7\pwsh.exe"
-if not exist "%PWSH%" set "PWSH=pwsh.exe"
-"%PWSH%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "C:\KI-Stack\installer\complete\Invoke-KIStackCompleteInstaller.ps1" -Mode Validate
+set "PWSH="
+if exist "%ProgramFiles%\PowerShell\7\pwsh.exe" set "PWSH=%ProgramFiles%\PowerShell\7\pwsh.exe"
+if not defined PWSH for /f "delims=" %%I in ('where pwsh.exe 2^>nul') do if not defined PWSH set "PWSH=%%~fI"
+if not defined PWSH (echo FEHLER: PowerShell 7 wurde nicht gefunden.& exit /b 70)
+"%PWSH%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0Get-KIStackStatus.ps1"
 exit /b %ERRORLEVEL%

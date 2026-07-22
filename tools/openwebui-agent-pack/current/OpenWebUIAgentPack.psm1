@@ -95,13 +95,13 @@ function New-AgentPackModelForm {
         name = [string]$Definition.displayName
         meta = [ordered]@{
             description = [string]$Definition.description
-            capabilities = [ordered]@{}
+            capabilities = [ordered]@{ code_interpreter = [bool]$Definition.codeInterpreter }
             knowledge = @()
             toolIds = @($ExtensionToolIds)
             skillIds = @()
             functionIds = @()
             managedBy = 'KI-STACK-OPENWEBUI-AGENT-PACK'
-            agentPackVersion = '1.8.2'
+            agentPackVersion = '1.8.3'
         }
         params = [ordered]@{
             system = [string]$Definition.systemPrompt
@@ -194,6 +194,7 @@ function Test-OpenWebUIAgentPack {
         if ([string]$model.base_model_id -ne $BaseModelId) { $failures.Add("Basismodell: $($definition.id)") }
         if (([string]$model.params.system).Replace("`r`n","`n") -cne ([string]$definition.systemPrompt).Replace("`r`n","`n")) { $failures.Add("System-Prompt: $($definition.id)") }
         if ([string]$model.params.function_calling -ne 'native') { $failures.Add("Function Calling: $($definition.id)") }
+        if ([bool]$model.meta.capabilities.code_interpreter -ne [bool]$definition.codeInterpreter) { $failures.Add("Code Interpreter: $($definition.id)") }
         if ((@($model.meta.toolIds) -join '|') -ne ($extensionToolIds -join '|') -or @($model.meta.knowledge).Count -ne 0 -or @($model.meta.skillIds).Count -ne 0 -or @($model.meta.functionIds).Count -ne 0) { $failures.Add("Unerwünschte Bindung: $($definition.id)") }
         if (-not (Test-AgentPackSafeValue -Text ($model | ConvertTo-Json -Depth 30 -Compress))) { $failures.Add("Secret oder persönlicher Pfad: $($definition.id)") }
     }

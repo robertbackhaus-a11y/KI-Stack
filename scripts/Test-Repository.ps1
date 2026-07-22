@@ -73,7 +73,7 @@ try {
     $required = @(
         'README.md','README.de.md','CHANGELOG.md','VERSION','release-manifest.json','production-release-manifest.json',
         'package/Config/kernel-config.json','package/Tests/Test-KIStackBuilderKernel.ps1',
-        'scripts/Test-Repository.ps1','scripts/New-ReleaseArchive.ps1',
+        'scripts/Test-Repository.ps1','scripts/Test-PowerShell7Starters.ps1','scripts/New-ReleaseArchive.ps1',
         'docs/error-registry/REGRESSION-MATRIX.md',
         'tools/openwebui-agent-pack/current/VERSION',
         'tools/openwebui-agent-pack/current/MANIFEST.json',
@@ -238,7 +238,7 @@ try {
     $agentDefinitions = @(Get-ChildItem -LiteralPath (Join-Path $agentRoot 'Definitions') -File -Filter '*.json' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -Depth 30 })
     $agentIds = @($agentDefinitions.id | Sort-Object)
     $agentSchemaOk = (
-        $agentVersion -eq '1.8.2' -and $agentManifest.version -eq $agentVersion -and $agentConfig.version -eq $agentVersion -and $agentManifest.status -eq 'TargetSystemValidated' -and
+        $agentVersion -eq '1.8.3' -and $agentManifest.version -eq $agentVersion -and $agentConfig.version -eq $agentVersion -and $agentManifest.status -eq 'TargetValidated' -and
         ($agentIds -join '|') -eq 'ki-stack-allgemein|ki-stack-it-technik' -and
         @($agentDefinitions | Where-Object { $_.schemaVersion -ne '1.0' -or [string]::IsNullOrWhiteSpace([string]$_.systemPrompt) }).Count -eq 0 -and
         @($agentDefinitions | Where-Object { @($_.knowledge).Count -or @($_.toolIds).Count -or @($_.skillIds).Count -or @($_.functionIds).Count }).Count -eq 0
@@ -296,7 +296,7 @@ try {
     $gitFreePackages=@(
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.2'},
         @{name='Integration';root='tools/integration/current';version='1.5.9'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.1.1'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.1.2'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root
@@ -370,6 +370,12 @@ try {
             'Failure names are enumerated explicitly and empty lists are supported.'
         }
     )
+
+    try {
+        $powerShell7Report = (& (Join-Path $RootPath 'scripts/Test-PowerShell7Starters.ps1') -RepositoryRoot $RootPath | ConvertFrom-Json)
+        Add-Result 'PowerShell 7 starter contract' ([bool]$powerShell7Report.passed) ("edition={0}; version={1}; cmdFiles={2}; WindowsPowerShellRejected={3}" -f $powerShell7Report.actualPSEdition,$powerShell7Report.actualPSVersion,$powerShell7Report.cmdFiles,$powerShell7Report.windowsPowerShellRejected)
+    }
+    catch { Add-Result 'PowerShell 7 starter contract' $false $_.Exception.Message }
 
     $invalidResults = @(
         $Results | Where-Object {

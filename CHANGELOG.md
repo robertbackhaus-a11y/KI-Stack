@@ -21,6 +21,14 @@
 - Adds Complete Installer 2.0.0 with audit, install/reconcile, repair, validation, rollback, resume and centralized lifecycle entry points.
 - Fresh installation is contract- and fixture-validated; physical validation is limited to the existing installation.
 
+## OpenWebUI built-in Code Interpreter — Agent Pack 1.8.3
+
+- Enables OpenWebUI's built-in Pyodide Code Interpreter with Native Function Calling for Allgemein and KI & IT-Technik; 18Bravo remains disabled.
+- Keeps `knowledge=[]` and the existing single-purpose Image and Ballistics tool bindings; `execute_code` is not registered as a workspace tool.
+- Complete Installer 2.1.2 applies the target-validated configuration transactionally with a private rollback backup.
+- Complete Installer 2.1.2 now separates its pause-free read-only status core from the interactive desktop status starter, which remains visible until a key is pressed and reports the real exit code.
+- Agent Pack and Complete Installer starters now enforce PowerShell 7 end-to-end, reject Windows PowerShell 5.1 before API work, and preserve exit codes without exposing SecureString API credentials.
+
 ## OpenWebUI direct image generation — Agent Pack 1.8.2 and Image Pack 1.9.0
 
 - Adds exactly one managed OpenWebUI tool, `ki-stack-generate-image`, backed by the existing FLUX2 Klein 9B ComfyUI workflow.
@@ -259,6 +267,13 @@
 ## 1.6.3
 
 - Fixed GitHub repository validator manifest schema compatibility under StrictMode.
+# Complete Installer 2.1.2 operations preparation
+
+- Prepares a manual-start-only operating contract without changing Applications, Agent Pack, Image Pack, Ballistics Pack, Models / Workflows or ComfyUI content.
+- Removes only positively identified KI-Stack autostarts, disables Debian `valkey-server`, `uwsgi` and `nginx` boot enablement while preserving central manual start, and creates managed Start, Stop and Status desktop shortcuts.
+- Adds transaction-bound backup, readback and operations rollback. Final status is `TargetValidated` after the controlled cold-reboot acceptance.
+- Removes the former OpenWebUI knowledge experiment as a dependency: all three managed profiles use `knowledge=[]`; no KI-Stack collection, imported file or RAG binding remains.
+
 # Models / Workflows 1.3.8 and Complete Installer 2.1.1
 
 - Replaces the incomplete synthetic FLUX2 UI graph with the ComfyUI-saved, target-system-accepted `KI-Stack-FLUX2-Text-to-Image-v1.3.8.json` workflow.

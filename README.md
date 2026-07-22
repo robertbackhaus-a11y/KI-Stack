@@ -18,10 +18,10 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Production recovery | 1.7.0-r7 | Target-system accepted; portable runtime resolution |
 | Universal package Validation Gate | 1.0.2 | Activated on the target system |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
-| OpenWebUI Agent Pack | 1.8.2 | Stable; registered Image Pack binding target-system validated |
+| OpenWebUI Agent Pack | 1.8.3 | Target validated; built-in Pyodide Code Interpreter for Allgemein and KI & IT-Technik |
 | OpenWebUI Image Pack | 1.9.0 | Stable; direct FLUX2 generation target-system validated |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
-| Complete Installer | 2.1.1 | Target-system validated patch; Models / Workflows 1.3.8 only |
+| Complete Installer | 2.1.2 | Target validated operations patch; manual startup, managed desktop links and rollback |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
@@ -108,7 +108,7 @@ The repository includes complete reusable sources for Production Recovery `1.7.0
 
 ## OpenWebUI Agent Pack
 
-OpenWebUI Agent Pack `1.8.2` manages exactly the workspace models `KI & IT-Technik` and `Allgemein` through the supported OpenWebUI 0.10.2 HTTP API. It preserves only the registered Image Pack tool binding when present; otherwise both profiles remain unbound.
+OpenWebUI Agent Pack `1.8.3` manages exactly the workspace models `KI & IT-Technik` and `Allgemein` through the supported OpenWebUI 0.10.2 HTTP API. It enables only the built-in browser-local Pyodide Code Interpreter capability and preserves only the registered Image Pack tool binding. `execute_code` is not a workspace tool ID.
 
 OpenWebUI Image Pack `1.9.0` manages exactly one canonical tool, `ki-stack-generate-image`, for direct generation through the existing FLUX2 Klein workflow and local ComfyUI 1.2.2. OpenWebUI 0.10.2 binds its required identifier-safe internal ID `ki_stack_generate_image`. The pack downloads no models and adds no KREA or Pony dependency.
 
