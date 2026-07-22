@@ -1613,14 +1613,13 @@ try {
     ) -Raw | ConvertFrom-Json -Depth 100
     $files = @($catalog.workflows | ForEach-Object { [string]$_.file })
     $workflowValid = (
-        $files -contains 'FLUX2-Klein-9B-Text-to-Image.json' -and
+        $files -contains 'KI-Stack-FLUX2-Text-to-Image-v1.3.8.json' -and
         $files -contains 'FLUX2-Klein-9B-OpenWebUI-API-FLAT.json' -and
-        $files -contains 'KREA-Realism-Official-Template.json' -and
-        $files -contains 'PONY-Control-QuickTest-v2.json'
+        $files.Count -eq 2
     )
     Add-Result -Name 'Workflowkatalog-vollständig' `
         -Passed $workflowValid `
-        -Message 'FLUX2 UI/API, KREA und Pony sind katalogisiert.'
+        -Message 'Nur der freigegebene FLUX2-UI- und API-Workflow sind katalogisiert; KREA, Pony und ControlNet bleiben zurückgestellt.'
 }
 catch {
     Add-Result -Name 'Workflowkatalog-vollständig' `

@@ -11,7 +11,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | Foundation / Runtime | 1.0.9 | Stabiler Referenzstand, auf Zielsystem validiert |
 | Python / Git | 1.1.5 | Stabil, auf Zielsystem validiert |
 | ComfyUI | 1.2.2 | Stabil; Git-freier Inhaltsvertrag auf dem Zielsystem validiert |
-| Modelle / Workflows | 1.3.7 | Stabil; FLUX2-Pflichtprofil validiert, KREA und Pony optional |
+| Modelle / Workflows | 1.3.8 | Zielsystemakzeptiert; interaktiver FLUX2-UI-Workflow repariert und nutzervalidiert |
 | Applications | 1.4.10 | Stabil; LM Studio und Open WebUI 0.10.2 auf dem Zielsystem akzeptiert |
 | Integration | 1.5.9 | Stabil; Git-freies SearXNG-Payload und reparierter Lebenszyklus zielsystemvalidiert |
 | Cutover Runtime | 1.6.3 | Akzeptierter Runtime-Basisstand |
@@ -21,7 +21,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | OpenWebUI Agent Pack | 1.8.2 | Stabil; registrierte Image-Pack-Bindung zielsystemvalidiert |
 | OpenWebUI Image Pack | 1.9.0 | Stabil; direkte FLUX2-Erzeugung zielsystemvalidiert |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stabil; `18Bravo` und Solver zielsystemvalidiert |
-| Complete Installer | 2.1.0 | Zielsystemvalidiert; optionales OpenWebUI Ballistics Pack 1.0.0 |
+| Complete Installer | 2.1.1 | Zielsystemvalidierter Patch; ausschließlich Models / Workflows 1.3.8 |
 | System Cleanup Audit | 1.0.0 | Audit abgeschlossen; Bereinigungsplan wartet auf ausdrückliche Freigabe |
 
 Vollständige Paketquellen liegen im Verzeichnis `package`. Fertige ZIP-Pakete werden als GitHub-Release-Artefakte veröffentlicht und nicht dauerhaft in die normale Git-Historie aufgenommen.

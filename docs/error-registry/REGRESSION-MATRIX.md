@@ -160,3 +160,8 @@ A correction is incomplete until its regression test executes before final self-
 | COMPLETE-STATE-005 | No non-secret resume contract | Transaction and resume schemas persist only non-secret step state | Complete Installer 2.0.0 |
 | COMPLETE-GIT-006 | Package runtime depends on Git metadata or commands | Executable package sources reject Git acquisition and metadata contracts | ComfyUI 1.2.2 / Integration 1.5.9 / Complete Installer 2.0.0 |
 | COMPLETE-OPTIONAL-007 | Optional Ballistics install prompted or modified an already compliant system | Exclude it by default, enable explicitly, detect its marker and prompt once only when a change is required | Complete Installer 2.1.0 |
+## Models / Workflows 1.3.8 regressions
+
+| ID | Failure | Guard | Fixed in |
+|---|---|---|---|
+| MODELS-WORKFLOW-LINK-001 | `No link found in parent graph for id [11] slot [0] clip` from a synthetic incomplete UI graph | Ship only the ComfyUI-saved graph; validate unique nodes/links, every referenced slot, one sampling and latent path, Decode, PreviewImage and SaveImage; retain manual user acceptance evidence | Models / Workflows 1.3.8 |

@@ -4,4 +4,4 @@ Set-StrictMode -Version Latest;$ErrorActionPreference='Stop'
 Import-Module (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Force
 $audit=Invoke-KIStackCompleteInstaller -Mode Audit -PackageRoot $PackageRoot -TargetRoot $TargetRoot
 $validate=Invoke-KIStackCompleteInstaller -Mode Validate -PackageRoot $PackageRoot -TargetRoot $TargetRoot
-[pscustomobject]@{version='2.1.0';passed=([bool]$validate.health.passed);auditReadOnly=(-not$audit.mutatesTarget);existingInstallation=$true;health=$validate.health;status='TargetSystemValidatedExistingInstallation'}|ConvertTo-Json -Depth 30
+[pscustomobject]@{version='2.1.1';passed=([bool]$validate.health.passed);auditReadOnly=(-not$audit.mutatesTarget);existingInstallation=$true;health=$validate.health;status='TargetSystemValidatedExistingInstallation'}|ConvertTo-Json -Depth 30

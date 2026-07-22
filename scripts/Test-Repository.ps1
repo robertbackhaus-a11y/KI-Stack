@@ -211,6 +211,26 @@ try {
     )
     Add-Result 'Documentation version consistency' $documentationVersionsOk "runtime=$runtimeVersion; models=$modelsVersion; applications=$applicationsVersion; integration=$integrationVersion"
 
+    $fluxUiPath=Join-Path $RootPath 'package/Workflows/KI-Stack-FLUX2-Text-to-Image-v1.3.8.json'
+    $fluxApiPath=Join-Path $RootPath 'package/Workflows/FLUX2-Klein-9B-OpenWebUI-API-FLAT.json'
+    $fluxUiHash=if(Test-Path $fluxUiPath){(Get-FileHash $fluxUiPath -Algorithm SHA256).Hash.ToLowerInvariant()}else{''}
+    $fluxApiHash=if(Test-Path $fluxApiPath){(Get-FileHash $fluxApiPath -Algorithm SHA256).Hash.ToLowerInvariant()}else{''}
+    $fluxUi=if(Test-Path $fluxUiPath){Get-Content $fluxUiPath -Raw|ConvertFrom-Json -Depth 100}else{$null}
+    $fluxNodeIds=@($fluxUi.nodes.id);$fluxLinkIds=@($fluxUi.links|ForEach-Object{$_[0]})
+    $fluxGraphChecks = @(
+        ($modelsVersion -eq '1.3.8'),
+        ($fluxUiHash -eq '331b7a5a14b284d7d130d60bdcd0168f0ddc3169a164d2adfbc4e49b8cd4ab58'),
+        ($fluxApiHash -eq '697ea261e1c62a8e32d775ee9cba5c5c5c3548c6bd082a63a84c71f53c3123a5'),
+        (@($fluxUi.nodes).Count -eq 6),
+        (@($fluxUi.links).Count -eq 5),
+        (@($fluxNodeIds | Group-Object | Where-Object Count -gt 1).Count -eq 0),
+        (@($fluxLinkIds | Group-Object | Where-Object Count -gt 1).Count -eq 0),
+        (@($fluxUi.nodes | Where-Object type -eq 'PreviewImage').Count -eq 1),
+        (@($fluxUi.nodes | Where-Object { $_.type -eq 'SaveImage' -and $_.mode -eq 0 }).Count -eq 1)
+    )
+    $fluxGraphOk = $fluxGraphChecks -notcontains $false
+    Add-Result 'Models / Workflows 1.3.8 graph contract' $fluxGraphOk "ui=$fluxUiHash; api=$fluxApiHash; nodes=$(@($fluxUi.nodes).Count); links=$(@($fluxUi.links).Count)"
+
     $agentRoot = Join-Path $RootPath 'tools/openwebui-agent-pack/current'
     $agentVersion = (Get-Content -LiteralPath (Join-Path $agentRoot 'VERSION') -Raw).Trim()
     $agentManifest = Get-Content -LiteralPath (Join-Path $agentRoot 'MANIFEST.json') -Raw | ConvertFrom-Json -Depth 30
@@ -276,7 +296,7 @@ try {
     $gitFreePackages=@(
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.2'},
         @{name='Integration';root='tools/integration/current';version='1.5.9'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.1.0'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.1.1'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root
@@ -291,8 +311,8 @@ try {
     $completeMissing=@($completeRequired|Where-Object{-not(Test-Path (Join-Path $completeRoot $_))})
     Add-Result 'Complete Installer source completeness' ($completeMissing.Count-eq0) $(if($completeMissing){$completeMissing-join', '}else{'complete'})
     $completeComponents=Get-Content (Join-Path $completeRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json
-    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.2' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.9'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
-    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.2; Integration=1.5.9; optional Ballistics=1.0.0'
+    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.2' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '1.3.8' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.9'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
+    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.2; Models/Workflows=1.3.8; Integration=1.5.9; optional Ballistics=1.0.0'
     $completeExecutable=Get-ChildItem $completeRoot -Recurse -File|Where-Object{$_.Extension-in'.ps1','.psm1','.cmd'-and$_.Name-ne'Test-KIStackCompleteInstaller.ps1'}|ForEach-Object{Get-Content $_.FullName -Raw}
     $forbiddenRuntime=('(?im)\b'+'git'+'\s+(?:cl'+'one|check'+'out|pu'+'ll|fetch|rev-parse|describe)\b|\.'+'git'+'(?:[/\\]|\b)|\bor'+'igin\b|comm'+'it[- ]hash|tr'+'ee[- ]hash')
     Add-Result 'Complete Installer Git-free runtime' (-not(($completeExecutable-join"`n")-match$forbiddenRuntime)) 'no Git acquisition or metadata dependency in executable sources'
