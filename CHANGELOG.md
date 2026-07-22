@@ -1,5 +1,11 @@
 # Changelog
 
+## Persistent OpenWebUI images — Image Pack 1.9.1 and Complete Installer 2.1.3
+
+- Registers generated PNG files through OpenWebUI's supported file store and attaches them to the assistant message with `chat:message:files`.
+- Keeps the image visible and downloadable after chat reload without `/mnt/uploads`, absolute Windows paths or direct ComfyUI URLs.
+- Updates only the embedded Image Pack in Complete Installer 2.1.3; Models / Workflows 1.3.8 and ComfyUI 1.2.2 remain unchanged.
+
 ## OpenWebUI Ballistics Pack 1.0.0 and Complete Installer 2.1.0
 
 - Adds the exclusively bound OpenWebUI 0.10.2 profile `ki-stack-18bravo` (`18Bravo`) and tool `ki_stack_ballistics_calculator` for lawful sporting, hunting and engineering calculations.

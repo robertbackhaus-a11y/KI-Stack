@@ -1,10 +1,10 @@
 {
   "schemaVersion": "1.0",
   "packageId": "KI-STACK-OPENWEBUI-IMAGE-PACK",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "status": "TargetSystemValidated",
   "targetApplication": {"name": "OpenWebUI", "version": "0.10.2"},
-  "dependencies": {"comfyUI": "1.2.1", "modelsWorkflows": "1.3.7", "agentPack": "1.8.2"},
+  "dependencies": {"comfyUI": "1.2.2", "modelsWorkflows": "1.3.8", "agentPack": "1.8.3"},
   "managedTool": {"id": "ki-stack-generate-image", "openWebUIId": "ki_stack_generate_image", "name": "KI-Stack Bildgenerierung", "managedBy": "KI-STACK-OPENWEBUI-IMAGE-PACK"},
   "workflow": "Workflow/FLUX2-Klein-9B-OpenWebUI-API-FLAT.json",
   "models": ["flux-2-klein-9b-fp8.safetensors", "qwen_3_8b_fp8mixed.safetensors", "flux2-vae.safetensors"]

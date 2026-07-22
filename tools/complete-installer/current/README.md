@@ -1,14 +1,14 @@
-# KI-Stack Complete Installer 2.1.2
+# KI-Stack Complete Installer 2.1.3
 
-Version 2.1.2 is an operations-only patch over 2.1.1. It disables only positively identified KI-Stack autostarts, keeps the central lifecycle manually usable, creates managed Start, Stop and read-only Status desktop shortcuts through the Windows Known Folder, and records a complete operations rollback contract. Applications, Agent Pack, Image Pack, Ballistics Pack, Models / Workflows and ComfyUI content remain unchanged.
+Version 2.1.3 preserves the target-validated 2.1.2 operations contract and updates only the embedded OpenWebUI Image Pack to 1.9.1. Generated PNG files are registered in OpenWebUI, attached to the assistant message, displayed directly in chat, and remain downloadable after reload. Applications, Agent Pack, Ballistics Pack, Models / Workflows and ComfyUI content remain unchanged.
 
-The source is prepared and target operations validation is pending the user's cold-reboot acceptance. The package must not claim a reboot proof until that restart has been performed by the user.
+The existing-installation operations contract and the Image Pack 1.9.1 chat attachment path are target-system validated. Fresh-install behavior remains contract- and fixture-validated rather than physically bare-metal validated.
 
 The former OpenWebUI knowledge-base experiment is not a KI-Stack dependency. The idempotent operations rollback inventories only clearly KI-Stack-named collections, writes a private metadata-only rollback record, enforces `knowledge=[]` on `ki-stack-allgemein`, `ki-stack-it-technik` and `ki-stack-18bravo`, and removes only the matched collection/file objects through OpenWebUI's supported API. It does not include or delete original Markdown sources, chats, prompts, tools, models or user-owned content.
 
 Status: `TargetSystemValidatedExistingInstallation`. Fresh-install behavior is contract- and fixture-tested; physical validation is limited to an existing installation. ComfyUI 1.2.2 and Integration 1.5.9 use immutable file/size/SHA256 payload contracts without Git at package runtime.
 
-The root starters provide audit, install/upgrade, repair, validation, rollback, start and stop without requiring users to browse subdirectories. One orchestration core creates resumable component transactions and preserves already compliant components. Production Recovery 1.7.0-r7 is an explicit repair and fallback source, never an automatic overlay over newer Agent Pack 1.8.3 or Image Pack 1.9.0 content.
+The root starters provide audit, install/upgrade, repair, validation, rollback, start and stop without requiring users to browse subdirectories. One orchestration core creates resumable component transactions and preserves already compliant components. Production Recovery 1.7.0-r7 is an explicit repair and fallback source, never an automatic overlay over newer Agent Pack 1.8.3 or Image Pack 1.9.1 content.
 
 `Validate-KIStack.cmd` and `Lifecycle/Get-KIStackStatus.ps1` are read-only and pause-free for automation. The desktop shortcut `KI-Stack Status` launches `Lifecycle/Show-KIStackStatus.ps1` directly with PowerShell 7; only this interactive wrapper displays the actual exit code and waits for a key. Its compact status covers LM Studio, `/v1/models`, OpenWebUI, SearXNG HTML and JSON search, ComfyUI, the WSL keeper, valkey-server, uwsgi and nginx.
 

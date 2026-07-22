@@ -259,8 +259,8 @@ try {
     $imageVersion = (Get-Content -LiteralPath (Join-Path $imageRoot 'VERSION') -Raw).Trim()
     $imageManifest = Get-Content -LiteralPath (Join-Path $imageRoot 'MANIFEST.json') -Raw | ConvertFrom-Json -Depth 30
     $imageConfig = Get-Content -LiteralPath (Join-Path $imageRoot 'Config/image-pack.config.json') -Raw | ConvertFrom-Json -Depth 30
-    $agentExtension = @($agentManifest.registeredExtensions | Where-Object { $_.canonicalToolId -eq 'ki-stack-generate-image' -and $_.openWebUIToolId -eq 'ki_stack_generate_image' -and $_.version -eq $imageVersion })
-    $imageContractOk = $imageVersion -eq '1.9.0' -and $imageManifest.version -eq $imageVersion -and $imageConfig.version -eq $imageVersion -and $imageManifest.status -eq 'TargetSystemValidated' -and $imageManifest.managedTool.id -eq 'ki-stack-generate-image' -and $imageManifest.managedTool.openWebUIId -eq 'ki_stack_generate_image' -and $imageManifest.managedTool.managedBy -eq 'KI-STACK-OPENWEBUI-IMAGE-PACK' -and $agentExtension.Count -eq 1
+    $agentExtension = @($agentManifest.registeredExtensions | Where-Object { $_.canonicalToolId -eq 'ki-stack-generate-image' -and $_.openWebUIToolId -eq 'ki_stack_generate_image' -and $_.managedBy -eq 'KI-STACK-OPENWEBUI-IMAGE-PACK' })
+    $imageContractOk = $imageVersion -eq '1.9.1' -and $imageManifest.version -eq $imageVersion -and $imageConfig.version -eq $imageVersion -and $imageManifest.status -eq 'TargetSystemValidated' -and $imageManifest.managedTool.id -eq 'ki-stack-generate-image' -and $imageManifest.managedTool.openWebUIId -eq 'ki_stack_generate_image' -and $imageManifest.managedTool.managedBy -eq 'KI-STACK-OPENWEBUI-IMAGE-PACK' -and $agentExtension.Count -eq 1
     Add-Result 'OpenWebUI Image Pack contract' $imageContractOk "version=$imageVersion; tool=$($imageManifest.managedTool.id)"
     $imageSumErrors = @()
     foreach ($line in Get-Content -LiteralPath (Join-Path $imageRoot 'SHA256SUMS.txt')) {
@@ -296,7 +296,7 @@ try {
     $gitFreePackages=@(
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.2'},
         @{name='Integration';root='tools/integration/current';version='1.5.9'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.1.2'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.1.3'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root

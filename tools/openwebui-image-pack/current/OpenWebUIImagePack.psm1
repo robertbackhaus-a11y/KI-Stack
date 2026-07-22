@@ -41,7 +41,7 @@ function New-ImagePackToolForm {
     [ordered]@{
         id='ki_stack_generate_image';name='KI-Stack Bildgenerierung'
         content=Get-Content -LiteralPath (Join-Path $PackageRoot 'Tool\ki-stack-generate-image.py') -Raw -Encoding UTF8
-        meta=[ordered]@{description='Direkte FLUX2-Bildgenerierung über die lokale ComfyUI-API.';manifest=[ordered]@{managedBy='KI-STACK-OPENWEBUI-IMAGE-PACK';version='1.9.0';workflow='FLUX2-Klein-9B-OpenWebUI-API-FLAT'};has_user_valves=$false}
+        meta=[ordered]@{description='Direkte FLUX2-Bildgenerierung über die lokale ComfyUI-API.';manifest=[ordered]@{managedBy='KI-STACK-OPENWEBUI-IMAGE-PACK';version='1.9.1';workflow='FLUX2-Klein-9B-OpenWebUI-API-FLAT'};has_user_valves=$false}
         access_grants=@()
     }
 }
@@ -74,7 +74,7 @@ function Install-OpenWebUIImagePack {
 function Test-OpenWebUIImagePack {
     param([string]$Endpoint,[Security.SecureString]$ApiToken)
     $fail=[Collections.Generic.List[string]]::new();$tool=Get-ImagePackTool $Endpoint $ApiToken
-    if($null-eq $tool){$fail.Add('Tool fehlt')}else{if([string]$tool.id-ne'ki_stack_generate_image'){$fail.Add('Tool-ID')};if([string]$tool.name-ne'KI-Stack Bildgenerierung'){$fail.Add('Tool-Name')};if([string]$tool.meta.manifest.managedBy-ne'KI-STACK-OPENWEBUI-IMAGE-PACK'-or[string]$tool.meta.manifest.version-ne'1.9.0'-or[string]$tool.meta.manifest.canonical_id-ne'ki-stack-generate-image'){$fail.Add('Tool-Manifest')}}
+    if($null-eq $tool){$fail.Add('Tool fehlt')}else{if([string]$tool.id-ne'ki_stack_generate_image'){$fail.Add('Tool-ID')};if([string]$tool.name-ne'KI-Stack Bildgenerierung'){$fail.Add('Tool-Name')};if([string]$tool.meta.manifest.managedBy-ne'KI-STACK-OPENWEBUI-IMAGE-PACK'-or[string]$tool.meta.manifest.version-ne'1.9.1'-or[string]$tool.meta.manifest.canonical_id-ne'ki-stack-generate-image'){$fail.Add('Tool-Manifest')}}
     foreach($id in @('ki-stack-it-technik','ki-stack-allgemein')){$m=Get-ImagePackModel $Endpoint $ApiToken $id;$ids=@($m.meta.toolIds);if($ids.Count-ne 1-or[string]$ids[0]-ne'ki_stack_generate_image'){$fail.Add("Profilbindung: $id")}}
     $list=Invoke-ImagePackApi $Endpoint $ApiToken '/api/v1/tools/';if(@($list|Where-Object{$_.id-eq'ki_stack_generate_image'}).Count-ne 1){$fail.Add('Tool-Duplikat')}
     [pscustomobject]@{passed=($fail.Count-eq 0);failures=@($fail)}

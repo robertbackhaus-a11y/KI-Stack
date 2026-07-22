@@ -1,17 +1,17 @@
 """
 title: KI-Stack Bildgenerierung
 managedBy: KI-STACK-OPENWEBUI-IMAGE-PACK
-version: 1.9.0
+version: 1.9.1
 canonical_id: ki-stack-generate-image
 """
 
+import base64
 import copy
 import json
 import random
 import time
 import urllib.parse
 import urllib.request
-
 
 class Tools:
     def __init__(self):
@@ -26,7 +26,18 @@ class Tools:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             return json.loads(response.read().decode("utf-8"))
 
-    async def generate_image(self, prompt: str, aspect_ratio: str = "1:1", seed: int | None = None, __event_emitter__=None) -> str:
+    async def _persist_image(self, data_url, request, metadata, user_info):
+        if not request or not user_info or not user_info.get("id"):
+            raise RuntimeError("OpenWebUI user context is required for image persistence")
+        from open_webui.models.users import Users
+        from open_webui.utils.files import get_image_url_from_base64
+
+        user = await Users.get_user_by_id(user_info["id"])
+        if not user:
+            raise RuntimeError("OpenWebUI user was not found")
+        return await get_image_url_from_base64(request, data_url, metadata or {}, user)
+
+    async def generate_image(self, prompt: str, aspect_ratio: str = "1:1", seed: int | None = None, __event_emitter__=None, __request__=None, __metadata__=None, __user__=None, __chat_id__=None, __message_id__=None) -> str:
         """Generate one FLUX2 image. aspect_ratio must be 1:1, 16:9, or 9:16; seed is optional."""
         if not prompt or not prompt.strip():
             raise ValueError("prompt must not be empty")
@@ -74,4 +85,31 @@ class Tools:
             raise RuntimeError("ComfyUI returned no valid image")
         if __event_emitter__:
             await __event_emitter__({"type": "status", "data": {"description": "FLUX2-Bild erzeugt", "done": True}})
-        return f"![KI-Stack Bildgenerierung]({view_url})\n\nFLUX2 · {aspect_ratio} · Seed {seed}"
+        encoded = base64.b64encode(payload).decode("ascii")
+        data_url = f"data:{content_type};base64,{encoded}"
+        image_url = await self._persist_image(data_url, __request__, __metadata__, __user__)
+        if not image_url:
+            raise RuntimeError("OpenWebUI could not persist the generated image")
+        image_files = [{"type": "image", "url": image_url}]
+        if __chat_id__ and __message_id__:
+            from open_webui.models.chats import Chats
+
+            persisted = await Chats.add_message_files_by_id_and_message_id(
+                __chat_id__, __message_id__, image_files
+            )
+            if persisted is not None:
+                image_files = persisted
+        if __event_emitter__:
+            await __event_emitter__(
+                {"type": "chat:message:files", "data": {"files": image_files}}
+            )
+        return json.dumps(
+            {
+                "status": "success",
+                "message": "Das Bild ist bereits direkt im Chat sichtbar und kann dort geöffnet oder heruntergeladen werden.",
+                "files": image_files,
+                "aspect_ratio": aspect_ratio,
+                "seed": seed,
+            },
+            ensure_ascii=False,
+        )
