@@ -1,6 +1,6 @@
-# KI-Stack OpenWebUI Agent Pack 1.8.2
+# KI-Stack OpenWebUI Agent Pack 1.8.3
 
-Status: `TargetSystemValidated` mit OpenWebUI 0.10.2 am 21.07.2026.
+Status: `TargetValidated` mit OpenWebUI 0.10.2 am 22.07.2026. API-Installation, Profil-Readback, normaler Chat, SearXNG-Websuche und die manuellen browserlokalen Pyodide-Abnahmen sind bestanden.
 
 Reproduzierbares Paket für genau zwei verwaltete OpenWebUI-0.10.2-Workspace-Modelle: `ki-stack-it-technik` (`KI & IT-Technik`) und `ki-stack-allgemein` (`Allgemein`).
 
@@ -8,7 +8,7 @@ Das Paket verwendet ausschließlich die von der real installierten Version angeb
 
 `BaseModelId` ist ein Laufzeitparameter. Ohne Parameter wird nur dann automatisch gewählt, wenn exakt ein verwendbares Modell angeboten wird. Arena- und Embedding-Modelle werden nicht als Basismodell verwendet. Bei null oder mehreren Kandidaten bricht das Paket mit der Liste der angebotenen IDs ab.
 
-Beide Profile verwenden `params.function_calling = native`. Ist das registrierte Image Pack 1.9.0 vorhanden, bleibt ausschließlich dessen OpenWebUI-kompatible interne Tool-ID `ki_stack_generate_image` (kanonisch `ki-stack-generate-image`) gebunden; ohne Image Pack bleiben die Profile ungebunden. Fremde Tools, Wissensbasen, Skills und Functions werden nicht gebunden.
+Beide Profile verwenden `params.function_calling = native`, `knowledge=[]` und die eingebaute Pyodide-Code-Interpreter-Capability. Ist das registrierte Image Pack 1.9.0 vorhanden, bleibt ausschließlich dessen OpenWebUI-kompatible interne Tool-ID `ki_stack_generate_image` (kanonisch `ki-stack-generate-image`) gebunden. `execute_code` ist keine Workspace-Tool-ID. Das Profil `ki-stack-18bravo` bleibt ohne Code Interpreter und ausschließlich an `ki_stack_ballistics_calculator` gebunden.
 
 ## Abläufe
 

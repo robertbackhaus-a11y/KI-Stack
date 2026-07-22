@@ -11,7 +11,7 @@
     {"id":"production-recovery","name":"Production Recovery","version":"1.7.0-r7","order":80,"source":"Payload/ProductionRecovery","kind":"recovery-reference","installable":false},
     {"id":"validation-gate","name":"Validation Gate","version":"1.0.2","order":90,"source":"Payload/ValidationGate","kind":"validation","installable":false},
     {"id":"target-acceptance","name":"Target Acceptance","version":"1.0.10","order":100,"source":"Payload/TargetAcceptance","kind":"validation","installable":false},
-    {"id":"openwebui-agent-pack","name":"OpenWebUI Agent Pack","version":"1.8.2","order":110,"source":"Payload/OpenWebUIAgentPack","marker":"openwebui-api","kind":"openwebui","installable":true},
+    {"id":"openwebui-agent-pack","name":"OpenWebUI Agent Pack","version":"1.8.3","order":110,"source":"Payload/OpenWebUIAgentPack","marker":"openwebui-api","kind":"openwebui","installable":true},
     {"id":"openwebui-image-pack","name":"OpenWebUI Image Pack","version":"1.9.0","order":120,"source":"Payload/OpenWebUIImagePack","marker":"openwebui-api","kind":"openwebui","installable":true},
     {"id":"openwebui-ballistics-pack","name":"OpenWebUI Ballistics","version":"1.0.0","order":130,"source":"Payload/OpenWebUIBallisticsPack","marker":"modules/openwebui-ballistics/installation.json","kind":"openwebui-optional","installable":true,"optional":true,"preserveData":"data/ballistics"}
   ]

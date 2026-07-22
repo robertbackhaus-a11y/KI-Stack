@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "packageId": "KI-STACK-OPENWEBUI-AGENT-PACK",
-  "version": "1.8.2",
-  "status": "TargetSystemValidated",
+  "version": "1.8.3",
+  "status": "TargetValidated",
   "targetApplication": {
     "name": "OpenWebUI",
     "version": "0.10.2"
@@ -11,6 +11,7 @@
     "ki-stack-it-technik",
     "ki-stack-allgemein"
   ],
+  "codeInterpreter": {"engine":"pyodide","profiles":["ki-stack-allgemein","ki-stack-it-technik"],"workspaceToolId":false,"filePersistence":false},
   "registeredExtensions": [{"canonicalToolId":"ki-stack-generate-image","openWebUIToolId":"ki_stack_generate_image","managedBy":"KI-STACK-OPENWEBUI-IMAGE-PACK","version":"1.9.0","optional":true}],
   "deployment": {
     "kind": "OpenWebUI HTTP API",

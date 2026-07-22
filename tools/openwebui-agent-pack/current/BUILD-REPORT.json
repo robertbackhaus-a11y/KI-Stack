@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "package": "KI-Stack OpenWebUI Agent Pack",
-  "version": "1.8.2",
-  "status": "TargetSystemValidated",
+  "version": "1.8.3",
+  "status": "TargetValidated",
   "sourceContract": "two canonical workspace models",
   "deployment": "OpenWebUI 0.10.2 HTTP API",
   "containsSecrets": false,
