@@ -1,5 +1,12 @@
 # Changelog
 
+## Git-free component payloads and Complete Installer 2.0.0
+
+- Promotes ComfyUI 1.2.2 and Integration 1.5.9 with immutable file, size and SHA256 contracts and no Git dependency at package runtime.
+- Migrates the healthy existing target by verified content without reinstalling models, workflows, user data or the working SearXNG runtime.
+- Adds Complete Installer 2.0.0 with audit, install/reconcile, repair, validation, rollback, resume and centralized lifecycle entry points.
+- Fresh installation is contract- and fixture-validated; physical validation is limited to the existing installation.
+
 ## OpenWebUI direct image generation — Agent Pack 1.8.2 and Image Pack 1.9.0
 
 - Adds exactly one managed OpenWebUI tool, `ki-stack-generate-image`, backed by the existing FLUX2 Klein 9B ComfyUI workflow.

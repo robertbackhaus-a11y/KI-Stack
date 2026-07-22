@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "KI-STACK-COMPLETE-INSTALLER",
+  "name": "KI-Stack Complete Installer",
+  "version": "2.0.0",
+  "status": "TargetSystemValidatedExistingInstallation",
+  "freshInstallStatus": "ContractAndFixtureValidated",
+  "existingInstallationStatus": "TargetSystemValidatedExistingInstallation",
+  "runtimeGitDependency": false,
+  "offline": false,
+  "entryPoints": ["Start-KIStack-Installer.cmd","Start-KIStack-Audit.cmd","Start-KIStack-Repair.cmd","Start-KIStack-Validate.cmd","Start-KIStack-Rollback.cmd","Start-KIStack.cmd","Stop-KIStack.cmd"]
+}

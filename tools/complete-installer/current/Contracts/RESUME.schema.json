@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","required":["schemaVersion","transactionId","nextStep","completedSteps"],"properties":{"schemaVersion":{"const":"1.0"},"transactionId":{"type":"string"},"nextStep":{"type":"integer","minimum":0},"completedSteps":{"type":"array","items":{"type":"string"}},"containsSecrets":{"const":false}}}
