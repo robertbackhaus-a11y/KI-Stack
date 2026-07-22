@@ -1,0 +1,1 @@
+{"schemaVersion":"1.0.0","columns":["range","range_unit","elevation_mrad","elevation_moa","wind_mrad","wind_moa","velocity","velocity_unit","time_of_flight_s","energy","energy_unit","temperature","pressure","humidity","wind_speed","wind_angle","drag_model","ballistic_coefficient","muzzle_velocity","zero_distance","sight_height"]}

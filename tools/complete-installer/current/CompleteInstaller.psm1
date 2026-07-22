@@ -59,6 +59,7 @@ function Get-KICompleteInstalledVersion {
         'python-git' { if (Test-Path (Join-Path $TargetRoot 'modules/python-git/installation.json')) { return [string](Read-KICompleteJson (Join-Path $TargetRoot 'modules/python-git/installation.json')).version } }
         'openwebui-agent-pack' { return $null }
         'openwebui-image-pack' { return $null }
+        'openwebui-ballistics-pack' { if(Test-Path (Join-Path $TargetRoot 'modules/openwebui-ballistics/installation.json')){return [string](Read-KICompleteJson (Join-Path $TargetRoot 'modules/openwebui-ballistics/installation.json')).version};return $null }
         default {
             if ($Component.PSObject.Properties.Name -contains 'marker' -and $Component.marker) {
                 $path = Join-Path $TargetRoot ([string]$Component.marker)
@@ -70,9 +71,10 @@ function Get-KICompleteInstalledVersion {
 }
 
 function New-KICompletePlan {
-    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate')][string]$Mode,[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[hashtable]$FixtureState)
+    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate')][string]$Mode,[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[hashtable]$FixtureState,[switch]$EnableOpenWebUIBallistics)
     $contract = Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
     $steps = foreach ($component in @($contract.components | Sort-Object order)) {
+        if($component.psobject.Properties.Name-contains'optional'-and[bool]$component.optional-and-not$EnableOpenWebUIBallistics){continue}
         $installed = Get-KICompleteInstalledVersion $component $TargetRoot $FixtureState
         $compliant = $installed -eq [string]$component.version
         [pscustomobject][ordered]@{
@@ -152,16 +154,16 @@ function Invoke-KICompleteLifecycle {
 }
 
 function Invoke-KIStackCompleteInstaller {
-    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate','Rollback','Start','Stop')][string]$Mode='Audit',[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[string]$TransactionId,[switch]$Resume,[switch]$DryRun,[Security.SecureString]$OpenWebUIApiToken)
+    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate','Rollback','Start','Stop')][string]$Mode='Audit',[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[string]$TransactionId,[switch]$Resume,[switch]$DryRun,[switch]$EnableOpenWebUIBallistics,[Security.SecureString]$OpenWebUIApiToken)
     $PackageRoot = Get-KICompletePackageRoot $PackageRoot
     $config = Read-KICompleteJson (Join-Path $PackageRoot 'Config/complete-installer.config.json')
     if ($Mode -in @('Start','Stop')) { return Invoke-KICompleteLifecycle $Mode $TargetRoot }
-    $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot
+    $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics
     $preflight = Test-KICompletePreflight -PackageRoot $PackageRoot -TargetRoot $TargetRoot -ReadOnly:($Mode -in @('Audit','Validate') -or $DryRun)
     if (-not $preflight.passed) { throw ('Preflight fehlgeschlagen: ' + ($preflight.issues -join '; ')) }
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.0.0';mode=$Mode;preflight=$preflight;plan=$plan;mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.0.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);mutatesTarget=$false} }
-    if(-not$Resume -and $plan.alreadyCompliant -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)){return [pscustomobject]@{version='2.0.0';mode=$Mode;status='SkippedAlreadyCompliant';plan=$plan;transactionCreated=$false;backupCreated=$false;mutatesTarget=$false}}
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.1.0';mode=$Mode;preflight=$preflight;plan=$plan;mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.1.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);mutatesTarget=$false} }
+    if(-not$Resume -and $plan.alreadyCompliant -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)){return [pscustomobject]@{version='2.1.0';mode=$Mode;status='SkippedAlreadyCompliant';plan=$plan;transactionCreated=$false;backupCreated=$false;mutatesTarget=$false}}
     $state = [string]$config.stateDirectory
     if ($Resume) {
         if (-not $TransactionId) { throw 'Resume erfordert TransactionId.' }
@@ -188,6 +190,14 @@ function Invoke-KIStackCompleteInstaller {
             elseif ($step.id -in @('openwebui-agent-pack','openwebui-image-pack')) {
                 $step.status='WaitingForUserAction'; $step.result=@{reason='OpenWebUI-Erstanmeldung oder API-Schlüssel kann erforderlich sein';apiKeyStored=$false}
             }
+            elseif ($step.id -eq 'openwebui-ballistics-pack') {
+                if($null-eq$OpenWebUIApiToken){$OpenWebUIApiToken=Read-Host 'Temporären OpenWebUI-Administrator-API-Key eingeben' -AsSecureString}
+                $payload=Get-ChildItem (Join-Path $PackageRoot 'Payload/OpenWebUIBallisticsPack') -Filter '*.zip' -File|Select-Object -First 1;if(-not$payload){throw'Ballistics-Pack-Payload fehlt.'}
+                $extract=Join-Path ([string]$config.stateDirectory) "$TransactionId/ballistics-package";if(Test-Path $extract){Remove-Item $extract -Recurse -Force};Expand-Archive $payload.FullName $extract
+                $module=Get-ChildItem $extract -Filter 'OpenWebUIBallisticsPack.psm1' -Recurse -File|Select-Object -First 1;if(-not$module){throw'Ballistics-Pack-Modul fehlt.'};Import-Module $module.FullName -Force
+                $packageRoot=Split-Path $module.FullName -Parent;$result=Install-OpenWebUIBallisticsPack $packageRoot ([string]$config.openWebUIEndpoint) $OpenWebUIApiToken '' (Join-Path ([string]$config.backupDirectory) "$TransactionId/ballistics") $TargetRoot
+                $step.result=$result;$step.backup=$result.backupPath
+            }
             else { $step.result=@{orchestratedBy='embedded validated component';source=(Join-Path $PackageRoot ("Payload/"+$step.id));note='Existing compliant state is preserved; component public entry point is used when change is required.'} }
             if ($step.status -ne 'WaitingForUserAction') { $step.status='Completed' }
             $step.endTime=[DateTime]::UtcNow.ToString('o'); $step.exitCode=0; $index++
@@ -199,6 +209,9 @@ function Invoke-KIStackCompleteInstaller {
         $starterChanges=Install-KICompleteCentralStarters $PackageRoot $TargetRoot $backup
         $tx|Add-Member -NotePropertyName finalization -NotePropertyValue ([ordered]@{orchestratorFiles=$orchestratorChanges;centralStarters=$starterChanges}) -Force
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
+        $componentStatePath=Join-Path $state 'components.json';$componentVersions=[ordered]@{};if(Test-Path $componentStatePath){$existingState=Read-KICompleteJson $componentStatePath;foreach($property in $existingState.components.psobject.Properties){$componentVersions[$property.Name]=[string]$property.Value}}
+        foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
+        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.1.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;containsSecrets=$false;containsPersonalPaths=$false}})
         Write-KICompleteJson $txPath $tx; return $tx
     }
     catch { $tx.status='Failed'; Write-KICompleteJson $txPath $tx; throw }

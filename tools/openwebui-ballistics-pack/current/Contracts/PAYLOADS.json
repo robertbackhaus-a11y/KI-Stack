@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0",
+  "payloads": [
+    {"name":"pyballistic-2.2.0-py3-none-any.whl","size":132035,"sha256":"6a17eb8c40f9606ac5878b0a5d30575f7cc83cc549375e1371c100e2bdab36a4","source":"https://files.pythonhosted.org/packages/32/69/5f7a870243d4edf7bd6e6ce56953dce309768ede2703182395e069657edc/pyballistic-2.2.0-py3-none-any.whl","requiresPython":">=3.9","license":"LGPL-3.0-only"},
+    {"name":"Deprecated-1.2.18-py2.py3-none-any.whl","size":9998,"sha256":"bd5011788200372a32418f888e326a09ff80d0214bd961147cfed01b5c018eec","purpose":"pure-Python runtime dependency"},
+    {"name":"wrapt-1.17.3-cp312-cp312-win_amd64.whl","size":38877,"sha256":"e71d5c6ebac14875668a1e90baf2ea0ef5b7ac7918355850c0908ae82bcb297c","purpose":"Python-3.12 runtime dependency"}
+  ],
+  "excluded": ["pyballistic[exts]", "pyballistic[scipy]", "pyballistic[charts]", "Cython", "compiler toolchain", "Git"]
+}

@@ -1,4 +1,6 @@
-# KI-Stack Complete Installer 2.0.0
+# KI-Stack Complete Installer 2.1.0
+
+Version 2.1.0 preserves every 2.0.0 component and adds the validated OpenWebUI Ballistics Pack 1.0.0 as an optional component. Enable it explicitly with `-EnableOpenWebUIBallistics`. Already-compliant runs do not prompt for an API key; a required OpenWebUI change prompts once as a `SecureString`. Ballistics user data under `data/ballistics` is preserved during upgrade and repair.
 
 Status: `TargetSystemValidatedExistingInstallation`. Fresh-install behavior is contract- and fixture-tested; physical validation is limited to an existing installation. ComfyUI 1.2.2 and Integration 1.5.9 use immutable file/size/SHA256 payload contracts without Git at package runtime.
 

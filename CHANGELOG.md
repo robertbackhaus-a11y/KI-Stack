@@ -1,5 +1,12 @@
 # Changelog
 
+## OpenWebUI Ballistics Pack 1.0.0 and Complete Installer 2.1.0
+
+- Adds the exclusively bound OpenWebUI 0.10.2 profile `ki-stack-18bravo` (`18Bravo`) and tool `ki_stack_ballistics_calculator` for lawful sporting, hunting and engineering calculations.
+- Pins `pyballistic` 2.2.0 by exact wheel name, byte size and SHA256 and uses only its pure-Python RK4 engine for G1/G7.
+- Adds validated input/output/CSV/profile contracts, synthetic fixtures, explicit-save local profiles, backup and rollback without secrets or personal paths.
+- Adds Ballistics Pack 1.0.0 as an optional, supported Complete Installer 2.1.0 component while preserving every 2.0.0 component and user data.
+
 ## System Cleanup Audit 1.0.0
 
 - Adds a read-only inventory for plausible KI-Stack locations, relevant WSL distributions, tasks, firewall rules, environment variables, processes and ports.

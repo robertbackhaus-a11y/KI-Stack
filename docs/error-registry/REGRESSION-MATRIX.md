@@ -140,7 +140,16 @@ A correction is incomplete until its regression test executes before final self-
 | ACC-SEARX-EVIDENCE-006 | Earlier acceptance only proved an endpoint response in the then-current runtime state and did not prove cold-start lifecycle recovery | Require controlled cold start, stale-PID recovery, service-chain verification, HTML and nonempty JSON search evidence | Target Acceptance 1.0.10 |
 | OWUI-IMAGE-BIND-007 | Agent profile reconciliation could erase an installed KI-Stack image tool or retain foreign bindings | Resolve exactly the registered `KI-STACK-OPENWEBUI-IMAGE-PACK` tool and bind no other extension | Agent Pack 1.8.2 |
 | OWUI-IMAGE-WORKFLOW-008 | Direct image generation could drift from the accepted FLUX2 node and model contract | Fixture-check prompt, size, seed and required FLUX2 loader nodes; package no models | Image Pack 1.9.0 |
-## Complete Installer 2.0.0 regressions
+## OpenWebUI Ballistics Pack regressions
+
+| ID | Regression | Prevention | Applies to |
+|---|---|---|---|
+| OWUI-BALLISTICS-INPUT-009 | Missing or contradictory values silently produced DOPE | Reject missing, non-finite, invalid-unit and station-pressure/altitude-conflict inputs before solver invocation | Ballistics Pack 1.0.0 |
+| OWUI-BALLISTICS-BIND-010 | Calculator could be attached to general profiles | Require exactly one binding to `ki-stack-18bravo` and assert protected profiles remain unbound | Ballistics Pack 1.0.0 |
+| OWUI-BALLISTICS-PAYLOAD-011 | Moving or compiled solver dependency entered runtime | Pin wheel filename, size and SHA256; select RK4 explicitly and forbid Git/exts/SciPy/chart payloads | Ballistics Pack 1.0.0 |
+| OWUI-BALLISTICS-DATA-012 | Synthetic or unconfirmed profiles became user data | Keep fixtures inside tests and require explicit confirmation before atomic profile write | Ballistics Pack 1.0.0 |
+
+## Complete Installer 2.0.0/2.1.0 regressions
 
 | ID | Defect | Permanent regression | Fixed in |
 |---|---|---|---|
@@ -150,3 +159,4 @@ A correction is incomplete until its regression test executes before final self-
 | COMPLETE-RECOVERY-004 | Recovery overlay overwrites newer extensions | Recovery r7 remains a repair reference and never overlays a healthy newer Agent/Image state | Complete Installer 2.0.0 |
 | COMPLETE-STATE-005 | No non-secret resume contract | Transaction and resume schemas persist only non-secret step state | Complete Installer 2.0.0 |
 | COMPLETE-GIT-006 | Package runtime depends on Git metadata or commands | Executable package sources reject Git acquisition and metadata contracts | ComfyUI 1.2.2 / Integration 1.5.9 / Complete Installer 2.0.0 |
+| COMPLETE-OPTIONAL-007 | Optional Ballistics install prompted or modified an already compliant system | Exclude it by default, enable explicitly, detect its marker and prompt once only when a change is required | Complete Installer 2.1.0 |

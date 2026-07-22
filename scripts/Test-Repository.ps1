@@ -260,10 +260,21 @@ try {
     })
     Add-Result 'OpenWebUI Image Pack repository artifacts' ($forbiddenImageArtifacts.Count -eq 0) $(if($forbiddenImageArtifacts){$forbiddenImageArtifacts -join ', '}else{'no rendered images, archives, backups, bytecode or private import files tracked'})
 
+    $ballisticsRoot=Join-Path $RootPath 'tools/openwebui-ballistics-pack/current'
+    $ballisticsVersion=(Get-Content (Join-Path $ballisticsRoot 'VERSION') -Raw).Trim()
+    $ballisticsManifest=Get-Content (Join-Path $ballisticsRoot 'MANIFEST.json') -Raw|ConvertFrom-Json -Depth 30
+    $ballisticsDefinition=Get-Content (Join-Path $ballisticsRoot 'Definitions/ki-stack-18bravo.json') -Raw|ConvertFrom-Json -Depth 30
+    $ballisticsPayloads=Get-Content (Join-Path $ballisticsRoot 'Contracts/PAYLOADS.json') -Raw|ConvertFrom-Json -Depth 30
+    $solverPayload=$ballisticsPayloads.payloads|Where-Object name -eq 'pyballistic-2.2.0-py3-none-any.whl'
+    $ballisticsContractOk=$ballisticsVersion-eq'1.0.0'-and[string]$ballisticsManifest.version-eq$ballisticsVersion-and[string]$ballisticsDefinition.id-eq'ki-stack-18bravo'-and[string]$ballisticsDefinition.displayName-eq'18Bravo'-and(@($ballisticsDefinition.toolIds)-join'|')-eq'ki_stack_ballistics_calculator'-and[string]$solverPayload.sha256-eq'6a17eb8c40f9606ac5878b0a5d30575f7cc83cc549375e1371c100e2bdab36a4'
+    Add-Result 'OpenWebUI Ballistics Pack contract' $ballisticsContractOk "version=$ballisticsVersion; profile=$($ballisticsDefinition.id); solver=$($ballisticsManifest.solver.package) $($ballisticsManifest.solver.version)"
+    $forbiddenBallistics=@($trackedFiles|Where-Object{$_-match'^(?:_import/|tools/openwebui-ballistics-pack/current/(?:Payload|backups?|exports?|profiles?)/)'-or$_-match'^tools/openwebui-ballistics-pack/current/.+\.(?:whl|zip|pyc|csv)$'-or$_-match'/__pycache__/'})
+    Add-Result 'OpenWebUI Ballistics Pack repository artifacts' ($forbiddenBallistics.Count-eq0) $(if($forbiddenBallistics){$forbiddenBallistics-join', '}else{'no wheels, archives, user data, bytecode or private imports tracked'})
+
     $gitFreePackages=@(
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.2'},
         @{name='Integration';root='tools/integration/current';version='1.5.9'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.0.0'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.1.0'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root
@@ -278,8 +289,8 @@ try {
     $completeMissing=@($completeRequired|Where-Object{-not(Test-Path (Join-Path $completeRoot $_))})
     Add-Result 'Complete Installer source completeness' ($completeMissing.Count-eq0) $(if($completeMissing){$completeMissing-join', '}else{'complete'})
     $completeComponents=Get-Content (Join-Path $completeRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json
-    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.2' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.9')
-    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.2; Integration=1.5.9'
+    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.2' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.9'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
+    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.2; Integration=1.5.9; optional Ballistics=1.0.0'
     $completeExecutable=Get-ChildItem $completeRoot -Recurse -File|Where-Object{$_.Extension-in'.ps1','.psm1','.cmd'-and$_.Name-ne'Test-KIStackCompleteInstaller.ps1'}|ForEach-Object{Get-Content $_.FullName -Raw}
     $forbiddenRuntime=('(?im)\b'+'git'+'\s+(?:cl'+'one|check'+'out|pu'+'ll|fetch|rev-parse|describe)\b|\.'+'git'+'(?:[/\\]|\b)|\bor'+'igin\b|comm'+'it[- ]hash|tr'+'ee[- ]hash')
     Add-Result 'Complete Installer Git-free runtime' (-not(($completeExecutable-join"`n")-match$forbiddenRuntime)) 'no Git acquisition or metadata dependency in executable sources'

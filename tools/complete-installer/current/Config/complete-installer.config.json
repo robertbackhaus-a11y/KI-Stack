@@ -1,12 +1,13 @@
 {
   "schemaVersion": "1.0",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "targetRoot": "C:\\KI-Stack",
   "stateDirectory": "C:\\KI-Stack\\state\\complete-installer",
   "backupDirectory": "C:\\KI-Stack\\backups\\complete-installer",
   "logDirectory": "C:\\KI-Stack\\logs\\complete-installer",
   "openWebUIEndpoint": "http://127.0.0.1:8080",
   "timeouts": {"processSeconds": 1800,"healthSeconds": 120},
+  "optionalComponents": {"openWebUIBallistics": false},
   "healthEndpoints": [
     {"name":"LM Studio","url":"http://127.0.0.1:1234/v1/models","kind":"json"},
     {"name":"ComfyUI","url":"http://127.0.0.1:8188/system_stats","kind":"json"},

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "packageVersion": "1.0.0",
+  "managedBy": "KI-STACK-OPENWEBUI-BALLISTICS-PACK",
+  "endpoint": "http://localhost:8080",
+  "profileId": "ki-stack-18bravo",
+  "toolId": "ki_stack_ballistics_calculator",
+  "canonicalToolId": "ki-stack-ballistics-calculator",
+  "dataRoot": "C:\\KI-Stack\\data\\ballistics",
+  "pythonPath": "C:\\KI-Stack\\python\\venvs\\openwebui\\Scripts\\python.exe",
+  "installationRoot": "C:\\KI-Stack\\modules\\openwebui-ballistics",
+  "solverEngine": "RK4IntegrationEngine",
+  "supportedDragModels": ["G1", "G7"]
+}
