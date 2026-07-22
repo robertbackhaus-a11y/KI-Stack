@@ -1,8 +1,8 @@
 {
   "schemaVersion":"1.0","payloadId":"KI-STACK-SEARXNG-SOURCE-2026.6.28","componentVersion":"1.5.9","upstreamVersion":"2026.6.28+357662d86",
   "source":"https://github.com/robertbackhaus-a11y/KI-Stack/releases/download/integration-v1.5.9/KI-Stack-SearXNG-Source-Payload-2026.6.28.zip",
-  "fileName":"KI-Stack-SearXNG-Source-Payload-2026.6.28.zip","sizeBytes":130255605,
-  "sha256":"a32b1c9d2e2bc9344820e164a7b422aeb69b5cf416942cf31e4482ffd483ee9b","contentManifest":"Payload/CONTENT-MANIFEST.json",
+  "fileName":"KI-Stack-SearXNG-Source-Payload-2026.6.28.zip","sizeBytes":6404676,
+  "sha256":"851448814c968767ffd6b2577df9d4355ba96b24f865f9f7caba1b6ca7cf5e40","contentManifest":"Payload/CONTENT-MANIFEST.json",
   "target":"/opt/ki-stack/searxng/src","layout":"valkey-server -> uwsgi -> nginx /searxng","offlineAvailableInComponentArchive":true,
   "license":"AGPL-3.0-or-later; upstream LICENSE is included","redistribution":"source payload included",
   "repair":"healthy standard installations are adopted by content and endpoint evidence; managed source files are restored only from the verified payload"
