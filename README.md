@@ -11,7 +11,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Foundation / Runtime | 1.0.9 | Stable reference; target-system validated |
 | Python / Git | 1.1.5 | Stable; target-system validated |
 | ComfyUI | 1.2.2 | Stable; Git-free content contract target-system validated |
-| Models / Workflows | 1.4.8 | Central transactional ComfyUI and Heretic LM Studio external-model importer; bilingual provisioning documentation |
+| Models / Workflows | 1.4.9 | Central transactional ComfyUI and Heretic LM Studio external-model importer; bilingual provisioning documentation |
 | Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
 | Integration | 1.5.9 | Stable; Git-free SearXNG payload and repaired lifecycle target-system validated |
 | Cutover runtime | 1.6.3 | Accepted runtime baseline |
@@ -21,7 +21,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | OpenWebUI Agent Pack | 1.8.3 | Target validated; built-in Pyodide Code Interpreter for Allgemein and KI & IT-Technik |
 | OpenWebUI Image Pack | 1.9.2 | Stable; direct FLUX2 generation target-system validated |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
-| Complete Installer | 2.2.8 | Enforces the external ComfyUI and Heretic LM Studio contracts before Models / Workflows compliance; bilingual documentation included |
+| Complete Installer | 2.2.9 | Enforces the external ComfyUI and Heretic LM Studio contracts before Models / Workflows compliance; bilingual documentation included |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
@@ -36,6 +36,8 @@ The repository tracks complete package sources. Built ZIP files are published as
 - [Betriebs- und Benutzerhandbuch (Deutsch)](docs/de/KI-Stack-Betriebs-und-Benutzerhandbuch.md)
 - [Manual model provisioning (English)](docs/en/KI-Stack-Manual-Model-Provisioning.md)
 - [Manuelle Modellbereitstellung (Deutsch)](docs/de/KI-Stack-Manuelle-Modellbereitstellung.md)
+- [ComfyUI model download guide (English)](docs/en/KI-Stack-Model-Download-Guide.md)
+- [ComfyUI-Modell-Downloadanleitung (Deutsch)](docs/de/KI-Stack-Modell-Downloadanleitung.md)
 
 ## Package guarantees
 

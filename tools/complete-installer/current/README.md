@@ -1,10 +1,10 @@
-# KI-Stack Complete Installer 2.2.8
+# KI-Stack Complete Installer 2.2.9
 
-Version 2.2.8 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.8. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload, including the manual Heretic LM Studio contract.
+Version 2.2.9 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.9. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload, including the manual Heretic LM Studio contract.
 
 ## Documentation
 
-**[Start here: installation guide](../../../docs/en/KI-Stack-Installation-Guide.md)**, **[Hier beginnen: Installationsanleitung](../../../docs/de/KI-Stack-Installationsanleitung.md)**, **[manual model provisioning](../../../docs/en/KI-Stack-Manual-Model-Provisioning.md)** and **[manuelle Modellbereitstellung](../../../docs/de/KI-Stack-Manuelle-Modellbereitstellung.md)** are the primary user paths. They define the same package, model, lifecycle, profile and safety contracts; no model file is embedded.
+**[Start here: installation guide](../../../docs/en/KI-Stack-Installation-Guide.md)**, **[Hier beginnen: Installationsanleitung](../../../docs/de/KI-Stack-Installationsanleitung.md)**, **[ComfyUI model download guide](../../../docs/en/KI-Stack-Model-Download-Guide.md)**, **[ComfyUI-Modell-Downloadanleitung](../../../docs/de/KI-Stack-Modell-Downloadanleitung.md)**, **[manual model provisioning](../../../docs/en/KI-Stack-Manual-Model-Provisioning.md)** and **[manuelle Modellbereitstellung](../../../docs/de/KI-Stack-Manuelle-Modellbereitstellung.md)** are the primary user paths. They define the same package, model, lifecycle, profile and safety contracts; no model file is embedded.
 
 The existing-installation operations contract, Image Pack 1.9.2 chat attachment path and all five canonical workflows are target-system validated. Fresh-install behavior remains contract- and fixture-validated rather than physically bare-metal validated.
 
