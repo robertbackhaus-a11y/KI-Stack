@@ -1,4 +1,4 @@
-# KI-Stack Complete Installer 2.2.4
+# KI-Stack Complete Installer 2.2.5
 
 **[Hier beginnen: Installationsanleitung](../../../docs/de/KI-Stack-Installationsanleitung.md)**
 

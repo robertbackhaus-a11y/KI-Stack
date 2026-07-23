@@ -1,6 +1,6 @@
-# KI-Stack Complete Installer 2.2.4
+# KI-Stack Complete Installer 2.2.5
 
-Version 2.2.4 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.4. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload.
+Version 2.2.5 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.5. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload.
 
 ## Documentation
 
@@ -18,7 +18,7 @@ The root starters provide audit, install/upgrade, repair, validation, rollback, 
 
 All CMD entry points resolve PowerShell 7 from `%ProgramFiles%\PowerShell\7\pwsh.exe` first and then through `where pwsh.exe`. They abort with exit code 70 when PowerShell 7 is unavailable; Windows PowerShell is never a fallback. API keys remain interactive `SecureString` values and are never command-line arguments.
 
-The package has no Git dependency for acquiring package payloads and contains no `.git` directory. Its embedded Cutover 1.6.3 core omits the superseded ComfyUI, Integration, Linux acquisition and historical test paths; ComfyUI 1.2.2 and Integration 1.5.9 exclusively replace them with verified payload archives. Production Recovery r7 and Target Acceptance 1.0.10 remain pinned external release references because their historical archives intentionally retain the accepted older runtime core. The package is not offline. Model files are never embedded: existing files are accepted only when size and SHA256 match. Pony V6 XL may be acquired automatically through fixed Civitai model version 290640; the seven Hugging Face contracts are manual external dependencies because Git commit hashes are not used as installation sources. The eight KREA, Pony and WAN model contracts total 47,356,936,991 bytes. Their license and redistribution restrictions remain applicable; the Complete Installer does not redistribute them.
+The package has no Git dependency for acquiring package payloads and contains no `.git` directory. Its embedded Cutover 1.6.3 core omits the superseded ComfyUI, Integration, Linux acquisition and historical test paths; ComfyUI 1.2.2 and Integration 1.5.9 exclusively replace them with verified payload archives. Production Recovery r7 and Target Acceptance 1.0.10 remain pinned external release references because their historical archives intentionally retain the accepted older runtime core. The package is not offline. Model files are never embedded: existing files are accepted only when size and SHA256 match. Pony V6 XL may be acquired automatically through fixed Civitai model version 290640; the seven manual external contracts contain only a publisher and an informational HTTPS page, never an installable payload URL. The importer never downloads those seven files. The eight KREA, Pony and WAN model contracts total 47,356,936,991 bytes. Their license and redistribution restrictions remain applicable; the Complete Installer does not redistribute them.
 
 OpenWebUI 0.10.2 may require initial administrator setup in the browser. The transaction then enters `WaitingForUserAction`. A temporary API key is requested as a hidden `SecureString` immediately before Agent/Image reconciliation, used only in memory for both steps, cleared afterward, and must then be revoked.
 

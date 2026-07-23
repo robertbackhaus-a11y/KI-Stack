@@ -11,8 +11,8 @@ $components=Get-Content (Join-Path $PackageRoot 'Contracts/COMPONENTS.json') -Ra
 if(([string]($components.components|Where-Object id -eq 'comfyui').version)-ne'1.2.2'){$fail.Add('ComfyUI-Version')}
 if(([string]($components.components|Where-Object id -eq 'integration').version)-ne'1.5.9'){$fail.Add('Integration-Version')}
 if(([string]($components.components|Where-Object id -eq 'openwebui-ballistics-pack').version)-ne'1.0.0'){$fail.Add('Ballistics-Version')}
-if(([string]($components.components|Where-Object id -eq 'models-workflows').version)-ne'1.4.4'){$fail.Add('Models-Workflows-Version')}
-$fixtures=@{FreshInstall=@{};Upgrade=@{'foundation-runtime'='1.0.9';'comfyui'='1.2.1';'integration'='1.5.8'};ModelsUpgrade=@{'foundation-runtime'='1.0.9';'python-git'='1.1.5';'comfyui'='1.2.2';'models-workflows'='1.4.1';'applications'='1.4.10';'integration'='1.5.9';'cutover-runtime'='1.6.3';'production-recovery'='1.7.0-r7';'validation-gate'='1.0.2';'target-acceptance'='1.0.10';'openwebui-agent-pack'='1.8.3';'openwebui-image-pack'='1.9.1'};Repair=@{'foundation-runtime'='1.0.9';'comfyui'='damaged';'integration'='1.5.9'};Current=@{'foundation-runtime'='1.0.9';'python-git'='1.1.5';'comfyui'='1.2.2';'models-workflows'='1.4.4';'applications'='1.4.10';'integration'='1.5.9';'cutover-runtime'='1.6.3';'production-recovery'='1.7.0-r7';'validation-gate'='1.0.2';'target-acceptance'='1.0.10';'openwebui-agent-pack'='1.8.3';'openwebui-image-pack'='1.9.1'}}
+if(([string]($components.components|Where-Object id -eq 'models-workflows').version)-ne'1.4.5'){$fail.Add('Models-Workflows-Version')}
+$fixtures=@{FreshInstall=@{};Upgrade=@{'foundation-runtime'='1.0.9';'comfyui'='1.2.1';'integration'='1.5.8'};ModelsUpgrade=@{'foundation-runtime'='1.0.9';'python-git'='1.1.5';'comfyui'='1.2.2';'models-workflows'='1.4.1';'applications'='1.4.10';'integration'='1.5.9';'cutover-runtime'='1.6.3';'production-recovery'='1.7.0-r7';'validation-gate'='1.0.2';'target-acceptance'='1.0.10';'openwebui-agent-pack'='1.8.3';'openwebui-image-pack'='1.9.1'};Repair=@{'foundation-runtime'='1.0.9';'comfyui'='damaged';'integration'='1.5.9'};Current=@{'foundation-runtime'='1.0.9';'python-git'='1.1.5';'comfyui'='1.2.2';'models-workflows'='1.4.5';'applications'='1.4.10';'integration'='1.5.9';'cutover-runtime'='1.6.3';'production-recovery'='1.7.0-r7';'validation-gate'='1.0.2';'target-acceptance'='1.0.10';'openwebui-agent-pack'='1.8.3';'openwebui-image-pack'='1.9.1'}}
 $plans=[ordered]@{}
 foreach($name in $fixtures.Keys){$mode=if($name-eq'Repair'){'Repair'}else{'Upgrade'};$plans[$name]=New-KICompletePlan -Mode $mode -PackageRoot $PackageRoot -TargetRoot 'C:\fixture' -FixtureState $fixtures[$name]}
 if(-not$plans.Current.alreadyCompliant){$fail.Add('AlreadyCompliant-Fixture')}
@@ -20,11 +20,11 @@ if(@($plans.FreshInstall.steps|Where-Object plannedMode -ne 'Install').Count){$f
 if(([string]($plans.Upgrade.steps|Where-Object id -eq 'comfyui').plannedMode)-ne'Upgrade'){$fail.Add('Upgrade-Plan')}
 if(([string]($plans.Repair.steps|Where-Object id -eq 'comfyui').plannedMode)-ne'Repair'){$fail.Add('Repair-Plan')}
 $modelsUpgradeSteps=@($plans.ModelsUpgrade.steps|Where-Object plannedMode -ne 'Skip')
-if($modelsUpgradeSteps.Count-ne 1-or[string]$modelsUpgradeSteps[0].id-ne'models-workflows'-or[string]$modelsUpgradeSteps[0].plannedMode-ne'Upgrade'){$fail.Add('Models-1.4.1-to-1.4.4-Plan')}
+if($modelsUpgradeSteps.Count-ne 1-or[string]$modelsUpgradeSteps[0].id-ne'models-workflows'-or[string]$modelsUpgradeSteps[0].plannedMode-ne'Upgrade'){$fail.Add('Models-1.4.1-to-1.4.5-Plan')}
 $payloads=Get-Content (Join-Path $PackageRoot 'Contracts/PAYLOADS.json') -Raw|ConvertFrom-Json
-$workflowModels=@($payloads.external|Where-Object{$_.PSObject.Properties.Name-contains'category'-and[string]$_.category-eq'models-workflows-1.4.4'})
+$workflowModels=@($payloads.external|Where-Object{$_.PSObject.Properties.Name-contains'category'-and[string]$_.category-eq'models-workflows-1.4.5'})
 $manualIds=@($payloads.externalManualDependencies)
-if($workflowModels.Count-ne 8-or[long]($workflowModels|Measure-Object sizeBytes -Sum).Sum-ne47356936991-or[bool]$payloads.offline-or$manualIds.Count-ne7-or'flux-ae'-notin$manualIds){$fail.Add('Models-1.4.4-External-Payload-Contract')}
+if($workflowModels.Count-ne 8-or[long]($workflowModels|Measure-Object sizeBytes -Sum).Sum-ne47356936991-or[bool]$payloads.offline-or$manualIds.Count-ne7-or'flux-ae'-notin$manualIds){$fail.Add('Models-1.4.5-External-Payload-Contract')}
 $source=Get-ChildItem $PackageRoot -Recurse -File|Where-Object{$_.Extension-in'.ps1','.psm1','.cmd'}|ForEach-Object{Get-Content $_.FullName -Raw}
 $operationSource=Get-Content (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Raw
 foreach($contract in @('electron.app.LM Studio','systemctl disable','KI-Stack starten.lnk','KI-Stack stoppen.lnk','KI-Stack Status.lnk','operations.backup.json','Restore-KICompleteOperations')){if(-not$operationSource.Contains($contract)){$fail.Add("Operations-Vertrag: $contract")}}
@@ -42,5 +42,5 @@ $cmd=Get-ChildItem $PackageRoot -Recurse -Filter '*.cmd' -File
 foreach($file in $cmd){$bytes=[IO.File]::ReadAllBytes($file.FullName);if($bytes.Length-ge3-and$bytes[0]-eq239-and$bytes[1]-eq187-and$bytes[2]-eq191){$fail.Add("CMD BOM: $($file.Name)")};if(-not([Text.Encoding]::ASCII.GetString($bytes).Contains("`r`n"))){$fail.Add("CMD CRLF: $($file.Name)")}}
 $ballisticsPlan=New-KICompletePlan -Mode Upgrade -PackageRoot $PackageRoot -TargetRoot 'C:\fixture' -FixtureState $fixtures.Current -EnableOpenWebUIBallistics
 if(([string]($ballisticsPlan.steps|Where-Object id -eq 'openwebui-ballistics-pack').plannedMode)-ne'Install'){$fail.Add('Optional-Ballistics-Plan')}
-[pscustomobject]@{passed=($fail.Count-eq0);version='2.2.4';checks=34;fixtures=$plans.Keys;failures=$fail}|ConvertTo-Json -Depth 20
+[pscustomobject]@{passed=($fail.Count-eq0);version='2.2.5';checks=34;fixtures=$plans.Keys;failures=$fail}|ConvertTo-Json -Depth 20
 if($fail.Count){exit 1}
