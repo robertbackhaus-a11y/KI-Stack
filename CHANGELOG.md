@@ -1,6 +1,6 @@
 # Changelog
 
-## Models / Workflows 1.4.3 and Complete Installer 2.2.3
+## Models / Workflows 1.4.4 and Complete Installer 2.2.4
 
 - Adds matched German and English technical documentation and operations/user guides.
 - Documents architecture, lifecycle, model contracts, profile bindings, code capability, services, workflows, known limitations and release procedure without changing functional behavior.

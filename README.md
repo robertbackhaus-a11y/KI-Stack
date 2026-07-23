@@ -11,7 +11,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Foundation / Runtime | 1.0.9 | Stable reference; target-system validated |
 | Python / Git | 1.1.5 | Stable; target-system validated |
 | ComfyUI | 1.2.2 | Stable; Git-free content contract target-system validated |
-| Models / Workflows | 1.4.3 | Central transactional external-model importer; bilingual technical and operations documentation |
+| Models / Workflows | 1.4.4 | Central transactional external-model importer; bilingual technical and operations documentation |
 | Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
 | Integration | 1.5.9 | Stable; Git-free SearXNG payload and repaired lifecycle target-system validated |
 | Cutover runtime | 1.6.3 | Accepted runtime baseline |
@@ -21,13 +21,15 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | OpenWebUI Agent Pack | 1.8.3 | Target validated; built-in Pyodide Code Interpreter for Allgemein and KI & IT-Technik |
 | OpenWebUI Image Pack | 1.9.1 | Stable; direct FLUX2 generation target-system validated |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
-| Complete Installer | 2.2.3 | Enforces all eight external models before Models / Workflows compliance; bilingual documentation included |
+| Complete Installer | 2.2.4 | Enforces all eight external models before Models / Workflows compliance; bilingual documentation included |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
 
 ## Documentation
 
+- **[Start here: installation guide](docs/en/KI-Stack-Installation-Guide.md)**
+- **[Hier beginnen: Installationsanleitung](docs/de/KI-Stack-Installationsanleitung.md)**
 - [Technical documentation (English)](docs/en/KI-Stack-Technical-Documentation.md)
 - [Technische Dokumentation (Deutsch)](docs/de/KI-Stack-Technische-Dokumentation.md)
 - [Operations and user guide (English)](docs/en/KI-Stack-Operations-and-User-Guide.md)
