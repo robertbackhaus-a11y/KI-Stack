@@ -29,7 +29,7 @@ function Read-Contracts {
         }
         $lmStudioModel=if($document.PSObject.Properties['lmStudioModel']){$document.lmStudioModel}else{$null}
     }else{
-        foreach($model in @($document.external|Where-Object{$_.PSObject.Properties.Name-contains'category'-and[string]$_.category-eq'models-workflows-1.4.8'})){
+        foreach($model in @($document.external|Where-Object{$_.PSObject.Properties.Name-contains'category'-and[string]$_.category-eq'models-workflows-1.4.9'})){
             $contracts.Add([pscustomobject]@{id=[string]$model.id;fileName=[string]$model.fileName;sizeBytes=[int64]$model.sizeBytes;sha256=([string]$model.sha256).ToLowerInvariant();targetDirectory=([string]$model.target-replace'^models/','');source=[string]$model.source;manualExternal=[bool]$model.manualExternal;targetRootKind='comfy';sourceSubdirectory=''})
         }
         $lmStudioModel=if($document.PSObject.Properties['lmStudioModel']){$document.lmStudioModel}else{$null}

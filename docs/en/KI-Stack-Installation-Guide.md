@@ -1,15 +1,15 @@
 # Quick installation
 
-This guide applies to the published **KI-Stack Complete Installer 2.2.8** package. It describes only files present in the package and flows verified from its sources. The normal functional entry point is `Start-KIStack-Installer.cmd`; the model, audit, validate, repair and rollback starters documented below are specialist paths. Before installation, provision external ComfyUI and Heretic LM Studio files as described in [Manual model provisioning](KI-Stack-Manual-Model-Provisioning.md).
+This guide applies to the published **KI-Stack Complete Installer 2.2.9** package. It describes only files present in the package and flows verified from its sources. The normal functional entry point is `Start-KIStack-Installer.cmd`; the model, audit, validate, repair and rollback starters documented below are specialist paths. Before installation, provision external ComfyUI files through the [ComfyUI model download guide](KI-Stack-Model-Download-Guide.md) and Heretic through [manual model provisioning](KI-Stack-Manual-Model-Provisioning.md).
 
 ## Step 1 – Download the package
 
-1. Open the [complete-v2.2.8](https://github.com/robertbackhaus-a11y/KI-Stack/releases/tag/complete-v2.2.8) release.
-2. Download `KI-Stack-Complete-Installer-v2.2.8.zip` and the `KI-Stack-Complete-Installer-v2.2.8.zip.sha256` sidecar from that same release page.
+1. Open the [complete-v2.2.9](https://github.com/robertbackhaus-a11y/KI-Stack/releases/tag/complete-v2.2.9) release.
+2. Download `KI-Stack-Complete-Installer-v2.2.9.zip` and the `KI-Stack-Complete-Installer-v2.2.9.zip.sha256` sidecar from that same release page.
 3. Verify the ZIP in PowerShell 7:
 
 ```powershell
-Get-FileHash -LiteralPath .\KI-Stack-Complete-Installer-v2.2.8.zip -Algorithm SHA256
+Get-FileHash -LiteralPath .\KI-Stack-Complete-Installer-v2.2.9.zip -Algorithm SHA256
 ```
 
 Expected SHA256 value: `43e24404dec62403588b057415bb30a609bf734bc3cbb3aee80ff05c1d7d057e`.
@@ -21,7 +21,7 @@ Expected SHA256 value: `43e24404dec62403588b057415bb30a609bf734bc3cbb3aee80ff05c
 Extract the ZIP to a short writable folder and open the top-level extracted package folder. It demonstrably contains:
 
 ```text
-KI-Stack-Complete-Installer-v2.2.8/
+KI-Stack-Complete-Installer-v2.2.9/
 ├── Start-KIStack-Installer.cmd
 ├── Start-KIStack-Audit.cmd
 ├── Start-KIStack-Model-Import.cmd

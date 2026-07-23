@@ -1,6 +1,6 @@
 # Manual model provisioning
 
-This guide covers external model payloads only. No model is contained in Git or a KI-Stack ZIP. HTTPS pages are information sources, not trusted installation sources; the exact filename, byte size and SHA256 are authoritative.
+This guide covers external model payloads only. No model is contained in Git or a KI-Stack ZIP. HTTPS pages are information sources, not trusted installation sources; the exact filename, byte size and SHA256 are authoritative. The seven ComfyUI files additionally follow the [ComfyUI model download guide](KI-Stack-Model-Download-Guide.md).
 
 ## Sequence
 

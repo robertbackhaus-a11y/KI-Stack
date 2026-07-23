@@ -1,6 +1,6 @@
 # Manuelle Modellbereitstellung
 
-Diese Anleitung beschreibt ausschließlich externe Modellpayloads. Kein Modell ist in Git oder einem KI-Stack-ZIP enthalten. HTTPS-Seiten sind Informationsquellen, keine vertrauenswürdigen Installationsquellen; maßgeblich sind immer exakter Dateiname, Bytegröße und SHA256.
+Diese Anleitung beschreibt ausschließlich externe Modellpayloads. Kein Modell ist in Git oder einem KI-Stack-ZIP enthalten. HTTPS-Seiten sind Informationsquellen, keine vertrauenswürdigen Installationsquellen; maßgeblich sind immer exakter Dateiname, Bytegröße und SHA256. Für die sieben ComfyUI-Dateien gilt zusätzlich die [ComfyUI-Modell-Downloadanleitung](KI-Stack-Modell-Downloadanleitung.md).
 
 ## Reihenfolge
 

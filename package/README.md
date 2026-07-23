@@ -13,7 +13,7 @@ Finaler Cutover- und Gesamtvalidierungsbaustein des modularen KI-Stacks.
 - vollständige historische Regressionsmatrix
 - Repository-Veröffentlichung ist nicht Bestandteil dieses Runtime-Pakets
 
-Models / Workflows `1.4.8` übernimmt die funktional abgenommenen Workflowgraphen unverändert und ergänzt den zentralen Modellimport über `Start-KIStack-Model-Import.cmd` beziehungsweise `Import-KIStackExternalModels.ps1`. Standardquelle ist `ExternalModels` neben dem entpackten Paket; `-SourcePath` wählt einen anderen expliziten Ordner. Die acht ComfyUI-Dateien sowie die beiden Heretic-LM-Studio-Dateien werden vor der Übernahme nach Dateiname, Größe und SHA256 geprüft. Heretic liegt in `ExternalModels\LMStudio` und wird nach `%USERPROFILE%\.lmstudio\models` übernommen. Details: `docs/de/KI-Stack-Manuelle-Modellbereitstellung.md` und `docs/en/KI-Stack-Manual-Model-Provisioning.md`.
+Models / Workflows `1.4.9` übernimmt die funktional abgenommenen Workflowgraphen unverändert und ergänzt den zentralen Modellimport über `Start-KIStack-Model-Import.cmd` beziehungsweise `Import-KIStackExternalModels.ps1`. Standardquelle ist `ExternalModels` neben dem entpackten Paket; `-SourcePath` wählt einen anderen expliziten Ordner. Die sieben manuellen ComfyUI-Dateien sind in `docs/de/KI-Stack-Modell-Downloadanleitung.md` und `docs/en/KI-Stack-Model-Download-Guide.md` beschrieben. Heretic liegt in `ExternalModels\LMStudio` und folgt `docs/de/KI-Stack-Manuelle-Modellbereitstellung.md` beziehungsweise `docs/en/KI-Stack-Manual-Model-Provisioning.md`.
 
 ## Documentation
 

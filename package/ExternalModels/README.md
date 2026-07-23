@@ -4,4 +4,4 @@ Place the eight ComfyUI external model files directly in this directory using th
 
 Run `Start-KIStack-Model-Import.cmd`, or use `Import-KIStackExternalModels.ps1 -SourcePath "<folder>"`. No model file belongs in Git or a package archive.
 
-Deutsch: Details und Prüfsummen stehen in `docs/de/KI-Stack-Manuelle-Modellbereitstellung.md`. English: see `docs/en/KI-Stack-Manual-Model-Provisioning.md`.
+Deutsch: ComfyUI-Downloadschritte und Prüfsummen stehen in `docs/de/KI-Stack-Modell-Downloadanleitung.md`; Heretic in `docs/de/KI-Stack-Manuelle-Modellbereitstellung.md`. English: see `docs/en/KI-Stack-Model-Download-Guide.md` and `docs/en/KI-Stack-Manual-Model-Provisioning.md`.
