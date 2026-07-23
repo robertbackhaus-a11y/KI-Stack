@@ -1,5 +1,12 @@
 # Changelog
 
+## Models / Workflows 1.4.1 and Complete Installer 2.2.1
+
+- Replaces personal positive defaults in the FLUX2, KREA, Pony SDXL and WAN 2.2 UI workflows with neutral landscape prompts without changing graph structure, negative prompts, models or technical parameters.
+- Keeps the released FLUX2 OpenWebUI API workflow unchanged because it contains no personal default prompt.
+- Marks the seven Hugging Face contracts as manual external dependencies instead of using Git commit hashes as installation sources; fixed Civitai model version `290640` remains the only automatic source among the eight optional models.
+- Adds `ae.safetensors` to `externalManualDependencies`; model sizes and SHA256 contracts remain unchanged.
+
 ## Models / Workflows 1.4.0 and Complete Installer 2.2.0
 
 - Adds the target-system-validated canonical KREA, Pony SDXL and WAN 2.2 workflows while preserving the approved FLUX2 UI and API workflows byte-for-byte.

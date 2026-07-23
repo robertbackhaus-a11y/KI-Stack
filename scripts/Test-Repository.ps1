@@ -219,18 +219,20 @@ try {
     $workflowCatalog=Get-Content (Join-Path $RootPath 'package/Manifests/workflows.catalog.json') -Raw|ConvertFrom-Json -Depth 100
     $modelsManifest=Get-Content (Join-Path $RootPath 'package/Manifests/models.manifest.json') -Raw|ConvertFrom-Json -Depth 100
     $canonicalWorkflowHashes=@{
-        'KREA-Realism-Official-Template.json'='622441f15389e31498dc74829f7fe54c9c830f7c8d42d170f9baad59c04c08a6'
-        'PONY-SDXL-Control-QuickTest-v2.json'='650631dc3b76ba389767fd99afb2ea9f63d1011bb912c216cfa1eabfeb5dd07a'
-        'WAN2.2-5B-Official.json'='797b2f1c91b5bc537d11201ae025ea481129021cdf54045ce5f02774ebf8bec9'
+        'KREA-Realism-Official-Template.json'='344dc0a177b625d7bdde5292771a5455951178d6d498649cbb40f4e690216e65'
+        'PONY-SDXL-Control-QuickTest-v2.json'='7338036490ee1325062c75f10d89a46661cec6c43f17f5d1a035da5db2e68d40'
+        'WAN2.2-5B-Official.json'='7d4195f7a67d01829dd8a3d4c54f9b5fc857399a6f246c5b555b5a66848f27e6'
     }
     $canonicalWorkflowOk=$true
     foreach($entry in $canonicalWorkflowHashes.GetEnumerator()){$path=Join-Path $RootPath ('package/Workflows/'+$entry.Key);if(-not(Test-Path $path)-or(Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()-ne$entry.Value){$canonicalWorkflowOk=$false}}
     $externalModels=@($modelsManifest.models|Where-Object{$_.PSObject.Properties.Name-contains'profile'-and[string]$_.profile-in@('krea-realism','pony-sdxl','wan22-5b')})
-    $externalModelsOk=($externalModels.Count-eq8-and[long]($externalModels|Measure-Object sizeBytes -Sum).Sum-eq47356936991-and@($externalModels|Where-Object{[string]::IsNullOrWhiteSpace([string]$_.source)-or[string]$_.source-notmatch'^https://'-or[string]$_.sha256-notmatch'^[0-9a-f]{64}$'-or[long]$_.sizeBytes-le0-or[string]::IsNullOrWhiteSpace([string]$_.relativeTargetPath)}).Count-eq0)
+    $manualExternalModels=@($externalModels|Where-Object{$_.PSObject.Properties.Name-contains'manualExternal'-and[bool]$_.manualExternal})
+    $automaticExternalModels=@($externalModels|Where-Object{-not($_.PSObject.Properties.Name-contains'manualExternal')-or-not[bool]$_.manualExternal})
+    $externalModelsOk=($externalModels.Count-eq8-and[long]($externalModels|Measure-Object sizeBytes -Sum).Sum-eq47356936991-and$manualExternalModels.Count-eq7-and$automaticExternalModels.Count-eq1-and[string]$automaticExternalModels[0].source-eq'https://civitai.com/api/download/models/290640'-and@($manualExternalModels|Where-Object{-not[string]::IsNullOrWhiteSpace([string]$_.source)-or[string]$_.manualReference-notmatch'^https://'-or[string]$_.sha256-notmatch'^[0-9a-f]{64}$'-or[long]$_.sizeBytes-le0-or[string]::IsNullOrWhiteSpace([string]$_.relativeTargetPath)}).Count-eq0)
     $fluxNodeIds=@($fluxUi.nodes.id);$fluxLinkIds=@($fluxUi.links|ForEach-Object{$_[0]})
     $fluxGraphChecks = @(
-        ($modelsVersion -eq '1.4.0'),
-        ($fluxUiHash -eq '331b7a5a14b284d7d130d60bdcd0168f0ddc3169a164d2adfbc4e49b8cd4ab58'),
+        ($modelsVersion -eq '1.4.1'),
+        ($fluxUiHash -eq 'b0c90e9fd38a4948fe97bbd7e95b2100261dc69b335794ba6c7db2fe4ff539db'),
         ($fluxApiHash -eq '697ea261e1c62a8e32d775ee9cba5c5c5c3548c6bd082a63a84c71f53c3123a5'),
         $canonicalWorkflowOk,
         $externalModelsOk,
@@ -243,7 +245,7 @@ try {
         (@($fluxUi.nodes | Where-Object { $_.type -eq 'SaveImage' -and $_.mode -eq 0 }).Count -eq 1)
     )
     $fluxGraphOk = $fluxGraphChecks -notcontains $false
-    Add-Result 'Models / Workflows 1.4.0 graph and external-model contract' $fluxGraphOk "ui=$fluxUiHash; api=$fluxApiHash; canonical=$canonicalWorkflowOk; externalModels=$($externalModels.Count); externalBytes=$([long]($externalModels|Measure-Object sizeBytes -Sum).Sum)"
+    Add-Result 'Models / Workflows 1.4.1 graph and external-model contract' $fluxGraphOk "ui=$fluxUiHash; api=$fluxApiHash; canonical=$canonicalWorkflowOk; manualExternal=$($manualExternalModels.Count); automaticExternal=$($automaticExternalModels.Count); externalBytes=$([long]($externalModels|Measure-Object sizeBytes -Sum).Sum)"
 
     $agentRoot = Join-Path $RootPath 'tools/openwebui-agent-pack/current'
     $agentVersion = (Get-Content -LiteralPath (Join-Path $agentRoot 'VERSION') -Raw).Trim()
@@ -310,7 +312,7 @@ try {
     $gitFreePackages=@(
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.2'},
         @{name='Integration';root='tools/integration/current';version='1.5.9'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.2.0'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.2.1'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root
@@ -325,8 +327,8 @@ try {
     $completeMissing=@($completeRequired|Where-Object{-not(Test-Path (Join-Path $completeRoot $_))})
     Add-Result 'Complete Installer source completeness' ($completeMissing.Count-eq0) $(if($completeMissing){$completeMissing-join', '}else{'complete'})
     $completeComponents=Get-Content (Join-Path $completeRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json
-    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.2' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '1.4.0' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.9'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
-    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.2; Models/Workflows=1.4.0; Integration=1.5.9; optional Ballistics=1.0.0'
+    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.2' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '1.4.1' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.9'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
+    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.2; Models/Workflows=1.4.1; Integration=1.5.9; optional Ballistics=1.0.0'
     $completeExecutable=Get-ChildItem $completeRoot -Recurse -File|Where-Object{$_.Extension-in'.ps1','.psm1','.cmd'-and$_.Name-ne'Test-KIStackCompleteInstaller.ps1'}|ForEach-Object{Get-Content $_.FullName -Raw}
     $forbiddenRuntime=('(?im)\b'+'git'+'\s+(?:cl'+'one|check'+'out|pu'+'ll|fetch|rev-parse|describe)\b|\.'+'git'+'(?:[/\\]|\b)|\bor'+'igin\b|comm'+'it[- ]hash|tr'+'ee[- ]hash')
     Add-Result 'Complete Installer Git-free runtime' (-not(($completeExecutable-join"`n")-match$forbiddenRuntime)) 'no Git acquisition or metadata dependency in executable sources'
