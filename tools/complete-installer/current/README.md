@@ -1,6 +1,6 @@
-# KI-Stack Complete Installer 2.2.1
+# KI-Stack Complete Installer 2.2.2
 
-Version 2.2.1 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.1. The package contains the five canonical FLUX2 UI/API, KREA, Pony SDXL and WAN 2.2 workflows, but no model files.
+Version 2.2.2 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.2. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload.
 
 The existing-installation operations contract, Image Pack 1.9.1 chat attachment path and all five canonical workflows are target-system validated. Fresh-install behavior remains contract- and fixture-validated rather than physically bare-metal validated.
 

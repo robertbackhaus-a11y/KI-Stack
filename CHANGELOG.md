@@ -1,5 +1,12 @@
 # Changelog
 
+## Models / Workflows 1.4.2 and Complete Installer 2.2.2
+
+- Adds the public `Start-KIStack-Model-Import.cmd` and `Import-KIStackExternalModels.ps1` entry points for one transactional import of all eight external models.
+- Uses `ExternalModels` beside the extracted package by default and accepts an explicit `-SourcePath`; files are validated before a `.partial` copy is atomically moved into place.
+- Returns `WaitingForUserAction` with exact filename, size, SHA256 and source path when manual models are absent, while preserving transaction resume and scoped rollback.
+- Requires all eight models and all managed workflows before writing or accepting the Models / Workflows marker. Pony V6 XL retains fixed Civitai model version `290640`; no Git, commit or latest source is used.
+
 ## Models / Workflows 1.4.1 and Complete Installer 2.2.1
 
 - Replaces personal positive defaults in the FLUX2, KREA, Pony SDXL and WAN 2.2 UI workflows with neutral landscape prompts without changing graph structure, negative prompts, models or technical parameters.

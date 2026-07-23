@@ -70,6 +70,36 @@ function Get-KICompleteInstalledVersion {
     return $null
 }
 
+function Test-KICompleteModelsWorkflowsCompliant {
+    param([Parameter(Mandatory)][string]$PackageRoot,[Parameter(Mandatory)][string]$TargetRoot)
+    $payloadContract=Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/PAYLOADS.json')
+    $models=@($payloadContract.external|Where-Object{$_.PSObject.Properties.Name-contains'category'-and[string]$_.category-eq'models-workflows-1.4.2'})
+    if($models.Count-ne8){return $false}
+    foreach($model in $models){
+        $target=Join-Path $TargetRoot ([string]$model.target+'/'+[string]$model.fileName)
+        if(-not(Test-Path -LiteralPath $target -PathType Leaf)){return $false}
+        if((Get-Item -LiteralPath $target).Length-ne[long]$model.sizeBytes){return $false}
+        if((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()-ne[string]$model.sha256){return $false}
+    }
+    $payloadDirectory=Join-Path $PackageRoot 'Payload/ModelsWorkflows'
+    $archiveFile=Get-ChildItem -LiteralPath $payloadDirectory -File -Filter 'KI-Stack-Models-Workflows-Execute-v1.4.2.zip' -ErrorAction SilentlyContinue|Select-Object -First 1
+    if(-not$archiveFile){return $false}
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive=[IO.Compression.ZipFile]::OpenRead($archiveFile.FullName)
+    try{
+        $workflowEntries=@($archive.Entries|Where-Object{$_.FullName-match'/Workflows/[^/]+\.json$'})
+        if($workflowEntries.Count-lt5){return $false}
+        foreach($entry in $workflowEntries){
+            $target=Join-Path (Join-Path $TargetRoot 'data/comfyui/user/default/workflows/KI-Stack') ([IO.Path]::GetFileName($entry.FullName))
+            if(-not(Test-Path -LiteralPath $target -PathType Leaf)){return $false}
+            $stream=$entry.Open()
+            try{$hash=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($stream)).ToLowerInvariant()}finally{$stream.Dispose()}
+            if((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()-ne$hash){return $false}
+        }
+    }finally{$archive.Dispose()}
+    return $true
+}
+
 function New-KICompletePlan {
     param([ValidateSet('Audit','Install','Upgrade','Repair','Validate')][string]$Mode,[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[hashtable]$FixtureState,[switch]$EnableOpenWebUIBallistics)
     $contract = Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
@@ -77,6 +107,7 @@ function New-KICompletePlan {
         if($component.psobject.Properties.Name-contains'optional'-and[bool]$component.optional-and-not$EnableOpenWebUIBallistics){continue}
         $installed = Get-KICompleteInstalledVersion $component $TargetRoot $FixtureState
         $compliant = $installed -eq [string]$component.version
+        if([string]$component.id-eq'models-workflows'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteModelsWorkflowsCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         [pscustomobject][ordered]@{
             id=[string]$component.id; name=[string]$component.name; version=[string]$component.version
             plannedMode=$(if($Mode -eq 'Audit' -or $Mode -eq 'Validate'){$Mode}elseif($compliant){'Skip'}elseif($installed){if($Mode -eq 'Repair'){'Repair'}else{'Upgrade'}}else{'Install'})
@@ -216,9 +247,9 @@ function Invoke-KIStackCompleteInstaller {
     $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics
     $preflight = Test-KICompletePreflight -PackageRoot $PackageRoot -TargetRoot $TargetRoot -ReadOnly:($Mode -in @('Audit','Validate') -or $DryRun)
     if (-not $preflight.passed) { throw ('Preflight fehlgeschlagen: ' + ($preflight.issues -join '; ')) }
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.2.1';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.2.1';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if(-not$Resume -and $plan.alreadyCompliant -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){return [pscustomobject]@{version='2.2.1';mode=$Mode;status='SkippedAlreadyCompliant';plan=$plan;transactionCreated=$false;backupCreated=$false;mutatesTarget=$false}}
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.2.2';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.2.2';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if(-not$Resume -and $plan.alreadyCompliant -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){return [pscustomobject]@{version='2.2.2';mode=$Mode;status='SkippedAlreadyCompliant';plan=$plan;transactionCreated=$false;backupCreated=$false;mutatesTarget=$false}}
     $state = [string]$config.stateDirectory
     if ($Resume) {
         if (-not $TransactionId) { throw 'Resume erfordert TransactionId.' }
@@ -269,7 +300,7 @@ function Invoke-KIStackCompleteInstaller {
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
         $componentStatePath=Join-Path $state 'components.json';$componentVersions=[ordered]@{};if(Test-Path $componentStatePath){$existingState=Read-KICompleteJson $componentStatePath;foreach($property in $existingState.components.psobject.Properties){$componentVersions[$property.Name]=[string]$property.Value}}
         foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
-        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.2.1';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false}})
+        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.2.2';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false}})
         Write-KICompleteJson $txPath $tx; return $tx
     }
     catch { $tx.status='Failed'; Write-KICompleteJson $txPath $tx; throw }

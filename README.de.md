@@ -11,7 +11,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | Foundation / Runtime | 1.0.9 | Stabiler Referenzstand, auf Zielsystem validiert |
 | Python / Git | 1.1.5 | Stabil, auf Zielsystem validiert |
 | ComfyUI | 1.2.2 | Stabil; Git-freier Inhaltsvertrag auf dem Zielsystem validiert |
-| Modelle / Workflows | 1.4.1 | Neutrale Standardprompts; validierte Workflowstrukturen unverändert |
+| Modelle / Workflows | 1.4.2 | Zentraler transaktionssicherer Import externer Modelle |
 | Applications | 1.4.10 | Stabil; LM Studio und Open WebUI 0.10.2 auf dem Zielsystem akzeptiert |
 | Integration | 1.5.9 | Stabil; Git-freies SearXNG-Payload und reparierter Lebenszyklus zielsystemvalidiert |
 | Cutover Runtime | 1.6.3 | Akzeptierter Runtime-Basisstand |
@@ -21,7 +21,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | OpenWebUI Agent Pack | 1.8.3 | Zielsystemvalidiert; eingebauter Pyodide-Code-Interpreter für Allgemein und KI & IT-Technik |
 | OpenWebUI Image Pack | 1.9.1 | Stabil; direkte FLUX2-Erzeugung zielsystemvalidiert |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stabil; `18Bravo` und Solver zielsystemvalidiert |
-| Complete Installer | 2.2.1 | Konsistente manuell-externe Modellverträge; kein Git und keine eingebetteten Modellpayloads |
+| Complete Installer | 2.2.2 | Erzwingt alle acht externen Modelle vor Models-/Workflows-Konformität |
 | System Cleanup Audit | 1.0.0 | Audit abgeschlossen; Bereinigungsplan wartet auf ausdrückliche Freigabe |
 
 Vollständige Paketquellen liegen im Verzeichnis `package`. Fertige ZIP-Pakete werden als GitHub-Release-Artefakte veröffentlicht und nicht dauerhaft in die normale Git-Historie aufgenommen.

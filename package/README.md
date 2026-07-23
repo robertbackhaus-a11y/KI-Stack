@@ -13,7 +13,7 @@ Finaler Cutover- und Gesamtvalidierungsbaustein des modularen KI-Stacks.
 - vollständige historische Regressionsmatrix
 - Repository-Veröffentlichung ist nicht Bestandteil dieses Runtime-Pakets
 
-Models / Workflows `1.4.1` übernimmt die funktional abgenommenen Workflowgraphen unverändert und ersetzt ausschließlich die sichtbaren positiven Standardprompts durch neutrale Landschaftsmotive. Das Pflichtprofil nutzt `flux-2-klein-9b-fp8.safetensors` (FP8), `qwen_3_8b_fp8mixed.safetensors` (FP8 mixed), `flux2-vae.safetensors`, `euler`, `Flux2Scheduler`, Guidance `1` und genau einen aktiven Samplingpfad. Prompt, Seed und Batchgröße sind Nutzereingaben; Breite, Höhe und vier Schritte werden direkt eingetragen. Geprüfte Größen: Schnelltest `512 x 512`, Standard `1024 x 576`, Qualität `768 x 1344`; „Qualität“ bezeichnet hier Auflösung und Ausgabeformat, nicht eine höhere Samplingqualität.
+Models / Workflows `1.4.2` übernimmt die funktional abgenommenen Workflowgraphen unverändert und ergänzt den zentralen Modellimport über `Start-KIStack-Model-Import.cmd` beziehungsweise `Import-KIStackExternalModels.ps1`. Standardquelle ist `ExternalModels` neben dem entpackten Paket; `-SourcePath` wählt einen anderen expliziten Ordner. Alle acht externen Modelle werden vor der Übernahme nach Dateiname, Größe und SHA256 geprüft.
 
 Der Katalog bestätigt außerdem `FLUX2-Klein-9B-OpenWebUI-API-FLAT.json` als funktionalen und freigegebenen API-Workflow. Der funktionierende externe Alt-Workflow `FLUX2-Klein-9B-Text-to-Image.json` ist durch den verwalteten UI-Workflow ersetzt. Defekte Sicherungen und Archive sowie `OpenWebUI-Generation-Mapping.json` als reine Mappingdatei sind ausdrücklich keine katalogisierten Workflows.
 

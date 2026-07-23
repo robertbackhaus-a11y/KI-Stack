@@ -5,4 +5,4 @@ if($PSVersionTable.PSEdition-ne'Core'-or$PSVersionTable.PSVersion.Major-lt7){thr
 Import-Module (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Force
 $audit=Invoke-KIStackCompleteInstaller -Mode Audit -PackageRoot $PackageRoot -TargetRoot $TargetRoot
 $validate=Invoke-KIStackCompleteInstaller -Mode Validate -PackageRoot $PackageRoot -TargetRoot $TargetRoot
-[pscustomobject]@{version='2.2.1';passed=([bool]$validate.health.passed-and[bool]$validate.operations.passed);auditReadOnly=(-not$audit.mutatesTarget);existingInstallation=$true;health=$validate.health;operations=$validate.operations;status='TargetValidated'}|ConvertTo-Json -Depth 30
+[pscustomobject]@{version='2.2.2';passed=([bool]$validate.health.passed-and[bool]$validate.operations.passed);auditReadOnly=(-not$audit.mutatesTarget);existingInstallation=$true;health=$validate.health;operations=$validate.operations;status='TargetValidated'}|ConvertTo-Json -Depth 30

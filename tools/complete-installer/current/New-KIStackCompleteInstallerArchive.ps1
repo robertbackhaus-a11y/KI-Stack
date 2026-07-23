@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$OutputDirectory,[Parameter(Mandatory)][hashtable]$PayloadFiles)
 Set-StrictMode -Version Latest;$ErrorActionPreference='Stop'
-$stage=Join-Path $OutputDirectory 'KI-Stack-Complete-Installer-v2.2.1'
+$stage=Join-Path $OutputDirectory 'KI-Stack-Complete-Installer-v2.2.2'
 if(Test-Path $stage){Remove-Item $stage -Recurse -Force}
 New-Item $stage -ItemType Directory -Force|Out-Null
 Get-ChildItem $PSScriptRoot -Force|Where-Object{$_.Name-ne'SHA256SUMS.txt'}|Copy-Item -Destination $stage -Recurse
@@ -11,7 +11,7 @@ $files=Get-ChildItem $stage -Recurse -File|Sort-Object{[IO.Path]::GetRelativePat
 $lines=$files|ForEach-Object{$rel=[IO.Path]::GetRelativePath($stage,$_.FullName).Replace('\','/');"$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()) *$rel"}
 Set-Content (Join-Path $stage 'SHA256SUMS.txt') $lines -Encoding ASCII
 New-Item $OutputDirectory -ItemType Directory -Force|Out-Null
-$zip=Join-Path $OutputDirectory 'KI-Stack-Complete-Installer-v2.2.1.zip';if(Test-Path $zip){Remove-Item $zip -Force}
+$zip=Join-Path $OutputDirectory 'KI-Stack-Complete-Installer-v2.2.2.zip';if(Test-Path $zip){Remove-Item $zip -Force}
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $epoch=[DateTimeOffset]::Parse('2000-01-01T00:00:00Z')
 $stream=[IO.File]::Open($zip,[IO.FileMode]::CreateNew)

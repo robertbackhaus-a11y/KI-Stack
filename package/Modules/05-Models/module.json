@@ -3,7 +3,7 @@
   "id": "KIModuleModels",
   "order": 50,
   "name": "Models and Workflows",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "enabled": true,
   "script": "KIModuleModels.psm1",
   "supportsRollback": true,

@@ -53,6 +53,12 @@ function Get-KIModelTargetPath {
 }
 function Find-KIExistingModelCandidate {
     param([Parameter(Mandatory)][object]$Context,[Parameter(Mandatory)][object]$Model,[Parameter(Mandatory)][string]$TargetPath)
+    $explicitRoot=Join-Path (Get-KIModelsProjectRoot) 'ExternalModels'
+    $explicitCandidate=Join-Path $explicitRoot ([string]$Model.fileName)
+    if(Test-Path -LiteralPath $explicitCandidate -PathType Leaf){
+        $explicitState=Test-KIModelFile -Path $explicitCandidate -Model $Model
+        if([bool]$explicitState.valid){return $explicitCandidate}
+    }
     foreach ($configuredRoot in @($Context.Config.models.importSearchRoots)) {
         if (-not $configuredRoot) { continue }
         $root = Expand-KIModelsPath -Path ([string]$configuredRoot)
@@ -107,7 +113,7 @@ function Invoke-KIResumableHttpDownload {
         $client.Timeout = [TimeSpan]::FromHours(12)
         try {
             $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get,[string]$Model.source)
-            $request.Headers.UserAgent.ParseAdd('KI-Stack-Models-Workflows/1.4.1')
+            $request.Headers.UserAgent.ParseAdd('KI-Stack-Models-Workflows/1.4.2')
             if (-not [string]::IsNullOrWhiteSpace($Token)) { $request.Headers.Authorization = [Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer',$Token) }
             $offset = if (Test-Path -LiteralPath $partialPath -PathType Leaf) { (Get-Item -LiteralPath $partialPath).Length } else { 0 }
             if ($offset -gt 0) { $request.Headers.Range = [Net.Http.Headers.RangeHeaderValue]::new([int64]$offset,$null) }
@@ -182,10 +188,22 @@ function Install-KIModuleModels {
     }
     $markerPath=[string]$Context.Config.models.installationMarker
     $markerCompliant=$false
-    if(Test-Path -LiteralPath $markerPath -PathType Leaf){try{$existingMarker=Get-Content -LiteralPath $markerPath -Raw|ConvertFrom-Json -Depth 100;$markerCompliant=[string]$existingMarker.release-eq'KI-Stack-Models-Workflows-Execute-v1.4.1'}catch{$markerCompliant=$false}}
+    if(Test-Path -LiteralPath $markerPath -PathType Leaf){try{$existingMarker=Get-Content -LiteralPath $markerPath -Raw|ConvertFrom-Json -Depth 100;$markerCompliant=[string]$existingMarker.release-eq'KI-Stack-Models-Workflows-Execute-v1.4.2'}catch{$markerCompliant=$false}}
+    $externalModels=@($manifest.models|Where-Object{$_.PSObject.Properties.Name-contains'profile'-and[string]$_.profile-in@('krea-realism','pony-sdxl','wan22-5b')})
+    $externalModelCompliant=$true
+    foreach($externalModel in $externalModels){$externalTarget=Get-KIModelTargetPath -Context $Context -Model $externalModel;if(-not(Test-KIModelFile -Path $externalTarget -Model $externalModel).valid){$externalModelCompliant=$false}}
     $workflowCompliant=$markerCompliant
     if($workflowCompliant){foreach($workflow in @($catalog.workflows)){$source=Join-Path $workflowSource ([string]$workflow.file);$destination=Join-Path $workflowTarget ([string]$workflow.file);if(-not(Test-Path -LiteralPath $destination -PathType Leaf)-or(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash-ne(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash){$workflowCompliant=$false;break}}}
-    if($workflowCompliant){return [pscustomobject][ordered]@{success=$true;skipped=$true;message='AlreadyCompliant';data=[pscustomobject][ordered]@{release='KI-Stack-Models-Workflows-Execute-v1.4.1';modelsDownloaded=$false;workflowsChanged=$false}}}
+    if($workflowCompliant-and$externalModelCompliant){return [pscustomobject][ordered]@{success=$true;skipped=$true;message='AlreadyCompliant';data=[pscustomobject][ordered]@{release='KI-Stack-Models-Workflows-Execute-v1.4.2';modelsDownloaded=$false;workflowsChanged=$false}}}
+    $manualMissing=[Collections.Generic.List[object]]::new()
+    foreach($externalModel in @($externalModels|Where-Object{$_.PSObject.Properties.Name-contains'manualExternal'-and[bool]$_.manualExternal})){
+        $externalTarget=Get-KIModelTargetPath -Context $Context -Model $externalModel
+        if((Test-KIModelFile -Path $externalTarget -Model $externalModel).valid){continue}
+        $explicitCandidate=Join-Path (Join-Path (Get-KIModelsProjectRoot) 'ExternalModels') ([string]$externalModel.fileName)
+        if((Test-KIModelFile -Path $explicitCandidate -Model $externalModel).valid){continue}
+        [void]$manualMissing.Add([pscustomobject]@{fileName=$externalModel.fileName;sizeBytes=$externalModel.sizeBytes;sha256=$externalModel.sha256;sourcePath=$explicitCandidate})
+    }
+    if($manualMissing.Count){return [pscustomobject][ordered]@{success=$false;skipped=$false;message=('WaitingForUserAction: Externe Modelle in ExternalModels bereitstellen: '+(($manualMissing|ForEach-Object{"$($_.fileName) ($($_.sizeBytes) Bytes, SHA256 $($_.sha256))"})-join'; '));data=[pscustomobject]@{status='WaitingForUserAction';requirements=@($manualMissing);importer='Start-KIStack-Model-Import.cmd'}}}
     $rollback=[pscustomobject][ordered]@{schemaVersion='1.0';transactionId=[string]$Context.Transaction.transactionId;createdAt=(Get-Date).ToString('o');updatedAt=(Get-Date).ToString('o');createdDirectories=@();createdModels=@();files=@();rollbackCompletedAt=$null;rollbackIssues=@()}
     Write-KIModelsRollbackState -Context $Context -State $rollback
     foreach($target in $targets){if (-not (Test-Path -LiteralPath $target)){New-Item -ItemType Directory -Path $target -Force | Out-Null;$rollback.createdDirectories=@($rollback.createdDirectories)+@($target);Write-KIModelsRollbackState -Context $Context -State $rollback}}
@@ -202,7 +220,7 @@ function Install-KIModuleModels {
         $candidate=Find-KIExistingModelCandidate -Context $Context -Model $model -TargetPath $target
         if($candidate){Copy-Item -LiteralPath $candidate -Destination $target -Force;$rollback.createdModels=@($rollback.createdModels)+@($target);Write-KIModelsRollbackState -Context $Context -State $rollback;[void]$modelResults.Add([pscustomobject][ordered]@{id=$model.id;status='Imported';path=$target;source=$candidate});continue}
         if(-not [bool]$model.managed){[void]$modelResults.Add([pscustomobject][ordered]@{id=$model.id;status='OptionalMissing';path=$target});continue}
-        if($model.PSObject.Properties.Name -contains 'manualExternal' -and [bool]$model.manualExternal){[void]$modelResults.Add([pscustomobject][ordered]@{id=$model.id;status='ManualExternalRequired';path=$target;reference=[string]$model.manualReference});continue}
+        if($model.PSObject.Properties.Name -contains 'manualExternal' -and [bool]$model.manualExternal){throw "WaitingForUserAction: $($model.fileName) fehlt; erwartet $($model.sizeBytes) Bytes, SHA256 $($model.sha256), Übergabeordner $(Join-Path (Get-KIModelsProjectRoot) 'ExternalModels')."}
         if(-not [bool]$Context.Config.models.downloadsEnabled){if([bool]$model.required){throw "Pflichtmodell fehlt und Downloads sind deaktiviert: $($model.fileName)"};continue}
         if([bool]$model.gated -and [string]::IsNullOrWhiteSpace($token)){$token=Get-KIHuggingFaceToken -Context $Context;if([string]::IsNullOrWhiteSpace($token)){throw "Hugging-Face-Token für das Pflichtmodell fehlt: $($model.fileName)"}}
         Write-Host ("Modell wird aus offizieller Quelle geladen: {0}" -f [string]$model.fileName) -ForegroundColor Cyan
@@ -210,7 +228,9 @@ function Install-KIModuleModels {
         $rollback.createdModels=@($rollback.createdModels)+@($target);Write-KIModelsRollbackState -Context $Context -State $rollback
         [void]$modelResults.Add([pscustomobject][ordered]@{id=$model.id;status='Downloaded';path=$target})
     }
-    $marker=[pscustomobject][ordered]@{managedBy='KI-STACK-MODELS-WORKFLOWS-MANAGED';release='KI-Stack-Models-Workflows-Execute-v1.4.1';installedAt=(Get-Date).ToString('o');transactionId=[string]$Context.Transaction.transactionId;models=@($modelResults);workflows=@($catalog.workflows | ForEach-Object  file)}
+    $finalExternalInvalid=@($externalModels|Where-Object{$model=$_;$path=Get-KIModelTargetPath -Context $Context -Model $model;-not(Test-KIModelFile -Path $path -Model $model).valid})
+    if($finalExternalInvalid.Count){throw "Externe Modellabschlussprüfung fehlgeschlagen: $($finalExternalInvalid.fileName -join ', ')"}
+    $marker=[pscustomobject][ordered]@{managedBy='KI-STACK-MODELS-WORKFLOWS-MANAGED';release='KI-Stack-Models-Workflows-Execute-v1.4.2';installedAt=(Get-Date).ToString('o');transactionId=[string]$Context.Transaction.transactionId;models=@($modelResults);workflows=@($catalog.workflows | ForEach-Object  file)}
     $markerTemp=Join-Path ([string]$Context.TransactionDirectory) 'models-installation.json';$marker | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $markerTemp -Encoding UTF8
     Install-KIManagedFile -Context $Context -RollbackState $rollback -Source $markerTemp -Destination ([string]$Context.Config.models.installationMarker)
     return [pscustomobject][ordered]@{success=$true;skipped=$false;message='Modelle und Workflows wurden installiert.';data=[pscustomobject][ordered]@{models=@($modelResults);workflowCount=@($catalog.workflows).Count;rollbackStatePath=(Get-KIModelsRollbackStatePath -Context $Context)}}
