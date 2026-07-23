@@ -4,7 +4,7 @@
     {"id":"foundation-runtime","name":"Foundation / Runtime","version":"1.0.9","order":10,"source":"Payload/CutoverRuntime","marker":"VERSION","kind":"kernel","installable":true},
     {"id":"python-git","name":"Python / Git","version":"1.1.5","order":20,"source":"Payload/CutoverRuntime","marker":"VERSION","kind":"kernel","installable":true},
     {"id":"comfyui","name":"ComfyUI","version":"1.2.2","order":30,"source":"Payload/ComfyUI","marker":"modules/comfyui/installation.json","kind":"component","installable":true},
-    {"id":"models-workflows","name":"Models / Workflows","version":"1.4.5","order":40,"source":"Payload/ModelsWorkflows","marker":"modules/models-workflows/installation.json","kind":"kernel","installable":true},
+    {"id":"models-workflows","name":"Models / Workflows","version":"1.4.6","order":40,"source":"Payload/ModelsWorkflows","marker":"modules/models-workflows/installation.json","kind":"kernel","installable":true},
     {"id":"applications","name":"Applications","version":"1.4.10","order":50,"source":"Payload/CutoverRuntime","marker":"modules/applications/installation.json","kind":"kernel","installable":true},
     {"id":"integration","name":"Integration","version":"1.5.9","order":60,"source":"Payload/Integration","marker":"modules/integration/installation.json","kind":"component","installable":true},
     {"id":"cutover-runtime","name":"Cutover Runtime","version":"1.6.3","order":70,"source":"Payload/CutoverRuntime","marker":"modules/cutover/installation.json","kind":"kernel","installable":true},
@@ -12,7 +12,7 @@
     {"id":"validation-gate","name":"Validation Gate","version":"1.0.2","order":90,"source":"Payload/ValidationGate","kind":"validation","installable":false},
     {"id":"target-acceptance","name":"Target Acceptance","version":"1.0.10","order":100,"source":"Payload/TargetAcceptance","kind":"validation","installable":false},
     {"id":"openwebui-agent-pack","name":"OpenWebUI Agent Pack","version":"1.8.3","order":110,"source":"Payload/OpenWebUIAgentPack","marker":"openwebui-api","kind":"openwebui","installable":true},
-    {"id":"openwebui-image-pack","name":"OpenWebUI Image Pack","version":"1.9.1","order":120,"source":"Payload/OpenWebUIImagePack","marker":"openwebui-api","kind":"openwebui","installable":true},
+    {"id":"openwebui-image-pack","name":"OpenWebUI Image Pack","version":"1.9.2","order":120,"source":"Payload/OpenWebUIImagePack","marker":"openwebui-api","kind":"openwebui","installable":true},
     {"id":"openwebui-ballistics-pack","name":"OpenWebUI Ballistics","version":"1.0.0","order":130,"source":"Payload/OpenWebUIBallisticsPack","marker":"modules/openwebui-ballistics/installation.json","kind":"openwebui-optional","installable":true,"optional":true,"preserveData":"data/ballistics"}
   ]
 }

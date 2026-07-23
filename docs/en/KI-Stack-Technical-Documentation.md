@@ -14,16 +14,16 @@ The supported topology is Windows for user entry points, LM Studio, ComfyUI and 
 |---|---|---|---|
 | Cutover runtime | 1.6.3, accepted baseline | `cutover-v1.6.3-rc1` | core `e387199493575131045c888ebbd4c1313bb985b13e3a1f72c3f99efe9bf2b85d` |
 | ComfyUI | 1.2.2, target-system validated | embedded Complete payload | `tools/complete-installer/current/Contracts/PAYLOADS.json` |
-| Models / Workflows | 1.4.5, documentation patch | `models-workflows-v1.4.5` | package `SHA256SUMS.txt`; models are external |
+| Models / Workflows | 1.4.6, documentation patch | `models-workflows-v1.4.6` | package `SHA256SUMS.txt`; models are external |
 | Applications | 1.4.10, accepted | Cutover payload | package manifest contract |
 | Integration / SearXNG | 1.5.9, target-system validated | embedded Complete payload | payload contract |
 | Production Recovery | 1.7.0-r7, target-system accepted | `production-v1.7.0-r7` | `0b4b28c886f01939fb45a9d7f3ce9f5323f57a8208e42381088544afa5955c59` |
 | Validation Gate | 1.0.2, active | production release | `a03dd59df2322bc37b763d8d16ff6127f04b969069a698b361e6c52099a7db81` |
 | Target Acceptance | 1.0.10, passed | production release | `bbfe6e79438406fecbc301f8883a7b629ca0c1ff5736917c267c02ec79fce0d6` |
 | OpenWebUI Agent Pack | 1.8.3, target validated | dedicated release | pack `SHA256SUMS.txt` |
-| OpenWebUI Image Pack | 1.9.1, target validated | dedicated release | pack `SHA256SUMS.txt` |
+| OpenWebUI Image Pack | 1.9.2, target validated | dedicated release | pack `SHA256SUMS.txt` |
 | OpenWebUI Ballistics Pack | 1.0.0, target validated | dedicated release | pack `SHA256SUMS.txt` |
-| Complete Installer | 2.2.5, documentation patch | `complete-v2.2.5` | package `SHA256SUMS.txt` |
+| Complete Installer | 2.2.6, documentation patch | `complete-v2.2.6` | package `SHA256SUMS.txt` |
 
 `production-release-manifest.json`, each package `MANIFEST.json`, `SHA256SUMS.txt` and release sidecar are the authoritative integrity records. The target acceptance result is `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
 
@@ -60,6 +60,15 @@ All CMD starters resolve PowerShell 7 from `%ProgramFiles%\\PowerShell\\7\\pwsh.
 API keys are requested interactively as `SecureString`, used only in memory and must be revoked in OpenWebUI after use. They are not command-line arguments, environment files, Git content or reports. No raw target report, personal path, test image, model binary, backup or private import data is publishable.
 
 The Complete Installer is Git-free at runtime but not fully offline because model files are external and license-gated or manually provided. Fresh-install behavior is contract and fixture validated; physical target validation is for the existing installation. Production Recovery r7 and Target Acceptance 1.0.10 are pinned external references, not automatically overlaid.
+
+`main` is protected by pull-request-only changes, no force pushes and no deletion. Gitleaks, PSScriptAnalyzer, Bandit, CodeQL and the model-source contract are mandatory checks. CI actions are pinned to full commit SHAs. Every Models / Workflows, Complete Installer and Image Pack release provides an SPDX-2.3 JSON SBOM that identifies the release ZIP by SHA256, listed components and third-party dependencies; all model binaries are explicitly external and not contained. GitHub build provenance and SPDX SBOM attestations are created for the exact published ZIP bytes.
+
+```powershell
+gh attestation verify .\<release>.zip --repo robertbackhaus-a11y/KI-Stack
+gh attestation verify .\<release>.zip --repo robertbackhaus-a11y/KI-Stack --predicate-type https://spdx.dev/Document/v2.3
+```
+
+KI-Stack uses protected changes, mandatory static security checks, content-based SHA256 contracts, published SBOMs and verifiable build attestations. These records reduce supply-chain risk, but do not replace an independent security assessment and do not guarantee freedom from defects or backdoors. See `SECURITY.md` for the coordinated reporting route.
 
 ## 9. Maintenance and release procedure
 

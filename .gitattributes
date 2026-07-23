@@ -9,7 +9,7 @@
 *.md text eol=lf
 *.txt text eol=lf
 *.zip binary
-package/** -text
+package/** -text whitespace=cr-at-eol
 tools/package-validation-gate/current/** -text
 tools/production-target-acceptance/current/** -text
 tools/production-recovery/current/** -text

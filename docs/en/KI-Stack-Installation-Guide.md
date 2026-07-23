@@ -1,15 +1,15 @@
 # Quick installation
 
-This guide applies to the published **KI-Stack Complete Installer 2.2.5** package. It describes only files present in the package and flows verified from its sources. The normal functional entry point is `Start-KIStack-Installer.cmd`; the model, audit, validate, repair and rollback starters documented below are specialist paths.
+This guide applies to the published **KI-Stack Complete Installer 2.2.6** package. It describes only files present in the package and flows verified from its sources. The normal functional entry point is `Start-KIStack-Installer.cmd`; the model, audit, validate, repair and rollback starters documented below are specialist paths.
 
 ## Step 1 – Download the package
 
-1. Open the [complete-v2.2.5](https://github.com/robertbackhaus-a11y/KI-Stack/releases/tag/complete-v2.2.5) release.
-2. Download `KI-Stack-Complete-Installer-v2.2.5.zip` and the `KI-Stack-Complete-Installer-v2.2.5.zip.sha256` sidecar from that same release page.
+1. Open the [complete-v2.2.6](https://github.com/robertbackhaus-a11y/KI-Stack/releases/tag/complete-v2.2.6) release.
+2. Download `KI-Stack-Complete-Installer-v2.2.6.zip` and the `KI-Stack-Complete-Installer-v2.2.6.zip.sha256` sidecar from that same release page.
 3. Verify the ZIP in PowerShell 7:
 
 ```powershell
-Get-FileHash -LiteralPath .\KI-Stack-Complete-Installer-v2.2.5.zip -Algorithm SHA256
+Get-FileHash -LiteralPath .\KI-Stack-Complete-Installer-v2.2.6.zip -Algorithm SHA256
 ```
 
 Expected SHA256 value: `43e24404dec62403588b057415bb30a609bf734bc3cbb3aee80ff05c1d7d057e`.
@@ -21,7 +21,7 @@ Expected SHA256 value: `43e24404dec62403588b057415bb30a609bf734bc3cbb3aee80ff05c
 Extract the ZIP to a short writable folder and open the top-level extracted package folder. It demonstrably contains:
 
 ```text
-KI-Stack-Complete-Installer-v2.2.5/
+KI-Stack-Complete-Installer-v2.2.6/
 ├── Start-KIStack-Installer.cmd
 ├── Start-KIStack-Audit.cmd
 ├── Start-KIStack-Model-Import.cmd

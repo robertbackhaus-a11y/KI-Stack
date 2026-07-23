@@ -1,4 +1,4 @@
-# KI-Stack OpenWebUI Image Pack 1.9.1
+# KI-Stack OpenWebUI Image Pack 1.9.2
 
 Status: `TargetSystemValidated` on 2026-07-22 for OpenWebUI 0.10.2, ComfyUI 1.2.2, Models / Workflows 1.3.8 and Agent Pack 1.8.3.
 

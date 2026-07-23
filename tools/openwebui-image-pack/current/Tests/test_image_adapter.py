@@ -20,6 +20,16 @@ class FakeResponse:
 
 
 class AdapterTests(unittest.TestCase):
+    def test_comfy_url_accepts_only_trusted_local_http_origin(self):
+        tool = MODULE.Tools()
+        self.assertEqual("http://127.0.0.1:8188/prompt", tool._comfy_url("/prompt"))
+        for origin in ("https://example.invalid", "file:///tmp", "ftp://127.0.0.1:8188"):
+            tool.comfy_url = origin
+            with self.assertRaises(RuntimeError):
+                tool._comfy_url("/prompt")
+        with self.assertRaises(ValueError):
+            MODULE.Tools()._comfy_url("https://example.invalid/prompt")
+
     def test_prompt_ratio_and_seed_are_patched(self):
         tool = MODULE.Tools()
         tool._persist_image = AsyncMock(return_value="/api/v1/files/file-1/content")

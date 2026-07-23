@@ -11,7 +11,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Foundation / Runtime | 1.0.9 | Stable reference; target-system validated |
 | Python / Git | 1.1.5 | Stable; target-system validated |
 | ComfyUI | 1.2.2 | Stable; Git-free content contract target-system validated |
-| Models / Workflows | 1.4.5 | Central transactional external-model importer; bilingual technical and operations documentation |
+| Models / Workflows | 1.4.6 | Central transactional external-model importer; bilingual technical and operations documentation |
 | Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
 | Integration | 1.5.9 | Stable; Git-free SearXNG payload and repaired lifecycle target-system validated |
 | Cutover runtime | 1.6.3 | Accepted runtime baseline |
@@ -19,9 +19,9 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Universal package Validation Gate | 1.0.2 | Activated on the target system |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
 | OpenWebUI Agent Pack | 1.8.3 | Target validated; built-in Pyodide Code Interpreter for Allgemein and KI & IT-Technik |
-| OpenWebUI Image Pack | 1.9.1 | Stable; direct FLUX2 generation target-system validated |
+| OpenWebUI Image Pack | 1.9.2 | Stable; direct FLUX2 generation target-system validated |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
-| Complete Installer | 2.2.5 | Enforces all eight external models before Models / Workflows compliance; bilingual documentation included |
+| Complete Installer | 2.2.6 | Enforces all eight external models before Models / Workflows compliance; bilingual documentation included |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
@@ -119,8 +119,19 @@ The repository includes complete reusable sources for Production Recovery `1.7.0
 
 OpenWebUI Agent Pack `1.8.3` manages exactly the workspace models `KI & IT-Technik` and `Allgemein` through the supported OpenWebUI 0.10.2 HTTP API. It enables only the built-in browser-local Pyodide Code Interpreter capability and preserves only the registered Image Pack tool binding. `execute_code` is not a workspace tool ID.
 
-OpenWebUI Image Pack `1.9.1` manages exactly one canonical tool, `ki-stack-generate-image`, for direct generation through the existing FLUX2 Klein workflow and local ComfyUI 1.2.2. OpenWebUI 0.10.2 binds its required identifier-safe internal ID `ki_stack_generate_image`. The pack downloads no models and adds no KREA or Pony dependency.
+OpenWebUI Image Pack `1.9.2` manages exactly one canonical tool, `ki-stack-generate-image`, for direct generation through the existing FLUX2 Klein workflow and local ComfyUI 1.2.2. OpenWebUI 0.10.2 binds its required identifier-safe internal ID `ki_stack_generate_image`. The pack downloads no models and adds no KREA or Pony dependency.
 
 OpenWebUI Ballistics Pack `1.0.0` adds the exclusively bound `18Bravo` technical profile and `ki_stack_ballistics_calculator`. Its pinned `pyballistic` 2.2.0 RK4 core supports G1/G7 calculations without Git, compiled solver extensions, SciPy engine or chart extensions. It requires complete explicit inputs, stores profiles only after confirmation and is restricted to lawful sporting, hunting and engineering use.
 
 Overall status: `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
+
+## Supply-chain security
+
+`main` is protected and accepts changes through pull requests with mandatory Gitleaks, PSScriptAnalyzer, Bandit and CodeQL checks. CI actions are pinned to full commit SHAs, and payload contracts verify SHA256 values by content. Each release provides an SPDX-2.3 SBOM and GitHub-verifiable build attestations; see [SECURITY.md](SECURITY.md) for the reporting process.
+
+KI-Stack uses protected changes, mandatory static security checks, content-based SHA256 contracts, published SBOMs and verifiable build attestations. These records reduce supply-chain risk, but do not replace an independent security assessment and do not guarantee freedom from defects or backdoors.
+
+```powershell
+gh attestation verify .\<release>.zip --repo robertbackhaus-a11y/KI-Stack
+gh attestation verify .\<release>.zip --repo robertbackhaus-a11y/KI-Stack --predicate-type https://spdx.dev/Document/v2.3
+```

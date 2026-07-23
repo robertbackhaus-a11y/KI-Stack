@@ -1,7 +1,7 @@
 """
 title: KI-Stack Bildgenerierung
 managedBy: KI-STACK-OPENWEBUI-IMAGE-PACK
-version: 1.9.1
+version: 1.9.2
 canonical_id: ki-stack-generate-image
 """
 
@@ -14,16 +14,28 @@ import urllib.parse
 import urllib.request
 
 class Tools:
+    _TRUSTED_COMFY_ORIGINS = {"http://127.0.0.1:8188"}
+
     def __init__(self):
         self.comfy_url = "http://127.0.0.1:8188"
         self.timeout_seconds = 600
         self.workflow = json.loads('''{"78":{"inputs":{"filename_prefix":"Flux2-Klein","images":["82",0]},"class_type":"SaveImage"},"80":{"inputs":{"sampler_name":"euler"},"class_type":"KSamplerSelect"},"81":{"inputs":{"noise":["86",0],"guider":["90",0],"sampler":["80",0],"sigmas":["93",0],"latent_image":["83",0]},"class_type":"SamplerCustomAdvanced"},"82":{"inputs":{"samples":["81",0],"vae":["89",0]},"class_type":"VAEDecode"},"83":{"inputs":{"width":["84",0],"height":["85",0],"batch_size":1},"class_type":"EmptyFlux2LatentImage"},"84":{"inputs":{"value":1024},"class_type":"PrimitiveInt"},"85":{"inputs":{"value":1024},"class_type":"PrimitiveInt"},"86":{"inputs":{"noise_seed":1},"class_type":"RandomNoise"},"87":{"inputs":{"unet_name":"flux-2-klein-9b-fp8.safetensors","weight_dtype":"default"},"class_type":"UNETLoader"},"88":{"inputs":{"clip_name":"qwen_3_8b_fp8mixed.safetensors","type":"flux2","device":"default"},"class_type":"CLIPLoader"},"89":{"inputs":{"vae_name":"flux2-vae.safetensors"},"class_type":"VAELoader"},"90":{"inputs":{"cfg":1,"model":["87",0],"positive":["92",0],"negative":["91",0]},"class_type":"CFGGuider"},"91":{"inputs":{"conditioning":["92",0]},"class_type":"ConditioningZeroOut"},"92":{"inputs":{"text":"","clip":["88",0]},"class_type":"CLIPTextEncode"},"93":{"inputs":{"steps":4,"width":["84",0],"height":["85",0]},"class_type":"Flux2Scheduler"}}''')
 
+    def _comfy_url(self, path):
+        """Build only a local, configured ComfyUI URL; untrusted values cannot select an origin."""
+        origin = urllib.parse.urlsplit(self.comfy_url)
+        normalized_origin = f"{origin.scheme}://{origin.netloc}"
+        if origin.scheme not in {"http", "https"} or normalized_origin not in self._TRUSTED_COMFY_ORIGINS:
+            raise RuntimeError("ComfyUI origin is not a trusted local HTTP(S) configuration")
+        if not path.startswith("/"):
+            raise ValueError("ComfyUI request path must be relative")
+        return normalized_origin + path
+
     def _json(self, method, path, body=None, timeout=30):
         data = None if body is None else json.dumps(body).encode("utf-8")
-        request = urllib.request.Request(self.comfy_url + path, data=data, method=method)
+        request = urllib.request.Request(self._comfy_url(path), data=data, method=method)
         request.add_header("Content-Type", "application/json")
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310: _comfy_url allows only trusted local HTTP(S) origins.
             return json.loads(response.read().decode("utf-8"))
 
     async def _persist_image(self, data_url, request, metadata, user_info):
@@ -77,8 +89,8 @@ class Tools:
         if not image:
             raise TimeoutError("ComfyUI image generation timed out")
         query = urllib.parse.urlencode({"filename": image["filename"], "subfolder": image.get("subfolder", ""), "type": image.get("type", "output")})
-        view_url = self.comfy_url + "/view?" + query
-        with urllib.request.urlopen(view_url, timeout=30) as response:
+        view_url = self._comfy_url("/view?" + query)
+        with urllib.request.urlopen(view_url, timeout=30) as response:  # nosec B310: _comfy_url allows only trusted local HTTP(S) origins.
             payload = response.read()
             content_type = response.headers.get("Content-Type", "")
         if not payload or not content_type.startswith("image/"):
