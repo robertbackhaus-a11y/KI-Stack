@@ -2,6 +2,7 @@
 param(
     [string]$SourcePath = (Join-Path $PSScriptRoot 'ExternalModels'),
     [string]$TargetRoot = 'C:\KI-Stack\models',
+    [string]$LmStudioTargetRoot = (Join-Path $env:USERPROFILE '.lmstudio\models'),
     [string]$ManifestPath,
     [string]$StateRoot = 'C:\KI-Stack\state\model-import',
     [string]$TransactionId,
@@ -21,14 +22,23 @@ function Write-ResultAndExit {
 function Read-Contracts {
     param([Parameter(Mandatory)][string]$Path)
     $document=Get-Content -LiteralPath $Path -Raw|ConvertFrom-Json -Depth 100
+    $contracts=[Collections.Generic.List[object]]::new()
     if($document.PSObject.Properties.Name -contains 'models'){
-        return @($document.models|Where-Object{$_.PSObject.Properties.Name-contains'profile'-and[string]$_.profile-in@('krea-realism','pony-sdxl','wan22-5b')}|ForEach-Object{
-            [pscustomobject]@{id=[string]$_.id;fileName=[string]$_.fileName;sizeBytes=[int64]$_.sizeBytes;sha256=([string]$_.sha256).ToLowerInvariant();targetDirectory=[string]$_.targetDirectory;source=[string]$_.source;manualExternal=[bool]$_.manualExternal}
-        })
+        foreach($model in @($document.models|Where-Object{$_.PSObject.Properties.Name-contains'profile'-and[string]$_.profile-in@('krea-realism','pony-sdxl','wan22-5b')})){
+            $contracts.Add([pscustomobject]@{id=[string]$model.id;fileName=[string]$model.fileName;sizeBytes=[int64]$model.sizeBytes;sha256=([string]$model.sha256).ToLowerInvariant();targetDirectory=[string]$model.targetDirectory;source=[string]$model.source;manualExternal=[bool]$model.manualExternal;targetRootKind='comfy';sourceSubdirectory=''})
+        }
+        $lmStudioModel=if($document.PSObject.Properties['lmStudioModel']){$document.lmStudioModel}else{$null}
+    }else{
+        foreach($model in @($document.external|Where-Object{$_.PSObject.Properties.Name-contains'category'-and[string]$_.category-eq'models-workflows-1.4.7'})){
+            $contracts.Add([pscustomobject]@{id=[string]$model.id;fileName=[string]$model.fileName;sizeBytes=[int64]$model.sizeBytes;sha256=([string]$model.sha256).ToLowerInvariant();targetDirectory=([string]$model.target-replace'^models/','');source=[string]$model.source;manualExternal=[bool]$model.manualExternal;targetRootKind='comfy';sourceSubdirectory=''})
+        }
+        $lmStudioModel=if($document.PSObject.Properties['lmStudioModel']){$document.lmStudioModel}else{$null}
     }
-    return @($document.external|Where-Object{$_.PSObject.Properties.Name-contains'category'-and[string]$_.category-eq'models-workflows-1.4.6'}|ForEach-Object{
-        [pscustomobject]@{id=[string]$_.id;fileName=[string]$_.fileName;sizeBytes=[int64]$_.sizeBytes;sha256=([string]$_.sha256).ToLowerInvariant();targetDirectory=([string]$_.target-replace'^models/','');source=[string]$_.source;manualExternal=[bool]$_.manualExternal}
-    })
+    if($null-eq$lmStudioModel){throw 'LM-Studio-Modellvertrag fehlt.'}
+    foreach($file in @($lmStudioModel.files)){
+        $contracts.Add([pscustomobject]@{id=[string]$file.id;fileName=[string]$file.fileName;sizeBytes=[int64]$file.sizeBytes;sha256=([string]$file.sha256).ToLowerInvariant();targetDirectory=[string]$lmStudioModel.relativeTargetDirectory;source=$null;manualExternal=$true;targetRootKind='lmstudio';sourceSubdirectory='LMStudio'})
+    }
+    return @($contracts)
 }
 function Test-ModelFile {
     param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)][object]$Contract)
@@ -52,9 +62,10 @@ if([string]::IsNullOrWhiteSpace($ManifestPath)){
     $ManifestPath=if(Test-Path -LiteralPath $modelsManifest){$modelsManifest}else{$completeManifest}
 }
 $contracts=@(Read-Contracts -Path $ManifestPath)
-if($contracts.Count-ne8){throw "Der externe Modellvertrag muss exakt acht Modelle enthalten; gefunden: $($contracts.Count)."}
+if($contracts.Count-ne10){throw "Der externe Modellvertrag muss exakt zehn Dateien enthalten; gefunden: $($contracts.Count)."}
 $SourcePath=[IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($SourcePath))
 $TargetRoot=[IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($TargetRoot))
+$LmStudioTargetRoot=[IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($LmStudioTargetRoot))
 $StateRoot=[IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($StateRoot))
 if([string]::IsNullOrWhiteSpace($TransactionId)){$TransactionId='model-import-'+[DateTime]::UtcNow.ToString('yyyyMMddTHHmmssZ')+'-'+[guid]::NewGuid().ToString('N').Substring(0,8)}
 $transactionDirectory=Join-Path $StateRoot $TransactionId
@@ -77,9 +88,11 @@ if($Rollback){
 
 $inspection=[Collections.Generic.List[object]]::new()
 foreach($contract in $contracts){
-    $target=Join-Path (Join-Path $TargetRoot ([string]$contract.targetDirectory)) ([string]$contract.fileName)
+    $activeTargetRoot=if([string]$contract.targetRootKind-eq'lmstudio'){$LmStudioTargetRoot}else{$TargetRoot}
+    $target=Join-Path (Join-Path $activeTargetRoot ([string]$contract.targetDirectory)) ([string]$contract.fileName)
     $targetState=Test-ModelFile -Path $target -Contract $contract
-    $source=Join-Path $SourcePath ([string]$contract.fileName)
+    $sourceRoot=if([string]::IsNullOrWhiteSpace([string]$contract.sourceSubdirectory)){$SourcePath}else{Join-Path $SourcePath ([string]$contract.sourceSubdirectory)}
+    $source=Join-Path $sourceRoot ([string]$contract.fileName)
     $sourceState=Test-ModelFile -Path $source -Contract $contract
     $action=if($targetState.valid){'AlreadyCompliant'}elseif($sourceState.valid){'Import'}elseif(-not[bool]$contract.manualExternal-and-not$DisableNetwork){'Download'}elseif($sourceState.exists){'InvalidSource'}else{'MissingSource'}
     [void]$inspection.Add([pscustomobject]@{contract=$contract;targetPath=$target;target=$targetState;sourcePath=$source;source=$sourceState;action=$action})
@@ -119,7 +132,7 @@ foreach($item in $inspection){
     if(-not(Test-ModelFile -Path $partial -Contract $contract).valid){throw "Übernahmedatei ist ungültig: $($contract.fileName); erwartet $($contract.sizeBytes) Bytes, SHA256 $($contract.sha256)."}
     Move-Item -LiteralPath $partial -Destination $target -Force
 }
-$invalid=@($contracts|Where-Object{$contract=$_;$target=Join-Path(Join-Path $TargetRoot $contract.targetDirectory)$contract.fileName;-not(Test-ModelFile -Path $target -Contract $contract).valid})
+$invalid=@($contracts|Where-Object{$contract=$_;$activeTargetRoot=if([string]$contract.targetRootKind-eq'lmstudio'){$LmStudioTargetRoot}else{$TargetRoot};$target=Join-Path(Join-Path $activeTargetRoot $contract.targetDirectory)$contract.fileName;-not(Test-ModelFile -Path $target -Contract $contract).valid})
 if($invalid.Count){throw "Abschlussprüfung fehlgeschlagen: $($invalid.fileName -join ', ')"}
 $state.status='Completed';$state.requirements=@();Write-State -Path $statePath -State $state
 Write-ResultAndExit -Result ([pscustomobject]@{status='Completed';transactionId=$TransactionId;models=@($contracts|ForEach-Object{[pscustomobject]@{id=$_.id;status='AlreadyCompliantOrImported'}})})

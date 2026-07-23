@@ -1,6 +1,6 @@
-# KI-Stack Complete Installer 2.2.6
+# KI-Stack Complete Installer 2.2.7
 
-**[Hier beginnen: Installationsanleitung](../../../docs/de/KI-Stack-Installationsanleitung.md)**
+**[Hier beginnen: Installationsanleitung](../../../docs/de/KI-Stack-Installationsanleitung.md)** · **[Manuelle Modellbereitstellung](../../../docs/de/KI-Stack-Manuelle-Modellbereitstellung.md)** · **[Manual model provisioning](../../../docs/en/KI-Stack-Manual-Model-Provisioning.md)**
 
 Der Complete Installer ist der zentrale Installations-, Upgrade-, Audit-, Validate-, Repair-, Resume-, Start-, Stop- und Rollback-Einstieg. `Start-KIStack-Installer.cmd` löst PowerShell 7 auf und fordert Administratorrechte genau einmal über UAC an. `Resume-KIStack-Installer.cmd` setzt eine benannte Transaktion fort. `Status-KIStack.cmd` startet ausschließlich den vorhandenen interaktiven read-only Status-Starter.
 

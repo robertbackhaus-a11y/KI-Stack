@@ -251,5 +251,41 @@
       "sizeBytes": 1409400960,
       "sha256": "e40321bd36b9709991dae2530eb4ac303dd168276980d3e9bc4b6e2b75fed156"
     }
-  ]
+  ],
+  "lmStudioModel": {
+    "id": "qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved",
+    "displayName": "Qwen3.6 27B Uncensored Heretic v2 Native MTP Preserved",
+    "publisher": "llmfan46",
+    "informationSource": "https://huggingface.co/llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF",
+    "installationSource": null,
+    "sourceKind": "manual-external-information-only",
+    "manualExternal": true,
+    "license": "Apache-2.0",
+    "redistribution": "external-only; not embedded in Git or package archives",
+    "relativeTargetDirectory": "llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF",
+    "expectedLmStudioModelId": "qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved",
+    "contextLength": 8192,
+    "loadParameters": {
+      "unloadPreviousModelOnSelect": true,
+      "visionProjectorRequiredForMultimodal": true
+    },
+    "files": [
+      {
+        "id": "lmstudio-heretic-q5-k-m",
+        "fileName": "Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf",
+        "role": "language-model",
+        "quantization": "Q5_K_M",
+        "sizeBytes": 19745091680,
+        "sha256": "9d309b8fadd5788bfa8ee26cd34c37b26df0205613a3be34394ba4da7d5a4285"
+      },
+      {
+        "id": "lmstudio-heretic-mmproj-bf16",
+        "fileName": "Qwen3.6-27B-mmproj-BF16.gguf",
+        "role": "vision-projector",
+        "quantization": "BF16",
+        "sizeBytes": 931146048,
+        "sha256": "c5c8c41da6d155a61edd21b7e3aa50b6ef77f122d502d36afe4a4d5c3e494d4f"
+      }
+    ]
+  }
 }

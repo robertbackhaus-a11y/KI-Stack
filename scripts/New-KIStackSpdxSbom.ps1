@@ -54,7 +54,9 @@ foreach ($component in $included) {
     $index++
 }
 
-$models = (Get-Content -LiteralPath $ModelsManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 30).models
+$modelsManifest = Get-Content -LiteralPath $ModelsManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 30
+$models = @($modelsManifest.models)
+$lmStudioModel = $modelsManifest.lmStudioModel
 $modelIndex = 1
 foreach ($model in $models) {
     $id = "SPDXRef-ExternalModel-$modelIndex"
@@ -66,6 +68,15 @@ foreach ($model in $models) {
     $packages.Add((New-SpdxPackage -Name ([string]$model.displayName) -Id $id -Version 'external' -Supplier ("Organization: " + $publisher) -License 'NOASSERTION' -Purpose 'OTHER' -Comment $comment -Sha256 ([string]$model.sha256)))
     $relationships.Add([ordered]@{ spdxElementId = $rootId; relationshipType = 'DEPENDS_ON'; relatedSpdxElement = $id })
     $modelIndex++
+}
+if ($lmStudioModel) {
+    foreach ($file in @($lmStudioModel.files)) {
+        $id = "SPDXRef-ExternalModel-$modelIndex"
+        $comment = "NOT_CONTAINED_EXTERNAL_MODEL; publisher=$($lmStudioModel.publisher); fileName=$($file.fileName); sizeBytes=$($file.sizeBytes); sha256=$($file.sha256); licenseStatus=$($lmStudioModel.license); relativeTargetPath=%USERPROFILE%/.lmstudio/models/$($lmStudioModel.relativeTargetDirectory); sourceKind=$($lmStudioModel.sourceKind); informationSource=$($lmStudioModel.informationSource); role=$($file.role); quantization=$($file.quantization)"
+        $packages.Add((New-SpdxPackage -Name ([string]$file.fileName) -Id $id -Version 'external' -Supplier ("Organization: " + [string]$lmStudioModel.publisher) -License 'NOASSERTION' -Purpose 'OTHER' -Comment $comment -Sha256 ([string]$file.sha256)))
+        $relationships.Add([ordered]@{ spdxElementId = $rootId; relationshipType = 'DEPENDS_ON'; relatedSpdxElement = $id })
+        $modelIndex++
+    }
 }
 
 $sbom = [ordered]@{
@@ -83,4 +94,4 @@ $sbom = [ordered]@{
 
 $json = $sbom | ConvertTo-Json -Depth 30
 [System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath($OutputPath), $json + "`n", [System.Text.UTF8Encoding]::new($false))
-[pscustomobject]@{ path = [System.IO.Path]::GetFullPath($OutputPath); zipSha256 = $zipHash; zipSizeBytes = $zip.Length; format = 'SPDX-2.3 JSON'; externalModels = $models.Count }
+[pscustomobject]@{ path = [System.IO.Path]::GetFullPath($OutputPath); zipSha256 = $zipHash; zipSizeBytes = $zip.Length; format = 'SPDX-2.3 JSON'; externalModels = ($models.Count + @($lmStudioModel.files).Count) }
