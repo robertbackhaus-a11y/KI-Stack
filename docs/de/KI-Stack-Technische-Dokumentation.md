@@ -14,7 +14,7 @@ Die unterstützte Topologie verwendet Windows für Benutzereinstiege, LM Studio,
 |---|---|---|---|
 | Cutover Runtime | 1.6.3, akzeptierte Basis | `cutover-v1.6.3-rc1` | Core `e387199493575131045c888ebbd4c1313bb985b13e3a1f72c3f99efe9bf2b85d` |
 | ComfyUI | 1.2.2, zielsystemvalidiert | eingebettetes Complete-Payload | `tools/complete-installer/current/Contracts/PAYLOADS.json` |
-| Models / Workflows | 1.4.7, Heretic-LM-Studio-Vertrag | `models-workflows-v1.4.7` | Paket-`SHA256SUMS.txt`; Modelle extern |
+| Models / Workflows | 1.4.8, Heretic-LM-Studio-Vertrag | `models-workflows-v1.4.8` | Paket-`SHA256SUMS.txt`; Modelle extern |
 | Applications | 1.4.10, akzeptiert | Cutover-Payload | Paketmanifest-Vertrag |
 | Integration / SearXNG | 1.5.9, zielsystemvalidiert | eingebettetes Complete-Payload | Payloadvertrag |
 | Production Recovery | 1.7.0-r7, zielsystemakzeptiert | `production-v1.7.0-r7` | `0b4b28c886f01939fb45a9d7f3ce9f5323f57a8208e42381088544afa5955c59` |
@@ -23,7 +23,7 @@ Die unterstützte Topologie verwendet Windows für Benutzereinstiege, LM Studio,
 | OpenWebUI Agent Pack | 1.8.3, zielsystemvalidiert | separates Release | Pack-`SHA256SUMS.txt` |
 | OpenWebUI Image Pack | 1.9.2, zielsystemvalidiert | separates Release | Pack-`SHA256SUMS.txt` |
 | OpenWebUI Ballistics Pack | 1.0.0, zielsystemvalidiert | separates Release | Pack-`SHA256SUMS.txt` |
-| Complete Installer | 2.2.7, Heretic-LM-Studio-Vertrag | `complete-v2.2.7` | Paket-`SHA256SUMS.txt` |
+| Complete Installer | 2.2.8, Heretic-LM-Studio-Vertrag | `complete-v2.2.8` | Paket-`SHA256SUMS.txt` |
 
 `production-release-manifest.json`, jedes Paket-`MANIFEST.json`, `SHA256SUMS.txt` und der Release-Sidecar sind die maßgeblichen Integritätsnachweise. Das Target-Acceptance-Ergebnis lautet `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
 

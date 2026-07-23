@@ -1,6 +1,6 @@
-# KI-Stack Complete Installer 2.2.7
+# KI-Stack Complete Installer 2.2.8
 
-Version 2.2.7 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.7. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload, including the manual Heretic LM Studio contract.
+Version 2.2.8 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.8. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload, including the manual Heretic LM Studio contract.
 
 ## Documentation
 

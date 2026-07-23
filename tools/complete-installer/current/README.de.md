@@ -1,4 +1,4 @@
-# KI-Stack Complete Installer 2.2.7
+# KI-Stack Complete Installer 2.2.8
 
 **[Hier beginnen: Installationsanleitung](../../../docs/de/KI-Stack-Installationsanleitung.md)** · **[Manuelle Modellbereitstellung](../../../docs/de/KI-Stack-Manuelle-Modellbereitstellung.md)** · **[Manual model provisioning](../../../docs/en/KI-Stack-Manual-Model-Provisioning.md)**
 
