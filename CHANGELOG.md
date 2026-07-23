@@ -1,10 +1,16 @@
 # Changelog
 
-## Models / Workflows 1.4.4 and Complete Installer 2.2.4
+## Models / Workflows 1.4.5 and Complete Installer 2.2.5
 
-- Adds matched German and English technical documentation and operations/user guides.
-- Documents architecture, lifecycle, model contracts, profile bindings, code capability, services, workflows, known limitations and release procedure without changing functional behavior.
-- Adds the documentation index to repository and package readmes; model files remain external and both packages remain non-offline.
+- Pins every GitHub Action to a full commit SHA and adds required Gitleaks delta scanning, PSScriptAnalyzer, Bandit, CodeQL and model-source-contract workflows.
+- Adds a one-time manually dispatched, redacted Gitleaks full-history baseline; routine checks inspect only the PR or push delta.
+- Separates the seven manual external model information pages from installable payload sources. Their publisher, exact file name, size and SHA256 remain the trust anchors; the installer never downloads them. Pony remains the sole automatic external payload through Civitai model version `290640` with size and SHA256 verification.
+
+## Models / Workflows 1.4.3 and Complete Installer 2.2.3
+
+- Pins every GitHub Action to a full commit SHA and adds required Gitleaks delta scanning, PSScriptAnalyzer, Bandit, CodeQL and model-source-contract workflows.
+- Adds a one-time manually dispatched, redacted Gitleaks full-history baseline; routine checks inspect only the PR or push delta.
+- Separates the seven manual external model information pages from installable payload sources. Their publisher, exact file name, size and SHA256 remain the trust anchors; the installer never downloads them. Pony remains the sole automatic external payload through Civitai model version `290640` with size and SHA256 verification.
 
 ## Models / Workflows 1.4.2 and Complete Installer 2.2.2
 
@@ -190,7 +196,7 @@
 - Restores persistent CMD diagnostics by returning from the bootstrap with `exit /b`.
 - Adds a complete start-chain regression across all three entry starters.
 
-## Applications 1.4.4-rc1 — release candidate
+## Applications 1.4.5-rc1 — release candidate
 
 - Repairs mixed 1.4.1/1.4.2 active version metadata.
 - Aligns SelfTest contracts with the actual Python resolver implementation.

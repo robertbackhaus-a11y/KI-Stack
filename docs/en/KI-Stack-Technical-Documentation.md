@@ -14,7 +14,7 @@ The supported topology is Windows for user entry points, LM Studio, ComfyUI and 
 |---|---|---|---|
 | Cutover runtime | 1.6.3, accepted baseline | `cutover-v1.6.3-rc1` | core `e387199493575131045c888ebbd4c1313bb985b13e3a1f72c3f99efe9bf2b85d` |
 | ComfyUI | 1.2.2, target-system validated | embedded Complete payload | `tools/complete-installer/current/Contracts/PAYLOADS.json` |
-| Models / Workflows | 1.4.4, documentation patch | `models-workflows-v1.4.4` | package `SHA256SUMS.txt`; models are external |
+| Models / Workflows | 1.4.5, documentation patch | `models-workflows-v1.4.5` | package `SHA256SUMS.txt`; models are external |
 | Applications | 1.4.10, accepted | Cutover payload | package manifest contract |
 | Integration / SearXNG | 1.5.9, target-system validated | embedded Complete payload | payload contract |
 | Production Recovery | 1.7.0-r7, target-system accepted | `production-v1.7.0-r7` | `0b4b28c886f01939fb45a9d7f3ce9f5323f57a8208e42381088544afa5955c59` |
@@ -23,7 +23,7 @@ The supported topology is Windows for user entry points, LM Studio, ComfyUI and 
 | OpenWebUI Agent Pack | 1.8.3, target validated | dedicated release | pack `SHA256SUMS.txt` |
 | OpenWebUI Image Pack | 1.9.1, target validated | dedicated release | pack `SHA256SUMS.txt` |
 | OpenWebUI Ballistics Pack | 1.0.0, target validated | dedicated release | pack `SHA256SUMS.txt` |
-| Complete Installer | 2.2.4, documentation patch | `complete-v2.2.4` | package `SHA256SUMS.txt` |
+| Complete Installer | 2.2.5, documentation patch | `complete-v2.2.5` | package `SHA256SUMS.txt` |
 
 `production-release-manifest.json`, each package `MANIFEST.json`, `SHA256SUMS.txt` and release sidecar are the authoritative integrity records. The target acceptance result is `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
 
@@ -47,7 +47,7 @@ The image tool sends the approved FLUX2 API workflow to ComfyUI and registers th
 
 The required FLUX2 profile uses `flux-2-klein-9b-fp8.safetensors`, `qwen_3_8b_fp8mixed.safetensors` and `flux2-vae.safetensors`. Canonical workflows are the FLUX2 UI and API workflows, KREA Realism, Pony SDXL and WAN 2.2 Official. KREA requires four external files, Pony requires its fixed Civitai model-version-290640 contract, and WAN requires three external files. The full external-model contract totals 47,356,936,991 bytes and records filename, relative target, byte size, SHA256, license and acquisition mode in `package/Manifests/models.manifest.json`.
 
-The central importer verifies target and source by filename, size and SHA256, uses a `.partial` copy followed by an atomic move, records a resumable transaction and rolls back only files from that transaction. Seven models require manual external provision; Pony is the sole automatic external acquisition. Git, commit-hash and `latest` acquisition are not used. The package is therefore not offline.
+The central importer verifies target and source by filename, size and SHA256, uses a `.partial` copy followed by an atomic move, records a resumable transaction and rolls back only files from that transaction. Seven models require manual external provision; their `informationSource` identifies the publisher page only and is never an installable payload URL. Their trust anchors are publisher, exact filename, size and SHA256; mutable `resolve/main` URLs are not trusted by the importer. Pony is the sole automatic external acquisition through fixed Civitai model version 290640, followed by size and SHA256 verification. Git, commit-hash and `latest` acquisition are not used. The package is therefore not offline.
 
 ## 7. Transaction and lifecycle architecture
 

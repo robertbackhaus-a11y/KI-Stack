@@ -1,0 +1,8 @@
+title = "KI-Stack Gitleaks policy"
+
+[allowlist]
+description = "Only non-secret API-key state markers are allowlisted."
+regexTarget = "match"
+regexes = [
+  '''(?i)(api[_-]?key|token)[A-Za-z]*\s*[:=]\s*(?:\$?false|null)'''
+]

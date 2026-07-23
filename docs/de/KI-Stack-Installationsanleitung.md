@@ -1,18 +1,18 @@
 # Schnellinstallation
 
-Diese Anleitung gilt für das veröffentlichte Paket **KI-Stack Complete Installer 2.2.4**. Sie beschreibt nur im Paket vorhandene Dateien und den aus den Quellen geprüften Ablauf. Der normale fachliche Einstieg ist `Start-KIStack-Installer.cmd`; die unten dokumentierten Modell-, Audit-, Validate-, Repair- und Rollback-Starter sind Spezialwege.
+Diese Anleitung gilt für das veröffentlichte Paket **KI-Stack Complete Installer 2.2.5**. Sie beschreibt nur im Paket vorhandene Dateien und den aus den Quellen geprüften Ablauf. Der normale fachliche Einstieg ist `Start-KIStack-Installer.cmd`; die unten dokumentierten Modell-, Audit-, Validate-, Repair- und Rollback-Starter sind Spezialwege.
 
 ## Schritt 1 – Paket herunterladen
 
-1. Öffne das Release [complete-v2.2.4](https://github.com/robertbackhaus-a11y/KI-Stack/releases/tag/complete-v2.2.4).
-2. Lade `KI-Stack-Complete-Installer-v2.2.4.zip` und den Sidecar `KI-Stack-Complete-Installer-v2.2.4.zip.sha256` aus derselben Release-Seite herunter.
+1. Öffne das Release [complete-v2.2.5](https://github.com/robertbackhaus-a11y/KI-Stack/releases/tag/complete-v2.2.5).
+2. Lade `KI-Stack-Complete-Installer-v2.2.5.zip` und den Sidecar `KI-Stack-Complete-Installer-v2.2.5.zip.sha256` aus derselben Release-Seite herunter.
 3. Prüfe die ZIP in PowerShell 7:
 
 ```powershell
-Get-FileHash -LiteralPath .\KI-Stack-Complete-Installer-v2.2.4.zip -Algorithm SHA256
+Get-FileHash -LiteralPath .\KI-Stack-Complete-Installer-v2.2.5.zip -Algorithm SHA256
 ```
 
-Erwarteter SHA256-Wert: `a1b9f029fd00d5ea12e9768ebc9f54eb754c693a00511d034273b3bdfb4e01a8`.
+Erwarteter SHA256-Wert: `43e24404dec62403588b057415bb30a609bf734bc3cbb3aee80ff05c1d7d057e`.
 
 **Erwartetes Ergebnis:** Der ausgegebene `Hash` stimmt exakt mit diesem Wert und dem Inhalt der Sidecar-Datei überein. **Nächster Schritt:** Nur bei Übereinstimmung entpacken.
 
@@ -21,7 +21,7 @@ Erwarteter SHA256-Wert: `a1b9f029fd00d5ea12e9768ebc9f54eb754c693a00511d034273b3b
 Entpacke die ZIP in einen kurzen, beschreibbaren Ordner und öffne den obersten entpackten Paketordner. Dort befinden sich nachweislich:
 
 ```text
-KI-Stack-Complete-Installer-v2.2.4/
+KI-Stack-Complete-Installer-v2.2.5/
 ├── Start-KIStack-Installer.cmd
 ├── Start-KIStack-Audit.cmd
 ├── Start-KIStack-Model-Import.cmd
@@ -52,7 +52,7 @@ Lege Dateien direkt in `ExternalModels` ab; Unterverzeichnisse sind weder erford
 | `wan2.2_ti2v_5B_fp16.safetensors` | `models\diffusion_models` |
 | `wan2.2_vae.safetensors` | `models\vae` |
 
-`ponyDiffusionV6XL_v6StartWithThisOne.safetensors` ist das einzige automatisch beziehbare Modell; sein Vertrag verwendet ausschließlich die feste Civitai-Modellversion `290640`. Alle acht Verträge prüfen Dateiname, Bytegröße und SHA256. Die exakten Werte stehen in `Payload\ModelsWorkflows\...\Manifests\models.manifest.json` beziehungsweise im Paketvertrag; keine andere Datei oder Quelle verwenden.
+`ponyDiffusionV6XL_v6StartWithThisOne.safetensors` ist das einzige automatisch beziehbare Modell; sein Vertrag verwendet ausschließlich die feste Civitai-Modellversion `290640`. Die sieben manuellen Verträge benennen nur Herausgeber und HTTPS-Informationsseite; diese Seiten sind keine installierbaren Payload-Quellen und der Importer lädt dort nie herunter. Alle acht Verträge prüfen Dateiname, Bytegröße und SHA256. Die exakten Werte stehen in `Payload\ModelsWorkflows\...\Manifests\models.manifest.json` beziehungsweise im Paketvertrag; keine andere Datei oder Quelle verwenden.
 
 Führe vor der Installation den zentralen Import aus:
 
