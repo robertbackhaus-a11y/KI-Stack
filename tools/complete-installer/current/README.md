@@ -1,18 +1,18 @@
-# KI-Stack Complete Installer 2.2.5
+# KI-Stack Complete Installer 2.2.6
 
-Version 2.2.5 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.5. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload.
+Version 2.2.6 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.6. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload.
 
 ## Documentation
 
 **[Start here: installation guide](../../../docs/en/KI-Stack-Installation-Guide.md)** and **[Hier beginnen: Installationsanleitung](../../../docs/de/KI-Stack-Installationsanleitung.md)** are the primary user paths. The matched German and English technical documentation and operations/user guides are maintained at `docs/de/KI-Stack-Technische-Dokumentation.md`, `docs/en/KI-Stack-Technical-Documentation.md`, `docs/de/KI-Stack-Betriebs-und-Benutzerhandbuch.md` and `docs/en/KI-Stack-Operations-and-User-Guide.md`. They define the same package, model, lifecycle, profile and safety contracts; no model file is embedded.
 
-The existing-installation operations contract, Image Pack 1.9.1 chat attachment path and all five canonical workflows are target-system validated. Fresh-install behavior remains contract- and fixture-validated rather than physically bare-metal validated.
+The existing-installation operations contract, Image Pack 1.9.2 chat attachment path and all five canonical workflows are target-system validated. Fresh-install behavior remains contract- and fixture-validated rather than physically bare-metal validated.
 
 The former OpenWebUI knowledge-base experiment is not a KI-Stack dependency. The idempotent operations rollback inventories only clearly KI-Stack-named collections, writes a private metadata-only rollback record, enforces `knowledge=[]` on `ki-stack-allgemein`, `ki-stack-it-technik` and `ki-stack-18bravo`, and removes only the matched collection/file objects through OpenWebUI's supported API. It does not include or delete original Markdown sources, chats, prompts, tools, models or user-owned content.
 
 Status: `TargetSystemValidatedExistingInstallation`. Fresh-install behavior is contract- and fixture-tested; physical validation is limited to an existing installation. ComfyUI 1.2.2 and Integration 1.5.9 use immutable file/size/SHA256 payload contracts without Git at package runtime.
 
-The root starters provide audit, install/upgrade, repair, validation, rollback, start and stop without requiring users to browse subdirectories. One orchestration core creates resumable component transactions and preserves already compliant components. Production Recovery 1.7.0-r7 is an explicit repair and fallback source, never an automatic overlay over newer Agent Pack 1.8.3 or Image Pack 1.9.1 content.
+The root starters provide audit, install/upgrade, repair, validation, rollback, start and stop without requiring users to browse subdirectories. One orchestration core creates resumable component transactions and preserves already compliant components. Production Recovery 1.7.0-r7 is an explicit repair and fallback source, never an automatic overlay over newer Agent Pack 1.8.3 or Image Pack 1.9.2 content.
 
 `Validate-KIStack.cmd` and `Lifecycle/Get-KIStackStatus.ps1` are read-only and pause-free for automation. The desktop shortcut `KI-Stack Status` launches `Lifecycle/Show-KIStackStatus.ps1` directly with PowerShell 7; only this interactive wrapper displays the actual exit code and waits for a key. Its compact status covers LM Studio, `/v1/models`, OpenWebUI, SearXNG HTML and JSON search, ComfyUI, the WSL keeper, valkey-server, uwsgi and nginx.
 

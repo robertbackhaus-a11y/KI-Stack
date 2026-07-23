@@ -1,0 +1,49 @@
+name: Attest published release asset
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag
+        required: true
+        type: string
+      zip_name:
+        description: Exact published ZIP asset name
+        required: true
+        type: string
+      sidecar_name:
+        description: Exact published ZIP SHA256 sidecar name
+        required: true
+        type: string
+      sbom_name:
+        description: Exact published SPDX SBOM asset name
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  attest:
+    name: Attest final published ZIP and SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download exact published assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p release
+          gh release download "${{ inputs.tag }}" --repo "$GITHUB_REPOSITORY" --dir release --pattern "${{ inputs.zip_name }}" --pattern "${{ inputs.sidecar_name }}" --pattern "${{ inputs.sbom_name }}"
+          cd release
+          sha256sum --check "${{ inputs.sidecar_name }}"
+      - name: Attest GitHub build provenance for exact ZIP bytes
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4
+        with:
+          subject-path: release/${{ inputs.zip_name }}
+      - name: Attest SPDX SBOM for exact ZIP bytes
+        uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4
+        with:
+          subject-path: release/${{ inputs.zip_name }}
+          sbom-path: release/${{ inputs.sbom_name }}

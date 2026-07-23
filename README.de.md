@@ -11,7 +11,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | Foundation / Runtime | 1.0.9 | Stabiler Referenzstand, auf Zielsystem validiert |
 | Python / Git | 1.1.5 | Stabil, auf Zielsystem validiert |
 | ComfyUI | 1.2.2 | Stabil; Git-freier Inhaltsvertrag auf dem Zielsystem validiert |
-| Modelle / Workflows | 1.4.5 | Zentraler transaktionssicherer Import externer Modelle, UAC-/Resume-Einstiege und Lizenzierung |
+| Modelle / Workflows | 1.4.6 | Zentraler transaktionssicherer Import externer Modelle, UAC-/Resume-Einstiege und Lizenzierung |
 | Applications | 1.4.10 | Stabil; LM Studio und Open WebUI 0.10.2 auf dem Zielsystem akzeptiert |
 | Integration | 1.5.9 | Stabil; Git-freies SearXNG-Payload und reparierter Lebenszyklus zielsystemvalidiert |
 | Cutover Runtime | 1.6.3 | Akzeptierter Runtime-Basisstand |
@@ -19,9 +19,9 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | Universeller Paket-Validation-Gate | 1.0.2 | Auf dem Zielsystem aktiviert |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` am 21.07.2026 |
 | OpenWebUI Agent Pack | 1.8.3 | Zielsystemvalidiert; eingebauter Pyodide-Code-Interpreter für Allgemein und KI & IT-Technik |
-| OpenWebUI Image Pack | 1.9.1 | Stabil; direkte FLUX2-Erzeugung zielsystemvalidiert |
+| OpenWebUI Image Pack | 1.9.2 | Stabil; direkte FLUX2-Erzeugung zielsystemvalidiert |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stabil; `18Bravo` und Solver zielsystemvalidiert |
-| Complete Installer | 2.2.5 | Erzwingt alle acht externen Modelle vor Models-/Workflows-Konformität; zweisprachige Dokumentation enthalten |
+| Complete Installer | 2.2.6 | Erzwingt alle acht externen Modelle vor Models-/Workflows-Konformität; zweisprachige Dokumentation enthalten |
 | System Cleanup Audit | 1.0.0 | Audit abgeschlossen; Bereinigungsplan wartet auf ausdrückliche Freigabe |
 
 Vollständige Paketquellen liegen im Verzeichnis `package`. Fertige ZIP-Pakete werden als GitHub-Release-Artefakte veröffentlicht und nicht dauerhaft in die normale Git-Historie aufgenommen.
@@ -67,6 +67,17 @@ Gesamtstatus: `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
 
 Das OpenWebUI Agent Pack `1.8.3` verwaltet ausschließlich die Workspace-Modelle `KI & IT-Technik` und `Allgemein` über die unterstützte HTTP-API von OpenWebUI 0.10.2. Es aktiviert nur den eingebauten browserlokalen Pyodide-Code-Interpreter und erhält ausschließlich die registrierte Image-Pack-Toolbindung. `execute_code` ist keine Workspace-Tool-ID.
 
-Das OpenWebUI Image Pack `1.9.1` verwaltet genau das kanonische Tool `ki-stack-generate-image` für direkte Bilderzeugung mit dem bestehenden FLUX2-Klein-Workflow über ComfyUI 1.2.2. OpenWebUI 0.10.2 bindet dafür intern die zwingend identifier-sichere ID `ki_stack_generate_image`. Das Pack lädt keine Modelle und ergänzt keine KREA- oder Pony-Abhängigkeit.
+Das OpenWebUI Image Pack `1.9.2` verwaltet genau das kanonische Tool `ki-stack-generate-image` für direkte Bilderzeugung mit dem bestehenden FLUX2-Klein-Workflow über ComfyUI 1.2.2. OpenWebUI 0.10.2 bindet dafür intern die zwingend identifier-sichere ID `ki_stack_generate_image`. Das Pack lädt keine Modelle und ergänzt keine KREA- oder Pony-Abhängigkeit.
 
 Das OpenWebUI Ballistics Pack `1.0.0` ergänzt ausschließlich das technische Profil `18Bravo` mit `ki_stack_ballistics_calculator`. Der fest gepinnte `pyballistic`-2.2.0-RK4-Kern rechnet G1/G7 ohne Git, kompilierte Solver-Erweiterungen, SciPy-Engine oder Diagrammerweiterungen. Pflichtwerte müssen vollständig explizit sein; Profile werden nur nach Bestätigung gespeichert. Der Umfang ist auf rechtmäßige sportliche, jagdliche und technische Nutzung beschränkt.
+
+## Supply-Chain-Sicherheit
+
+`main` ist geschützt und akzeptiert Änderungen über Pull Requests mit verpflichtenden Gitleaks-, PSScriptAnalyzer-, Bandit- und CodeQL-Prüfungen. CI-Actions sind auf vollständige Commit-SHAs gepinnt und Payloadverträge prüfen SHA256-Werte inhaltsbasiert. Jedes Release stellt eine SPDX-2.3-SBOM und GitHub-verifizierbare Build-Attestierungen bereit; der Meldeweg steht in [SECURITY.md](SECURITY.md).
+
+KI-Stack verwendet geschützte Änderungen, verpflichtende statische Sicherheitsprüfungen, inhaltsbasierte SHA256-Verträge, veröffentlichte SBOMs und überprüfbare Build-Attestierungen. Diese Nachweise reduzieren Supply-Chain-Risiken, ersetzen jedoch keine unabhängige Sicherheitsprüfung und stellen keine Garantie für Fehler- oder Backdoorfreiheit dar.
+
+```powershell
+gh attestation verify .\<release>.zip --repo robertbackhaus-a11y/KI-Stack
+gh attestation verify .\<release>.zip --repo robertbackhaus-a11y/KI-Stack --predicate-type https://spdx.dev/Document/v2.3
+```

@@ -1,5 +1,11 @@
 # Changelog
 
+## Models / Workflows 1.4.6, Complete Installer 2.2.6 and Image Pack 1.9.2
+
+- Adds deterministic SPDX-2.3 JSON SBOM assets for release ZIPs. They identify the ZIP by SHA256, list included components and third-party dependencies, and declare all eight model files as external, not contained dependencies with publisher, size, SHA256 and license status.
+- Adds a manually dispatched GitHub attestation workflow that downloads the final published ZIP, validates its sidecar and produces both provenance and SPDX SBOM attestations for those exact bytes.
+- Replaces the global Bandit B310 exclusion with a narrowly scoped ComfyUI adapter guard: only the configured local HTTP(S) origin is allowed and request paths must be relative. Image Pack 1.9.2 is the resulting security patch.
+
 ## Models / Workflows 1.4.5 and Complete Installer 2.2.5
 
 - Pins every GitHub Action to a full commit SHA and adds required Gitleaks delta scanning, PSScriptAnalyzer, Bandit, CodeQL and model-source-contract workflows.

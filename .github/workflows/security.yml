@@ -47,7 +47,7 @@ jobs:
       - name: Install pinned Bandit
         run: python -m pip install --disable-pip-version-check bandit==1.8.3
       - name: Analyze Python sources
-        run: bandit --quiet --recursive --severity-level medium --confidence-level medium --skip B310 tools
+        run: bandit --quiet --recursive --severity-level medium --confidence-level medium tools
 
   codeql:
     name: CodeQL

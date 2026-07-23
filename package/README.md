@@ -13,7 +13,7 @@ Finaler Cutover- und Gesamtvalidierungsbaustein des modularen KI-Stacks.
 - vollständige historische Regressionsmatrix
 - Repository-Veröffentlichung ist nicht Bestandteil dieses Runtime-Pakets
 
-Models / Workflows `1.4.5` übernimmt die funktional abgenommenen Workflowgraphen unverändert und ergänzt den zentralen Modellimport über `Start-KIStack-Model-Import.cmd` beziehungsweise `Import-KIStackExternalModels.ps1`. Standardquelle ist `ExternalModels` neben dem entpackten Paket; `-SourcePath` wählt einen anderen expliziten Ordner. Alle acht externen Modelle werden vor der Übernahme nach Dateiname, Größe und SHA256 geprüft. Für die sieben manuellen Modelle sind Herausgeber und HTTPS-Informationsseite ausdrücklich keine installierbare Quelle; der Importer lädt sie niemals herunter. Ausschließlich Pony nutzt die feste Civitai-Modellversion `290640` und prüft anschließend Größe und SHA256.
+Models / Workflows `1.4.6` übernimmt die funktional abgenommenen Workflowgraphen unverändert und ergänzt den zentralen Modellimport über `Start-KIStack-Model-Import.cmd` beziehungsweise `Import-KIStackExternalModels.ps1`. Standardquelle ist `ExternalModels` neben dem entpackten Paket; `-SourcePath` wählt einen anderen expliziten Ordner. Alle acht externen Modelle werden vor der Übernahme nach Dateiname, Größe und SHA256 geprüft. Für die sieben manuellen Modelle sind Herausgeber und HTTPS-Informationsseite ausdrücklich keine installierbare Quelle; der Importer lädt sie niemals herunter. Ausschließlich Pony nutzt die feste Civitai-Modellversion `290640` und prüft anschließend Größe und SHA256.
 
 ## Documentation
 
