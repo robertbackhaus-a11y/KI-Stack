@@ -10,6 +10,10 @@
       "kind": "comfyui-ui",
       "sha256": "331b7a5a14b284d7d130d60bdcd0168f0ddc3169a164d2adfbc4e49b8cd4ab58",
       "status": "TargetSystemAccepted",
+      "verification": [
+        "Visible",
+        "Functional"
+      ],
       "requiredModels": [
         "flux2-klein-9b-fp8",
         "qwen-3-8b-fp8mixed",
@@ -23,13 +27,97 @@
       "file": "FLUX2-Klein-9B-OpenWebUI-API-FLAT.json",
       "required": true,
       "kind": "comfyui-api",
-      "sha256": "697ea261e1c62a8e32d775ee9cba5c5c5c3548c6bd082a63a84c71f53c3123a5",
+      "sha256": "697ea261e1c62a8e32d775ee9cba5c5c3548c6bd082a63a84c71f53c3123a5",
+      "status": "ReleasedFunctional",
       "mapping": "OpenWebUI-ComfyUI-Generation-Mapping.json",
       "requiredModels": [
         "flux2-klein-9b-fp8",
         "qwen-3-8b-fp8mixed",
         "flux2-vae"
       ]
+    }
+  ],
+  "futureWorkflows": [
+    {
+      "id": "krea-realism-official-template",
+      "file": "KREA-Realism-Official-Template.json",
+      "kind": "comfyui-ui",
+      "sha256": "2162bce65a3c24e7eecc9a6c2c3630ba66d95ff8b7b8787b50f7aafbdb409c71",
+      "status": "BlockedMissingModels",
+      "requiredModelFiles": [
+        "flux1-krea-dev_fp8_scaled.safetensors",
+        "clip_l.safetensors",
+        "t5xxl_fp16.safetensors",
+        "ae.safetensors"
+      ],
+      "deferredNodeReconciliation": [
+        "MarkdownNote"
+      ]
+    },
+    {
+      "id": "pony-sdxl-control-quicktest-v2",
+      "file": "PONY-SDXL-Control-QuickTest-v2.json",
+      "kind": "comfyui-ui",
+      "sha256": "650631dc3b76ba389767fd99afb2ea9f63d1011bb912c216cfa1eabfeb5dd07a",
+      "status": "BlockedMissingModels",
+      "requiredModelFiles": [
+        "ponyDiffusionV6XL_v6StartWithThisOne.safetensors"
+      ]
+    },
+    {
+      "id": "wan22-5b-official",
+      "file": "WAN2.2-5B-Official.json",
+      "kind": "comfyui-ui",
+      "sha256": "50390798a133757075d750ab78b26274e3bf3e4a09f46aaa2f08d9559e62750b",
+      "status": "BlockedMissingModels",
+      "requiredModelFiles": [
+        "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        "wan2.2_ti2v_5B_fp16.safetensors",
+        "wan2.2_vae.safetensors"
+      ],
+      "deferredNodeReconciliation": [
+        "MarkdownNote"
+      ]
+    }
+  ],
+  "supersededWorkflows": [
+    {
+      "file": "FLUX2-Klein-9B-Text-to-Image.json",
+      "sha256": "2b5f3cec9c8998bffb2f854e7420dfab04b62855ad325a4c84fe7a1a8e1b85f8",
+      "classification": "FunctionalExternalDuplicate",
+      "replacedBy": "KI-Stack-FLUX2-Text-to-Image-v1.3.8.json"
+    },
+    {
+      "file": "PONY-Control-QuickTest-v2.json",
+      "sha256": "3bd0c3bbf46f25580ad5a6e0104c66605f9a78d9a5e1906877acbc777bedb7cb",
+      "classification": "OlderDuplicate",
+      "replacedBy": "PONY-SDXL-Control-QuickTest-v2.json"
+    },
+    {
+      "file": "WAN2.2-5B-I2V-QuickTest.json",
+      "sha256": "dfeec33993b246b224195363774f0a9749653a36357f5d98c04a2d5d07ce552d",
+      "classification": "Superseded",
+      "replacedBy": "WAN2.2-5B-Official.json"
+    },
+    {
+      "file": "WAN2.2-5B-T2V-QuickTest.json",
+      "sha256": "c71434dc9134ea250fef9b468184b128a869c681ef464e2aefa9faafe8d859c2",
+      "classification": "Superseded",
+      "replacedBy": "WAN2.2-5B-Official.json"
+    }
+  ],
+  "excludedEntries": [
+    {
+      "pattern": "backup/**",
+      "classification": "ArchiveOrBrokenBackup"
+    },
+    {
+      "pattern": "Archive/**",
+      "classification": "ArchiveOrBrokenBackup"
+    },
+    {
+      "file": "OpenWebUI-Generation-Mapping.json",
+      "classification": "NonWorkflowMapping"
     }
   ]
 }
