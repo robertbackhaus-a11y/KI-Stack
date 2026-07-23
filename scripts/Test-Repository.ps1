@@ -278,7 +278,7 @@ try {
     $imageManifest = Get-Content -LiteralPath (Join-Path $imageRoot 'MANIFEST.json') -Raw | ConvertFrom-Json -Depth 30
     $imageConfig = Get-Content -LiteralPath (Join-Path $imageRoot 'Config/image-pack.config.json') -Raw | ConvertFrom-Json -Depth 30
     $agentExtension = @($agentManifest.registeredExtensions | Where-Object { $_.canonicalToolId -eq 'ki-stack-generate-image' -and $_.openWebUIToolId -eq 'ki_stack_generate_image' -and $_.managedBy -eq 'KI-STACK-OPENWEBUI-IMAGE-PACK' })
-    $imageContractOk = $imageVersion -eq '1.9.1' -and $imageManifest.version -eq $imageVersion -and $imageConfig.version -eq $imageVersion -and $imageManifest.status -eq 'TargetSystemValidated' -and $imageManifest.managedTool.id -eq 'ki-stack-generate-image' -and $imageManifest.managedTool.openWebUIId -eq 'ki_stack_generate_image' -and $imageManifest.managedTool.managedBy -eq 'KI-STACK-OPENWEBUI-IMAGE-PACK' -and $agentExtension.Count -eq 1
+    $imageContractOk = $imageVersion -eq '1.9.2' -and $imageManifest.version -eq $imageVersion -and $imageConfig.version -eq $imageVersion -and $imageManifest.status -eq 'TargetSystemValidated' -and $imageManifest.managedTool.id -eq 'ki-stack-generate-image' -and $imageManifest.managedTool.openWebUIId -eq 'ki_stack_generate_image' -and $imageManifest.managedTool.managedBy -eq 'KI-STACK-OPENWEBUI-IMAGE-PACK' -and $agentExtension.Count -eq 1
     Add-Result 'OpenWebUI Image Pack contract' $imageContractOk "version=$imageVersion; tool=$($imageManifest.managedTool.id)"
     $imageSumErrors = @()
     foreach ($line in Get-Content -LiteralPath (Join-Path $imageRoot 'SHA256SUMS.txt')) {
