@@ -1,6 +1,10 @@
-# KI-Stack Complete Installer 2.2.2
+# KI-Stack Complete Installer 2.2.3
 
-Version 2.2.2 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.2. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload.
+Version 2.2.3 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.3. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload.
+
+## Documentation
+
+The matched German and English technical documentation and operations/user guides are maintained at `docs/de/KI-Stack-Technische-Dokumentation.md`, `docs/en/KI-Stack-Technical-Documentation.md`, `docs/de/KI-Stack-Betriebs-und-Benutzerhandbuch.md` and `docs/en/KI-Stack-Operations-and-User-Guide.md`. They define the same package, model, lifecycle, profile and safety contracts; no model file is embedded.
 
 The existing-installation operations contract, Image Pack 1.9.1 chat attachment path and all five canonical workflows are target-system validated. Fresh-install behavior remains contract- and fixture-validated rather than physically bare-metal validated.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## Models / Workflows 1.4.3 and Complete Installer 2.2.3
+
+- Adds matched German and English technical documentation and operations/user guides.
+- Documents architecture, lifecycle, model contracts, profile bindings, code capability, services, workflows, known limitations and release procedure without changing functional behavior.
+- Adds the documentation index to repository and package readmes; model files remain external and both packages remain non-offline.
+
 ## Models / Workflows 1.4.2 and Complete Installer 2.2.2
 
 - Adds the public `Start-KIStack-Model-Import.cmd` and `Import-KIStackExternalModels.ps1` entry points for one transactional import of all eight external models.

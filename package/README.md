@@ -13,7 +13,11 @@ Finaler Cutover- und Gesamtvalidierungsbaustein des modularen KI-Stacks.
 - vollständige historische Regressionsmatrix
 - Repository-Veröffentlichung ist nicht Bestandteil dieses Runtime-Pakets
 
-Models / Workflows `1.4.2` übernimmt die funktional abgenommenen Workflowgraphen unverändert und ergänzt den zentralen Modellimport über `Start-KIStack-Model-Import.cmd` beziehungsweise `Import-KIStackExternalModels.ps1`. Standardquelle ist `ExternalModels` neben dem entpackten Paket; `-SourcePath` wählt einen anderen expliziten Ordner. Alle acht externen Modelle werden vor der Übernahme nach Dateiname, Größe und SHA256 geprüft.
+Models / Workflows `1.4.3` übernimmt die funktional abgenommenen Workflowgraphen unverändert und ergänzt den zentralen Modellimport über `Start-KIStack-Model-Import.cmd` beziehungsweise `Import-KIStackExternalModels.ps1`. Standardquelle ist `ExternalModels` neben dem entpackten Paket; `-SourcePath` wählt einen anderen expliziten Ordner. Alle acht externen Modelle werden vor der Übernahme nach Dateiname, Größe und SHA256 geprüft.
+
+## Documentation
+
+The repository documentation index is `README.md`. The complete technical and operations guides are `docs/en/KI-Stack-Technical-Documentation.md`, `docs/de/KI-Stack-Technische-Dokumentation.md`, `docs/en/KI-Stack-Operations-and-User-Guide.md` and `docs/de/KI-Stack-Betriebs-und-Benutzerhandbuch.md`; the release package documents the same contracts without embedding model files.
 
 Der Katalog bestätigt außerdem `FLUX2-Klein-9B-OpenWebUI-API-FLAT.json` als funktionalen und freigegebenen API-Workflow. Der funktionierende externe Alt-Workflow `FLUX2-Klein-9B-Text-to-Image.json` ist durch den verwalteten UI-Workflow ersetzt. Defekte Sicherungen und Archive sowie `OpenWebUI-Generation-Mapping.json` als reine Mappingdatei sind ausdrücklich keine katalogisierten Workflows.
 

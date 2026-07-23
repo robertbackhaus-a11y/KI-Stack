@@ -231,7 +231,7 @@ try {
     $externalModelsOk=($externalModels.Count-eq8-and[long]($externalModels|Measure-Object sizeBytes -Sum).Sum-eq47356936991-and$manualExternalModels.Count-eq7-and$automaticExternalModels.Count-eq1-and[string]$automaticExternalModels[0].source-eq'https://civitai.com/api/download/models/290640'-and@($manualExternalModels|Where-Object{-not[string]::IsNullOrWhiteSpace([string]$_.source)-or[string]$_.manualReference-notmatch'^https://'-or[string]$_.sha256-notmatch'^[0-9a-f]{64}$'-or[long]$_.sizeBytes-le0-or[string]::IsNullOrWhiteSpace([string]$_.relativeTargetPath)}).Count-eq0)
     $fluxNodeIds=@($fluxUi.nodes.id);$fluxLinkIds=@($fluxUi.links|ForEach-Object{$_[0]})
     $fluxGraphChecks = @(
-        ($modelsVersion -eq '1.4.2'),
+        ($modelsVersion -eq '1.4.3'),
         ($fluxUiHash -eq 'b0c90e9fd38a4948fe97bbd7e95b2100261dc69b335794ba6c7db2fe4ff539db'),
         ($fluxApiHash -eq '697ea261e1c62a8e32d775ee9cba5c5c5c3548c6bd082a63a84c71f53c3123a5'),
         $canonicalWorkflowOk,
@@ -247,7 +247,7 @@ try {
     $fluxGraphOk = $fluxGraphChecks -notcontains $false
     $modelImporterFilesOk=@('package/Import-KIStackExternalModels.ps1','package/Start-KIStack-Model-Import.cmd','package/ExternalModels/README.md','package/Tests/Test-KIStackExternalModelImport.ps1')|ForEach-Object{Test-Path -LiteralPath (Join-Path $RootPath $_)}
     $fluxGraphOk=$fluxGraphOk-and($modelImporterFilesOk-notcontains$false)
-    Add-Result 'Models / Workflows 1.4.2 graph and external-model contract' $fluxGraphOk "ui=$fluxUiHash; api=$fluxApiHash; canonical=$canonicalWorkflowOk; importer=$($modelImporterFilesOk-notcontains$false); manualExternal=$($manualExternalModels.Count); automaticExternal=$($automaticExternalModels.Count); externalBytes=$([long]($externalModels|Measure-Object sizeBytes -Sum).Sum)"
+    Add-Result 'Models / Workflows 1.4.3 graph and external-model contract' $fluxGraphOk "ui=$fluxUiHash; api=$fluxApiHash; canonical=$canonicalWorkflowOk; importer=$($modelImporterFilesOk-notcontains$false); manualExternal=$($manualExternalModels.Count); automaticExternal=$($automaticExternalModels.Count); externalBytes=$([long]($externalModels|Measure-Object sizeBytes -Sum).Sum)"
 
     $agentRoot = Join-Path $RootPath 'tools/openwebui-agent-pack/current'
     $agentVersion = (Get-Content -LiteralPath (Join-Path $agentRoot 'VERSION') -Raw).Trim()
@@ -314,7 +314,7 @@ try {
     $gitFreePackages=@(
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.2'},
         @{name='Integration';root='tools/integration/current';version='1.5.9'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.2.2'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.2.3'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root
@@ -329,8 +329,8 @@ try {
     $completeMissing=@($completeRequired|Where-Object{-not(Test-Path (Join-Path $completeRoot $_))})
     Add-Result 'Complete Installer source completeness' ($completeMissing.Count-eq0) $(if($completeMissing){$completeMissing-join', '}else{'complete'})
     $completeComponents=Get-Content (Join-Path $completeRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json
-    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.2' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '1.4.2' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.9'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
-    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.2; Models/Workflows=1.4.2; Integration=1.5.9; optional Ballistics=1.0.0'
+    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.2' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '1.4.3' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.9'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
+    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.2; Models/Workflows=1.4.3; Integration=1.5.9; optional Ballistics=1.0.0'
     $completeExecutable=Get-ChildItem $completeRoot -Recurse -File|Where-Object{$_.Extension-in'.ps1','.psm1','.cmd'-and$_.Name-ne'Test-KIStackCompleteInstaller.ps1'}|ForEach-Object{Get-Content $_.FullName -Raw}
     $forbiddenRuntime=('(?im)\b'+'git'+'\s+(?:cl'+'one|check'+'out|pu'+'ll|fetch|rev-parse|describe)\b|\.'+'git'+'(?:[/\\]|\b)|\bor'+'igin\b|comm'+'it[- ]hash|tr'+'ee[- ]hash')
     Add-Result 'Complete Installer Git-free runtime' (-not(($completeExecutable-join"`n")-match$forbiddenRuntime)) 'no Git acquisition or metadata dependency in executable sources'
