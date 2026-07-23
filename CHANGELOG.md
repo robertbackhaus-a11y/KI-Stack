@@ -1,5 +1,13 @@
 # Changelog
 
+## Models / Workflows 1.4.0 and Complete Installer 2.2.0
+
+- Adds the target-system-validated canonical KREA, Pony SDXL and WAN 2.2 workflows while preserving the approved FLUX2 UI and API workflows byte-for-byte.
+- Pins eight external model contracts by immutable HTTPS source, file name, byte size, SHA256, license/redistribution status and relative target path.
+- Reuses matching existing model files and acquires only missing external files; no model is embedded in Git or package ZIPs.
+- Records 47,356,936,991 bytes of external model dependencies and explicitly keeps the Complete Installer non-offline and Git-free.
+- Keeps superseded workflow duplicates, broken backups, archives and the OpenWebUI generation mapping outside the canonical workflow set.
+
 ## Persistent OpenWebUI images — Image Pack 1.9.1 and Complete Installer 2.1.3
 
 - Registers generated PNG files through OpenWebUI's supported file store and attaches them to the assistant message with `chat:message:files`.

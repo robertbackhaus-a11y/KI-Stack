@@ -107,7 +107,7 @@ function Invoke-KIResumableHttpDownload {
         $client.Timeout = [TimeSpan]::FromHours(12)
         try {
             $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get,[string]$Model.source)
-            $request.Headers.UserAgent.ParseAdd('KI-Stack-Models-Workflows/1.3.8')
+            $request.Headers.UserAgent.ParseAdd('KI-Stack-Models-Workflows/1.4.0')
             if (-not [string]::IsNullOrWhiteSpace($Token)) { $request.Headers.Authorization = [Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer',$Token) }
             $offset = if (Test-Path -LiteralPath $partialPath -PathType Leaf) { (Get-Item -LiteralPath $partialPath).Length } else { 0 }
             if ($offset -gt 0) { $request.Headers.Range = [Net.Http.Headers.RangeHeaderValue]::new([int64]$offset,$null) }
@@ -182,10 +182,10 @@ function Install-KIModuleModels {
     }
     $markerPath=[string]$Context.Config.models.installationMarker
     $markerCompliant=$false
-    if(Test-Path -LiteralPath $markerPath -PathType Leaf){try{$existingMarker=Get-Content -LiteralPath $markerPath -Raw|ConvertFrom-Json -Depth 100;$markerCompliant=[string]$existingMarker.release-eq'KI-Stack-Models-Workflows-Execute-v1.3.8'}catch{$markerCompliant=$false}}
+    if(Test-Path -LiteralPath $markerPath -PathType Leaf){try{$existingMarker=Get-Content -LiteralPath $markerPath -Raw|ConvertFrom-Json -Depth 100;$markerCompliant=[string]$existingMarker.release-eq'KI-Stack-Models-Workflows-Execute-v1.4.0'}catch{$markerCompliant=$false}}
     $workflowCompliant=$markerCompliant
     if($workflowCompliant){foreach($workflow in @($catalog.workflows)){$source=Join-Path $workflowSource ([string]$workflow.file);$destination=Join-Path $workflowTarget ([string]$workflow.file);if(-not(Test-Path -LiteralPath $destination -PathType Leaf)-or(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash-ne(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash){$workflowCompliant=$false;break}}}
-    if($workflowCompliant){return [pscustomobject][ordered]@{success=$true;skipped=$true;message='AlreadyCompliant';data=[pscustomobject][ordered]@{release='KI-Stack-Models-Workflows-Execute-v1.3.8';modelsDownloaded=$false;workflowsChanged=$false}}}
+    if($workflowCompliant){return [pscustomobject][ordered]@{success=$true;skipped=$true;message='AlreadyCompliant';data=[pscustomobject][ordered]@{release='KI-Stack-Models-Workflows-Execute-v1.4.0';modelsDownloaded=$false;workflowsChanged=$false}}}
     $rollback=[pscustomobject][ordered]@{schemaVersion='1.0';transactionId=[string]$Context.Transaction.transactionId;createdAt=(Get-Date).ToString('o');updatedAt=(Get-Date).ToString('o');createdDirectories=@();createdModels=@();files=@();rollbackCompletedAt=$null;rollbackIssues=@()}
     Write-KIModelsRollbackState -Context $Context -State $rollback
     foreach($target in $targets){if (-not (Test-Path -LiteralPath $target)){New-Item -ItemType Directory -Path $target -Force | Out-Null;$rollback.createdDirectories=@($rollback.createdDirectories)+@($target);Write-KIModelsRollbackState -Context $Context -State $rollback}}
@@ -209,7 +209,7 @@ function Install-KIModuleModels {
         $rollback.createdModels=@($rollback.createdModels)+@($target);Write-KIModelsRollbackState -Context $Context -State $rollback
         [void]$modelResults.Add([pscustomobject][ordered]@{id=$model.id;status='Downloaded';path=$target})
     }
-    $marker=[pscustomobject][ordered]@{managedBy='KI-STACK-MODELS-WORKFLOWS-MANAGED';release='KI-Stack-Models-Workflows-Execute-v1.3.8';installedAt=(Get-Date).ToString('o');transactionId=[string]$Context.Transaction.transactionId;models=@($modelResults);workflows=@($catalog.workflows | ForEach-Object  file)}
+    $marker=[pscustomobject][ordered]@{managedBy='KI-STACK-MODELS-WORKFLOWS-MANAGED';release='KI-Stack-Models-Workflows-Execute-v1.4.0';installedAt=(Get-Date).ToString('o');transactionId=[string]$Context.Transaction.transactionId;models=@($modelResults);workflows=@($catalog.workflows | ForEach-Object  file)}
     $markerTemp=Join-Path ([string]$Context.TransactionDirectory) 'models-installation.json';$marker | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $markerTemp -Encoding UTF8
     Install-KIManagedFile -Context $Context -RollbackState $rollback -Source $markerTemp -Destination ([string]$Context.Config.models.installationMarker)
     return [pscustomobject][ordered]@{success=$true;skipped=$false;message='Modelle und Workflows wurden installiert.';data=[pscustomobject][ordered]@{models=@($modelResults);workflowCount=@($catalog.workflows).Count;rollbackStatePath=(Get-KIModelsRollbackStatePath -Context $Context)}}

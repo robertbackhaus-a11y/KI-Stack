@@ -1,8 +1,8 @@
-# KI-Stack Complete Installer 2.1.3
+# KI-Stack Complete Installer 2.2.0
 
-Version 2.1.3 preserves the target-validated 2.1.2 operations contract and updates only the embedded OpenWebUI Image Pack to 1.9.1. Generated PNG files are registered in OpenWebUI, attached to the assistant message, displayed directly in chat, and remain downloadable after reload. Applications, Agent Pack, Ballistics Pack, Models / Workflows and ComfyUI content remain unchanged.
+Version 2.2.0 preserves the target-validated 2.1.3 operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.0. The package contains the five canonical FLUX2 UI/API, KREA, Pony SDXL and WAN 2.2 workflows, but no model files.
 
-The existing-installation operations contract and the Image Pack 1.9.1 chat attachment path are target-system validated. Fresh-install behavior remains contract- and fixture-validated rather than physically bare-metal validated.
+The existing-installation operations contract, Image Pack 1.9.1 chat attachment path and all five canonical workflows are target-system validated. Fresh-install behavior remains contract- and fixture-validated rather than physically bare-metal validated.
 
 The former OpenWebUI knowledge-base experiment is not a KI-Stack dependency. The idempotent operations rollback inventories only clearly KI-Stack-named collections, writes a private metadata-only rollback record, enforces `knowledge=[]` on `ki-stack-allgemein`, `ki-stack-it-technik` and `ki-stack-18bravo`, and removes only the matched collection/file objects through OpenWebUI's supported API. It does not include or delete original Markdown sources, chats, prompts, tools, models or user-owned content.
 
@@ -14,7 +14,7 @@ The root starters provide audit, install/upgrade, repair, validation, rollback, 
 
 All CMD entry points resolve PowerShell 7 from `%ProgramFiles%\PowerShell\7\pwsh.exe` first and then through `where pwsh.exe`. They abort with exit code 70 when PowerShell 7 is unavailable; Windows PowerShell is never a fallback. API keys remain interactive `SecureString` values and are never command-line arguments.
 
-The package has no Git dependency for acquiring package payloads and contains no `.git` directory. Its embedded Cutover 1.6.3 core omits the superseded ComfyUI, Integration, Linux acquisition and historical test paths; ComfyUI 1.2.2 and Integration 1.5.9 exclusively replace them with verified payload archives. Production Recovery r7 and Target Acceptance 1.0.10 remain pinned external release references because their historical archives intentionally retain the accepted older runtime core. The package is not offline: these references and the three required FLUX2 model payloads are fetched over HTTPS only when needed. The gated FLUX model requires user authorization under its license. KREA and Pony remain optional user-provided profiles.
+The package has no Git dependency for acquiring package payloads and contains no `.git` directory. Its embedded Cutover 1.6.3 core omits the superseded ComfyUI, Integration, Linux acquisition and historical test paths; ComfyUI 1.2.2 and Integration 1.5.9 exclusively replace them with verified payload archives. Production Recovery r7 and Target Acceptance 1.0.10 remain pinned external release references because their historical archives intentionally retain the accepted older runtime core. The package is not offline. Model files are never embedded: existing files are accepted only when size and SHA256 match, and only missing files are acquired from their pinned HTTPS sources. The eight KREA, Pony and WAN model contracts total 47,356,936,991 bytes. Their license and redistribution restrictions remain applicable; the Complete Installer does not redistribute them.
 
 OpenWebUI 0.10.2 may require initial administrator setup in the browser. The transaction then enters `WaitingForUserAction`. A temporary API key is requested as a hidden `SecureString` immediately before Agent/Image reconciliation, used only in memory for both steps, cleared afterward, and must then be revoked.
 

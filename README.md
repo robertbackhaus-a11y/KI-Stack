@@ -11,7 +11,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Foundation / Runtime | 1.0.9 | Stable reference; target-system validated |
 | Python / Git | 1.1.5 | Stable; target-system validated |
 | ComfyUI | 1.2.2 | Stable; Git-free content contract target-system validated |
-| Models / Workflows | 1.3.8 | Target-system accepted; interactive FLUX2 UI workflow repaired and user-validated |
+| Models / Workflows | 1.4.0 | Target-system validated; canonical FLUX2, KREA, Pony SDXL and WAN 2.2 workflows |
 | Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
 | Integration | 1.5.9 | Stable; Git-free SearXNG payload and repaired lifecycle target-system validated |
 | Cutover runtime | 1.6.3 | Accepted runtime baseline |
@@ -21,7 +21,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | OpenWebUI Agent Pack | 1.8.3 | Target validated; built-in Pyodide Code Interpreter for Allgemein and KI & IT-Technik |
 | OpenWebUI Image Pack | 1.9.1 | Stable; direct FLUX2 generation target-system validated |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
-| Complete Installer | 2.1.3 | Target validated operations patch; manual startup, managed desktop links and rollback |
+| Complete Installer | 2.2.0 | Target-validated workflow consolidation; external verified models, no Git or embedded model payloads |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.

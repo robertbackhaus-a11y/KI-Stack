@@ -1615,11 +1615,14 @@ try {
     $workflowValid = (
         $files -contains 'KI-Stack-FLUX2-Text-to-Image-v1.3.8.json' -and
         $files -contains 'FLUX2-Klein-9B-OpenWebUI-API-FLAT.json' -and
-        $files.Count -eq 2
+        $files -contains 'KREA-Realism-Official-Template.json' -and
+        $files -contains 'PONY-SDXL-Control-QuickTest-v2.json' -and
+        $files -contains 'WAN2.2-5B-Official.json' -and
+        $files.Count -eq 5
     )
     Add-Result -Name 'Workflowkatalog-vollständig' `
         -Passed $workflowValid `
-        -Message 'Nur der freigegebene FLUX2-UI- und API-Workflow sind katalogisiert; KREA, Pony und ControlNet bleiben zurückgestellt.'
+        -Message 'FLUX2 UI/API sowie die zielsystemvalidierten KREA-, Pony-SDXL- und WAN-2.2-Workflows sind kanonisch katalogisiert.'
 }
 catch {
     Add-Result -Name 'Workflowkatalog-vollständig' `

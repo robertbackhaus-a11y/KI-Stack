@@ -27,7 +27,7 @@
       "file": "FLUX2-Klein-9B-OpenWebUI-API-FLAT.json",
       "required": true,
       "kind": "comfyui-api",
-      "sha256": "697ea261e1c62a8e32d775ee9cba5c5c3548c6bd082a63a84c71f53c3123a5",
+      "sha256": "697ea261e1c62a8e32d775ee9cba5c5c5c3548c6bd082a63a84c71f53c3123a5",
       "status": "ReleasedFunctional",
       "mapping": "OpenWebUI-ComfyUI-Generation-Mapping.json",
       "requiredModels": [
@@ -35,49 +35,125 @@
         "qwen-3-8b-fp8mixed",
         "flux2-vae"
       ]
-    }
-  ],
-  "futureWorkflows": [
+    },
     {
       "id": "krea-realism-official-template",
+      "profile": "krea-realism",
+      "profileRole": "optional-activated",
       "file": "KREA-Realism-Official-Template.json",
+      "required": false,
       "kind": "comfyui-ui",
-      "sha256": "2162bce65a3c24e7eecc9a6c2c3630ba66d95ff8b7b8787b50f7aafbdb409c71",
-      "status": "BlockedMissingModels",
+      "sha256": "622441f15389e31498dc74829f7fe54c9c830f7c8d42d170f9baad59c04c08a6",
+      "status": "TargetSystemValidated",
+      "verification": [
+        "LoadPassed",
+        "FunctionalRunPassed"
+      ],
       "requiredModelFiles": [
         "flux1-krea-dev_fp8_scaled.safetensors",
         "clip_l.safetensors",
         "t5xxl_fp16.safetensors",
         "ae.safetensors"
       ],
-      "deferredNodeReconciliation": [
-        "MarkdownNote"
-      ]
+      "annotationNode": "Note",
+      "functionalOutput": "flux_krea_00001_.png"
     },
     {
       "id": "pony-sdxl-control-quicktest-v2",
+      "profile": "pony-sdxl",
+      "profileRole": "optional-activated",
       "file": "PONY-SDXL-Control-QuickTest-v2.json",
+      "required": false,
       "kind": "comfyui-ui",
       "sha256": "650631dc3b76ba389767fd99afb2ea9f63d1011bb912c216cfa1eabfeb5dd07a",
-      "status": "BlockedMissingModels",
+      "status": "TargetSystemValidated",
+      "verification": [
+        "LoadPassed",
+        "FunctionalRunPassed"
+      ],
       "requiredModelFiles": [
         "ponyDiffusionV6XL_v6StartWithThisOne.safetensors"
-      ]
+      ],
+      "functionalOutput": "pony_sdxl_00001_.png"
     },
     {
       "id": "wan22-5b-official",
+      "profile": "wan22-5b",
+      "profileRole": "optional-activated",
       "file": "WAN2.2-5B-Official.json",
+      "required": false,
       "kind": "comfyui-ui",
-      "sha256": "50390798a133757075d750ab78b26274e3bf3e4a09f46aaa2f08d9559e62750b",
-      "status": "BlockedMissingModels",
+      "sha256": "797b2f1c91b5bc537d11201ae025ea481129021cdf54045ce5f02774ebf8bec9",
+      "status": "TargetSystemValidated",
+      "verification": [
+        "LoadPassed",
+        "FunctionalRunPassed"
+      ],
       "requiredModelFiles": [
         "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
         "wan2.2_ti2v_5B_fp16.safetensors",
         "wan2.2_vae.safetensors"
       ],
-      "deferredNodeReconciliation": [
-        "MarkdownNote"
-      ]
+      "annotationNode": "Note",
+      "functionalOutput": "video/ComfyUI_00001_.mp4"
+    }
+  ],
+  "modelContracts": [
+    {
+      "file": "flux1-krea-dev_fp8_scaled.safetensors",
+      "sizeBytes": 11904639672,
+      "sha256": "b17a8c21703c4d6ffb0e300dd920eff3cfd35c9a72a1abaf107e3788e408b8d8",
+      "source": "https://huggingface.co/Comfy-Org/FLUX.1-Krea-dev_ComfyUI/resolve/3f64439fe3dc7a1caf001ad31a7c8b5b17fb41ff/split_files/diffusion_models/flux1-krea-dev_fp8_scaled.safetensors",
+      "license": "flux-1-dev-non-commercial-license"
+    },
+    {
+      "file": "clip_l.safetensors",
+      "sizeBytes": 246144152,
+      "sha256": "660c6f5b1abae9dc498ac2d21e1347d2abdb0cf6c0c0c8576cd796491d9a6cdd",
+      "source": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/6af2a98e3f615bdfa612fbd85da93d1ed5f69ef5/clip_l.safetensors",
+      "license": "apache-2.0"
+    },
+    {
+      "file": "t5xxl_fp16.safetensors",
+      "sizeBytes": 9787841024,
+      "sha256": "6e480b09fae049a72d2a8c5fbccb8d3e92febeb233bbe9dfe7256958a9167635",
+      "source": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/6af2a98e3f615bdfa612fbd85da93d1ed5f69ef5/t5xxl_fp16.safetensors",
+      "license": "apache-2.0"
+    },
+    {
+      "file": "ae.safetensors",
+      "sizeBytes": 335304388,
+      "sha256": "afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38",
+      "source": "https://huggingface.co/Comfy-Org/Lumina_Image_2.0_Repackaged/resolve/22e393d707f2d13e736b1a461c958644258cd9d9/split_files/vae/ae.safetensors",
+      "license": "not-declared-by-repackaging-repository"
+    },
+    {
+      "file": "ponyDiffusionV6XL_v6StartWithThisOne.safetensors",
+      "sizeBytes": 6938041050,
+      "sha256": "67ab2fd8ec439a89b3fedb15cc65f54336af163c7eb5e4f2acc98f090a29b0b3",
+      "source": "https://civitai.com/api/download/models/290640",
+      "license": "Civitai model permissions: credit required; commercial image and RentCivit use; derivatives allowed; relicensing prohibited"
+    },
+    {
+      "file": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "sizeBytes": 6735906897,
+      "sha256": "c3355d30191f1f066b26d93fba017ae9809dce6c627dda5f6a66eaa651204f68",
+      "source": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/fb1388adc906ab39ffc26ee40e96b22886b56bc4/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "license": "apache-2.0-upstream-wan2.2"
+    },
+    {
+      "file": "wan2.2_ti2v_5B_fp16.safetensors",
+      "sizeBytes": 9999658848,
+      "sha256": "456f901338bd9eadbded3828b819109a9b68e8a525ca5cf8d0049a69fcfeca1e",
+      "source": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/fb1388adc906ab39ffc26ee40e96b22886b56bc4/split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors",
+      "license": "apache-2.0-upstream-wan2.2"
+    },
+    {
+      "file": "wan2.2_vae.safetensors",
+      "sizeBytes": 1409400960,
+      "sha256": "e40321bd36b9709991dae2530eb4ac303dd168276980d3e9bc4b6e2b75fed156",
+      "source": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/fb1388adc906ab39ffc26ee40e96b22886b56bc4/split_files/vae/wan2.2_vae.safetensors",
+      "license": "apache-2.0-upstream-wan2.2"
     }
   ],
   "supersededWorkflows": [
