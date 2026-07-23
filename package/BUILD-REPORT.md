@@ -6,7 +6,7 @@
 - Schema-Fixtures für current, legacy, dual, conflict und missing
 - Release-Manifest enthält kompatiblen Alias `packageVersion`
 - GitHub-Update-Bundle und Publishing-Starter sind nicht Bestandteil des Runtime-Pakets
-- Models / Workflows 1.4.3 ergänzt zweisprachige technische und Betriebsdokumentation zum bestehenden zentralen transaktionssicheren Importer für alle acht externen Modelle. Korrekte Ziele werden nicht verändert; Quellen werden vollständig geprüft, über `.partial` kopiert und atomar verschoben. Fehlende manuelle Modelle ergeben `WaitingForUserAction` mit Resume-Informationen. Modelle bleiben außerhalb von Git und Paket-ZIPs
+- Models / Workflows 1.4.4 ergänzt zweisprachige technische und Betriebsdokumentation zum bestehenden zentralen transaktionssicheren Importer für alle acht externen Modelle. Korrekte Ziele werden nicht verändert; Quellen werden vollständig geprüft, über `.partial` kopiert und atomar verschoben. Fehlende manuelle Modelle ergeben `WaitingForUserAction` mit Resume-Informationen. Modelle bleiben außerhalb von Git und Paket-ZIPs
 - Applications 1.4.10 ist stabil: LM Studio und Open WebUI 0.10.2 entsprechen dem in Production Target Acceptance 1.0.8 akzeptierten Funktionsumfang
 - Integration 1.5.8 ist stabil: die reale Standarddienstkette `valkey-server`, `uwsgi`, `nginx`, der verifizierte WSL-Keeper sowie HTML- und JSON-Endpunkte wurden kalt, idempotent und nach Teilausfall geprüft
 - OpenWebUI Agent Pack 1.8.1 ist ein separater API-basierter Baustein unter `tools/openwebui-agent-pack/current`; Profil-Readback, Duplikatfreiheit, technischer Chat und reale SearXNG-Websuche wurden mit Integration 1.5.8 zielsystemvalidiert

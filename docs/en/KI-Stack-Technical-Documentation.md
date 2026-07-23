@@ -1,5 +1,7 @@
 # KI-Stack Technical Documentation
 
+**[Start here: installation guide](KI-Stack-Installation-Guide.md)**
+
 ## 1. Purpose and architecture
 
 KI-Stack is a Windows-first, transactional local-AI stack. The repository provides reproducible source packages; release ZIPs are GitHub Release assets and are not committed. Runtime package acquisition is Git-free. Each managed change is planned, journalled and can be resumed or rolled back.
@@ -12,7 +14,7 @@ The supported topology is Windows for user entry points, LM Studio, ComfyUI and 
 |---|---|---|---|
 | Cutover runtime | 1.6.3, accepted baseline | `cutover-v1.6.3-rc1` | core `e387199493575131045c888ebbd4c1313bb985b13e3a1f72c3f99efe9bf2b85d` |
 | ComfyUI | 1.2.2, target-system validated | embedded Complete payload | `tools/complete-installer/current/Contracts/PAYLOADS.json` |
-| Models / Workflows | 1.4.3, documentation patch | `models-workflows-v1.4.3` | package `SHA256SUMS.txt`; models are external |
+| Models / Workflows | 1.4.4, documentation patch | `models-workflows-v1.4.4` | package `SHA256SUMS.txt`; models are external |
 | Applications | 1.4.10, accepted | Cutover payload | package manifest contract |
 | Integration / SearXNG | 1.5.9, target-system validated | embedded Complete payload | payload contract |
 | Production Recovery | 1.7.0-r7, target-system accepted | `production-v1.7.0-r7` | `0b4b28c886f01939fb45a9d7f3ce9f5323f57a8208e42381088544afa5955c59` |
@@ -21,7 +23,7 @@ The supported topology is Windows for user entry points, LM Studio, ComfyUI and 
 | OpenWebUI Agent Pack | 1.8.3, target validated | dedicated release | pack `SHA256SUMS.txt` |
 | OpenWebUI Image Pack | 1.9.1, target validated | dedicated release | pack `SHA256SUMS.txt` |
 | OpenWebUI Ballistics Pack | 1.0.0, target validated | dedicated release | pack `SHA256SUMS.txt` |
-| Complete Installer | 2.2.3, documentation patch | `complete-v2.2.3` | package `SHA256SUMS.txt` |
+| Complete Installer | 2.2.4, documentation patch | `complete-v2.2.4` | package `SHA256SUMS.txt` |
 
 `production-release-manifest.json`, each package `MANIFEST.json`, `SHA256SUMS.txt` and release sidecar are the authoritative integrity records. The target acceptance result is `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
 

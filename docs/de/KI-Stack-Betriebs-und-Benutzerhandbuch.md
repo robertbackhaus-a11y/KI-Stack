@@ -1,5 +1,7 @@
 # KI-Stack Betriebs- und Benutzerhandbuch
 
+**[Hier beginnen: Installationsanleitung](KI-Stack-Installationsanleitung.md)**
+
 ## 1. Voraussetzungen und Installation
 
 Verwende unterstütztes Windows mit WSL2/Debian, PowerShell 7, die freigegebene lokale Installation von LM Studio, OpenWebUI und ComfyUI, ausreichend Speicher für 47.356.936.991 Bytes externer Modelle sowie die jeweiligen Modelllizenzen. Entpacke den Complete Installer, halte seine Dateien zusammen und verwende seinen öffentlichen Starter für Installation oder Upgrade. Führe Paketskripte nicht mit Windows PowerShell aus. Das Paket ist zur Laufzeit Git-frei, aber nicht offline.

@@ -26,7 +26,7 @@ function Read-Contracts {
             [pscustomobject]@{id=[string]$_.id;fileName=[string]$_.fileName;sizeBytes=[int64]$_.sizeBytes;sha256=([string]$_.sha256).ToLowerInvariant();targetDirectory=[string]$_.targetDirectory;source=[string]$_.source;manualExternal=[bool]$_.manualExternal}
         })
     }
-    return @($document.external|Where-Object{$_.PSObject.Properties.Name-contains'category'-and[string]$_.category-eq'models-workflows-1.4.3'}|ForEach-Object{
+    return @($document.external|Where-Object{$_.PSObject.Properties.Name-contains'category'-and[string]$_.category-eq'models-workflows-1.4.4'}|ForEach-Object{
         [pscustomobject]@{id=[string]$_.id;fileName=[string]$_.fileName;sizeBytes=[int64]$_.sizeBytes;sha256=([string]$_.sha256).ToLowerInvariant();targetDirectory=([string]$_.target-replace'^models/','');source=[string]$_.source;manualExternal=[bool]$_.manualExternal}
     })
 }
