@@ -1,10 +1,10 @@
-# KI-Stack Complete Installer 2.2.6
+# KI-Stack Complete Installer 2.2.7
 
-Version 2.2.6 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.6. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload.
+Version 2.2.7 preserves the target-validated operations and OpenWebUI/ComfyUI integration contracts and updates Models / Workflows to 1.4.7. Its public model-import starter delegates to the single transactional importer in the Models / Workflows payload, including the manual Heretic LM Studio contract.
 
 ## Documentation
 
-**[Start here: installation guide](../../../docs/en/KI-Stack-Installation-Guide.md)** and **[Hier beginnen: Installationsanleitung](../../../docs/de/KI-Stack-Installationsanleitung.md)** are the primary user paths. The matched German and English technical documentation and operations/user guides are maintained at `docs/de/KI-Stack-Technische-Dokumentation.md`, `docs/en/KI-Stack-Technical-Documentation.md`, `docs/de/KI-Stack-Betriebs-und-Benutzerhandbuch.md` and `docs/en/KI-Stack-Operations-and-User-Guide.md`. They define the same package, model, lifecycle, profile and safety contracts; no model file is embedded.
+**[Start here: installation guide](../../../docs/en/KI-Stack-Installation-Guide.md)**, **[Hier beginnen: Installationsanleitung](../../../docs/de/KI-Stack-Installationsanleitung.md)**, **[manual model provisioning](../../../docs/en/KI-Stack-Manual-Model-Provisioning.md)** and **[manuelle Modellbereitstellung](../../../docs/de/KI-Stack-Manuelle-Modellbereitstellung.md)** are the primary user paths. They define the same package, model, lifecycle, profile and safety contracts; no model file is embedded.
 
 The existing-installation operations contract, Image Pack 1.9.2 chat attachment path and all five canonical workflows are target-system validated. Fresh-install behavior remains contract- and fixture-validated rather than physically bare-metal validated.
 

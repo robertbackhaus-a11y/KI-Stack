@@ -27,10 +27,31 @@ foreach ($model in $manual) {
 $pony = @($manifest.models | Where-Object { $_.id -eq 'pony-v6-xl' })
 if ($pony.Count -ne 1 -or [bool]$pony[0].manualExternal -or [string]$pony[0].source -ne 'https://civitai.com/api/download/models/290640' -or [string]$pony[0].sourceKind -ne 'automatic-external-payload') { $errors.Add('Pony automatic external contract differs.') }
 
+$lmStudioModel = $manifest.lmStudioModel
+$payloadLmStudioModel = $payloads.lmStudioModel
+if ($null -eq $lmStudioModel -or $null -eq $payloadLmStudioModel) {
+    $errors.Add('LM Studio model contract is missing.')
+} else {
+    foreach ($field in 'id','publisher','informationSource','sourceKind','relativeTargetDirectory','expectedLmStudioModelId','license') {
+        if (-not $lmStudioModel.PSObject.Properties[$field] -or [string]::IsNullOrWhiteSpace([string]$lmStudioModel.$field)) { $errors.Add("LM Studio contract: missing $field.") }
+        if ([string]$payloadLmStudioModel.$field -ne [string]$lmStudioModel.$field) { $errors.Add("LM Studio contract: payload differs for $field.") }
+    }
+    if ($null -ne $lmStudioModel.installationSource -or [string]$lmStudioModel.sourceKind -ne 'manual-external-information-only' -or -not [bool]$lmStudioModel.manualExternal) { $errors.Add('LM Studio model must remain manual external information only.') }
+    if ([string]$lmStudioModel.informationSource -match '(?i)/resolve/main/') { $errors.Add('LM Studio information source must not use mutable resolve/main.') }
+    if (@($lmStudioModel.files).Count -ne 2 -or @($payloadLmStudioModel.files).Count -ne 2) { $errors.Add('LM Studio contract must contain exactly two files.') }
+    foreach ($file in @($lmStudioModel.files)) {
+        foreach ($field in 'id','fileName','sizeBytes','sha256','role','quantization') { if (-not $file.PSObject.Properties[$field] -or [string]::IsNullOrWhiteSpace([string]$file.$field)) { $errors.Add("LM Studio file $($file.id): missing $field.") } }
+        if ([string]$file.sha256 -notmatch '^[0-9a-f]{64}$' -or [int64]$file.sizeBytes -le 0) { $errors.Add("LM Studio file $($file.id): invalid integrity anchor.") }
+        $payloadFile = @($payloadLmStudioModel.files | Where-Object { $_.id -eq $file.id })
+        if ($payloadFile.Count -ne 1 -or [string]$payloadFile[0].fileName -ne [string]$file.fileName -or [int64]$payloadFile[0].sizeBytes -ne [int64]$file.sizeBytes -or [string]$payloadFile[0].sha256 -ne [string]$file.sha256) { $errors.Add("LM Studio file $($file.id): complete-installer contract differs.") }
+    }
+}
+
 [pscustomobject]@{
     passed = ($errors.Count -eq 0)
     manualExternalModels = $manual.Count
     automaticExternalModel = 'pony-v6-xl'
+    lmStudioManualExternalFiles = @($lmStudioModel.files).Count
     errors = @($errors)
 } | ConvertTo-Json -Depth 10
 
