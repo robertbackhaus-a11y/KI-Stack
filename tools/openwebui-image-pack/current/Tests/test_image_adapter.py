@@ -58,6 +58,43 @@ class AdapterTests(unittest.TestCase):
         self.assertNotIn("127.0.0.1:8188/view", serialized)
         self.assertNotIn("C:\\", serialized)
 
+    def test_pony_workflow_and_chat_file_persistence(self):
+        tool = MODULE.Tools()
+        tool._persist_image = AsyncMock(return_value="/api/v1/files/pony-1/content")
+        events = []
+        async def emit(event): events.append(event)
+        calls = []
+        def fake_json(method, path, body=None, timeout=30):
+            calls.append((method, path, body))
+            if path == "/prompt": return {"prompt_id": "pony-1"}
+            return {"pony-1": {"outputs": {"11": {"images": [{"filename": "pony.png", "type": "output"}]}}}}
+        tool._json = fake_json
+        with patch.object(MODULE.urllib.request, "urlopen", return_value=FakeResponse()):
+            result = asyncio.run(tool.generate_pony_image("pony prompt", 99, __event_emitter__=emit, __request__=object(), __user__={"id": "user-1"}))
+        workflow = calls[0][2]["prompt"]
+        self.assertEqual(workflow["1"]["inputs"]["ckpt_name"], "ponyDiffusionV6XL_v6StartWithThisOne.safetensors")
+        self.assertEqual(workflow["2"]["inputs"]["stop_at_clip_layer"], -2)
+        self.assertEqual(workflow["3"]["inputs"]["text"], "pony prompt")
+        self.assertEqual((workflow["5"]["inputs"]["width"], workflow["5"]["inputs"]["height"]), (1024, 1024))
+        self.assertEqual(workflow["6"]["inputs"]["seed"], 99)
+        self.assertEqual(workflow["6"]["inputs"]["steps"], 40)
+        self.assertEqual(workflow["6"]["inputs"]["cfg"], 3.1)
+        self.assertEqual(workflow["6"]["inputs"]["sampler_name"], "euler")
+        self.assertEqual(workflow["6"]["inputs"]["scheduler"], "normal")
+        body = json.loads(result)
+        self.assertEqual(body["files"], [{"type": "image", "url": "/api/v1/files/pony-1/content"}])
+        self.assertEqual((body["width"], body["height"]), (1024, 1024))
+        self.assertEqual(events[-1], {"type": "chat:message:files", "data": {"files": body["files"]}})
+        serialized = json.dumps(body)
+        self.assertNotIn("data:image/png;base64,", serialized)
+        self.assertNotIn("127.0.0.1:8188/view", serialized)
+
+    def test_pony_input_validation(self):
+        with self.assertRaisesRegex(ValueError, "prompt"):
+            asyncio.run(MODULE.Tools().generate_pony_image(" "))
+        with self.assertRaisesRegex(ValueError, "seed"):
+            asyncio.run(MODULE.Tools().generate_pony_image("x", -1))
+
     def test_invalid_ratio_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "aspect_ratio"):
             asyncio.run(MODULE.Tools().generate_image("x", "4:3"))

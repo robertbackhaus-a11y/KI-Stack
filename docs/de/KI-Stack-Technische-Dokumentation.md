@@ -21,7 +21,7 @@ Die unterstützte Topologie verwendet Windows für Benutzereinstiege, LM Studio,
 | Validation Gate | 1.0.2, aktiv | Production Release | `a03dd59df2322bc37b763d8d16ff6127f04b969069a698b361e6c52099a7db81` |
 | Target Acceptance | 1.0.10, bestanden | Production Release | `bbfe6e79438406fecbc301f8883a7b629ca0c1ff5736917c267c02ec79fce0d6` |
 | OpenWebUI Agent Pack | 1.8.3, zielsystemvalidiert | separates Release | Pack-`SHA256SUMS.txt` |
-| OpenWebUI Image Pack | 1.9.2, zielsystemvalidiert | separates Release | Pack-`SHA256SUMS.txt` |
+| OpenWebUI Image Pack | 1.10.0, regressionsvalidiert; Pony-Pfad praktisch geprüft | separates Release | Pack-`SHA256SUMS.txt` |
 | OpenWebUI Ballistics Pack | 1.0.0, zielsystemvalidiert | separates Release | Pack-`SHA256SUMS.txt` |
 | Complete Installer | 2.2.9, Heretic-LM-Studio-Vertrag | `complete-v2.2.9` | Paket-`SHA256SUMS.txt` |
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "version": "1.9.2",
+  "version": "1.10.0",
   "openWebUIVersion": "0.10.2",
   "comfyUIVersion": "1.2.2",
   "endpoint": "http://127.0.0.1:8080",
@@ -8,5 +8,16 @@
   "managedToolId": "ki-stack-generate-image",
   "openWebUIToolId": "ki_stack_generate_image",
   "managedProfileIds": ["ki-stack-it-technik", "ki-stack-allgemein"],
-  "aspectRatios": {"1:1": [512, 512], "16:9": [768, 432], "9:16": [432, 768]}
+  "aspectRatios": {"1:1": [512, 512], "16:9": [768, 432], "9:16": [432, 768]},
+  "pony": {
+    "checkpoint": "ponyDiffusionV6XL_v6StartWithThisOne.safetensors",
+    "width": 1024,
+    "height": 1024,
+    "clipSkip": 2,
+    "stopAtClipLayer": -2,
+    "steps": 40,
+    "cfg": 3.1,
+    "sampler": "euler",
+    "scheduler": "normal"
+  }
 }

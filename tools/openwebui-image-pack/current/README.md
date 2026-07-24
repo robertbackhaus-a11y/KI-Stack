@@ -1,13 +1,16 @@
-# KI-Stack OpenWebUI Image Pack 1.9.2
+# KI-Stack OpenWebUI Image Pack 1.10.0
 
-Status: `TargetSystemValidated` on 2026-07-22 for OpenWebUI 0.10.2, ComfyUI 1.2.2, Models / Workflows 1.3.8 and Agent Pack 1.8.3.
+Status: `RegressionValidated` for OpenWebUI 0.10.2 and local ComfyUI 1.2.2. The Pony workflow and its direct OpenWebUI chat output were previously exercised successfully on the target system. This factual evidence is limited to that path and is not a claim of complete target-system validation for version 1.10.0.
 
-The package manages exactly one canonical tool: `ki-stack-generate-image` (`KI-Stack Bildgenerierung`). OpenWebUI 0.10.2 requires Python-identifier database IDs, so its internal/bindable ID is `ki_stack_generate_image`; the canonical ID and ownership remain explicit in tool frontmatter. It submits the existing FLUX2 Klein 9B API workflow to local ComfyUI and supports `prompt`, `aspect_ratio` (`1:1`, `16:9`, `9:16`) and an optional `seed`.
+The package continues to manage exactly one canonical tool: `ki-stack-generate-image` (`KI-Stack Bildgenerierung`). OpenWebUI uses the identifier-safe internal ID `ki_stack_generate_image`. The tool now exposes two explicit methods:
 
-Only the already installed required FLUX2 model profile is used. The package contains no models, downloads no models, and does not use optional KREA or Pony profiles. Both KI-Stack Agent Pack profiles are bound to the managed tool; no foreign bindings are added.
+- `generate_image(prompt, aspect_ratio, seed)` retains the established FLUX2 Klein 9B behavior, including `1:1`, `16:9`, and `9:16`.
+- `generate_pony_image(prompt, seed)` uses `ponyDiffusionV6XL_v6StartWithThisOne.safetensors` at 1024 × 1024, CLIP skip 2 (`stop_at_clip_layer = -2`), 40 steps, CFG 3.1, sampler `euler`, and scheduler `normal`.
 
-The API key is requested as a `SecureString`, used only in memory, and never persisted. Execute creates a targeted backup. Rollback restores the previous tool and both profile forms.
+Both methods accept a free prompt and optional seed. Both submit only to the trusted local ComfyUI origin `http://127.0.0.1:8188`. Request paths must remain relative; untrusted origins and schemes are rejected.
 
-The target-safe exact-ratio resolutions are `512x512`, `768x432`, and `432x768`. They remain aligned to the FLUX2 latent node's required 16-pixel step and complete within the bounded local runtime.
+Generated images are registered through OpenWebUI's supported file store, attached through `chat:message:files`, displayed directly in the chat, and made available through authenticated preview and download. No base64 payload, `/mnt/uploads` path, absolute Windows path, or direct ComfyUI URL is returned.
 
-Generated PNG files are registered through OpenWebUI's supported file store, attached to the assistant message through `chat:message:files`, displayed directly in the chat, and remain available through the authenticated image preview and download after a chat reload. No `/mnt/uploads`, absolute Windows path, or direct ComfyUI URL is exposed.
+The package contains and downloads no model files. The Pony checkpoint and the existing FLUX2 model files must already be installed in ComfyUI. No access credentials, personal paths, generated test images, or raw target-system reports are included.
+
+The API key is requested as a `SecureString`, used only in memory, and never persisted. Execute creates a targeted backup. Rollback restores the previous tool and both profile bindings.

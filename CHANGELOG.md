@@ -1,5 +1,12 @@
 # Changelog
 
+## OpenWebUI Image Pack 1.10.0
+
+- Preserves the existing FLUX2 `generate_image` method and the 1.9.2 trusted-local-origin security guard.
+- Adds `generate_pony_image` with the pinned Pony SDXL workflow contract and the same persistent OpenWebUI chat attachment path.
+- Adds FLUX2 and Pony regression coverage, synchronized package metadata, documentation, repository validation and SHA256 contracts.
+- Records the prior practical target test of the Pony workflow and chat output without claiming a complete 1.10.0 target-system validation.
+
 ## Models / Workflows 1.4.6, Complete Installer 2.2.6 and Image Pack 1.9.2
 
 - Adds deterministic SPDX-2.3 JSON SBOM assets for release ZIPs. They identify the ZIP by SHA256, list included components and third-party dependencies, and declare all eight model files as external, not contained dependencies with publisher, size, SHA256 and license status.

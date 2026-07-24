@@ -21,7 +21,7 @@ The supported topology is Windows for user entry points, LM Studio, ComfyUI and 
 | Validation Gate | 1.0.2, active | production release | `a03dd59df2322bc37b763d8d16ff6127f04b969069a698b361e6c52099a7db81` |
 | Target Acceptance | 1.0.10, passed | production release | `bbfe6e79438406fecbc301f8883a7b629ca0c1ff5736917c267c02ec79fce0d6` |
 | OpenWebUI Agent Pack | 1.8.3, target validated | dedicated release | pack `SHA256SUMS.txt` |
-| OpenWebUI Image Pack | 1.9.2, target validated | dedicated release | pack `SHA256SUMS.txt` |
+| OpenWebUI Image Pack | 1.10.0, regression validated; Pony path practically verified | dedicated release | pack `SHA256SUMS.txt` |
 | OpenWebUI Ballistics Pack | 1.0.0, target validated | dedicated release | pack `SHA256SUMS.txt` |
 | Complete Installer | 2.2.9, Heretic LM Studio contract | `complete-v2.2.9` | package `SHA256SUMS.txt` |
 

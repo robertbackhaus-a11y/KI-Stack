@@ -19,7 +19,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Universal package Validation Gate | 1.0.2 | Activated on the target system |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
 | OpenWebUI Agent Pack | 1.8.3 | Target validated; built-in Pyodide Code Interpreter for Allgemein and KI & IT-Technik |
-| OpenWebUI Image Pack | 1.9.2 | Stable; direct FLUX2 generation target-system validated |
+| OpenWebUI Image Pack | 1.10.0 | Stable; FLUX2 regression preserved, Pony workflow and chat output practically verified |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
 | Complete Installer | 2.2.9 | Enforces the external ComfyUI and Heretic LM Studio contracts before Models / Workflows compliance; bilingual documentation included |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
@@ -123,7 +123,7 @@ The repository includes complete reusable sources for Production Recovery `1.7.0
 
 OpenWebUI Agent Pack `1.8.3` manages exactly the workspace models `KI & IT-Technik` and `Allgemein` through the supported OpenWebUI 0.10.2 HTTP API. It enables only the built-in browser-local Pyodide Code Interpreter capability and preserves only the registered Image Pack tool binding. `execute_code` is not a workspace tool ID.
 
-OpenWebUI Image Pack `1.9.2` manages exactly one canonical tool, `ki-stack-generate-image`, for direct generation through the existing FLUX2 Klein workflow and local ComfyUI 1.2.2. OpenWebUI 0.10.2 binds its required identifier-safe internal ID `ki_stack_generate_image`. The pack downloads no models and adds no KREA or Pony dependency.
+OpenWebUI Image Pack `1.10.0` continues to manage exactly one canonical tool, `ki-stack-generate-image`, through local ComfyUI 1.2.2. Its existing `generate_image` FLUX2 method is retained and the explicit `generate_pony_image` method adds Pony SDXL at 1024 × 1024, CLIP skip 2, 40 steps, CFG 3.1, `euler` and `normal`. Both paths persist images directly in the OpenWebUI chat. The pack downloads no models; the Pony checkpoint must already be installed. The Pony workflow and chat output were practically tested on the target, without claiming complete 1.10.0 target-system validation.
 
 OpenWebUI Ballistics Pack `1.0.0` adds the exclusively bound `18Bravo` technical profile and `ki_stack_ballistics_calculator`. Its pinned `pyballistic` 2.2.0 RK4 core supports G1/G7 calculations without Git, compiled solver extensions, SciPy engine or chart extensions. It requires complete explicit inputs, stores profiles only after confirmation and is restricted to lawful sporting, hunting and engineering use.
 
