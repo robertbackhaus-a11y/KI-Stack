@@ -13,17 +13,17 @@ Die unterstützte Topologie verwendet Windows für Benutzereinstiege, LM Studio,
 | Komponente | Version / Status | Release oder Vertrag | SHA256 / Integritätsnachweis |
 |---|---|---|---|
 | Cutover Runtime | 1.6.3, akzeptierte Basis | `cutover-v1.6.3-rc1` | Core `e387199493575131045c888ebbd4c1313bb985b13e3a1f72c3f99efe9bf2b85d` |
-| ComfyUI | 1.2.2, zielsystemvalidiert | eingebettetes Complete-Payload | `tools/complete-installer/current/Contracts/PAYLOADS.json` |
-| Models / Workflows | 1.4.9, Heretic-LM-Studio-Vertrag | `models-workflows-v1.4.9` | Paket-`SHA256SUMS.txt`; Modelle extern |
+| ComfyUI | 1.2.2, zielsystemvalidiert | eingebettetes Complete-Payload | `tools/comfyui/current/MANIFEST.json` |
+| Visuelle Modelle / Workflows | 2.0.0; Heretic nur Chat, Nomic nur Embeddings | `tools/models-workflows/current` | Paket-`SHA256SUMS.txt`; Modelle extern |
 | Applications | 1.4.10, akzeptiert | Cutover-Payload | Paketmanifest-Vertrag |
 | Integration / SearXNG | 1.5.9, zielsystemvalidiert | eingebettetes Complete-Payload | Payloadvertrag |
 | Production Recovery | 1.7.0-r7, zielsystemakzeptiert | `production-v1.7.0-r7` | `0b4b28c886f01939fb45a9d7f3ce9f5323f57a8208e42381088544afa5955c59` |
 | Validation Gate | 1.0.2, aktiv | Production Release | `a03dd59df2322bc37b763d8d16ff6127f04b969069a698b361e6c52099a7db81` |
 | Target Acceptance | 1.0.10, bestanden | Production Release | `bbfe6e79438406fecbc301f8883a7b629ca0c1ff5736917c267c02ec79fce0d6` |
 | OpenWebUI Agent Pack | 1.8.3, zielsystemvalidiert | separates Release | Pack-`SHA256SUMS.txt` |
-| OpenWebUI Image Pack | 1.10.0, regressionsvalidiert; Pony-Pfad praktisch geprüft | separates Release | Pack-`SHA256SUMS.txt` |
+| OpenWebUI Visual Pack | 2.0.5-rc2, persistente Bild- und MP4-Anhänge | eingebettetes Complete-Payload | Pack-`SHA256SUMS.txt` |
 | OpenWebUI Ballistics Pack | 1.0.0, zielsystemvalidiert | separates Release | Pack-`SHA256SUMS.txt` |
-| Complete Installer | 2.2.9, Heretic-LM-Studio-Vertrag | `complete-v2.2.9` | Paket-`SHA256SUMS.txt` |
+| Complete Installer | 2.3.0-rc2, aus Quellen reproduzierbar | `tools/complete-installer/current` | Paket-`SHA256SUMS.txt` |
 
 `production-release-manifest.json`, jedes Paket-`MANIFEST.json`, `SHA256SUMS.txt` und der Release-Sidecar sind die maßgeblichen Integritätsnachweise. Das Target-Acceptance-Ergebnis lautet `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
 
@@ -39,15 +39,15 @@ LM Studio stellt den lokalen OpenAI-kompatiblen Endpunkt und `/v1/models` bereit
 
 ## 5. OpenWebUI-Profile und Integrationen
 
-`Allgemein` und `KI & IT-Technik` verwenden Native Function Calling, haben `knowledge=[]`, nutzen den eingebauten browserlokalen Pyodide-Code-Interpreter und binden ausschließlich `ki_stack_generate_image`. `18Bravo` hat `knowledge=[]`, deaktiviert den Code Interpreter und bindet ausschließlich `ki_stack_ballistics_calculator`. `execute_code` ist eine eingebaute Fähigkeit und keine Workspace-Tool-ID.
+`Allgemein` und `KI & IT-Technik` verwenden Native Function Calling, haben `knowledge=[]`, nutzen den eingebauten browserlokalen Pyodide-Code-Interpreter und binden die verwalteten Bild- und Videotools. `18Bravo` hat `knowledge=[]`, deaktiviert den Code Interpreter und bindet ausschließlich `ki_stack_ballistics_calculator`. Heretic ist das einzige auswählbare Chat-LLM; Nomic dient ausschließlich Embeddings. `execute_code` ist eine eingebaute Fähigkeit und keine Workspace-Tool-ID.
 
-Das Bildtool sendet den freigegebenen FLUX2-API-Workflow an ComfyUI und registriert das erzeugte Bild über den OpenWebUI-Dateispeicher. Der Chat behält ein eingebettetes Bild und einen herunterladbaren Anhang nach dem Neuladen; er zeigt keine `/mnt/uploads`-, Windows- oder ComfyUI-Pfade. Das Ballistiktool bleibt auf rechtmäßige sportliche, jagdliche und technische Berechnungen beschränkt.
+Die Visual-Tools senden ausschließlich den freigegebenen Z-Image-Turbo- oder WAN2.2-T2V-14B-API-Workflow an ComfyUI. Ergebnisse werden über den OpenWebUI-Dateispeicher registriert. Bilder bleiben eingebettet; MP4-Ergebnisse bleiben nach Reload genau ein persistenter Download-Anhang über `/api/v1/files/{id}/content`. Die Tools zeigen keine `/mnt/uploads`-, Windows- oder ComfyUI-Pfade. Das Ballistiktool bleibt auf rechtmäßige sportliche, jagdliche und technische Berechnungen beschränkt.
 
 ## 6. Workflows und Modellverträge
 
-Das erforderliche FLUX2-Profil verwendet `flux-2-klein-9b-fp8.safetensors`, `qwen_3_8b_fp8mixed.safetensors` und `flux2-vae.safetensors`. Kanonische Workflows sind FLUX2 UI und API, KREA Realism, Pony SDXL und WAN 2.2 Official. KREA benötigt vier externe Dateien, Pony benötigt seinen festen Civitai-Modellversionsvertrag 290640 und WAN benötigt drei externe Dateien. Der vollständige externe Modellvertrag umfasst 47.356.936.991 Bytes und dokumentiert Dateiname, relatives Ziel, Bytegröße, SHA256, Lizenz und Beschaffungsmodus in `package/Manifests/models.manifest.json`.
+Die einzigen kanonischen Visual-Workflows sind Z-Image Turbo und WAN2.2 T2V 14B. Ihre neun externen Dateien sind `z_image_turbo_bf16.safetensors`, `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf`, `ae.safetensors`, die WAN2.2-T2V-14B-High-/Low-Noise-Diffusionsmodelle, `umt5_xxl_fp8_e4m3fn_scaled.safetensors`, `wan_2.1_vae.safetensors` sowie beide High-/Low-LightX2V-4-Step-LoRAs. Der externe Visual-Modellvertrag umfasst 54.994.650.267 Bytes und steht in `tools/models-workflows/current/Manifests/models.manifest.json`.
 
-Der zentrale Importer prüft Ziel und Quelle nach Dateiname, Größe und SHA256, verwendet eine `.partial`-Kopie mit anschließendem atomarem Verschieben, protokolliert eine fortsetzbare Transaktion und rollt nur Dateien dieser Transaktion zurück. Sieben Modelle benötigen manuelle externe Bereitstellung; ihre `informationSource` benennt nur die Herausgeberseite und ist niemals eine installierbare Payload-URL. Ihre Vertrauensanker sind Herausgeber, exakter Dateiname, Größe und SHA256; bewegliche `resolve/main`-URLs vertraut der Importer nicht. Pony ist die einzige automatische externe Beschaffung über die feste Civitai-Modellversion 290640 mit anschließender Größen- und SHA256-Prüfung. Git-, Commit-Hash- und `latest`-Beschaffung werden nicht verwendet. Das Paket ist deshalb nicht offline.
+Der zentrale Importer prüft den deklarierten Dateinamen und die exakte Größe sowie, falls im Vertrag vorhanden, SHA256. Er verwendet eine `.partial`-Kopie mit anschließendem atomarem Verschieben, protokolliert eine fortsetzbare Transaktion und rollt nur Dateien dieser Transaktion zurück. Modellbinärdateien bleiben extern und sind nie im Complete Installer eingebettet.
 
 ## 7. Transaktions- und Lebenszyklusarchitektur
 
@@ -61,7 +61,7 @@ API-Keys werden interaktiv als `SecureString` angefordert, nur im Arbeitsspeiche
 
 Der Complete Installer ist zur Laufzeit Git-frei, aber nicht vollständig offline, weil Modelle extern sowie lizenz- oder zugangsbeschränkt sind oder manuell bereitgestellt werden. Fresh-Install-Verhalten ist vertraglich und mit Fixtures validiert; die physische Zielsystemvalidierung bezieht sich auf die bestehende Installation. Production Recovery r7 und Target Acceptance 1.0.10 sind feste externe Referenzen, keine automatisch überlagerten Pakete.
 
-`main` ist durch Pull-Request-Pflicht, Verbot von Force-Pushes und Löschschutz geschützt. Gitleaks, PSScriptAnalyzer, Bandit, CodeQL und der Modellquellenvertrag sind verpflichtende Prüfungen. CI-Actions sind auf vollständige Commit-SHAs gepinnt. Jedes Release von Models / Workflows, Complete Installer und Image Pack stellt eine SPDX-2.3-JSON-SBOM bereit, die das Release-ZIP per SHA256, enthaltene Komponenten und Drittanbieterabhängigkeiten benennt; alle Modellbinärdateien sind ausdrücklich extern und nicht enthalten. GitHub-Build-Provenienz- und SPDX-SBOM-Attestierungen entstehen für die exakten veröffentlichten ZIP-Bytes.
+`main` ist durch Pull-Request-Pflicht, Verbot von Force-Pushes und Löschschutz geschützt. Gitleaks, PSScriptAnalyzer, Bandit, CodeQL und der Modellquellenvertrag sind verpflichtende Prüfungen. CI-Actions sind auf vollständige Commit-SHAs gepinnt. Jedes Release von Models / Workflows, Complete Installer und Visual Pack stellt eine SPDX-2.3-JSON-SBOM bereit, die das Release-ZIP per SHA256, enthaltene Komponenten und Drittanbieterabhängigkeiten benennt; alle Modellbinärdateien sind ausdrücklich extern und nicht enthalten. GitHub-Build-Provenienz- und SPDX-SBOM-Attestierungen entstehen für die exakten veröffentlichten ZIP-Bytes.
 
 ```powershell
 gh attestation verify .\<release>.zip --repo robertbackhaus-a11y/KI-Stack

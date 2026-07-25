@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "1.0",
+  "packageVersion": "2.3.0-rc12",
+  "policy": "one execution per unchanged source or package hash",
+  "noGitContract": true,
+  "tests": [
+    {"id":"SRC-REPO-001","suite":"scripts/Test-Repository.ps1","object":"source","includes":["required files","relative RootPath inventory","JSON >= 100","PowerShell >= 90","CMD >= 60","manifests","source SHA256","secret and path scans","version contracts"]},
+    {"id":"SRC-HARNESS-001","suite":"scripts/Test-TestRepositoryHarness.ps1","object":"source test harness","includes":["valid checkout","empty or wrong RootPath rejected","RootPath with spaces","invocation from different working directory"]},
+    {"id":"PKG-HIST-001","suite":"Complete Installer package self-test invoked by Package Validation Gate","object":"ZIP","includes":["component state/readback regressions","backup","resume","rollback","path resolution","PowerShell syntax","historical Complete Installer regressions"],"deduplicatedBy":"PKG-GATE-001"},
+    {"id":"LEGACY-CUTOVER-EXCLUDED","suite":"package/Tests/Test-KIStackBuilderKernel.ps1","object":"superseded non-build-input source","includes":["Cutover 1.6.3 generated Embedded/Preflight fixture and removed FLUX/KREA/Pony/WAN-5B contracts"],"required":false,"reason":"not an RC12 build input; its generated fixture is absent and its model contract is intentionally superseded"},
+    {"id":"SRC-COMP-001","suite":"component self-tests","object":"source","includes":["ComfyUI","Integration","Models/Workflows","Agent Pack","Visual Pack","Ballistics Pack","Validation Gate"]},
+    {"id":"SRC-GREENFIELD-001","suite":"Models/Workflows component self-test","object":"source","includes":["clean build without preloads","empty-target automatic download","optional cache reuse by size and SHA256","unmanaged legacy file preservation","interrupted download retention","HTTP Range resume","wrong size fails","wrong SHA256 fails","offline source yields resumable WaitingForNetwork","verified target reuse"],"deduplicatedBy":"SRC-COMP-001"},
+    {"id":"BUILD-INPUT-001","suite":"scripts/New-RC12BuildInputManifest.ps1","object":"source","includes":["build-input relative path","size","SHA256","whole-source verification hash excluding generated/private directories"]},
+    {"id":"REPRO-001","suite":"two independent no-Git snapshots","object":"ZIP","includes":["input manifest equality","byte equality","size","SHA256","sidecar"]},
+    {"id":"PKG-GATE-001","suite":"Package Validation Gate 1.0.3","object":"ZIP","includes":["static validator","safe extraction","native AST","manifest","internal SHA256","final package self-test"]},
+    {"id":"TARGET-LIFECYCLE-001","suite":"target functional validation","object":"target","includes":["stop ten positions","start ten positions","status ten positions"]},
+    {"id":"TARGET-AI-001","suite":"target functional validation","object":"target","includes":["Heretic","Nomic 768","model selector","SearXNG"]},
+    {"id":"TARGET-VISUAL-001","suite":"target functional validation","object":"target","includes":["Z-Image PNG","WAN2.2 MP4"]},
+    {"id":"TARGET-MP4-001","suite":"target functional validation","object":"target","includes":["persistent FileItem","reload","authenticated download","single attachment","no embed"]},
+    {"id":"TARGET-LEGACY-001","suite":"target functional validation","object":"target","includes":["active legacy-component search"]}
+  ]
+}

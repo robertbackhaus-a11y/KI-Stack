@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.3.0-rc2
+
+- Integrated the Complete Installer, visual model/workflow payload and OpenWebUI
+  Visual Pack into canonical repository source directories.
+- Replaced the package-self-archiving RC1 flow with a deterministic
+  source-to-release builder.
+- Restricted chat selection to Heretic and the embedding role to Nomic.
+- Restricted visual payload contracts to Z-Image Turbo and WAN2.2 T2V 14B with
+  both LightX2V four-step LoRAs.
+- Preserved the OpenWebUI persistent MP4 download attachment contract.
+- Classified 2.3.0-rc1 as non-reproducible because its released package state
+  had not been integrated into the canonical build sources.
+
 ## OpenWebUI Image Pack 1.10.0
 
 - Preserves the existing FLUX2 `generate_image` method and the 1.9.2 trusted-local-origin security guard.

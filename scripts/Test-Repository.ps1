@@ -67,13 +67,40 @@ function Test-CmdCrLf {
 
 $RootPath = [IO.Path]::GetFullPath($RootPath)
 $Results = [Collections.Generic.List[object]]::new()
-$excludedPathPattern = '[\\/](?:\.git|_import)[\\/]|[\\/]tools[\\/]production-recovery[\\/]current[\\/]04-Evidence[\\/]'
+$excludedRelativePattern = '^(?:\.git|_import|dist)/|^tools/production-recovery/current/04-Evidence/'
+function Test-RepositoryPathExcluded {
+    param([Parameter(Mandatory)][string]$Path)
+    [IO.Path]::GetRelativePath($RootPath,$Path).Replace('\','/') -match $excludedRelativePattern
+}
 
 try {
+    if (-not (Test-Path -LiteralPath $RootPath -PathType Container)) {
+        throw "RootPath is not an existing directory: $RootPath"
+    }
+    $gitExecutable = (Get-Command git -ErrorAction Stop).Source
+    $gitRoot = (& $gitExecutable -C $RootPath rev-parse --show-toplevel 2>$null)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace([string]$gitRoot)) {
+        throw "RootPath is not a Git checkout: $RootPath"
+    }
+    $gitRoot = [IO.Path]::GetFullPath(([string]$gitRoot).Trim())
+    if (-not (Test-Path -LiteralPath (Join-Path $RootPath '.git'))) {
+        throw "RootPath must expose the checkout's .git control path: $RootPath"
+    }
+    $gitTrackedFiles = @(
+        & $gitExecutable -C $RootPath ls-files |
+            ForEach-Object { ([string]$_).Replace('\','/') } |
+            Where-Object { $_ -and $_ -notmatch $excludedRelativePattern } |
+            Sort-Object -Unique
+    )
+    if ($LASTEXITCODE -ne 0 -or $gitTrackedFiles.Count -eq 0) {
+        throw 'git ls-files returned no usable tracked repository inventory.'
+    }
     $required = @(
         'README.md','README.de.md','CHANGELOG.md','VERSION','release-manifest.json','production-release-manifest.json',
         'package/Config/kernel-config.json','package/Tests/Test-KIStackBuilderKernel.ps1',
-        'scripts/Test-Repository.ps1','scripts/Test-PowerShell7Starters.ps1','scripts/New-ReleaseArchive.ps1',
+        'scripts/Test-Repository.ps1','scripts/Test-TestRepositoryHarness.ps1',
+        'scripts/Import-KIStackBuildPayload.ps1','scripts/Test-KIStackBuildPayloadImport.ps1',
+        'scripts/Test-PowerShell7Starters.ps1','scripts/New-ReleaseArchive.ps1',
         'docs/error-registry/REGRESSION-MATRIX.md',
         'tools/openwebui-agent-pack/current/VERSION',
         'tools/openwebui-agent-pack/current/MANIFEST.json',
@@ -82,28 +109,19 @@ try {
         'tools/openwebui-agent-pack/current/OpenWebUIAgentPack.psm1',
         'tools/openwebui-agent-pack/current/Invoke-OpenWebUIAgentPack.ps1',
         'tools/openwebui-agent-pack/current/Test-OpenWebUIAgentPack.ps1',
-        'tools/openwebui-image-pack/current/VERSION',
-        'tools/openwebui-image-pack/current/MANIFEST.json',
-        'tools/openwebui-image-pack/current/Config/image-pack.config.json',
-        'tools/openwebui-image-pack/current/Tool/ki-stack-generate-image.py',
-        'tools/openwebui-image-pack/current/Workflow/FLUX2-Klein-9B-OpenWebUI-API-FLAT.json',
-        'tools/openwebui-image-pack/current/OpenWebUIImagePack.psm1',
-        'tools/openwebui-image-pack/current/Invoke-OpenWebUIImagePack.ps1',
-        'tools/openwebui-image-pack/current/Test-OpenWebUIImagePack.ps1',
-        'tools/openwebui-image-pack/current/Test-OpenWebUIImagePackWorkflow.ps1',
-        'tools/openwebui-image-pack/current/Test-OpenWebUIImagePackTarget.ps1',
-        'tools/openwebui-image-pack/current/New-OpenWebUIImagePackArchive.ps1',
-        'tools/openwebui-image-pack/current/Start-OpenWebUI-Image-Pack-Execute.cmd',
-        'tools/openwebui-image-pack/current/Start-OpenWebUI-Image-Pack-DryRun.cmd',
-        'tools/openwebui-image-pack/current/Start-OpenWebUI-Image-Pack-SelfTest.cmd',
-        'tools/openwebui-image-pack/current/BUILD-REPORT.json',
-        'tools/openwebui-image-pack/current/VALIDATION-REPORT.json',
-        'tools/openwebui-image-pack/current/SHA256SUMS.txt'
+        'tools/openwebui-visual-pack/current/MANIFEST.json',
+        'tools/openwebui-visual-pack/current/Tool/ki-stack-generate-image.py',
+        'tools/openwebui-visual-pack/current/Tool/ki-stack-generate-video.py',
+        'tools/openwebui-visual-pack/current/Workflow/Z-Image-Turbo-OpenWebUI-API.json',
+        'tools/openwebui-visual-pack/current/Workflow/WAN2.2-T2V-14B-OpenWebUI-API.json',
+        'tools/openwebui-visual-pack/current/Test-KIStack-OpenWebUI-VisualPack-v2.0.5-rc2.ps1',
+        'tools/openwebui-visual-pack/current/SHA256SUMS.txt'
     )
     $missing = @($required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $RootPath $_)) })
     Add-Result 'Required files' ($missing.Count -eq 0) ($(if($missing){$missing -join ', '}else{'complete'}))
 
-    $jsonFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Filter '*.json' | Where-Object { $_.FullName -notmatch $excludedPathPattern })
+    $expectedJson = @($gitTrackedFiles | Where-Object { [IO.Path]::GetExtension($_) -ieq '.json' })
+    $jsonFiles = @($expectedJson | ForEach-Object { Get-Item -LiteralPath (Join-Path $RootPath $_) -ErrorAction Stop })
     $jsonErrors = @()
     foreach ($file in $jsonFiles) {
         try { Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -Depth 100 | Out-Null }
@@ -111,7 +129,8 @@ try {
     }
     Add-Result 'JSON integrity' ($jsonErrors.Count -eq 0) ($(if($jsonErrors){$jsonErrors -join '; '}else{"$($jsonFiles.Count) files parsed"}))
 
-    $psFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File | Where-Object { $_.Extension -in '.ps1','.psm1' -and $_.FullName -notmatch $excludedPathPattern })
+    $expectedPowerShell = @($gitTrackedFiles | Where-Object { [IO.Path]::GetExtension($_) -in '.ps1','.psm1' })
+    $psFiles = @($expectedPowerShell | ForEach-Object { Get-Item -LiteralPath (Join-Path $RootPath $_) -ErrorAction Stop })
     $parseErrors = @()
     foreach ($file in $psFiles) {
         $tokens=$null; $errors=$null
@@ -120,10 +139,72 @@ try {
     }
     Add-Result 'PowerShell parser' ($parseErrors.Count -eq 0) ($(if($parseErrors){$parseErrors -join '; '}else{"$($psFiles.Count) files parsed"}))
 
-    $cmdFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Filter '*.cmd' | Where-Object { $_.FullName -notmatch $excludedPathPattern })
+    $expectedCmd = @($gitTrackedFiles | Where-Object { [IO.Path]::GetExtension($_) -ieq '.cmd' })
+    $cmdFiles = @($expectedCmd | ForEach-Object { Get-Item -LiteralPath (Join-Path $RootPath $_) -ErrorAction Stop })
     $badCmd = @($cmdFiles | Where-Object { -not (Test-CmdCrLf -Path $_.FullName) } | ForEach-Object FullName)
     $bomCmd = @($cmdFiles | Where-Object { $bytes=[IO.File]::ReadAllBytes($_.FullName); $bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF } | ForEach-Object FullName)
     Add-Result 'CMD CRLF/BOM' ($badCmd.Count -eq 0 -and $bomCmd.Count -eq 0) ($(if($badCmd -or $bomCmd){'CRLF='+($badCmd -join ', ')+'; BOM='+($bomCmd -join ', ')}else{"$($cmdFiles.Count) files checked"}))
+    $inventoryMinimum = [ordered]@{ json=100; powerShell=90; cmd=60 }
+    $checkedJson = @($jsonFiles | ForEach-Object { [IO.Path]::GetRelativePath($RootPath,$_.FullName).Replace('\','/') } | Sort-Object)
+    $checkedPowerShell = @($psFiles | ForEach-Object { [IO.Path]::GetRelativePath($RootPath,$_.FullName).Replace('\','/') } | Sort-Object)
+    $checkedCmd = @($cmdFiles | ForEach-Object { [IO.Path]::GetRelativePath($RootPath,$_.FullName).Replace('\','/') } | Sort-Object)
+    $inventoryMismatch = @(
+        Compare-Object $expectedJson $checkedJson
+        Compare-Object $expectedPowerShell $checkedPowerShell
+        Compare-Object $expectedCmd $checkedCmd
+    )
+    $inventoryOk = (
+        $jsonFiles.Count -ge $inventoryMinimum.json -and
+        $psFiles.Count -ge $inventoryMinimum.powerShell -and
+        $cmdFiles.Count -ge $inventoryMinimum.cmd -and
+        $jsonFiles.Count -eq $expectedJson.Count -and
+        $psFiles.Count -eq $expectedPowerShell.Count -and
+        $cmdFiles.Count -eq $expectedCmd.Count -and
+        $inventoryMismatch.Count -eq 0
+    )
+    Add-Result 'Repository file inventory' $inventoryOk (
+        "source=git-ls-files; relativeToRootPath=true; " +
+        "json=$($jsonFiles.Count)/tracked$($expectedJson.Count)/min$($inventoryMinimum.json); " +
+        "powershell=$($psFiles.Count)/tracked$($expectedPowerShell.Count)/min$($inventoryMinimum.powerShell); " +
+        "cmd=$($cmdFiles.Count)/tracked$($expectedCmd.Count)/min$($inventoryMinimum.cmd); " +
+        "omitted=$($inventoryMismatch.Count)"
+    )
+
+    $buildRoots = @(
+        'tools/comfyui/current',
+        'tools/cutover-runtime/current',
+        'tools/integration/current',
+        'tools/models-workflows/current',
+        'tools/openwebui-agent-pack/current',
+        'tools/openwebui-ballistics-pack/current',
+        'tools/openwebui-visual-pack/current',
+        'tools/package-validation-gate/current',
+        'tools/complete-installer/current'
+    )
+    $trackedLookup = [Collections.Generic.HashSet[string]]::new(
+        [StringComparer]::OrdinalIgnoreCase
+    )
+    foreach ($path in $gitTrackedFiles) { [void]$trackedLookup.Add($path) }
+    $untrackedBuildInputs = @(
+        foreach ($buildRoot in $buildRoots) {
+            $fullBuildRoot = Join-Path $RootPath $buildRoot
+            if (-not (Test-Path -LiteralPath $fullBuildRoot -PathType Container)) {
+                continue
+            }
+            foreach ($file in Get-ChildItem -LiteralPath $fullBuildRoot -Recurse -File -Force) {
+                $relative = [IO.Path]::GetRelativePath($RootPath,$file.FullName).Replace('\','/')
+                if (-not $trackedLookup.Contains($relative)) { $relative }
+            }
+        }
+    )
+    Add-Result 'Git tracked build inputs' ($untrackedBuildInputs.Count -eq 0) $(
+        if ($untrackedBuildInputs) {
+            'untracked build-root files: ' + (($untrackedBuildInputs | Sort-Object -Unique) -join ', ')
+        }
+        else {
+            "trackedFiles=$($gitTrackedFiles.Count); buildRoots=$($buildRoots.Count); untrackedBuildInputs=0"
+        }
+    )
 
     $schemaFixtures = Test-ReleaseManifestSchemaFixtures
     Add-Result 'Release manifest schema compatibility' ([bool]$schemaFixtures.success) $(
@@ -211,43 +292,29 @@ try {
     )
     Add-Result 'Documentation version consistency' $documentationVersionsOk "runtime=$runtimeVersion; models=$modelsVersion; applications=$applicationsVersion; integration=$integrationVersion"
 
-    $fluxUiPath=Join-Path $RootPath 'package/Workflows/KI-Stack-FLUX2-Text-to-Image-v1.3.8.json'
-    $fluxApiPath=Join-Path $RootPath 'package/Workflows/FLUX2-Klein-9B-OpenWebUI-API-FLAT.json'
-    $fluxUiHash=if(Test-Path $fluxUiPath){(Get-FileHash $fluxUiPath -Algorithm SHA256).Hash.ToLowerInvariant()}else{''}
-    $fluxApiHash=if(Test-Path $fluxApiPath){(Get-FileHash $fluxApiPath -Algorithm SHA256).Hash.ToLowerInvariant()}else{''}
-    $fluxUi=if(Test-Path $fluxUiPath){Get-Content $fluxUiPath -Raw|ConvertFrom-Json -Depth 100}else{$null}
-    $workflowCatalog=Get-Content (Join-Path $RootPath 'package/Manifests/workflows.catalog.json') -Raw|ConvertFrom-Json -Depth 100
-    $modelsManifest=Get-Content (Join-Path $RootPath 'package/Manifests/models.manifest.json') -Raw|ConvertFrom-Json -Depth 100
-    $canonicalWorkflowHashes=@{
-        'KREA-Realism-Official-Template.json'='344dc0a177b625d7bdde5292771a5455951178d6d498649cbb40f4e690216e65'
-        'PONY-SDXL-Control-QuickTest-v2.json'='7338036490ee1325062c75f10d89a46661cec6c43f17f5d1a035da5db2e68d40'
-        'WAN2.2-5B-Official.json'='7d4195f7a67d01829dd8a3d4c54f9b5fc857399a6f246c5b555b5a66848f27e6'
-    }
-    $canonicalWorkflowOk=$true
-    foreach($entry in $canonicalWorkflowHashes.GetEnumerator()){$path=Join-Path $RootPath ('package/Workflows/'+$entry.Key);if(-not(Test-Path $path)-or(Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()-ne$entry.Value){$canonicalWorkflowOk=$false}}
-    $externalModels=@($modelsManifest.models|Where-Object{$_.PSObject.Properties.Name-contains'profile'-and[string]$_.profile-in@('krea-realism','pony-sdxl','wan22-5b')})
-    $manualExternalModels=@($externalModels|Where-Object{$_.PSObject.Properties.Name-contains'manualExternal'-and[bool]$_.manualExternal})
-    $automaticExternalModels=@($externalModels|Where-Object{-not($_.PSObject.Properties.Name-contains'manualExternal')-or-not[bool]$_.manualExternal})
-    $externalModelsOk=($externalModels.Count-eq8-and[long]($externalModels|Measure-Object sizeBytes -Sum).Sum-eq47356936991-and$manualExternalModels.Count-eq7-and$automaticExternalModels.Count-eq1-and[string]$automaticExternalModels[0].source-eq'https://civitai.com/api/download/models/290640'-and[string]$automaticExternalModels[0].sourceKind-eq'automatic-external-payload'-and@($manualExternalModels|Where-Object{-not[string]::IsNullOrWhiteSpace([string]$_.source)-or$null-ne$_.installationSource-or[string]$_.informationSource-notmatch'^https://'-or[string]$_.informationSource-match'(?i)/resolve/main/'-or[string]$_.sourceKind-ne'manual-external-information-only'-or[string]::IsNullOrWhiteSpace([string]$_.publisher)-or[string]$_.sha256-notmatch'^[0-9a-f]{64}$'-or[long]$_.sizeBytes-le0-or[string]::IsNullOrWhiteSpace([string]$_.relativeTargetPath)}).Count-eq0)
-    $fluxNodeIds=@($fluxUi.nodes.id);$fluxLinkIds=@($fluxUi.links|ForEach-Object{$_[0]})
-    $fluxGraphChecks = @(
-        ($modelsVersion -eq '1.4.9'),
-        ($fluxUiHash -eq 'b0c90e9fd38a4948fe97bbd7e95b2100261dc69b335794ba6c7db2fe4ff539db'),
-        ($fluxApiHash -eq '697ea261e1c62a8e32d775ee9cba5c5c5c3548c6bd082a63a84c71f53c3123a5'),
-        $canonicalWorkflowOk,
-        $externalModelsOk,
-        (@($workflowCatalog.workflows).Count -eq 5),
-        (@($fluxUi.nodes).Count -eq 6),
-        (@($fluxUi.links).Count -eq 5),
-        (@($fluxNodeIds | Group-Object | Where-Object Count -gt 1).Count -eq 0),
-        (@($fluxLinkIds | Group-Object | Where-Object Count -gt 1).Count -eq 0),
-        (@($fluxUi.nodes | Where-Object type -eq 'PreviewImage').Count -eq 1),
-        (@($fluxUi.nodes | Where-Object { $_.type -eq 'SaveImage' -and $_.mode -eq 0 }).Count -eq 1)
+    $activeModelsRoot=Join-Path $RootPath 'tools/models-workflows/current'
+    $activeManifest=Get-Content (Join-Path $activeModelsRoot 'Manifests/models.manifest.json') -Raw|ConvertFrom-Json -Depth 100
+    $activeWorkflows=@(Get-ChildItem (Join-Path $activeModelsRoot 'Workflows') -File -Filter '*.json')
+    $allArtifacts=@($activeManifest.models)+@($activeManifest.lmStudio.files)
+    $downloadContractsOk=(
+        @($activeManifest.models).Count-eq9 -and
+        [long]($activeManifest.models|Measure-Object sizeBytes -Sum).Sum-eq54994650267 -and
+        $activeWorkflows.Count-eq2 -and
+        @($allArtifacts|Where-Object{
+            [string]$_.sha256-notmatch'^[0-9a-f]{64}$' -or
+            [long]$_.sizeBytes-le0 -or
+            @($_.sources).Count-lt1 -or
+            @($_.sources|Where-Object{[string]$_-notmatch'^https://huggingface\.co/.+/resolve/[0-9a-f]{40}/'}).Count
+        }).Count-eq0 -and
+        @($activeManifest.models.fileName|Where-Object{$_-eq'Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf'}).Count-eq1
     )
-    $fluxGraphOk = $fluxGraphChecks -notcontains $false
-    $modelImporterFilesOk=@('package/Import-KIStackExternalModels.ps1','package/Start-KIStack-Model-Import.cmd','package/ExternalModels/README.md','package/Tests/Test-KIStackExternalModelImport.ps1')|ForEach-Object{Test-Path -LiteralPath (Join-Path $RootPath $_)}
-    $fluxGraphOk=$fluxGraphOk-and($modelImporterFilesOk-notcontains$false)
-    Add-Result 'Models / Workflows 1.4.9 graph and external-model contract' $fluxGraphOk "ui=$fluxUiHash; api=$fluxApiHash; canonical=$canonicalWorkflowOk; importer=$($modelImporterFilesOk-notcontains$false); manualExternal=$($manualExternalModels.Count); automaticExternal=$($automaticExternalModels.Count); externalBytes=$([long]($externalModels|Measure-Object sizeBytes -Sum).Sum)"
+    $modelImporterFilesOk=@(
+        'tools/models-workflows/current/Import-KIStackExternalModels.ps1',
+        'tools/models-workflows/current/Tests/Test-KIStackModelDownloadContract.ps1',
+        'tools/models-workflows/current/Tests/TestRangeServer.ps1'
+    )|ForEach-Object{Test-Path -LiteralPath (Join-Path $RootPath $_)}
+    $downloadContractsOk=$downloadContractsOk-and($modelImporterFilesOk-notcontains$false)
+    Add-Result 'Models / Workflows 2.0.1 Greenfield download contract' $downloadContractsOk "workflows=$($activeWorkflows.Count); visualModels=$(@($activeManifest.models).Count); artifacts=$($allArtifacts.Count); externalBytes=$([long]($activeManifest.models|Measure-Object sizeBytes -Sum).Sum)"
 
     $agentRoot = Join-Path $RootPath 'tools/openwebui-agent-pack/current'
     $agentVersion = (Get-Content -LiteralPath (Join-Path $agentRoot 'VERSION') -Raw).Trim()
@@ -256,7 +323,7 @@ try {
     $agentDefinitions = @(Get-ChildItem -LiteralPath (Join-Path $agentRoot 'Definitions') -File -Filter '*.json' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -Depth 30 })
     $agentIds = @($agentDefinitions.id | Sort-Object)
     $agentSchemaOk = (
-        $agentVersion -eq '1.8.3' -and $agentManifest.version -eq $agentVersion -and $agentConfig.version -eq $agentVersion -and $agentManifest.status -eq 'TargetValidated' -and
+        $agentVersion -eq '1.8.6' -and $agentManifest.version -eq $agentVersion -and $agentConfig.version -eq $agentVersion -and $agentManifest.status -eq 'StaticPendingValidation_TargetPending' -and
         ($agentIds -join '|') -eq 'ki-stack-allgemein|ki-stack-it-technik' -and
         @($agentDefinitions | Where-Object { $_.schemaVersion -ne '1.0' -or [string]::IsNullOrWhiteSpace([string]$_.systemPrompt) }).Count -eq 0 -and
         @($agentDefinitions | Where-Object { @($_.knowledge).Count -or @($_.toolIds).Count -or @($_.skillIds).Count -or @($_.functionIds).Count }).Count -eq 0
@@ -273,30 +340,41 @@ try {
     }
     Add-Result 'OpenWebUI Agent Pack SHA256' ($agentSumErrors.Count -eq 0) $(if($agentSumErrors){$agentSumErrors -join '; '}else{'all listed files verified'})
 
-    $imageRoot = Join-Path $RootPath 'tools/openwebui-image-pack/current'
-    $imageVersion = (Get-Content -LiteralPath (Join-Path $imageRoot 'VERSION') -Raw).Trim()
-    $imageManifest = Get-Content -LiteralPath (Join-Path $imageRoot 'MANIFEST.json') -Raw | ConvertFrom-Json -Depth 30
-    $imageConfig = Get-Content -LiteralPath (Join-Path $imageRoot 'Config/image-pack.config.json') -Raw | ConvertFrom-Json -Depth 30
-    $agentExtension = @($agentManifest.registeredExtensions | Where-Object { $_.canonicalToolId -eq 'ki-stack-generate-image' -and $_.openWebUIToolId -eq 'ki_stack_generate_image' -and $_.managedBy -eq 'KI-STACK-OPENWEBUI-IMAGE-PACK' })
-    $imageContractOk = $imageVersion -eq '1.10.0' -and $imageManifest.version -eq $imageVersion -and $imageConfig.version -eq $imageVersion -and $imageManifest.status -eq 'RegressionValidated' -and $imageManifest.managedTool.id -eq 'ki-stack-generate-image' -and $imageManifest.managedTool.openWebUIId -eq 'ki_stack_generate_image' -and $imageManifest.managedTool.managedBy -eq 'KI-STACK-OPENWEBUI-IMAGE-PACK' -and @($imageManifest.methods) -contains 'generate_image' -and @($imageManifest.methods) -contains 'generate_pony_image' -and $imageConfig.comfyEndpoint -eq 'http://127.0.0.1:8188' -and $imageConfig.pony.checkpoint -eq 'ponyDiffusionV6XL_v6StartWithThisOne.safetensors' -and $imageConfig.pony.width -eq 1024 -and $imageConfig.pony.height -eq 1024 -and $imageConfig.pony.stopAtClipLayer -eq -2 -and $imageConfig.pony.steps -eq 40 -and $imageConfig.pony.cfg -eq 3.1 -and $imageConfig.pony.sampler -eq 'euler' -and $imageConfig.pony.scheduler -eq 'normal' -and $agentExtension.Count -eq 1
-    Add-Result 'OpenWebUI Image Pack contract' $imageContractOk "version=$imageVersion; tool=$($imageManifest.managedTool.id)"
-    $imageSumErrors = @()
-    foreach ($line in Get-Content -LiteralPath (Join-Path $imageRoot 'SHA256SUMS.txt')) {
+    $visualRoot = Join-Path $RootPath 'tools/openwebui-visual-pack/current'
+    $visualManifest = Get-Content -LiteralPath (Join-Path $visualRoot 'MANIFEST.json') -Raw | ConvertFrom-Json -Depth 30
+    $visualToolIds = @($visualManifest.managedTools.id | Sort-Object)
+    $visualContractOk = (
+        [string]$visualManifest.version -eq '2.0.5-rc2' -and
+        ($visualToolIds -join '|') -eq 'ki_stack_generate_image|ki_stack_generate_video' -and
+        [string]$visualManifest.properties.openWebUIFileItemContract -eq 'type=file,id,name,url,content_type,size,meta' -and
+        [string]$visualManifest.properties.attachmentEvent -eq 'files' -and
+        -not [bool]$visualManifest.properties.embedsUsedForMp4
+    )
+    Add-Result 'OpenWebUI Visual Pack contract' $visualContractOk "version=$($visualManifest.version); tools=$($visualToolIds -join ',')"
+    $visualSumErrors = @()
+    foreach ($line in Get-Content -LiteralPath (Join-Path $visualRoot 'SHA256SUMS.txt')) {
         if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith('#')) { continue }
-        if ($line -notmatch '^([0-9a-fA-F]{64})\s+\*?(.+)$') { $imageSumErrors += "Invalid line: $line"; continue }
-        $target = Join-Path $imageRoot $Matches[2].Replace('/',[IO.Path]::DirectorySeparatorChar)
-        if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { $imageSumErrors += "Missing: $($Matches[2])"; continue }
-        if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Matches[1].ToLowerInvariant()) { $imageSumErrors += "Mismatch: $($Matches[2])" }
+        if ($line -notmatch '^([0-9a-fA-F]{64})\s+\*?(.+)$') { $visualSumErrors += "Invalid line: $line"; continue }
+        $target = Join-Path $visualRoot $Matches[2].Replace('/',[IO.Path]::DirectorySeparatorChar)
+        if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { $visualSumErrors += "Missing: $($Matches[2])"; continue }
+        if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Matches[1].ToLowerInvariant()) { $visualSumErrors += "Mismatch: $($Matches[2])" }
     }
-    Add-Result 'OpenWebUI Image Pack SHA256' ($imageSumErrors.Count -eq 0) $(if($imageSumErrors){$imageSumErrors -join '; '}else{'all listed files verified'})
+    Add-Result 'OpenWebUI Visual Pack SHA256' ($visualSumErrors.Count -eq 0) $(if($visualSumErrors){$visualSumErrors -join '; '}else{'all listed files verified'})
 
-    $trackedFiles = @(& git -C $RootPath ls-files)
-    $forbiddenImageArtifacts = @($trackedFiles | Where-Object {
-        $_ -match '^(?:_import/|tools/openwebui-image-pack/current/(?:backups?|history|output)/)' -or
-        $_ -match '^tools/openwebui-image-pack/current/.+\.(?:png|jpe?g|webp|gif|zip|pyc)$' -or
-        $_ -match '^tools/openwebui-image-pack/current/.*/__pycache__/'
+    $trackedFiles = @(Get-ChildItem -LiteralPath $RootPath -Recurse -File -Force |
+        Where-Object {
+            $relative=[IO.Path]::GetRelativePath($RootPath,$_.FullName).Replace('\','/')
+            -not (Test-RepositoryPathExcluded $_.FullName) -and
+            $relative -notmatch '^(?:_build|_validate)[^/]*/' -and
+            $relative -notmatch '^tools/[^/]+/current/Payload/'
+        } |
+        ForEach-Object { [IO.Path]::GetRelativePath($RootPath,$_.FullName).Replace('\','/') })
+    $forbiddenVisualArtifacts = @($trackedFiles | Where-Object {
+        $_ -match '^(?:_import/|tools/openwebui-visual-pack/current/(?:backups?|history|output)/)' -or
+        $_ -match '^tools/openwebui-visual-pack/current/.+\.(?:png|jpe?g|webp|gif|zip|pyc)$' -or
+        $_ -match '^tools/openwebui-visual-pack/current/.*/__pycache__/'
     })
-    Add-Result 'OpenWebUI Image Pack repository artifacts' ($forbiddenImageArtifacts.Count -eq 0) $(if($forbiddenImageArtifacts){$forbiddenImageArtifacts -join ', '}else{'no rendered images, archives, backups, bytecode or private import files tracked'})
+    Add-Result 'OpenWebUI Visual Pack repository artifacts' ($forbiddenVisualArtifacts.Count -eq 0) $(if($forbiddenVisualArtifacts){$forbiddenVisualArtifacts -join ', '}else{'no rendered media, archives, backups, bytecode or private import files present'})
 
     $ballisticsRoot=Join-Path $RootPath 'tools/openwebui-ballistics-pack/current'
     $ballisticsVersion=(Get-Content (Join-Path $ballisticsRoot 'VERSION') -Raw).Trim()
@@ -312,9 +390,10 @@ try {
     Add-Result 'OpenWebUI Ballistics Pack repository artifacts' ($forbiddenBallistics.Count-eq0) $(if($forbiddenBallistics){$forbiddenBallistics-join', '}else{'no wheels, archives, user data, bytecode or private imports tracked'})
 
     $gitFreePackages=@(
-        @{name='ComfyUI';root='tools/comfyui/current';version='1.2.2'},
-        @{name='Integration';root='tools/integration/current';version='1.5.9'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.2.9'}
+        @{name='ComfyUI';root='tools/comfyui/current';version='1.2.3'},
+        @{name='Integration';root='tools/integration/current';version='1.5.10'},
+        @{name='Cutover Runtime';root='tools/cutover-runtime/current';version='1.6.4'},
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.3.0-rc12'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root
@@ -325,12 +404,12 @@ try {
         Add-Result "$($packageContract.name) version and SHA256 contract" ($version-eq$packageContract.version-and[string]$manifest.version-eq$version-and$sumErrors.Count-eq0) "version=$version; status=$($manifest.status); errors=$($sumErrors -join ', ')"
     }
     $completeRoot=Join-Path $RootPath 'tools/complete-installer/current'
-    $completeRequired=@('CompleteInstaller.psm1','Invoke-KIStackCompleteInstaller.ps1','Import-KIStackExternalModels.ps1','Start-KIStack-Model-Import.cmd','ExternalModels/README.md','Test-KIStackCompleteInstaller.ps1','Test-KIStackCompleteInstallerTarget.ps1','New-KIStackCompleteInstallerArchive.ps1','Contracts/COMPONENTS.json','Contracts/PAYLOADS.json','Contracts/TRANSACTION.schema.json','Contracts/RESUME.schema.json','Contracts/ROLLBACK.md','Start-KIStack-Installer.cmd','Start-KIStack-Audit.cmd','Start-KIStack-Repair.cmd','Start-KIStack-Validate.cmd','Start-KIStack-Rollback.cmd','Start-KIStack.cmd','Stop-KIStack.cmd')
+    $completeRequired=@('CompleteInstaller.psm1','Invoke-KIStackCompleteInstaller.ps1','Import-KIStackExternalModels.ps1','Start-KIStack-Model-Import.cmd','ExternalModels/README.md','Test-KIStackCompleteInstaller.ps1','New-KIStackCompleteInstallerArchive.ps1','Contracts/COMPONENTS.json','Contracts/PAYLOADS.json','Contracts/TRANSACTION.schema.json','Contracts/RESUME.schema.json','Contracts/ROLLBACK.md','Validation/VALIDATION-CONTRACT.json','Validation/REGRESSION-COVERAGE.json','Documentation/MODEL-CONTRACT.md','Documentation/MODELLVERTRAG.md','Start-KIStack-Installer.cmd','Start-KIStack-Audit.cmd','Start-KIStack-Repair.cmd','Start-KIStack-Validate.cmd','Start-KIStack-Rollback.cmd','Start-KIStack.cmd','Stop-KIStack.cmd')
     $completeMissing=@($completeRequired|Where-Object{-not(Test-Path (Join-Path $completeRoot $_))})
     Add-Result 'Complete Installer source completeness' ($completeMissing.Count-eq0) $(if($completeMissing){$completeMissing-join', '}else{'complete'})
     $completeComponents=Get-Content (Join-Path $completeRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json
-    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.2' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '1.4.9' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.9'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
-    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.2; Models/Workflows=1.4.9; Integration=1.5.9; optional Ballistics=1.0.0'
+    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.3' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '2.0.1' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.10'-and[string]($completeComponents.components|Where-Object id -eq 'cutover-runtime').version-eq'1.6.4'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-visual-pack').version-eq'2.0.5-rc2'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
+    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.3; Visual Models/Workflows=2.0.1; Integration=1.5.10; Cutover=1.6.4; Visual Pack=2.0.5-rc2; optional Ballistics=1.0.0'
     $completeExecutable=Get-ChildItem $completeRoot -Recurse -File|Where-Object{$_.Extension-in'.ps1','.psm1','.cmd'-and$_.Name-ne'Test-KIStackCompleteInstaller.ps1'}|ForEach-Object{Get-Content $_.FullName -Raw}
     $forbiddenRuntime=('(?im)\b'+'git'+'\s+(?:cl'+'one|check'+'out|pu'+'ll|fetch|rev-parse|describe)\b|\.'+'git'+'(?:[/\\]|\b)|\bor'+'igin\b|comm'+'it[- ]hash|tr'+'ee[- ]hash')
     Add-Result 'Complete Installer Git-free runtime' (-not(($completeExecutable-join"`n")-match$forbiddenRuntime)) 'no Git acquisition or metadata dependency in executable sources'
@@ -354,7 +433,7 @@ try {
 
     $secretPatterns = @('ghp_[A-Za-z0-9]{20,}','github_pat_[A-Za-z0-9_]{20,}','AKIA[0-9A-Z]{16}','-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----','sk-[A-Za-z0-9]{20,}')
     $secretHits=@()
-    $textFiles=Get-ChildItem -LiteralPath $RootPath -Recurse -File | Where-Object { $_.Length -lt 5MB -and $_.Extension -in '.ps1','.psm1','.cmd','.json','.yml','.yaml','.md','.txt' -and $_.FullName -notmatch $excludedPathPattern }
+    $textFiles=Get-ChildItem -LiteralPath $RootPath -Recurse -File | Where-Object { $_.Length -lt 5MB -and $_.Extension -in '.ps1','.psm1','.cmd','.json','.yml','.yaml','.md','.txt' -and -not (Test-RepositoryPathExcluded $_.FullName) }
     foreach($file in $textFiles){
         $text=Get-Content -LiteralPath $file.FullName -Raw
         foreach($pattern in $secretPatterns){ if($text -match $pattern){$secretHits += "$($file.FullName): $pattern"} }

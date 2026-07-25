@@ -10,11 +10,11 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 |---|---:|---|
 | Foundation / Runtime | 1.0.9 | Stable reference; target-system validated |
 | Python / Git | 1.1.5 | Stable; target-system validated |
-| ComfyUI | 1.2.2 | Stable; Git-free content contract target-system validated |
+| ComfyUI | 1.2.3 | RC12 pending; immutable ComfyUI 0.28.0 manufacturer revision, optional verified cache |
 | Models / Workflows | 1.4.9 | Central transactional ComfyUI and Heretic LM Studio external-model importer; bilingual provisioning documentation |
 | Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
-| Integration | 1.5.9 | Stable; Git-free SearXNG payload and repaired lifecycle target-system validated |
-| Cutover runtime | 1.6.3 | Accepted runtime baseline |
+| Integration | 1.5.10 | RC12 pending; immutable SearXNG revision plus tracked overlay, optional verified cache |
+| Cutover runtime | 1.6.4 | RC12 pending; continuation state generated transaction-locally from tracked sources |
 | Production recovery | 1.7.0-r7 | Target-system accepted; portable runtime resolution |
 | Universal package Validation Gate | 1.0.2 | Activated on the target system |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |

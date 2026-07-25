@@ -1,18 +1,24 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
   "packageId": "KI-STACK-COMPLETE-INSTALLER",
   "name": "KI-Stack Complete Installer",
-  "version": "2.2.9",
-  "status": "TargetSystemValidatedExistingInstallation",
-  "freshInstallStatus": "ContractAndFixtureValidated",
-  "existingInstallationStatus": "TargetSystemValidatedExistingInstallation",
-  "updatedComponents": {"modelsWorkflows":"1.4.9"},
-  "operations": {"manualStartupOnly":true,"desktopShortcuts":true,"knowledgeDependency":false,"knowledgeRollback":true,"rollback":true},
-  "optionalComponents": {"openWebUIBallistics":"1.0.0"},
-  "runtimeGitDependency": false,
-  "offline": false,
+  "version": "2.3.0-rc12",
+  "status": "SourcePendingValidation_TargetPending",
+  "baseVersion": "2.2.9",
+  "components": {
+    "visualModelsWorkflows": "2.0.1",
+    "openWebUIAgentPack": "1.8.6",
+    "openWebUIVisualPack": "2.0.5-rc2"
+  },
+  "modelPolicy": {
+    "chatLlm": "Heretic only",
+    "embedding": "Nomic only",
+    "comfyUI": ["Z-Image Turbo","WAN2.2 T2V 14B","LightX2V high 4-step LoRA","LightX2V low 4-step LoRA"]
+  },
   "containsModels": false,
-  "externalModelBytes": 47356936991,
-  "externalLmStudioModelBytes": 20676237728,
-  "entryPoints": ["Start-KIStack-Installer.cmd","Resume-KIStack-Installer.cmd","Status-KIStack.cmd","Start-KIStack-Audit.cmd","Start-KIStack-Repair.cmd","Start-KIStack-Validate.cmd","Start-KIStack-Rollback.cmd","Start-KIStack.cmd","Stop-KIStack.cmd"]
+  "manualPreloadsRequired": false,
+  "automaticVersionedDownloads": true,
+  "downloadResume": true,
+  "runtimeGitDependency": false,
+  "targetSystemMutatedDuringBuild": false
 }

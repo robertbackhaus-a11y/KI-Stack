@@ -13,17 +13,17 @@ The supported topology is Windows for user entry points, LM Studio, ComfyUI and 
 | Component | Version / status | Release or contract | SHA256 / integrity record |
 |---|---|---|---|
 | Cutover runtime | 1.6.3, accepted baseline | `cutover-v1.6.3-rc1` | core `e387199493575131045c888ebbd4c1313bb985b13e3a1f72c3f99efe9bf2b85d` |
-| ComfyUI | 1.2.2, target-system validated | embedded Complete payload | `tools/complete-installer/current/Contracts/PAYLOADS.json` |
-| Models / Workflows | 1.4.9, Heretic LM Studio contract | `models-workflows-v1.4.9` | package `SHA256SUMS.txt`; models are external |
+| ComfyUI | 1.2.2, target-system validated | embedded Complete payload | `tools/comfyui/current/MANIFEST.json` |
+| Visual Models / Workflows | 2.0.0; Heretic chat-only, Nomic embedding-only | `tools/models-workflows/current` | package `SHA256SUMS.txt`; models are external |
 | Applications | 1.4.10, accepted | Cutover payload | package manifest contract |
 | Integration / SearXNG | 1.5.9, target-system validated | embedded Complete payload | payload contract |
 | Production Recovery | 1.7.0-r7, target-system accepted | `production-v1.7.0-r7` | `0b4b28c886f01939fb45a9d7f3ce9f5323f57a8208e42381088544afa5955c59` |
 | Validation Gate | 1.0.2, active | production release | `a03dd59df2322bc37b763d8d16ff6127f04b969069a698b361e6c52099a7db81` |
 | Target Acceptance | 1.0.10, passed | production release | `bbfe6e79438406fecbc301f8883a7b629ca0c1ff5736917c267c02ec79fce0d6` |
 | OpenWebUI Agent Pack | 1.8.3, target validated | dedicated release | pack `SHA256SUMS.txt` |
-| OpenWebUI Image Pack | 1.10.0, regression validated; Pony path practically verified | dedicated release | pack `SHA256SUMS.txt` |
+| OpenWebUI Visual Pack | 2.0.5-rc2, persistent image and MP4 attachments | embedded Complete payload | pack `SHA256SUMS.txt` |
 | OpenWebUI Ballistics Pack | 1.0.0, target validated | dedicated release | pack `SHA256SUMS.txt` |
-| Complete Installer | 2.2.9, Heretic LM Studio contract | `complete-v2.2.9` | package `SHA256SUMS.txt` |
+| Complete Installer | 2.3.0-rc2, source-reproducible | `tools/complete-installer/current` | package `SHA256SUMS.txt` |
 
 `production-release-manifest.json`, each package `MANIFEST.json`, `SHA256SUMS.txt` and release sidecar are the authoritative integrity records. The target acceptance result is `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
 
@@ -39,15 +39,15 @@ LM Studio supplies its local OpenAI-compatible endpoint and `/v1/models`. OpenWe
 
 ## 5. OpenWebUI profiles and integrations
 
-`Allgemein` and `KI & IT-Technik` use native function calling, have `knowledge=[]`, use the built-in browser-local Pyodide Code Interpreter, and bind only `ki_stack_generate_image`. `18Bravo` has `knowledge=[]`, disables Code Interpreter and binds only `ki_stack_ballistics_calculator`. `execute_code` is a built-in capability, not a workspace tool ID.
+`Allgemein` and `KI & IT-Technik` use native function calling, have `knowledge=[]`, use the built-in browser-local Pyodide Code Interpreter, and bind the managed image and video tools. `18Bravo` has `knowledge=[]`, disables Code Interpreter and binds only `ki_stack_ballistics_calculator`. Heretic is the only selectable chat LLM; Nomic is embedding-only. `execute_code` is a built-in capability, not a workspace tool ID.
 
-The image tool sends the approved FLUX2 API workflow to ComfyUI and registers the produced image through OpenWebUI's file store. The chat retains an embedded image and a downloadable attachment after reload; it does not expose `/mnt/uploads`, Windows paths or ComfyUI paths. The ballistics tool remains restricted to lawful sporting, hunting and engineering calculations.
+The visual tools send only the approved Z-Image Turbo or WAN2.2 T2V 14B API workflow to ComfyUI. Results are registered through OpenWebUI's file store. Images remain embedded; MP4 results remain a single persistent download attachment after reload and resolve through `/api/v1/files/{id}/content`. Neither tool exposes `/mnt/uploads`, Windows paths or ComfyUI paths. The ballistics tool remains restricted to lawful sporting, hunting and engineering calculations.
 
 ## 6. Workflows and model contracts
 
-The required FLUX2 profile uses `flux-2-klein-9b-fp8.safetensors`, `qwen_3_8b_fp8mixed.safetensors` and `flux2-vae.safetensors`. Canonical workflows are the FLUX2 UI and API workflows, KREA Realism, Pony SDXL and WAN 2.2 Official. KREA requires four external files, Pony requires its fixed Civitai model-version-290640 contract, and WAN requires three external files. The full external-model contract totals 47,356,936,991 bytes and records filename, relative target, byte size, SHA256, license and acquisition mode in `package/Manifests/models.manifest.json`.
+The only canonical visual workflows are Z-Image Turbo and WAN2.2 T2V 14B. Their nine external files are `z_image_turbo_bf16.safetensors`, `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf`, `ae.safetensors`, the high- and low-noise WAN2.2 T2V 14B diffusion models, `umt5_xxl_fp8_e4m3fn_scaled.safetensors`, `wan_2.1_vae.safetensors` and both high/low LightX2V four-step LoRAs. The external visual-model contract totals 54,994,650,267 bytes and is defined in `tools/models-workflows/current/Manifests/models.manifest.json`.
 
-The central importer verifies target and source by filename, size and SHA256, uses a `.partial` copy followed by an atomic move, records a resumable transaction and rolls back only files from that transaction. Seven models require manual external provision; their `informationSource` identifies the publisher page only and is never an installable payload URL. Their trust anchors are publisher, exact filename, size and SHA256; mutable `resolve/main` URLs are not trusted by the importer. Pony is the sole automatic external acquisition through fixed Civitai model version 290640, followed by size and SHA256 verification. Git, commit-hash and `latest` acquisition are not used. The package is therefore not offline.
+The central importer verifies the declared filename and exact size and, where the contract provides one, SHA256. It uses a `.partial` copy followed by an atomic move, records a resumable transaction and rolls back only files from that transaction. Model files are external and are never embedded in the Complete Installer.
 
 ## 7. Transaction and lifecycle architecture
 
@@ -61,7 +61,7 @@ API keys are requested interactively as `SecureString`, used only in memory and 
 
 The Complete Installer is Git-free at runtime but not fully offline because model files are external and license-gated or manually provided. Fresh-install behavior is contract and fixture validated; physical target validation is for the existing installation. Production Recovery r7 and Target Acceptance 1.0.10 are pinned external references, not automatically overlaid.
 
-`main` is protected by pull-request-only changes, no force pushes and no deletion. Gitleaks, PSScriptAnalyzer, Bandit, CodeQL and the model-source contract are mandatory checks. CI actions are pinned to full commit SHAs. Every Models / Workflows, Complete Installer and Image Pack release provides an SPDX-2.3 JSON SBOM that identifies the release ZIP by SHA256, listed components and third-party dependencies; all model binaries are explicitly external and not contained. GitHub build provenance and SPDX SBOM attestations are created for the exact published ZIP bytes.
+`main` is protected by pull-request-only changes, no force pushes and no deletion. Gitleaks, PSScriptAnalyzer, Bandit, CodeQL and the model-source contract are mandatory checks. CI actions are pinned to full commit SHAs. Every Models / Workflows, Complete Installer and Visual Pack release provides an SPDX-2.3 JSON SBOM that identifies the release ZIP by SHA256, listed components and third-party dependencies; all model binaries are explicitly external and not contained. GitHub build provenance and SPDX SBOM attestations are created for the exact published ZIP bytes.
 
 ```powershell
 gh attestation verify .\<release>.zip --repo robertbackhaus-a11y/KI-Stack

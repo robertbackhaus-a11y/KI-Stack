@@ -1,9 +1,25 @@
 {
-  "schemaVersion":"1.0","payloadId":"KI-STACK-COMFYUI-SOURCE-V0.28.0","componentVersion":"1.2.2",
-  "source":"https://github.com/robertbackhaus-a11y/KI-Stack/releases/download/comfyui-v1.2.2/KI-Stack-ComfyUI-Source-Payload-v0.28.0.zip",
-  "fileName":"KI-Stack-ComfyUI-Source-Payload-v0.28.0.zip","sizeBytes":12163194,
-  "sha256":"6d5d66394152cbfc6a8ae28e8ba89588d792292ee3a879f8e50f7bbc097fe4ac",
-  "contentManifest":"Payload/CONTENT-MANIFEST.json","target":"C:\\KI-Stack\\ComfyUI","offlineAvailableInComponentArchive":true,
-  "license":"GPL-3.0; upstream LICENSE is included","redistribution":"source payload included",
-  "repair":"restore only missing or hash-mismatched managed source files; preserve models, workflows, custom nodes and user data"
+  "schemaVersion": "2.0",
+  "payloadId": "KI-STACK-COMFYUI-SOURCE-V0.28.0",
+  "componentVersion": "1.2.3",
+  "upstream": {
+    "repository": "https://github.com/Comfy-Org/ComfyUI",
+    "revision": "700821e1364eaab0e8f21c538a2131719fec57bf",
+    "url": "https://codeload.github.com/Comfy-Org/ComfyUI/zip/700821e1364eaab0e8f21c538a2131719fec57bf",
+    "fileName": "ComfyUI-700821e1364eaab0e8f21c538a2131719fec57bf.zip",
+    "sizeBytes": 12167070,
+    "sha256": "493732242c4564b8a119cd29f3381d3347983a7d03933ce607606b63e9f9cd38",
+    "license": "GPL-3.0-only"
+  },
+  "contentManifest": "CONTENT-MANIFEST.json",
+  "output": {
+    "fileName": "KI-Stack-ComfyUI-Source-Payload-v0.28.0.zip",
+    "sizeBytes": 11386039,
+    "sha256": "5931cb2095f2698166c8a25cdc3aed89394fce4ba76309f0f52dac4b6b43ca40"
+  },
+  "cacheOptional": true,
+  "resumeSupported": true,
+  "manualPreloadRequired": false,
+  "target": "C:\\KI-Stack\\ComfyUI",
+  "repair": "restore only missing or hash-mismatched managed source files; preserve models, workflows, custom nodes and user data"
 }

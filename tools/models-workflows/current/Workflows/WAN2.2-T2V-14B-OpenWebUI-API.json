@@ -1,0 +1,120 @@
+{
+  "71": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader"
+  },
+  "72": {
+    "inputs": {
+      "text": "low quality, worst quality, blurry details, overexposure, underexposure, JPEG artifacts, compression artifacts, text, subtitles, watermark, logo, static frame, frozen motion, deformed anatomy, distorted face, poorly drawn face, poorly drawn hands, extra limbs, missing limbs, duplicated limbs, extra arms, extra legs, extra fingers, missing fingers, fused fingers, malformed joints, unnatural proportions, detached body parts, floating objects, floating accessories, disconnected components, duplicated objects, fused objects, intersecting geometry, fragmented objects, incomplete objects, impossible construction, inconsistent scale, broken perspective, detached optic, floating scope, misaligned optic, duplicated optic, missing mounting interface, impossible weapon geometry, fused weapon parts, temporal flicker, frame-to-frame inconsistency, identity drift, object morphing, disappearing objects, appearing objects, unstable geometry, warped motion, unnatural movement, unstable camera",
+      "clip": ["71", 0]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "73": {
+    "inputs": {"vae_name": "wan_2.1_vae.safetensors"},
+    "class_type": "VAELoader"
+  },
+  "74": {
+    "inputs": {"width": 640, "height": 640, "length": 81, "batch_size": 1},
+    "class_type": "EmptyHunyuanLatentVideo"
+  },
+  "75": {
+    "inputs": {
+      "unet_name": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader"
+  },
+  "76": {
+    "inputs": {
+      "unet_name": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader"
+  },
+  "78": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": 0,
+      "steps": 4,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 2,
+      "end_at_step": 4,
+      "return_with_leftover_noise": "disable",
+      "model": ["86", 0],
+      "positive": ["89", 0],
+      "negative": ["72", 0],
+      "latent_image": ["81", 0]
+    },
+    "class_type": "KSamplerAdvanced"
+  },
+  "80": {
+    "inputs": {
+      "filename_prefix": "video/wan22-openwebui",
+      "format": "mp4",
+      "codec": "h264",
+      "video": ["88", 0]
+    },
+    "class_type": "SaveVideo"
+  },
+  "81": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": 0,
+      "steps": 4,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "start_at_step": 0,
+      "end_at_step": 2,
+      "return_with_leftover_noise": "enable",
+      "model": ["82", 0],
+      "positive": ["89", 0],
+      "negative": ["72", 0],
+      "latent_image": ["74", 0]
+    },
+    "class_type": "KSamplerAdvanced"
+  },
+  "82": {
+    "inputs": {"shift": 5.0, "model": ["83", 0]},
+    "class_type": "ModelSamplingSD3"
+  },
+  "83": {
+    "inputs": {
+      "lora_name": "Wan2.2_LightX2V_high_n54vv.safetensors",
+      "strength_model": 1.0,
+      "model": ["75", 0]
+    },
+    "class_type": "LoraLoaderModelOnly"
+  },
+  "85": {
+    "inputs": {
+      "lora_name": "Wan2.2_LightX2V_low_n54vv.safetensors",
+      "strength_model": 1.0,
+      "model": ["76", 0]
+    },
+    "class_type": "LoraLoaderModelOnly"
+  },
+  "86": {
+    "inputs": {"shift": 5.0, "model": ["85", 0]},
+    "class_type": "ModelSamplingSD3"
+  },
+  "87": {
+    "inputs": {"samples": ["78", 0], "vae": ["73", 0]},
+    "class_type": "VAEDecode"
+  },
+  "88": {
+    "inputs": {"images": ["87", 0], "fps": 16.0, "bit_depth": 8},
+    "class_type": "CreateVideo"
+  },
+  "89": {
+    "inputs": {"text": "", "clip": ["71", 0]},
+    "class_type": "CLIPTextEncode"
+  }
+}

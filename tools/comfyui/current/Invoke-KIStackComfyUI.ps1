@@ -5,7 +5,7 @@ $ErrorActionPreference='Stop'
 Import-Module (Join-Path $PSScriptRoot 'ComfyUIPackage.psm1') -Force
 $result = switch ($Action) {
     'Audit' { Test-ComfyTarget $PSScriptRoot $TargetRoot }
-    'DryRun' { [pscustomobject]@{version='1.2.2';action=$Action;runtimeGitDependency=$false;mutatesTarget=$false;target=$TargetRoot} }
+    'DryRun' { [pscustomobject]@{version='1.2.3';action=$Action;runtimeGitDependency=$false;mutatesTarget=$false;target=$TargetRoot} }
     'Validate' { Test-ComfyTarget $PSScriptRoot $TargetRoot }
     'Rollback' { if (-not $BackupPath) { throw 'BackupPath required' }; Restore-ComfyPayload $BackupPath $TargetRoot }
     default { Install-ComfyPayload $PSScriptRoot $TargetRoot }

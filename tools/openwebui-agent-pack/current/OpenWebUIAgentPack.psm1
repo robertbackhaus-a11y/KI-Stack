@@ -50,12 +50,61 @@ function Get-AgentPackOfferedModels {
     return @($response.data)
 }
 
+function Get-AgentPackOpenAIConfig {
+    param([string]$Endpoint,[Security.SecureString]$ApiToken)
+    return Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/openai/config'
+}
+
+function Get-AgentPackLmStudioConnectionIndex {
+    param([Parameter(Mandatory)][object]$Config)
+    $matches = [Collections.Generic.List[int]]::new()
+    for ($index = 0; $index -lt @($Config.OPENAI_API_BASE_URLS).Count; $index++) {
+        $url = ([string]$Config.OPENAI_API_BASE_URLS[$index]).TrimEnd('/')
+        if ($url -in @('http://127.0.0.1:1234/v1','http://localhost:1234/v1')) { $matches.Add($index) }
+    }
+    if ($matches.Count -ne 1) {
+        throw "Genau eine LM-Studio-Verbindung ist erforderlich; gefunden: $($matches.Count)."
+    }
+    return $matches[0]
+}
+
+function Set-AgentPackChatModelAllowList {
+    param(
+        [string]$Endpoint,
+        [Security.SecureString]$ApiToken,
+        [Parameter(Mandatory)][string]$BaseModelId
+    )
+    $config = Get-AgentPackOpenAIConfig -Endpoint $Endpoint -ApiToken $ApiToken
+    $index = Get-AgentPackLmStudioConnectionIndex -Config $config
+    $configs = [ordered]@{}
+    foreach ($property in $config.OPENAI_API_CONFIGS.PSObject.Properties) { $configs[$property.Name] = $property.Value }
+    $key = [string]$index
+    $connection = [ordered]@{}
+    if ($configs.Contains($key) -and $null -ne $configs[$key]) {
+        foreach ($property in $configs[$key].PSObject.Properties) { $connection[$property.Name] = $property.Value }
+    }
+    $connection['enable'] = $true
+    $connection['model_ids'] = @($BaseModelId)
+    $configs[$key] = $connection
+    $body = [ordered]@{
+        ENABLE_OPENAI_API = [bool]$config.ENABLE_OPENAI_API
+        OPENAI_API_BASE_URLS = @($config.OPENAI_API_BASE_URLS)
+        OPENAI_API_KEYS = @($config.OPENAI_API_KEYS)
+        OPENAI_API_CONFIGS = $configs
+    }
+    $null = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/openai/config/update' -Method POST -Body $body
+    $readback = Get-AgentPackOpenAIConfig -Endpoint $Endpoint -ApiToken $ApiToken
+    $actual = @($readback.OPENAI_API_CONFIGS.$key.model_ids)
+    if (($actual -join '|') -cne $BaseModelId) {
+        throw "OpenWebUI-Chatmodell-Allowlist-Readback fehlgeschlagen: $($actual -join ', ')."
+    }
+    return [pscustomobject]@{ connectionIndex=$index; modelIds=$actual }
+}
+
 function Resolve-AgentPackBaseModel {
     param([object[]]$OfferedModels,[AllowEmptyString()][string]$BaseModelId)
     $usable = @($OfferedModels | Where-Object {
-        -not [string]::IsNullOrWhiteSpace([string]$_.id) -and
-        [string]$_.id -ne 'arena-model' -and
-        [string]$_.id -notmatch '(?i)embedding'
+        [string]$_.id -eq 'qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved'
     })
     $availableIds = @($usable | ForEach-Object { [string]$_.id })
     if (-not [string]::IsNullOrWhiteSpace($BaseModelId)) {
@@ -73,18 +122,28 @@ function Resolve-AgentPackBaseModel {
 
 function Get-AgentPackRegisteredExtensionToolIds {
     param([string]$Endpoint,[Security.SecureString]$ApiToken)
-    try {
-        $tool = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/api/v1/tools/id/ki_stack_generate_image'
-        if ([string]$tool.id -eq 'ki_stack_generate_image' -and
-            [string]$tool.meta.manifest.managedBy -eq 'KI-STACK-OPENWEBUI-IMAGE-PACK' -and
-            [string]$tool.meta.manifest.version -eq '1.9.0' -and
-            [string]$tool.meta.manifest.canonical_id -eq 'ki-stack-generate-image') { return @('ki_stack_generate_image') }
-        return @()
+    $contracts = @(
+        [ordered]@{ id='ki_stack_generate_image'; canonical='ki-stack-generate-image' },
+        [ordered]@{ id='ki_stack_generate_video'; canonical='ki-stack-generate-video' }
+    )
+    $registered = [Collections.Generic.List[string]]::new()
+    foreach ($contract in $contracts) {
+        try {
+            $tool = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path ('/api/v1/tools/id/' + $contract.id)
+            if ([string]$tool.id -ne $contract.id -or
+                [string]$tool.meta.manifest.managedBy -ne 'KI-STACK-OPENWEBUI-VISUAL-PACK' -or
+                [string]$tool.meta.manifest.version -ne '2.0.5-rc2' -or
+                [string]$tool.meta.manifest.canonical_id -ne $contract.canonical) {
+                throw "Visual-Tool-Vertrag verletzt: $($contract.id)"
+            }
+            $registered.Add($contract.id)
+        }
+        catch {
+            if ($null -ne $_.Exception.Response -and $_.Exception.Response.StatusCode.value__ -eq 404) { continue }
+            throw
+        }
     }
-    catch {
-        if ($_.Exception.Response.StatusCode.value__ -eq 404) { return @() }
-        throw
-    }
+    return @($registered)
 }
 
 function New-AgentPackModelForm {
@@ -101,7 +160,7 @@ function New-AgentPackModelForm {
             skillIds = @()
             functionIds = @()
             managedBy = 'KI-STACK-OPENWEBUI-AGENT-PACK'
-            agentPackVersion = '1.8.3'
+            agentPackVersion = '1.8.6'
         }
         params = [ordered]@{
             system = [string]$Definition.systemPrompt
@@ -149,7 +208,20 @@ function Backup-OpenWebUIAgentPack {
             model = if ($null -ne $current) { ConvertTo-AgentPackBackupForm -Model $current } else { $null }
         }
     }
-    $backup = [ordered]@{ schemaVersion='1.0'; createdAtUtc=[DateTime]::UtcNow.ToString('o'); entries=@($entries) }
+    $openAIConfig = Get-AgentPackOpenAIConfig -Endpoint $Endpoint -ApiToken $ApiToken
+    $connectionIndex = Get-AgentPackLmStudioConnectionIndex -Config $openAIConfig
+    $connectionKey = [string]$connectionIndex
+    $priorConfig = $openAIConfig.OPENAI_API_CONFIGS.PSObject.Properties[$connectionKey]
+    $backup = [ordered]@{
+        schemaVersion='1.1'
+        createdAtUtc=[DateTime]::UtcNow.ToString('o')
+        entries=@($entries)
+        chatModelFilter=[ordered]@{
+            connectionIndex=$connectionIndex
+            existed=($null -ne $priorConfig)
+            config=if($null -ne $priorConfig){$priorConfig.Value}else{$null}
+        }
+    }
     $path = Join-Path $BackupDirectory 'managed-models.backup.json'
     $backup | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $path -Encoding UTF8
     return $path
@@ -174,7 +246,8 @@ function Install-OpenWebUIAgentPack {
             [pscustomobject]@{ id=$definition.id; action='updated' }
         }
     }
-    return [pscustomobject]@{ baseModelId=[string]$baseModel.id; backupPath=$backupPath; actions=@($actions) }
+    $filter = Set-AgentPackChatModelAllowList -Endpoint $Endpoint -ApiToken $ApiToken -BaseModelId ([string]$baseModel.id)
+    return [pscustomobject]@{ baseModelId=[string]$baseModel.id; backupPath=$backupPath; actions=@($actions); chatModelFilter=$filter }
 }
 
 function Test-AgentPackSafeValue {
@@ -203,6 +276,12 @@ function Test-OpenWebUIAgentPack {
         $duplicates = @($listed.items | Where-Object { [string]$_.id -eq [string]$definition.id })
         if ($duplicates.Count -ne 1) { $failures.Add("Duplikatanzahl $($definition.id): $($duplicates.Count)") }
     }
+    $config = Get-AgentPackOpenAIConfig -Endpoint $Endpoint -ApiToken $ApiToken
+    $connectionIndex = Get-AgentPackLmStudioConnectionIndex -Config $config
+    $connectionProperty = $config.OPENAI_API_CONFIGS.PSObject.Properties[[string]$connectionIndex]
+    $allowed = if ($null -ne $connectionProperty) { @($connectionProperty.Value.model_ids) } else { @() }
+    if (($allowed -join '|') -cne $BaseModelId) { $failures.Add("Chatmodell-Allowlist: $($allowed -join ', ')") }
+    if ($allowed -match '(?i)nomic|embed') { $failures.Add('Nomic als Chatmodell auswählbar') }
     return [pscustomobject]@{ passed=($failures.Count -eq 0); failures=@($failures) }
 }
 
@@ -220,6 +299,21 @@ function Restore-OpenWebUIAgentPack {
             $null = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/api/v1/models/model/delete' -Method POST -Body @{ id=[string]$entry.id }
         }
     }
+    if ($null -ne $backup.chatModelFilter) {
+        $config = Get-AgentPackOpenAIConfig -Endpoint $Endpoint -ApiToken $ApiToken
+        $configs = [ordered]@{}
+        foreach ($property in $config.OPENAI_API_CONFIGS.PSObject.Properties) { $configs[$property.Name] = $property.Value }
+        $key = [string]$backup.chatModelFilter.connectionIndex
+        if ([bool]$backup.chatModelFilter.existed) { $configs[$key] = $backup.chatModelFilter.config }
+        else { $configs.Remove($key) }
+        $body = [ordered]@{
+            ENABLE_OPENAI_API = [bool]$config.ENABLE_OPENAI_API
+            OPENAI_API_BASE_URLS = @($config.OPENAI_API_BASE_URLS)
+            OPENAI_API_KEYS = @($config.OPENAI_API_KEYS)
+            OPENAI_API_CONFIGS = $configs
+        }
+        $null = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/openai/config/update' -Method POST -Body $body
+    }
 }
 
-Export-ModuleMember -Function Invoke-AgentPackApi,Backup-OpenWebUIAgentPack,Install-OpenWebUIAgentPack,Test-OpenWebUIAgentPack,Restore-OpenWebUIAgentPack,Get-AgentPackOfferedModels,Resolve-AgentPackBaseModel
+Export-ModuleMember -Function Invoke-AgentPackApi,Backup-OpenWebUIAgentPack,Install-OpenWebUIAgentPack,Test-OpenWebUIAgentPack,Restore-OpenWebUIAgentPack,Get-AgentPackOfferedModels,Resolve-AgentPackBaseModel,Get-AgentPackOpenAIConfig,Get-AgentPackLmStudioConnectionIndex,Set-AgentPackChatModelAllowList

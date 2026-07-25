@@ -7,7 +7,7 @@ foreach ($file in $required) { if (-not (Test-Path (Join-Path $root $file))) { $
 $text=(Get-Content (Join-Path $root 'ComfyUIPackage.psm1') -Raw)+(Get-Content (Join-Path $root 'Invoke-KIStackComfyUI.ps1') -Raw)
 foreach ($pattern in @('(?i)\bgit(?:\.exe)?\b','(?i)\bclone\b','(?i)\bcheckout\b','(?i)\bpull\b','(?i)origin','(?i)\.git(?:[\\/]|\b)')) { if ($text -match $pattern) { $fail += "forbidden runtime pattern $pattern" } }
 $contract=Get-Content (Join-Path $root 'Payload/PAYLOAD-CONTRACT.json') -Raw|ConvertFrom-Json
-if ($contract.sha256 -notmatch '^[0-9a-f]{64}$' -or $contract.sizeBytes -le 0) { $fail += 'payload contract' }
+if ($contract.output.sha256 -notmatch '^[0-9a-f]{64}$' -or $contract.output.sizeBytes -le 0 -or $contract.upstream.sha256 -notmatch '^[0-9a-f]{64}$') { $fail += 'payload contract' }
 $cmds=Get-ChildItem $root -Filter '*.cmd'
 foreach ($cmd in $cmds) {
     $bytes=[IO.File]::ReadAllBytes($cmd.FullName)
@@ -18,10 +18,10 @@ $fixture=Join-Path $env:TEMP ('comfy-fixture-'+[guid]::NewGuid().ToString('N'));
 try {
     $copy=Join-Path $fixture 'package'; Copy-Item $root $copy -Recurse
     New-Item -ItemType Directory (Join-Path $copy 'Payload') -Force|Out-Null
-    Set-Content (Join-Path $copy ('Payload/'+$contract.fileName)) 'broken'
+    Set-Content (Join-Path $copy ('Payload/'+$contract.output.fileName)) 'broken'
     Import-Module (Join-Path $root 'ComfyUIPackage.psm1') -Force
     if ((Test-ComfyPayload $copy).passed) { $fail += 'bad payload accepted' }
 }
 finally { Remove-Item $fixture -Recurse -Force }
-$result=[ordered]@{passed=($fail.Count-eq0);version='1.2.2';checks=10;failures=$fail};$result|ConvertTo-Json -Depth 10
+$result=[ordered]@{passed=($fail.Count-eq0);version='1.2.3';checks=10;failures=$fail};$result|ConvertTo-Json -Depth 10
 if ($fail.Count) { throw ($fail-join'; ') }

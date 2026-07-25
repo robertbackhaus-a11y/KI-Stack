@@ -1,18 +1,18 @@
 # Schnellinstallation
 
-Diese Anleitung gilt für das veröffentlichte Paket **KI-Stack Complete Installer 2.2.9**. Sie beschreibt nur im Paket vorhandene Dateien und den aus den Quellen geprüften Ablauf. Der normale fachliche Einstieg ist `Start-KIStack-Installer.cmd`; die unten dokumentierten Modell-, Audit-, Validate-, Repair- und Rollback-Starter sind Spezialwege. Vor der Installation müssen externe ComfyUI-Dateien gemäß [ComfyUI-Modell-Downloadanleitung](KI-Stack-Modell-Downloadanleitung.md) und Heretic gemäß [Manuelle Modellbereitstellung](KI-Stack-Manuelle-Modellbereitstellung.md) bereitliegen.
+Diese Anleitung gilt für das veröffentlichte Paket **KI-Stack Complete Installer 2.3.0-rc2**. Sie beschreibt nur im Paket vorhandene Dateien und den aus den Quellen geprüften Ablauf. Der normale fachliche Einstieg ist `Start-KIStack-Installer.cmd`; die unten dokumentierten Modell-, Audit-, Validate-, Repair- und Rollback-Starter sind Spezialwege. Vor der Installation müssen externe ComfyUI-Dateien gemäß [ComfyUI-Modell-Downloadanleitung](KI-Stack-Modell-Downloadanleitung.md) und Heretic gemäß [Manuelle Modellbereitstellung](KI-Stack-Manuelle-Modellbereitstellung.md) bereitliegen.
 
 ## Schritt 1 – Paket herunterladen
 
-1. Öffne das Release [complete-v2.2.9](https://github.com/robertbackhaus-a11y/KI-Stack/releases/tag/complete-v2.2.9).
-2. Lade `KI-Stack-Complete-Installer-v2.2.9.zip` und den Sidecar `KI-Stack-Complete-Installer-v2.2.9.zip.sha256` aus derselben Release-Seite herunter.
+1. Öffne das Release des Complete Installers 2.3.0-rc2.
+2. Lade `KI-Stack-Complete-Installer-v2.3.0-rc2.zip` und den Sidecar `KI-Stack-Complete-Installer-v2.3.0-rc2.zip.sha256` aus derselben Release-Seite herunter.
 3. Prüfe die ZIP in PowerShell 7:
 
 ```powershell
-Get-FileHash -LiteralPath .\KI-Stack-Complete-Installer-v2.2.9.zip -Algorithm SHA256
+Get-FileHash -LiteralPath .\KI-Stack-Complete-Installer-v2.3.0-rc2.zip -Algorithm SHA256
 ```
 
-Erwarteter SHA256-Wert: `43e24404dec62403588b057415bb30a609bf734bc3cbb3aee80ff05c1d7d057e`.
+Erwarteter SHA256-Wert: `1959dc202a9339ce00f8ecf220f139d9a915317b88de4ea386b6406cf49026b9`.
 
 **Erwartetes Ergebnis:** Der ausgegebene `Hash` stimmt exakt mit diesem Wert und dem Inhalt der Sidecar-Datei überein. **Nächster Schritt:** Nur bei Übereinstimmung entpacken.
 
@@ -21,7 +21,7 @@ Erwarteter SHA256-Wert: `43e24404dec62403588b057415bb30a609bf734bc3cbb3aee80ff05
 Entpacke die ZIP in einen kurzen, beschreibbaren Ordner und öffne den obersten entpackten Paketordner. Dort befinden sich nachweislich:
 
 ```text
-KI-Stack-Complete-Installer-v2.2.9/
+KI-Stack-Complete-Installer-v2.3.0-rc2/
 ├── Start-KIStack-Installer.cmd
 ├── Start-KIStack-Audit.cmd
 ├── Start-KIStack-Model-Import.cmd
@@ -34,25 +34,27 @@ KI-Stack-Complete-Installer-v2.2.9/
 └── README.md
 ```
 
-Der tatsächliche interaktive Status-Starter liegt unter `Lifecycle\Status-KIStack-Interactive.cmd`; ein Root-Starter `Start-KIStack-Status.cmd` existiert nicht. `README.de.md` ist im veröffentlichten ZIP **nicht vorhanden**. Das ist ein dokumentierter Paketfehler gegenüber der erwarteten zweisprachigen Root-Struktur; nicht nach einer Ersatzdatei in Unterordnern suchen.
+Der tatsächliche interaktive Status-Starter liegt unter `Lifecycle\Status-KIStack-Interactive.cmd`; ein Root-Starter `Start-KIStack-Status.cmd` existiert nicht. Beide Root-README-Dateien sind vorhanden.
 
 **Erwartetes Ergebnis:** Alle oben genannten tatsächlichen Dateien sind sichtbar. **Nächster Schritt:** Modelle in `ExternalModels` bereitstellen.
 
 ## Schritt 3 – Modelle bereitstellen
 
-Lege Dateien direkt in `ExternalModels` ab; Unterverzeichnisse sind weder erforderlich noch zulässig, weil der Importer nur `<SourcePath>\<Dateiname>` prüft. Die sieben manuellen Dateien sind:
+Lege Dateien direkt in `ExternalModels` ab; der Importer prüft `<SourcePath>\<Dateiname>`. Die neun externen Visual-Dateien sind:
 
 | Manuell bereitzustellen | Zielbereich |
 |---|---|
-| `flux1-krea-dev_fp8_scaled.safetensors` | `models\diffusion_models` |
-| `clip_l.safetensors` | `models\text_encoders` |
-| `t5xxl_fp16.safetensors` | `models\text_encoders` |
+| `z_image_turbo_bf16.safetensors` | `models\diffusion_models` |
+| `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf` | `models\text_encoders` |
 | `ae.safetensors` | `models\vae` |
+| `wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors` | `models\diffusion_models` |
+| `wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors` | `models\diffusion_models` |
 | `umt5_xxl_fp8_e4m3fn_scaled.safetensors` | `models\text_encoders` |
-| `wan2.2_ti2v_5B_fp16.safetensors` | `models\diffusion_models` |
-| `wan2.2_vae.safetensors` | `models\vae` |
+| `wan_2.1_vae.safetensors` | `models\vae` |
+| `Wan2.2_LightX2V_high_n54vv.safetensors` | `models\loras` |
+| `Wan2.2_LightX2V_low_n54vv.safetensors` | `models\loras` |
 
-`ponyDiffusionV6XL_v6StartWithThisOne.safetensors` ist das einzige automatisch beziehbare Modell; sein Vertrag verwendet ausschließlich die feste Civitai-Modellversion `290640`. Die sieben manuellen Verträge benennen nur Herausgeber und HTTPS-Informationsseite; diese Seiten sind keine installierbaren Payload-Quellen und der Importer lädt dort nie herunter. Alle acht Verträge prüfen Dateiname, Bytegröße und SHA256. Die exakten Werte stehen in `Payload\ModelsWorkflows\...\Manifests\models.manifest.json` beziehungsweise im Paketvertrag; keine andere Datei oder Quelle verwenden.
+Alle neun Verträge prüfen Dateiname und Bytegröße; SHA256 wird zusätzlich geprüft, sofern deklariert. Die exakten Werte stehen im eingebetteten Visual-Modellmanifest.
 
 Führe vor der Installation den zentralen Import aus:
 

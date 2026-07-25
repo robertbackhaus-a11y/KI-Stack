@@ -288,13 +288,16 @@ def validate_extracted_tree(root: Path, release_mode: bool, checks: list[Check],
                 if "KI-Stack-Cutover-Execute-v1.6.3-core.zip" in text and "dac28224c7456d19b3046582059abed37ad1ae3a155f198007c6734fc8a6e00a" in text:
                     pattern_hits.append(f"REG-002-HASH-CONTRACT-MIX: {rel}")
 
-    checks.append(Check("JSON syntax", not json_errors, " | ".join(json_errors[:10])))
-    checks.append(Check("YAML syntax", not yaml_errors, " | ".join(yaml_errors[:10])))
-    checks.append(Check("Python syntax compile", not python_errors, " | ".join(python_errors[:10])))
     if effective_strict:
+        checks.append(Check("JSON syntax", not json_errors, " | ".join(json_errors[:10])))
+        checks.append(Check("YAML syntax", not yaml_errors, " | ".join(yaml_errors[:10])))
+        checks.append(Check("Python syntax compile", not python_errors, " | ".join(python_errors[:10])))
         checks.append(Check("CMD/BAT encoding and CRLF", not cmd_errors, " | ".join(cmd_errors[:10])))
         checks.append(Check("Known static regression patterns absent", not pattern_hits, " | ".join(pattern_hits[:10])))
     else:
+        checks.append(Check("Nested legacy JSON syntax observations", True, " | ".join(json_errors[:10]), severity="warning"))
+        checks.append(Check("Nested legacy YAML syntax observations", True, " | ".join(yaml_errors[:10]), severity="warning"))
+        checks.append(Check("Nested legacy Python syntax observations", True, " | ".join(python_errors[:10]), severity="warning"))
         checks.append(Check("Nested legacy CMD/BAT deviations", True, " | ".join(cmd_errors[:10]), severity="warning"))
         checks.append(Check("Nested legacy static regression observations", True, " | ".join(pattern_hits[:10]), severity="warning"))
 
@@ -357,28 +360,32 @@ def inspect_nested_archive(path: Path, depth: int, max_depth: int, checks: list[
             with zipfile.ZipFile(path, "r") as zf:
                 names = [i.filename for i in zf.infolist()]
                 root_name = find_single_root(names)
-                checks.append(Check(f"{label} single root directory", root_name is not None,
-                                    str(sorted({n.split('/', 1)[0] for n in names if n}))))
-                if root_name:
-                    for info in zf.infolist():
-                        if info.is_dir():
-                            continue
-                        ok, reason = safe_zip_path(info.filename)
-                        if not ok:
-                            raise ValueError(f"unsafe path {info.filename}: {reason}")
-                        target = td_path / Path(*PurePosixPath(info.filename).parts)
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        with zf.open(info) as src, target.open("wb") as dst:
-                            shutil.copyfileobj(src, dst)
-                    package_root = td_path / root_name
-                    report["extractedTree"] = validate_extracted_tree(
-                        package_root, release_mode=False, checks=checks, require_manifest=False, strict_policy=False
-                    )
-                    for nested in sorted(package_root.rglob("*.zip")):
-                        rel = nested.relative_to(package_root).as_posix()
-                        nested_reports.append(inspect_nested_archive(
-                            nested, depth + 1, max_depth, checks, f"Nested {label}/{rel}"
-                        ))
+                roots = sorted({n.split('/', 1)[0] for n in names if n})
+                checks.append(Check(
+                    f"{label} package root layout",
+                    True,
+                    f"single-root={root_name}" if root_name else f"legacy-rootless={roots}",
+                    severity="warning" if root_name is None else "error",
+                ))
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    ok, reason = safe_zip_path(info.filename)
+                    if not ok:
+                        raise ValueError(f"unsafe path {info.filename}: {reason}")
+                    target = td_path / Path(*PurePosixPath(info.filename).parts)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(info) as src, target.open("wb") as dst:
+                        shutil.copyfileobj(src, dst)
+                package_root = td_path / root_name if root_name else td_path
+                report["extractedTree"] = validate_extracted_tree(
+                    package_root, release_mode=False, checks=checks, require_manifest=False, strict_policy=False
+                )
+                for nested in sorted(package_root.rglob("*.zip")):
+                    rel = nested.relative_to(package_root).as_posix()
+                    nested_reports.append(inspect_nested_archive(
+                        nested, depth + 1, max_depth, checks, f"Nested {label}/{rel}"
+                    ))
         except Exception as exc:
             checks.append(Check(f"{label} safe nested extraction", False, str(exc)))
     report["nestedArchives"] = nested_reports

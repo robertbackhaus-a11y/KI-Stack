@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-PAYLOAD="$1"; MANIFEST="$2"; EXPECTED_SHA="$3"; RELEASE="1.5.9"
+PAYLOAD="$1"; MANIFEST="$2"; EXPECTED_SHA="$3"; RELEASE="1.5.10"
 ROOT=/opt/ki-stack/searxng; SRC="$ROOT/src"; VENV="$ROOT/venv"; MARKER=/opt/ki-stack/integration/installation.json
 healthy(){ curl --connect-timeout 5 --max-time 20 --fail --silent "$1" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get("results")' >/dev/null 2>&1; }
 write_marker(){ install -d -m 0750 /opt/ki-stack/integration; python3 - "$MARKER" "$1" <<'PY'
 import datetime,json,sys
-json.dump({"schemaVersion":"1.0","managedBy":"KI-STACK-INTEGRATION-MANAGED","version":"1.5.9","release":"KI-Stack-Integration-Execute-v1.5.9","mode":sys.argv[2],"installedAt":datetime.datetime.now(datetime.timezone.utc).isoformat(),"payloadId":"KI-STACK-SEARXNG-SOURCE-2026.6.28"},open(sys.argv[1],"w"),indent=2)
+json.dump({"schemaVersion":"1.0","managedBy":"KI-STACK-INTEGRATION-MANAGED","version":"1.5.10","release":"KI-Stack-Integration-Execute-v1.5.10","mode":sys.argv[2],"installedAt":datetime.datetime.now(datetime.timezone.utc).isoformat(),"payloadId":"KI-STACK-SEARXNG-SOURCE-2026.6.28"},open(sys.argv[1],"w"),indent=2)
 PY
 chmod 0640 "$MARKER"; }
 if healthy 'http://127.0.0.1/searxng/search?q=ki-stack&format=json'; then write_marker adopted-existing; exit 0; fi

@@ -1,3 +1,5 @@
-# ExternalModels
+# Optionaler Modellcache
 
-Die acht ComfyUI-Dateien liegen direkt hier, die zwei Heretic-LM-Studio-Dateien in `LMStudio`. `Start-KIStack-Model-Import.cmd` prüft Dateiname, Größe und SHA256; Modelle gehören weder in Git noch in Paket-ZIPs. ComfyUI-Details: `docs/de/KI-Stack-Modell-Downloadanleitung.md`; Heretic: `docs/de/KI-Stack-Manuelle-Modellbereitstellung.md`.
+Dieses Verzeichnis ist optional. Visual Models / Workflows 2.0.1 verwendet passend benannte Dateien nur nach exakter Größen- und SHA-256-Prüfung. Fehlende Artefakte werden aus den revisionsgebundenen Manifestquellen mit fortsetzbarem Transaktionszustand geladen und vor der atomaren Aktivierung geprüft.
+
+Der Complete Installer enthält keine Modellgewichte. Ein leeres Verzeichnis ist ein unterstützter Greenfield-Installationszustand.

@@ -1,12 +1,12 @@
 [CmdletBinding()]
-param([string]$OutputDirectory = (Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))) '_import\openwebui-agent-pack-v1.8.3'))
+param([string]$OutputDirectory = (Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))) '_import\openwebui-agent-pack-v1.8.6'))
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $source = [IO.Path]::GetFullPath($PSScriptRoot)
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $output -Force | Out-Null
-$zip = Join-Path $output 'KI-Stack-OpenWebUI-Agent-Pack-v1.8.3.zip'
+$zip = Join-Path $output 'KI-Stack-OpenWebUI-Agent-Pack-v1.8.6.zip'
 $sidecar = "$zip.sha256"
 if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
 Add-Type -AssemblyName System.IO.Compression

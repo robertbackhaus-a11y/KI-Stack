@@ -1,1 +1,1 @@
-{"schemaVersion":"1.0","version":"1.2.2","targetRoot":"C:\\KI-Stack\\ComfyUI","venv":"C:\\KI-Stack\\python\\venvs\\comfyui","moduleRoot":"C:\\KI-Stack\\modules\\comfyui","dataRoot":"C:\\KI-Stack\\data\\comfyui","modelsRoot":"C:\\KI-Stack\\models","listenAddress":"127.0.0.1","port":8188}
+{"schemaVersion":"1.0","version":"1.2.3","targetRoot":"C:\\KI-Stack\\ComfyUI","venv":"C:\\KI-Stack\\python\\venvs\\comfyui","moduleRoot":"C:\\KI-Stack\\modules\\comfyui","dataRoot":"C:\\KI-Stack\\data\\comfyui","modelsRoot":"C:\\KI-Stack\\models","listenAddress":"127.0.0.1","port":8188}

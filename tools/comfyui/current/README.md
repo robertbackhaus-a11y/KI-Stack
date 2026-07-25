@@ -1,3 +1,3 @@
-# KI-Stack ComfyUI 1.2.2
+# KI-Stack ComfyUI 1.2.3
 
-Git-free successor to 1.2.1. Installation, migration and repair use only the embedded immutable source payload, its byte size, SHA256 and complete per-file content manifest. Existing models, workflows, custom nodes and user data are never payload members and are preserved. A functionally correct 1.2.1 target is migrated without downloading or replacing correct content; `.git` is neither required nor automatically removed.
+Git-free successor to 1.2.2. The package builder obtains ComfyUI 0.28.0 only from manufacturer commit `700821e1364eaab0e8f21c538a2131719fec57bf`, verifies the upstream archive size and SHA-256, selects the 715-file content manifest and produces the embedded payload deterministically. A verified cache is optional; interrupted downloads resume and no manual preload is required. The selected upstream source is GPL-3.0-only. Existing models, workflows, custom nodes and user data are never payload members and are preserved; `.git` is neither required nor automatically removed.

@@ -18,4 +18,9 @@ tools/openwebui-image-pack/current/** -text
 tools/comfyui/current/** -text
 tools/integration/current/** -text
 tools/complete-installer/current/** -text
+tools/cutover-runtime/current/** -text
+tools/cutover-runtime/current/**/*.cmd text eol=crlf
+tools/models-workflows/current/** -text
+tools/openwebui-visual-pack/current/** -text
+tools/openwebui-ballistics-pack/current/** -text
 tools/** whitespace=cr-at-eol

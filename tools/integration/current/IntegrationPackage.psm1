@@ -5,14 +5,14 @@ function Read-IntegrationJson { param([string]$Path) Get-Content $Path -Raw|Conv
 function Test-IntegrationEndpoint { try{$html=Invoke-WebRequest 'http://localhost/searxng/' -TimeoutSec 20;$json=Invoke-RestMethod 'http://localhost/searxng/search?q=ki-stack&format=json' -TimeoutSec 20;return ($html.StatusCode-eq200-and@($json.results).Count-gt0)}catch{return $false} }
 function Test-IntegrationPayload {
     param([string]$PackageRoot)
-    $contract=Read-IntegrationJson (Join-Path $PackageRoot 'Payload/PAYLOAD-CONTRACT.json');$path=Join-Path $PackageRoot ('Payload/'+$contract.fileName);$errors=@()
-    if(-not(Test-Path $path)){$errors+='payload missing'}else{if((Get-Item $path).Length-ne$contract.sizeBytes){$errors+='size mismatch'};if((Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()-ne$contract.sha256){$errors+='SHA mismatch'}}
+    $contract=Read-IntegrationJson (Join-Path $PackageRoot 'Payload/PAYLOAD-CONTRACT.json');$path=Join-Path $PackageRoot ('Payload/'+$contract.output.fileName);$errors=@()
+    if(-not(Test-Path $path)){$errors+='payload missing'}else{if((Get-Item $path).Length-ne$contract.output.sizeBytes){$errors+='size mismatch'};if((Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()-ne$contract.output.sha256){$errors+='SHA mismatch'}}
     [pscustomobject]@{passed=($errors.Count-eq0);errors=$errors;contract=$contract;path=$path}
 }
-function Test-IntegrationTarget { [pscustomobject]@{passed=(Test-IntegrationEndpoint);version='1.5.9';runtimeChain=@('wsl keeper','valkey-server','uwsgi','nginx');runtimeGitDependency=$false} }
+function Test-IntegrationTarget { [pscustomobject]@{passed=(Test-IntegrationEndpoint);version='1.5.10';runtimeChain=@('wsl keeper','valkey-server','uwsgi','nginx');runtimeGitDependency=$false} }
 function ConvertTo-IntegrationWslPath { param([string]$Path) (@(wsl.exe -d Debian --exec wslpath -u $Path)|Select-Object -Last 1).Trim() }
 function Backup-IntegrationState {
-    param([string]$BackupRoot='C:\KI-Stack\backups\integration-1.5.9')
+    param([string]$BackupRoot='C:\KI-Stack\backups\integration-1.5.10')
     $directory=Join-Path $BackupRoot ([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'));New-Item -ItemType Directory $directory -Force|Out-Null
     $archive=Join-Path $directory 'linux-state.tar.gz';$linuxArchive=ConvertTo-IntegrationWslPath $archive
     & wsl.exe -d Debian -u root --exec tar -czf $linuxArchive --ignore-failed-read /opt/ki-stack/integration/installation.json /etc/searxng/settings.yml /etc/uwsgi/apps-available/searxng.ini /etc/uwsgi/apps-enabled/searxng.ini /etc/nginx/default.d/searxng.conf
@@ -33,10 +33,10 @@ function Install-IntegrationPayload {
     $test=Test-IntegrationPayload $PackageRoot;if(-not$test.passed){throw($test.errors-join'; ')};$backup=Backup-IntegrationState
     $script=Join-Path $PackageRoot 'Linux/install-searxng-payload.sh';$manifest=Join-Path $PackageRoot 'Payload/CONTENT-MANIFEST.json'
     $scriptLinux=ConvertTo-IntegrationWslPath $script;$payloadLinux=ConvertTo-IntegrationWslPath $test.path;$manifestLinux=ConvertTo-IntegrationWslPath $manifest
-    & wsl.exe -d Debian -u root --exec bash $scriptLinux $payloadLinux $manifestLinux ([string]$test.contract.sha256)
+    & wsl.exe -d Debian -u root --exec bash $scriptLinux $payloadLinux $manifestLinux ([string]$test.contract.output.sha256)
     if($LASTEXITCODE-ne0){Restore-IntegrationState $backup.directory|Out-Null;throw"SearXNG payload install failed: $LASTEXITCODE"}
     $marker='C:\KI-Stack\modules\integration\installation.json'
-    [ordered]@{schemaVersion='1.0';managedBy='KI-STACK-INTEGRATION-MANAGED';version='1.5.9';release='KI-Stack-Integration-Execute-v1.5.9';installedAt=[DateTime]::UtcNow.ToString('o');distribution='Debian';searxngUrl='http://localhost/searxng';payloadId='KI-STACK-SEARXNG-SOURCE-2026.6.28';payloadSha256=[string]$test.contract.sha256;linuxMode='adopted-existing';runtimeGitDependency=$false}|ConvertTo-Json -Depth 10|Set-Content $marker -Encoding UTF8
+    [ordered]@{schemaVersion='1.0';managedBy='KI-STACK-INTEGRATION-MANAGED';version='1.5.10';release='KI-Stack-Integration-Execute-v1.5.10';installedAt=[DateTime]::UtcNow.ToString('o');distribution='Debian';searxngUrl='http://localhost/searxng';payloadId='KI-STACK-SEARXNG-SOURCE-2026.6.28';payloadSha256=[string]$test.contract.output.sha256;linuxMode='adopted-existing';runtimeGitDependency=$false}|ConvertTo-Json -Depth 10|Set-Content $marker -Encoding UTF8
     $result=Test-IntegrationTarget;$result|Add-Member backupPath $backup.directory;$result
 }
 Export-ModuleMember -Function *

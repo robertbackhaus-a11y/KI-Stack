@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "2.0",
+  "name": "KI-Stack Visual Models / Workflows",
+  "version": "2.0.1",
+  "containsModels": false,
+  "preloadsOptional": true,
+  "automaticDownloads": true,
+  "downloadResume": true,
+  "activationRequiresSizeAndSha256": true,
+  "workflows": [
+    "Z-Image-Turbo-OpenWebUI-API.json",
+    "WAN2.2-T2V-14B-OpenWebUI-API.json"
+  ],
+  "modelContract": "Manifests/models.manifest.json"
+}

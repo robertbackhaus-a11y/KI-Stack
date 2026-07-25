@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0",
+  "name": "KI-Stack OpenWebUI Visual Pack",
+  "version": "2.0.5-rc2",
+  "status": "StaticPendingValidation_TargetPending",
+  "target": {
+    "kiStackRoot": "C:\\KI-Stack",
+    "openWebUI": "0.10.2",
+    "openWebUIEndpoint": "http://127.0.0.1:8080",
+    "comfyUIEndpoint": "http://127.0.0.1:8188"
+  },
+  "managedTools": [
+    {
+      "id": "ki_stack_generate_image",
+      "canonicalId": "ki-stack-generate-image",
+      "name": "KI-Stack Bildgenerierung",
+      "workflow": "Workflow/Z-Image-Turbo-OpenWebUI-API.json"
+    },
+    {
+      "id": "ki_stack_generate_video",
+      "canonicalId": "ki-stack-generate-video",
+      "name": "KI-Stack Videogenerierung",
+      "workflow": "Workflow/WAN2.2-T2V-14B-OpenWebUI-API.json"
+    }
+  ],
+  "managedProfiles": [
+    "ki-stack-it-technik",
+    "ki-stack-allgemein"
+  ],
+  "properties": {
+    "containsModels": false,
+    "downloadsModels": false,
+    "manufacturerQwenContract": "Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf",
+    "containsSecrets": false,
+    "usesGit": false,
+    "createsBackup": true,
+    "automaticRollbackOnInstallFailure": true,
+    "preservesForeignToolBindings": true,
+    "openWebUIFileItemContract": "type=file,id,name,url,content_type,size,meta",
+    "attachmentEvent": "files",
+    "attachmentPersistence": "OpenWebUI socket files handler",
+    "embedsUsedForMp4": false
+  }
+}
+

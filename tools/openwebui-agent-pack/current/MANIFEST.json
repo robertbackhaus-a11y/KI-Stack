@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "packageId": "KI-STACK-OPENWEBUI-AGENT-PACK",
-  "version": "1.8.3",
-  "status": "TargetValidated",
+  "version": "1.8.6",
+  "status": "StaticPendingValidation_TargetPending",
   "targetApplication": {
     "name": "OpenWebUI",
     "version": "0.10.2"
@@ -12,9 +12,18 @@
     "ki-stack-allgemein"
   ],
   "codeInterpreter": {"engine":"pyodide","profiles":["ki-stack-allgemein","ki-stack-it-technik"],"workspaceToolId":false,"filePersistence":false},
-  "registeredExtensions": [{"canonicalToolId":"ki-stack-generate-image","openWebUIToolId":"ki_stack_generate_image","managedBy":"KI-STACK-OPENWEBUI-IMAGE-PACK","version":"1.9.0","optional":true}],
+  "registeredExtensions": [
+    {"canonicalToolId":"ki-stack-generate-image","openWebUIToolId":"ki_stack_generate_image","managedBy":"KI-STACK-OPENWEBUI-VISUAL-PACK","version":"2.0.5-rc2","optional":true},
+    {"canonicalToolId":"ki-stack-generate-video","openWebUIToolId":"ki_stack_generate_video","managedBy":"KI-STACK-OPENWEBUI-VISUAL-PACK","version":"2.0.5-rc2","optional":true}
+  ],
   "deployment": {
     "kind": "OpenWebUI HTTP API",
+    "chatModelAllowList": {
+      "route": "/openai/config/update",
+      "connection": "LM Studio at 127.0.0.1:1234/v1",
+      "modelIds": ["qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved"],
+      "embeddingModelsSelectable": false
+    },
     "create": "/api/v1/models/create",
     "update": "/api/v1/models/model/update",
     "readback": "/api/v1/models/model",

@@ -1,7 +1,11 @@
-# KI-Stack Complete Installer 2.2.9
+# KI-Stack Complete Installer 2.3.0-rc12
 
-**[Hier beginnen: Installationsanleitung](../../../docs/de/KI-Stack-Installationsanleitung.md)** · **[ComfyUI-Modell-Downloadanleitung](../../../docs/de/KI-Stack-Modell-Downloadanleitung.md)** · **[ComfyUI model download guide](../../../docs/en/KI-Stack-Model-Download-Guide.md)** · **[Manuelle Modellbereitstellung](../../../docs/de/KI-Stack-Manuelle-Modellbereitstellung.md)** · **[Manual model provisioning](../../../docs/en/KI-Stack-Manual-Model-Provisioning.md)**
+Repository-geprüfter Release Candidate auf Basis des Complete Installers 2.2.9.
 
-Der Complete Installer ist der zentrale Installations-, Upgrade-, Audit-, Validate-, Repair-, Resume-, Start-, Stop- und Rollback-Einstieg. `Start-KIStack-Installer.cmd` löst PowerShell 7 auf und fordert Administratorrechte genau einmal über UAC an. `Resume-KIStack-Installer.cmd` setzt eine benannte Transaktion fort. `Status-KIStack.cmd` startet ausschließlich den vorhandenen interaktiven read-only Status-Starter.
+- Heretic ist das einzige LM-Studio-Chat-LLM.
+- Nomic dient ausschließlich für Embeddings.
+- ComfyUI ist auf Z-Image Turbo und WAN2.2 T2V 14B mit beiden LightX2V-4-Step-LoRAs begrenzt.
+- OpenWebUI verwendet Visual Pack 2.0.5-rc2. MP4 bleibt genau ein persistenter Download-Anhang.
+- Das Paket enthält keine Modellgewichte, Geheimnisse, persönlichen Pfade oder Git-Laufzeitabhängigkeit.
 
-Modelle sind externe Lizenzabhängigkeiten und gehören weder in Git noch in Release-ZIPs. Vollständige technische, Betriebs- und Lizenzinformationen stehen in den verlinkten Repository-Dokumenten sowie in `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md` und `MODEL_LICENSES.md`.
+Vor der Installation `Start-KIStack-Complete-Installer-SelfTest.cmd` ausführen. Paketbau und Tests greifen nicht auf das Zielsystem zu.

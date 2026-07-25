@@ -9,12 +9,12 @@ function Read-ComfyJson {
 function Test-ComfyPayload {
     param([Parameter(Mandatory)][string]$PackageRoot)
     $contract = Read-ComfyJson (Join-Path $PackageRoot 'Payload/PAYLOAD-CONTRACT.json')
-    $path = Join-Path $PackageRoot ('Payload/' + $contract.fileName)
+    $path = Join-Path $PackageRoot ('Payload/' + $contract.output.fileName)
     $errors = @()
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { $errors += 'payload missing' }
     else {
-        if ((Get-Item $path).Length -ne $contract.sizeBytes) { $errors += 'size mismatch' }
-        if ((Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $contract.sha256) { $errors += 'SHA256 mismatch' }
+        if ((Get-Item $path).Length -ne $contract.output.sizeBytes) { $errors += 'size mismatch' }
+        if ((Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $contract.output.sha256) { $errors += 'SHA256 mismatch' }
     }
     [pscustomobject]@{ passed=($errors.Count -eq 0); errors=$errors; contract=$contract; path=$path }
 }
@@ -47,18 +47,18 @@ function Test-ComfyTarget {
 }
 
 function Install-ComfyPayload {
-    param([Parameter(Mandatory)][string]$PackageRoot,[string]$TargetRoot='C:\KI-Stack\ComfyUI',[string]$BackupRoot='C:\KI-Stack\backups\comfyui-1.2.2')
+    param([Parameter(Mandatory)][string]$PackageRoot,[string]$TargetRoot='C:\KI-Stack\ComfyUI',[string]$BackupRoot='C:\KI-Stack\backups\comfyui-1.2.3')
     $audit = Test-ComfyTarget $PackageRoot $TargetRoot
     $moduleRoot = Join-Path (Split-Path $TargetRoot -Parent) 'modules/comfyui'
     $marker = Join-Path $moduleRoot 'installation.json'
     if ($audit.passed) {
         $current = if (Test-Path $marker) { Read-ComfyJson $marker } else { $null }
-        if ($current -and [string]$current.release -eq 'KI-Stack-ComfyUI-Execute-v1.2.2' -and [string]$current.payloadSha256 -eq '6d5d66394152cbfc6a8ae28e8ba89588d792292ee3a879f8e50f7bbc097fe4ac') { return [pscustomobject]@{passed=$true;changed=$false;status='SkippedAlreadyCompliant';backup=$null} }
+        if ($current -and [string]$current.release -eq 'KI-Stack-ComfyUI-Execute-v1.2.3' -and [string]$current.payloadSha256 -eq [string]$test.contract.output.sha256) { return [pscustomobject]@{passed=$true;changed=$false;status='SkippedAlreadyCompliant';backup=$null} }
         $backup = Join-Path $BackupRoot ([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
         New-Item -ItemType Directory $backup -Force | Out-Null
         if (Test-Path $marker) { Copy-Item $marker (Join-Path $backup 'installation.json') -Force }
         New-Item -ItemType Directory $moduleRoot -Force | Out-Null
-        [ordered]@{schemaVersion='1.0';managedBy='KI-STACK-COMFYUI-MANAGED';version='1.2.2';release='KI-Stack-ComfyUI-Execute-v1.2.2';installedAt=[DateTime]::UtcNow.ToString('o');payloadId='KI-STACK-COMFYUI-SOURCE-V0.28.0';payloadSha256='6d5d66394152cbfc6a8ae28e8ba89588d792292ee3a879f8e50f7bbc097fe4ac';migration='content-verified-no-reinstall';runtimeGitDependency=$false} | ConvertTo-Json -Depth 10 | Set-Content $marker -Encoding UTF8
+        [ordered]@{schemaVersion='1.0';managedBy='KI-STACK-COMFYUI-MANAGED';version='1.2.3';release='KI-Stack-ComfyUI-Execute-v1.2.3';installedAt=[DateTime]::UtcNow.ToString('o');payloadId='KI-STACK-COMFYUI-SOURCE-V0.28.0';payloadSha256=[string]$test.contract.output.sha256;migration='content-verified-no-reinstall';runtimeGitDependency=$false} | ConvertTo-Json -Depth 10 | Set-Content $marker -Encoding UTF8
         return [pscustomobject]@{passed=$true;changed=$true;status='Completed';backup=$backup;files=0;markerMigrated=$true}
     }
     $temp = Join-Path $env:TEMP ('ki-comfy-' + [guid]::NewGuid().ToString('N'))

@@ -33,7 +33,7 @@ if($Resume-and[string]::IsNullOrWhiteSpace($TransactionId)){throw 'Resume erford
 
 Import-Module (Join-Path $PSScriptRoot 'CompleteInstaller.psm1') -Force
 $plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot 'C:\KI-Stack'
-$needsOpenWebUI=@($plan.steps|Where-Object{$_.id-in@('openwebui-agent-pack','openwebui-image-pack')-and$_.plannedMode-ne'Skip'})
+$needsOpenWebUI=@($plan.steps|Where-Object{$_.id-in@('openwebui-agent-pack','openwebui-visual-pack')-and$_.plannedMode-ne'Skip'})
 $apiToken=$null
 try {
     if($needsOpenWebUI.Count){
@@ -50,3 +50,4 @@ finally {
     [GC]::Collect()
     if($needsOpenWebUI.Count){Write-Host 'Temporären OpenWebUI-API-Key in OpenWebUI widerrufen.' -ForegroundColor Yellow}
 }
+

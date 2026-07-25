@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "registryVersion": "1.0.2",
+  "registryVersion": "1.0.3",
   "regressions": [
     {
       "id": "REG-001-OLD-CUTOVER-ASSET-NAME",
@@ -88,7 +88,11 @@
     },
     {
       "id": "REG-022-NESTED-LEGACY-POLICY-SCOPE",
-      "description": "Strict current-package formatting and exact-set rules must not be retroactively imposed on immutable nested legacy archives without a validation contract; their paths, bytes and declared hashes remain mandatory."
+      "description": "Strict current-package formatting, syntax-fixture and exact-set rules must not be retroactively imposed on immutable nested legacy archives without a validation contract; their paths, bytes and declared hashes remain mandatory."
+    },
+    {
+      "id": "REG-023-ROOTLESS-NESTED-ARCHIVE",
+      "description": "A safe legacy nested archive without one wrapper directory must be extracted and validated at its archive root instead of being rejected or skipped."
     }
   ]
 }

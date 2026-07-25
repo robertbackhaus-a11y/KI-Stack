@@ -21,6 +21,8 @@ $backup=[ordered]@{schemaVersion='1.0';createdAtUtc=[DateTime]::UtcNow.ToString(
 $backupPath=Join-Path $BackupDirectory 'code-interpreter.backup.json'
 $backup|ConvertTo-Json -Depth 50|Set-Content -LiteralPath $backupPath -Encoding UTF8
 
+$result=$null
+try {
 $desired=[ordered]@{
     ENABLE_CODE_EXECUTION=[bool]$config.ENABLE_CODE_EXECUTION;CODE_EXECUTION_ENGINE=[string]$config.CODE_EXECUTION_ENGINE
     CODE_EXECUTION_JUPYTER_URL=$config.CODE_EXECUTION_JUPYTER_URL;CODE_EXECUTION_JUPYTER_AUTH=$config.CODE_EXECUTION_JUPYTER_AUTH
@@ -30,11 +32,28 @@ $desired=[ordered]@{
     CODE_INTERPRETER_JUPYTER_AUTH_TOKEN=$null;CODE_INTERPRETER_JUPYTER_AUTH_PASSWORD=$null;CODE_INTERPRETER_JUPYTER_TIMEOUT=$null
 }
 $null=Invoke-Api '/api/v1/configs/code_execution' 'POST' $desired
-$expectedTools=@{ 'ki-stack-allgemein'=@('ki_stack_generate_image');'ki-stack-it-technik'=@('ki_stack_generate_image');'ki-stack-18bravo'=@('ki_stack_ballistics_calculator') }
+$expectedTools=@{
+    'ki-stack-allgemein'=@('ki_stack_generate_image','ki_stack_generate_video')
+    'ki-stack-it-technik'=@('ki_stack_generate_image','ki_stack_generate_video')
+    'ki-stack-18bravo'=@('ki_stack_ballistics_calculator')
+}
 foreach($model in $models){$id=[string]$model.id;$actual=@($model.meta.toolIds);if(($actual-join'|')-ne($expectedTools[$id]-join'|')){throw "Unerwartete Toolbindung für ${id}: $($actual-join', ')"};$form=Get-Form $model;$form.meta.knowledge=@();$form.meta.toolIds=@($expectedTools[$id]);if($null-eq$form.meta.capabilities){$form.meta|Add-Member -NotePropertyName capabilities -NotePropertyValue ([pscustomobject]@{})};$enabled=$id-in@('ki-stack-allgemein','ki-stack-it-technik');$form.meta.capabilities|Add-Member -NotePropertyName code_interpreter -NotePropertyValue $enabled -Force;$null=Invoke-Api '/api/v1/models/model/update' 'POST' $form}
 $readbackConfig=Invoke-Api '/api/v1/configs/code_execution'
 $readback=@($ids|ForEach-Object{$m=Get-Model $_;[ordered]@{id=$_.ToString();codeInterpreter=[bool]$m.meta.capabilities.code_interpreter;knowledge=@($m.meta.knowledge);toolIds=@($m.meta.toolIds)}})
 $ok=[bool]$readbackConfig.ENABLE_CODE_INTERPRETER-and[string]$readbackConfig.CODE_INTERPRETER_ENGINE-eq'pyodide'-and@($readback|Where-Object{@($_.knowledge).Count-ne0-or(@($_.toolIds)-join'|')-ne($expectedTools[$_.id]-join'|')-or($_.codeInterpreter-ne($_.id-in@('ki-stack-allgemein','ki-stack-it-technik')))}).Count-eq0
 if(-not$ok){throw'Code-Interpreter-Readback entspricht nicht dem KI-Stack-Vertrag.'}
 $result=[pscustomobject]@{status='Configured';engine='pyodide';profiles=$readback;backupPath=$backupPath;apiKeyStored=$false}
+}
+catch {
+    $configurationError=$_
+    try {
+        & (Join-Path $PSScriptRoot 'Restore-KIStackCodeInterpreter.ps1') -Endpoint $Endpoint -ApiToken $ApiToken -BackupPath $backupPath | Out-Null
+        $configurationError.Exception.Data['KIStackRollbackStatus']='Completed'
+        $configurationError.Exception.Data['KIStackBackupPath']=$backupPath
+    }
+    catch {
+        throw "Code-Interpreter-Konfiguration und Rollback fehlgeschlagen: $($configurationError.Exception.Message); Rollback: $($_.Exception.Message)"
+    }
+    throw $configurationError
+}
 $ApiToken=$null;[GC]::Collect();$result
