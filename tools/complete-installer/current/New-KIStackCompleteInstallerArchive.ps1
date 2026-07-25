@@ -80,7 +80,7 @@ function Initialize-GeneratedBuildPayloads {
 }
 
 $payloadDefinitions = @(
-    [ordered]@{ key='ComfyUI'; source='tools/comfyui/current'; file='KI-Stack-ComfyUI-Execute-v1.2.3.zip'; root=$null },
+    [ordered]@{ key='ComfyUI'; source='tools/comfyui/current'; file='KI-Stack-ComfyUI-Execute-v1.2.4.zip'; root=$null },
     [ordered]@{ key='CutoverRuntime'; source='tools/cutover-runtime/current'; file='KI-Stack-Cutover-Execute-v1.6.4-core.zip'; root='KI-Stack-Cutover-Execute-v1.6.4' },
     [ordered]@{ key='Integration'; source='tools/integration/current'; file='KI-Stack-Integration-Execute-v1.5.10.zip'; root=$null },
     [ordered]@{ key='ModelsWorkflows'; source='tools/models-workflows/current'; file='KI-Stack-Visual-Models-Workflows-v2.0.1.zip'; root='KI-Stack-Visual-Models-Workflows-v2.0.1' },

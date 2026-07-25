@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "payloadId": "KI-STACK-COMFYUI-SOURCE-V0.28.0",
-  "componentVersion": "1.2.3",
+  "componentVersion": "1.2.4",
   "upstream": {
     "repository": "https://github.com/Comfy-Org/ComfyUI",
     "revision": "700821e1364eaab0e8f21c538a2131719fec57bf",

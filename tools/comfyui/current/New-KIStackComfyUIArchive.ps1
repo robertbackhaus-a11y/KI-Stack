@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$OutputDirectory=(Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))) '_import\comfyui-v1.2.3'),
+    [string]$OutputDirectory=(Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))) '_import\comfyui-v1.2.4'),
     [string]$CacheDirectory=''
 )
 Set-StrictMode -Version Latest
@@ -17,7 +17,7 @@ try{
     Remove-Item (Join-Path $stage '.download-state') -Recurse -Force -ErrorAction SilentlyContinue
     $lines=Get-ChildItem $stage -Recurse -File|Sort-Object{[IO.Path]::GetRelativePath($stage,$_.FullName).Replace('\','/')}|ForEach-Object{$relative=[IO.Path]::GetRelativePath($stage,$_.FullName).Replace('\','/');"$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()) *$relative"}
     Set-Content (Join-Path $stage 'SHA256SUMS.txt') $lines -Encoding ASCII
-    New-Item -ItemType Directory $OutputDirectory -Force|Out-Null;$zip=Join-Path $OutputDirectory 'KI-Stack-ComfyUI-Execute-v1.2.3.zip';if(Test-Path $zip){Remove-Item $zip -Force}
+    New-Item -ItemType Directory $OutputDirectory -Force|Out-Null;$zip=Join-Path $OutputDirectory 'KI-Stack-ComfyUI-Execute-v1.2.4.zip';if(Test-Path $zip){Remove-Item $zip -Force}
     Add-Type -AssemblyName System.IO.Compression;$stream=[IO.File]::Open($zip,[IO.FileMode]::CreateNew)
     try{$archive=[IO.Compression.ZipArchive]::new($stream,[IO.Compression.ZipArchiveMode]::Create,$true);try{foreach($file in(Get-ChildItem $stage -Recurse -File|Sort-Object{[IO.Path]::GetRelativePath($stage,$_.FullName).Replace('\','/')})){$relative=[IO.Path]::GetRelativePath($stage,$file.FullName).Replace('\','/');$entry=$archive.CreateEntry($relative,[IO.Compression.CompressionLevel]::Optimal);$entry.LastWriteTime=[DateTimeOffset]::new(1980,1,1,0,0,0,[TimeSpan]::Zero);$entryStream=$entry.Open();try{$input=[IO.File]::OpenRead($file.FullName);try{$input.CopyTo($entryStream)}finally{$input.Dispose()}}finally{$entryStream.Dispose()}}}finally{$archive.Dispose()}}finally{$stream.Dispose()}
     $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant();Set-Content "$zip.sha256" "$hash *$(Split-Path -Leaf $zip)" -Encoding ASCII

@@ -390,10 +390,10 @@ try {
     Add-Result 'OpenWebUI Ballistics Pack repository artifacts' ($forbiddenBallistics.Count-eq0) $(if($forbiddenBallistics){$forbiddenBallistics-join', '}else{'no wheels, archives, user data, bytecode or private imports tracked'})
 
     $gitFreePackages=@(
-        @{name='ComfyUI';root='tools/comfyui/current';version='1.2.3'},
+        @{name='ComfyUI';root='tools/comfyui/current';version='1.2.4'},
         @{name='Integration';root='tools/integration/current';version='1.5.10'},
         @{name='Cutover Runtime';root='tools/cutover-runtime/current';version='1.6.4'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.3.0-rc12'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.3.0-rc13'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root
@@ -408,8 +408,8 @@ try {
     $completeMissing=@($completeRequired|Where-Object{-not(Test-Path (Join-Path $completeRoot $_))})
     Add-Result 'Complete Installer source completeness' ($completeMissing.Count-eq0) $(if($completeMissing){$completeMissing-join', '}else{'complete'})
     $completeComponents=Get-Content (Join-Path $completeRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json
-    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.3' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '2.0.1' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.10'-and[string]($completeComponents.components|Where-Object id -eq 'cutover-runtime').version-eq'1.6.4'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-visual-pack').version-eq'2.0.5-rc2'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
-    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.3; Visual Models/Workflows=2.0.1; Integration=1.5.10; Cutover=1.6.4; Visual Pack=2.0.5-rc2; optional Ballistics=1.0.0'
+    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.4' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '2.0.1' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.10'-and[string]($completeComponents.components|Where-Object id -eq 'cutover-runtime').version-eq'1.6.4'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-visual-pack').version-eq'2.0.5-rc2'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
+    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.4; Visual Models/Workflows=2.0.1; Integration=1.5.10; Cutover=1.6.4; Visual Pack=2.0.5-rc2; optional Ballistics=1.0.0'
     $completeExecutable=Get-ChildItem $completeRoot -Recurse -File|Where-Object{$_.Extension-in'.ps1','.psm1','.cmd'-and$_.Name-ne'Test-KIStackCompleteInstaller.ps1'}|ForEach-Object{Get-Content $_.FullName -Raw}
     $forbiddenRuntime=('(?im)\b'+'git'+'\s+(?:cl'+'one|check'+'out|pu'+'ll|fetch|rev-parse|describe)\b|\.'+'git'+'(?:[/\\]|\b)|\bor'+'igin\b|comm'+'it[- ]hash|tr'+'ee[- ]hash')
     Add-Result 'Complete Installer Git-free runtime' (-not(($completeExecutable-join"`n")-match$forbiddenRuntime)) 'no Git acquisition or metadata dependency in executable sources'

@@ -10,11 +10,11 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 |---|---:|---|
 | Foundation / Runtime | 1.0.9 | Stabiler Referenzstand, auf Zielsystem validiert |
 | Python / Git | 1.1.5 | Stabil, auf Zielsystem validiert |
-| ComfyUI | 1.2.3 | RC12 ausstehend; feste ComfyUI-0.28.0-Herstellerrevision, optionaler geprüfter Cache |
+| ComfyUI | 1.2.4 | RC13 ausstehend; transaktionaler Marker/Readback und automatische Wiederherstellung unvollständiger RC12-Installationen |
 | Modelle / Workflows | 1.4.9 | Zentraler transaktionssicherer Import externer ComfyUI- und Heretic-LM-Studio-Modelle |
 | Applications | 1.4.10 | Stabil; LM Studio und Open WebUI 0.10.2 auf dem Zielsystem akzeptiert |
-| Integration | 1.5.10 | RC12 ausstehend; feste SearXNG-Revision plus getracktes Overlay, optionaler geprüfter Cache |
-| Cutover Runtime | 1.6.4 | RC12 ausstehend; Fortsetzungszustand wird transaktionslokal aus getrackten Quellen erzeugt |
+| Integration | 1.5.10 | RC13 ausstehend; feste SearXNG-Revision plus getracktes Overlay, optionaler geprüfter Cache |
+| Cutover Runtime | 1.6.4 | RC13 ausstehend; Fortsetzungszustand wird transaktionslokal aus getrackten Quellen erzeugt |
 | Production Recovery | 1.7.0-r7 | Auf dem Zielsystem akzeptiert; SearXNG-Kaltstart repariert |
 | Universeller Paket-Validation-Gate | 1.0.2 | Auf dem Zielsystem aktiviert |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` am 21.07.2026 |

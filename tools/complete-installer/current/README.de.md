@@ -1,4 +1,4 @@
-# KI-Stack Complete Installer 2.3.0-rc12
+# KI-Stack Complete Installer 2.3.0-rc13
 
 Repository-geprüfter Release Candidate auf Basis des Complete Installers 2.2.9.
 

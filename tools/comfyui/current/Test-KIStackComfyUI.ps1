@@ -23,5 +23,5 @@ try {
     if ((Test-ComfyPayload $copy).passed) { $fail += 'bad payload accepted' }
 }
 finally { Remove-Item $fixture -Recurse -Force }
-$result=[ordered]@{passed=($fail.Count-eq0);version='1.2.3';checks=10;failures=$fail};$result|ConvertTo-Json -Depth 10
+$result=[ordered]@{passed=($fail.Count-eq0);version='1.2.4';checks=10;failures=$fail};$result|ConvertTo-Json -Depth 10
 if ($fail.Count) { throw ($fail-join'; ') }

@@ -2,10 +2,11 @@
   "schemaVersion": "2.0",
   "packageId": "KI-STACK-COMPLETE-INSTALLER",
   "name": "KI-Stack Complete Installer",
-  "version": "2.3.0-rc12",
+  "version": "2.3.0-rc13",
   "status": "SourcePendingValidation_TargetPending",
   "baseVersion": "2.2.9",
   "components": {
+    "comfyUI": "1.2.4",
     "visualModelsWorkflows": "2.0.1",
     "openWebUIAgentPack": "1.8.6",
     "openWebUIVisualPack": "2.0.5-rc2"

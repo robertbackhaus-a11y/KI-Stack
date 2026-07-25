@@ -243,6 +243,79 @@ function Invoke-KICompleteJsonScript {
     ($output -join [Environment]::NewLine) | ConvertFrom-Json -Depth 100
 }
 
+function Invoke-KICompletePendingComponentRollback {
+    param(
+        [Parameter(Mandatory)][string]$PackageRoot,
+        [Parameter(Mandatory)][string]$TargetRoot,
+        [Parameter(Mandatory)][string]$StateDirectory
+    )
+    $recovered = @()
+    $transactionDirectories = @(Get-ChildItem -LiteralPath $StateDirectory -Directory -ErrorAction SilentlyContinue | Sort-Object Name)
+    foreach ($directory in $transactionDirectories) {
+        $transactionPath = Join-Path $directory.FullName 'transaction.json'
+        if (-not (Test-Path -LiteralPath $transactionPath -PathType Leaf)) { continue }
+        $transaction = Read-KICompleteJson $transactionPath
+        if ([string]$transaction.status -ne 'Failed') { continue }
+        $step = @($transaction.steps | Where-Object {
+            [string]$_.id -eq 'comfyui' -and [string]$_.status -eq 'Failed' -and
+            [string]$_.rollbackStatus -notin @('Completed','NotRequired')
+        } | Select-Object -First 1)
+        if ($step.Count -ne 1) { continue }
+
+        $backup = $null
+        if ($step[0].result -and $step[0].result.install -and $step[0].result.install.backup) {
+            $backup = [string]$step[0].result.install.backup
+        }
+        elseif ($step[0].backup) { $backup = [string]$step[0].backup }
+        if ([string]::IsNullOrWhiteSpace($backup) -or -not (Test-Path -LiteralPath $backup -PathType Container)) { continue }
+
+        $rollbackContract = Join-Path $backup 'rollback.json'
+        if (Test-Path -LiteralPath $rollbackContract) {
+            $records = @(Read-KICompleteJson $rollbackContract)
+            foreach ($record in $records) {
+                if ([IO.Path]::IsPathRooted([string]$record.path) -or [string]$record.path -match '(^|[\\/])\.\.([\\/]|$)') {
+                    throw "Ausstehender Rollback enthält unsicheren Pfad: $($record.path)"
+                }
+                if ([bool]$record.existed -and -not (Test-Path -LiteralPath (Join-Path $backup ([string]$record.path)) -PathType Leaf)) {
+                    throw "Ausstehendes Rollback-Backup ist unvollständig: $($record.path)"
+                }
+            }
+        }
+
+        $extract = Join-Path $StateDirectory ('pending-rollback-' + [guid]::NewGuid().ToString('N'))
+        try {
+            $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'ComfyUI' -Destination $extract
+            $entry = Join-Path $componentRoot 'Invoke-KIStackComfyUI.ps1'
+            $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{
+                Action='Rollback'
+                TargetRoot=(Join-Path $TargetRoot 'ComfyUI')
+                BackupPath=$backup
+            }
+            if (-not [bool]$result.passed -or [string]$result.status -ne 'RolledBack') { throw 'Ausstehender ComfyUI-Rollback meldete keinen Erfolg.' }
+            $stored = Get-KICompleteStoredVersion -Component ([pscustomobject]@{id='comfyui'}) -TargetRoot $TargetRoot
+            $markerPath = Join-Path $TargetRoot 'modules/comfyui/installation.json'
+            $markerVersion = if (Test-Path -LiteralPath $markerPath) { [string](Read-KICompleteJson $markerPath).version } else { $null }
+            if ($stored -ne $markerVersion) { throw "Rollback-Readback inkonsistent: components.json=$stored; Marker=$markerVersion" }
+            $step[0].rollbackStatus = 'Completed'
+            $transaction | Add-Member -NotePropertyName recovery -NotePropertyValue ([ordered]@{
+                recoveredBy='2.3.0-rc13';recoveredAtUtc=[DateTime]::UtcNow.ToString('o')
+                component='comfyui';backup=$backup;records=[int]$result.records;readbackPassed=$true
+            }) -Force
+            Write-KICompleteJson $transactionPath $transaction
+            $recovered += $transaction.transactionId
+        }
+        catch {
+            $step[0].rollbackStatus = 'Failed'
+            Write-KICompleteJson $transactionPath $transaction
+            throw
+        }
+        finally {
+            if (Test-Path -LiteralPath $extract) { Remove-Item -LiteralPath $extract -Recurse -Force }
+        }
+    }
+    [pscustomobject]@{passed=$true;status=if($recovered.Count){'PendingRollbackCompleted'}else{'NoPendingRollback'};transactions=$recovered}
+}
+
 function Install-KICompleteCentralStarters {
     param([string]$PackageRoot,[string]$TargetRoot,[string]$BackupRoot)
     $source=Join-Path $PackageRoot 'Lifecycle';$changed=@()
@@ -356,16 +429,19 @@ function Invoke-KIStackCompleteInstaller {
     $componentContract=Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
     if ($Mode -in @('Start','Stop')) { return Invoke-KICompleteLifecycle $Mode $TargetRoot }
     if ($Mode -eq 'Rollback') { return Restore-KICompleteOperations -TargetRoot $TargetRoot }
-    $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics
     $preflight = Test-KICompletePreflight -PackageRoot $PackageRoot -TargetRoot $TargetRoot -ReadOnly:($Mode -in @('Audit','Validate') -or $DryRun)
     if (-not $preflight.passed) { throw ('Preflight fehlgeschlagen: ' + ($preflight.issues -join '; ')) }
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.3.0-rc12';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.3.0-rc12';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    $pendingRollback = if ($Mode -notin @('Audit','Validate') -and -not $DryRun -and -not $Resume) {
+        Invoke-KICompletePendingComponentRollback -PackageRoot $PackageRoot -TargetRoot $TargetRoot -StateDirectory ([string]$config.stateDirectory)
+    } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
+    $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.3.0-rc13';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.3.0-rc13';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
     if(-not$Resume -and $plan.alreadyCompliant -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.3.0-rc12'}
-        return [pscustomobject]@{version='2.3.0-rc12';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;transactionCreated=$false;backupCreated=$false;mutatesTarget=$needsReconciliation}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.3.0-rc13'}
+        return [pscustomobject]@{version='2.3.0-rc13';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'PendingRollbackCompleted')}
     }
     $state = [string]$config.stateDirectory
     if ($Resume) {
@@ -429,9 +505,26 @@ function Invoke-KIStackCompleteInstaller {
                 $entry = Join-Path $componentRoot 'Invoke-KIStackComfyUI.ps1'
                 $action = if ($step.plannedMode -eq 'Repair') { 'Repair' } elseif ($step.plannedMode -eq 'Upgrade') { 'Upgrade' } else { 'Install' }
                 $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=(Join-Path $TargetRoot 'ComfyUI')}
-                $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=(Join-Path $TargetRoot 'ComfyUI')}
-                if (-not [bool]$validation.passed) { throw 'ComfyUI-Validierung fehlgeschlagen.' }
-                $step.result=@{install=$result;validation=$validation}
+                try {
+                    $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=(Join-Path $TargetRoot 'ComfyUI')}
+                    $actual = Get-KICompleteInstalledVersion -Component $component -TargetRoot $TargetRoot
+                    if (-not [bool]$validation.passed -or $actual -ne [string]$component.version) {
+                        throw "ComfyUI-Readback verletzt: Payload=$([bool]$validation.passed); Marker=$actual; erwartet=$($component.version)"
+                    }
+                    $step.result=@{install=$result;validation=$validation;markerVersion=$actual}
+                }
+                catch {
+                    $rollbackStatus = 'Failed'
+                    try {
+                        if ($result.changed -and $result.backup) {
+                            $rollback = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Rollback';TargetRoot=(Join-Path $TargetRoot 'ComfyUI');BackupPath=[string]$result.backup}
+                            if ([bool]$rollback.passed) { $rollbackStatus='Completed' }
+                        } else { $rollbackStatus='NotRequired' }
+                    } catch { $rollbackStatus='Failed' }
+                    $_.Exception.Data['KIStackRollbackStatus']=$rollbackStatus
+                    $_.Exception.Data['KIStackBackupPath']=[string]$result.backup
+                    throw
+                }
             }
             elseif ($step.id -eq 'integration') {
                 $extract = Join-Path $state "$TransactionId/Integration"
@@ -590,7 +683,7 @@ function Invoke-KIStackCompleteInstaller {
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
         $componentStatePath=Join-Path $state 'components.json';$componentVersions=[ordered]@{}
         foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
-        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.3.0-rc12';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false}})
+        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.3.0-rc13';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
         Write-KICompleteJson $txPath $tx; return $tx
     }
     catch {
