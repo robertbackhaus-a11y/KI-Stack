@@ -23,17 +23,24 @@ try{
         @{id='openwebui-agent-pack';version='1.8.6';status='Failed';rollbackStatus=$null;result=$null;backup=$null}
     )
     [IO.File]::WriteAllText((Join-Path $txDir 'transaction.json'),(@{transactionId='KI-COMPLETE-RC13-FIXTURE';createdAtUtc='2026-07-25T20:28:55Z';status='Failed';steps=$steps}|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
+    $rc14Dir=Join-Path $state 'KI-COMPLETE-RC14-FIXTURE';New-Item -ItemType Directory $rc14Dir|Out-Null
+    [IO.File]::WriteAllText((Join-Path $rc14Dir 'transaction.json'),(@{transactionId='KI-COMPLETE-RC14-FIXTURE';createdAtUtc='2026-07-25T21:11:57Z';status='Failed';steps=@(
+        @{id='openwebui-agent-pack';version='1.8.7';status='Failed';rollbackStatus=$null;result=$null;backup=$null},
+        @{id='openwebui-visual-pack';version='2.0.5-rc2';status='Planned';rollbackStatus=$null}
+    )}|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
     Import-Module (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Force
     $contract=Get-Content (Join-Path $PackageRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json -Depth 30
     $result=Resolve-KICompleteFailedTransactionState -TargetRoot $fixture -StateDirectory $state -ComponentContract $contract
     $after=Get-Content (Join-Path $txDir 'transaction.json') -Raw|ConvertFrom-Json -Depth 30
+    $rc14After=Get-Content (Join-Path $rc14Dir 'transaction.json') -Raw|ConvertFrom-Json -Depth 30
     $retained=@($after.steps|Where-Object status -eq 'Completed')
     $failed=@($after.steps|Where-Object status -eq 'Failed')
     $historic=Get-Content (Join-Path $historicDir 'transaction.json') -Raw|ConvertFrom-Json -Depth 30
     $stored=(Get-Content (Join-Path $state 'components.json') -Raw|ConvertFrom-Json).components
     $historicIgnored=$null-eq$historic.steps[0].rollbackStatus
-    $passed=$result.status-eq'FailedTransactionStateRecovered'-and@($retained|Where-Object {$_.rollbackStatus -ne 'NotRequiredRetainedVerified'}).Count-eq0-and$failed[0].rollbackStatus-eq'NotRequiredNoRecordedChange'-and$after.rc14Recovery.readbackPassed-and$stored.comfyui-eq'1.2.2'-and$historicIgnored
-    [pscustomobject]@{passed=$passed;retained=@($retained.id);failedStepRollbackStatus=$failed[0].rollbackStatus;storedStatePreserved=$true;historicTransactionIgnored=$historicIgnored;readbackPassed=[bool]$after.rc14Recovery.readbackPassed}|ConvertTo-Json -Depth 8
+    $rc14Recovered=$rc14After.steps[0].rollbackStatus-eq'NotRequiredNoRecordedChange'-and$rc14After.failedStateRecovery.readbackPassed
+    $passed=$result.status-eq'FailedTransactionStateRecovered'-and@($retained|Where-Object {$_.rollbackStatus -ne 'NotRequiredRetainedVerified'}).Count-eq0-and$failed[0].rollbackStatus-eq'NotRequiredNoRecordedChange'-and$after.failedStateRecovery.readbackPassed-and$stored.comfyui-eq'1.2.2'-and$historicIgnored-and$rc14Recovered
+    [pscustomobject]@{passed=$passed;retained=@($retained.id);failedStepRollbackStatus=$failed[0].rollbackStatus;storedStatePreserved=$true;historicTransactionIgnored=$historicIgnored;rc14NoChangeRecovered=$rc14Recovered;readbackPassed=[bool]$after.failedStateRecovery.readbackPassed}|ConvertTo-Json -Depth 8
     if(-not$passed){throw 'RC13 state recovery fixture failed'}
 }
 finally{if(Test-Path $fixture){Remove-Item $fixture -Recurse -Force}}

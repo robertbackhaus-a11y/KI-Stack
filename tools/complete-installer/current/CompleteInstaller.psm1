@@ -335,6 +335,7 @@ function Resolve-KICompleteFailedTransactionState {
         $transaction=Read-KICompleteJson $path
         if([string]$transaction.status-ne'Failed'){continue}
         if($transaction.PSObject.Properties.Name-contains'rc14Recovery'-and[bool]$transaction.rc14Recovery.readbackPassed){continue}
+        if($transaction.PSObject.Properties.Name-contains'failedStateRecovery'-and[bool]$transaction.failedStateRecovery.readbackPassed){continue}
         if($transaction.PSObject.Properties.Name-contains'createdAtUtc'){
             try{
                 $createdAtUtc=([DateTimeOffset]$transaction.createdAtUtc).ToUniversalTime()
@@ -342,6 +343,7 @@ function Resolve-KICompleteFailedTransactionState {
             }catch{}
         }
         $retained=@()
+        $stateChanged=$false
         foreach($step in @($transaction.steps|Where-Object status -eq 'Completed')){
             if([string]$step.rollbackStatus -in @('Completed','NotRequiredRetainedVerified')){continue}
             $component=@($ComponentContract.components|Where-Object id -eq ([string]$step.id)|Select-Object -First 1)
@@ -349,17 +351,18 @@ function Resolve-KICompleteFailedTransactionState {
             $actual=Get-KICompleteInstalledVersion -Component $component[0] -TargetRoot $TargetRoot
             if($actual-ne[string]$step.version){throw "Fehlgeschlagene Transaktion ist nicht recoverbar: $($step.id); erwartet=$($step.version); real=$actual"}
             $step.rollbackStatus='NotRequiredRetainedVerified'
+            $stateChanged=$true
             $retained+=@([ordered]@{id=[string]$step.id;version=[string]$step.version;actualVersion=$actual})
         }
         $failed=@($transaction.steps|Where-Object status -eq 'Failed')
         foreach($step in $failed){
             if([string]$step.rollbackStatus){continue}
-            if($null-eq$step.result-and$null-eq$step.backup){$step.rollbackStatus='NotRequiredNoRecordedChange'}
+            if($null-eq$step.result-and$null-eq$step.backup){$step.rollbackStatus='NotRequiredNoRecordedChange';$stateChanged=$true}
         }
-        if($retained.Count){
+        if($stateChanged){
             $existingRecovery=if($transaction.PSObject.Properties.Name-contains'recovery'){$transaction.recovery}else{$null}
-            $transaction|Add-Member -NotePropertyName rc14Recovery -NotePropertyValue ([ordered]@{
-                recoveredBy='2.3.0-rc14';recoveredAtUtc=[DateTime]::UtcNow.ToString('o')
+            $transaction|Add-Member -NotePropertyName failedStateRecovery -NotePropertyValue ([ordered]@{
+                recoveredBy='2.3.0-rc15';recoveredAtUtc=[DateTime]::UtcNow.ToString('o')
                 strategy='RetainReadbackVerifiedComponents';retained=$retained
                 priorRecovery=$existingRecovery;readbackPassed=$true
             }) -Force
@@ -491,13 +494,13 @@ function Invoke-KIStackCompleteInstaller {
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
     $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.3.0-rc14';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.3.0-rc14';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.3.0-rc15';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.3.0-rc15';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
     if(-not$Resume -and $plan.alreadyCompliant -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.3.0-rc14'}
-        return [pscustomobject]@{version='2.3.0-rc14';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.3.0-rc15'}
+        return [pscustomobject]@{version='2.3.0-rc15';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
     $state = [string]$config.stateDirectory
     if ($Resume) {
@@ -739,7 +742,7 @@ function Invoke-KIStackCompleteInstaller {
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
         $componentStatePath=Join-Path $state 'components.json';$componentVersions=[ordered]@{}
         foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
-        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.3.0-rc14';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
+        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.3.0-rc15';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
         Write-KICompleteJson $txPath $tx; return $tx
     }
     catch {

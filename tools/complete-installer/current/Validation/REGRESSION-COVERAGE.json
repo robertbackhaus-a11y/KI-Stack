@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "packageName": "KI-Stack-Complete-Installer",
-  "packageVersion": "2.3.0-rc14",
+  "packageVersion": "2.3.0-rc15",
   "coverage": [
     {
       "id": "REG-023-ROOTLESS-NESTED-ARCHIVE",

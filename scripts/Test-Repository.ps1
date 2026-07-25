@@ -393,7 +393,7 @@ try {
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.4'},
         @{name='Integration';root='tools/integration/current';version='1.5.10'},
         @{name='Cutover Runtime';root='tools/cutover-runtime/current';version='1.6.5'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.3.0-rc14'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.3.0-rc15'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root

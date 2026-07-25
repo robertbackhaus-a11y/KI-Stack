@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.3.0-rc14",
+  "version": "2.3.0-rc15",
   "baseVersion": "2.2.9",
   "status": "SourcePendingValidation_TargetPending",
   "deterministicArchive": true,
@@ -31,6 +31,8 @@
   "rc12RejectReason": "ComfyUI 1.2.3 did not persist its version marker after content deployment, referenced an uninitialized payload test during reconciliation, and did not roll back after failed real-version readback.",
   "rc13Rejected": true,
   "rc13RejectReason": "The Agent Pack accessed Exception.Response without checking that the property existed, masking the underlying OpenWebUI API failure under StrictMode.",
+  "rc14Rejected": true,
+  "rc14RejectReason": "The Complete Installer deployed Agent Pack before Visual Pack although Agent Pack requires the Visual Pack 2.0.5-rc2 tool metadata during pre-mutation readback.",
   "containsModels": false,
   "containsSecrets": false,
   "containsPersonalPaths": false,
