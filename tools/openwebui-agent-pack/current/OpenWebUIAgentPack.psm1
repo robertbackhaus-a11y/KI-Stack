@@ -8,6 +8,57 @@ function ConvertFrom-AgentPackSecureString {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
 }
 
+function Get-AgentPackPropertyValue {
+    param([AllowNull()][object]$Object,[Parameter(Mandatory)][string]$Name)
+    if ($null -eq $Object) { return $null }
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $null }
+    return $property.Value
+}
+
+function Get-AgentPackApiFailure {
+    param(
+        [Parameter(Mandatory)][object]$ErrorRecord,
+        [AllowEmptyString()][string]$SensitiveValue = ''
+    )
+    $exception = Get-AgentPackPropertyValue -Object $ErrorRecord -Name 'Exception'
+    $response = Get-AgentPackPropertyValue -Object $exception -Name 'Response'
+    $statusValue = Get-AgentPackPropertyValue -Object $response -Name 'StatusCode'
+    $numericStatus = if ($null -ne $statusValue) {
+        $valueProperty = Get-AgentPackPropertyValue -Object $statusValue -Name 'value__'
+        if ($null -ne $valueProperty) { [int]$valueProperty } else { try { [int]$statusValue } catch { $null } }
+    } else {
+        $data = Get-AgentPackPropertyValue -Object $exception -Name 'Data'
+        if ($null -ne $data -and $data.Contains('AgentPackHttpStatus')) { [int]$data['AgentPackHttpStatus'] } else { $null }
+    }
+    $errorDetails = Get-AgentPackPropertyValue -Object $ErrorRecord -Name 'ErrorDetails'
+    $detail = [string](Get-AgentPackPropertyValue -Object $errorDetails -Name 'Message')
+    $message = [string](Get-AgentPackPropertyValue -Object $exception -Name 'Message')
+    $typeName = if ($null -ne $exception) { $exception.GetType().FullName } else { '' }
+    $combined = (($message,$detail | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join ' | ')
+    if (-not [string]::IsNullOrEmpty($SensitiveValue)) { $combined = $combined.Replace($SensitiveValue,'<redacted>') }
+    $combined = $combined -replace '(?i)Bearer\s+\S+','Bearer <redacted>' -replace '(?i)\bsk-[A-Za-z0-9._-]{10,}\b','<redacted>'
+    $category = switch ($numericStatus) {
+        401 { 'Unauthorized' }
+        403 { 'Forbidden' }
+        500 { 'ServerError' }
+        default {
+            if ($typeName -match 'Timeout|TaskCanceled' -or $combined -match '(?i)timed?\s*out|timeout') { 'Timeout' }
+            elseif ($typeName -match 'Authentication|Tls|Ssl' -or $combined -match '(?i)\bTLS\b|\bSSL\b|certificate') { 'Tls' }
+            elseif ($typeName -match 'Socket|HttpRequest' -or $combined -match '(?i)\bDNS\b|name.*resolve|connection|host.*known') { 'Connection' }
+            elseif ($null -ne $numericStatus) { 'HttpError' }
+            else { 'TransportError' }
+        }
+    }
+    [pscustomobject]@{
+        category=$category
+        statusCode=$numericStatus
+        hasResponse=($null -ne $response)
+        technicalMessage=if([string]::IsNullOrWhiteSpace($combined)){$category}else{$combined}
+        containsSecret=$false
+    }
+}
+
 function Invoke-AgentPackApi {
     param(
         [Parameter(Mandatory)][string]$Endpoint,
@@ -28,10 +79,42 @@ function Invoke-AgentPackApi {
             $parameters.ContentType = 'application/json; charset=utf-8'
             $parameters.Body = $Body | ConvertTo-Json -Depth 30 -Compress
         }
-        return Invoke-RestMethod @parameters
+        try {
+            return Invoke-RestMethod @parameters
+        }
+        catch {
+            $failure = Get-AgentPackApiFailure -ErrorRecord $_ -SensitiveValue $plainToken
+            $status = if ($null -ne $failure.statusCode) { " HTTP $($failure.statusCode)" } else { '' }
+            $wrapped = [InvalidOperationException]::new("OpenWebUI-API-Fehler [$($failure.category)$status]: $($failure.technicalMessage)",$_.Exception)
+            $wrapped.Data['AgentPackFailureCategory'] = [string]$failure.category
+            if ($null -ne $failure.statusCode) { $wrapped.Data['AgentPackHttpStatus'] = [int]$failure.statusCode }
+            throw $wrapped
+        }
     }
     finally {
         $plainToken = $null
+    }
+}
+
+function Invoke-AgentPackTransactionalOperation {
+    param(
+        [Parameter(Mandatory)][scriptblock]$Operation,
+        [Parameter(Mandatory)][scriptblock]$Rollback,
+        [AllowEmptyString()][string]$BackupPath=''
+    )
+    $state = [pscustomobject]@{changesStarted=$false}
+    try {
+        return & $Operation $state
+    }
+    catch {
+        $failure = $_
+        $rollbackStatus = if ([bool]$state.changesStarted) { 'Failed' } else { 'NotRequired' }
+        if ([bool]$state.changesStarted) {
+            try { &$Rollback; $rollbackStatus='Completed' } catch { $rollbackStatus='Failed' }
+        }
+        $failure.Exception.Data['KIStackRollbackStatus']=$rollbackStatus
+        $failure.Exception.Data['KIStackBackupPath']=$BackupPath
+        throw $failure
     }
 }
 
@@ -139,7 +222,8 @@ function Get-AgentPackRegisteredExtensionToolIds {
             $registered.Add($contract.id)
         }
         catch {
-            if ($null -ne $_.Exception.Response -and $_.Exception.Response.StatusCode.value__ -eq 404) { continue }
+            $failure = Get-AgentPackApiFailure -ErrorRecord $_
+            if ($failure.statusCode -eq 404) { continue }
             throw
         }
     }
@@ -160,7 +244,7 @@ function New-AgentPackModelForm {
             skillIds = @()
             functionIds = @()
             managedBy = 'KI-STACK-OPENWEBUI-AGENT-PACK'
-            agentPackVersion = '1.8.6'
+            agentPackVersion = '1.8.7'
         }
         params = [ordered]@{
             system = [string]$Definition.systemPrompt
@@ -178,7 +262,8 @@ function Get-AgentPackManagedModel {
         return Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path "/api/v1/models/model?id=$encoded"
     }
     catch {
-        if ($_.Exception.Response.StatusCode.value__ -eq 404) { return $null }
+        $failure = Get-AgentPackApiFailure -ErrorRecord $_
+        if ($failure.statusCode -eq 404) { return $null }
         throw
     }
 }
@@ -234,20 +319,28 @@ function Install-OpenWebUIAgentPack {
     $baseModel = Resolve-AgentPackBaseModel -OfferedModels $offered -BaseModelId $BaseModelId
     $extensionToolIds = @(Get-AgentPackRegisteredExtensionToolIds -Endpoint $Endpoint -ApiToken $ApiToken)
     $backupPath = Backup-OpenWebUIAgentPack -PackageRoot $PackageRoot -Endpoint $Endpoint -ApiToken $ApiToken -BackupDirectory $BackupDirectory
-    $actions = foreach ($definition in Get-AgentPackDefinitions -PackageRoot $PackageRoot) {
-        $form = New-AgentPackModelForm -Definition $definition -BaseModelId ([string]$baseModel.id) -ExtensionToolIds $extensionToolIds
-        $current = Get-AgentPackManagedModel -Endpoint $Endpoint -ApiToken $ApiToken -Id ([string]$definition.id)
-        if ($null -eq $current) {
-            $null = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/api/v1/models/create' -Method POST -Body $form
-            [pscustomobject]@{ id=$definition.id; action='created' }
+    Invoke-AgentPackTransactionalOperation -BackupPath $backupPath -Rollback {
+        Restore-OpenWebUIAgentPack -Endpoint $Endpoint -ApiToken $ApiToken -BackupPath $backupPath
+    } -Operation {
+        param($transactionState)
+        $actions = foreach ($definition in Get-AgentPackDefinitions -PackageRoot $PackageRoot) {
+            $form = New-AgentPackModelForm -Definition $definition -BaseModelId ([string]$baseModel.id) -ExtensionToolIds $extensionToolIds
+            $current = Get-AgentPackManagedModel -Endpoint $Endpoint -ApiToken $ApiToken -Id ([string]$definition.id)
+            if ($null -eq $current) {
+                $null = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/api/v1/models/create' -Method POST -Body $form
+                $transactionState.changesStarted = $true
+                [pscustomobject]@{ id=$definition.id; action='created' }
+            }
+            else {
+                $null = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/api/v1/models/model/update' -Method POST -Body $form
+                $transactionState.changesStarted = $true
+                [pscustomobject]@{ id=$definition.id; action='updated' }
+            }
         }
-        else {
-            $null = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path '/api/v1/models/model/update' -Method POST -Body $form
-            [pscustomobject]@{ id=$definition.id; action='updated' }
-        }
+        $filter = Set-AgentPackChatModelAllowList -Endpoint $Endpoint -ApiToken $ApiToken -BaseModelId ([string]$baseModel.id)
+        $transactionState.changesStarted = $true
+        return [pscustomobject]@{ baseModelId=[string]$baseModel.id; backupPath=$backupPath; actions=@($actions); chatModelFilter=$filter;rollbackStatus='NotRequired' }
     }
-    $filter = Set-AgentPackChatModelAllowList -Endpoint $Endpoint -ApiToken $ApiToken -BaseModelId ([string]$baseModel.id)
-    return [pscustomobject]@{ baseModelId=[string]$baseModel.id; backupPath=$backupPath; actions=@($actions); chatModelFilter=$filter }
 }
 
 function Test-AgentPackSafeValue {
@@ -316,4 +409,4 @@ function Restore-OpenWebUIAgentPack {
     }
 }
 
-Export-ModuleMember -Function Invoke-AgentPackApi,Backup-OpenWebUIAgentPack,Install-OpenWebUIAgentPack,Test-OpenWebUIAgentPack,Restore-OpenWebUIAgentPack,Get-AgentPackOfferedModels,Resolve-AgentPackBaseModel,Get-AgentPackOpenAIConfig,Get-AgentPackLmStudioConnectionIndex,Set-AgentPackChatModelAllowList
+Export-ModuleMember -Function Invoke-AgentPackApi,Get-AgentPackApiFailure,Invoke-AgentPackTransactionalOperation,Backup-OpenWebUIAgentPack,Install-OpenWebUIAgentPack,Test-OpenWebUIAgentPack,Restore-OpenWebUIAgentPack,Get-AgentPackOfferedModels,Resolve-AgentPackBaseModel,Get-AgentPackOpenAIConfig,Get-AgentPackLmStudioConnectionIndex,Set-AgentPackChatModelAllowList

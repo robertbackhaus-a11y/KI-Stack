@@ -1,6 +1,6 @@
-# KI-Stack OpenWebUI Agent Pack 1.8.6
+# KI-Stack OpenWebUI Agent Pack 1.8.7
 
-Status: `StaticPendingValidation_TargetPending`. Die vorherige 1.8.5-Zielabnahme bleibt historische Evidenz; 1.8.6 benötigt wegen des Visual-Pack-2.0.5-rc2-Vertrags eine neue RC12-Zielvalidierung.
+Status: `StaticPendingValidation_TargetPending`. 1.8.7 korrigiert die StrictMode-sichere HTTP-Fehlerklassifizierung und den automatischen Rollback nach der ersten API-Änderung; RC13 ist verworfen.
 
 Reproduzierbares Paket für genau zwei verwaltete OpenWebUI-0.10.2-Workspace-Modelle: `ki-stack-it-technik` (`KI & IT-Technik`) und `ki-stack-allgemein` (`Allgemein`).
 

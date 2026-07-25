@@ -1,0 +1,21 @@
+[CmdletBinding()]
+param([int]$Port,[string]$ArtifactPath,[string]$ReadyPath)
+$ErrorActionPreference='Stop'
+$listener=[Net.HttpListener]::new()
+$listener.Prefixes.Add("http://127.0.0.1:$Port/")
+$listener.Start()
+[IO.File]::WriteAllText($ReadyPath,'ready')
+try{
+    while($listener.IsListening){
+        $context=$listener.GetContext()
+        $path=$context.Request.Url.AbsolutePath
+        if($path-eq'/shutdown'){$context.Response.StatusCode=200;$context.Response.Close();break}
+        if($path-eq'/error'){$context.Response.StatusCode=500;$context.Response.Close();continue}
+        $body=[IO.File]::ReadAllBytes($ArtifactPath)
+        $context.Response.StatusCode=200
+        $context.Response.ContentLength64=$body.Length
+        $context.Response.OutputStream.Write($body,0,$body.Length)
+        $context.Response.Close()
+    }
+}
+finally{$listener.Stop();$listener.Close()}
