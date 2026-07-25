@@ -323,11 +323,24 @@ function Resolve-KICompleteFailedTransactionState {
         [Parameter(Mandatory)][object]$ComponentContract
     )
     $reconciled=@()
+    $componentStatePath=Join-Path $StateDirectory 'components.json'
+    $componentState=if(Test-Path -LiteralPath $componentStatePath -PathType Leaf){Read-KICompleteJson $componentStatePath}else{$null}
+    $validatedAtUtc=[DateTimeOffset]::MinValue
+    if($null-ne$componentState-and$componentState.PSObject.Properties.Name-contains'validatedAtUtc'){
+        try{$validatedAtUtc=([DateTimeOffset]$componentState.validatedAtUtc).ToUniversalTime()}catch{}
+    }
     foreach($directory in @(Get-ChildItem -LiteralPath $StateDirectory -Directory -ErrorAction SilentlyContinue|Sort-Object Name)){
         $path=Join-Path $directory.FullName 'transaction.json'
         if(-not(Test-Path -LiteralPath $path -PathType Leaf)){continue}
         $transaction=Read-KICompleteJson $path
         if([string]$transaction.status-ne'Failed'){continue}
+        if($transaction.PSObject.Properties.Name-contains'rc14Recovery'-and[bool]$transaction.rc14Recovery.readbackPassed){continue}
+        if($transaction.PSObject.Properties.Name-contains'createdAtUtc'){
+            try{
+                $createdAtUtc=([DateTimeOffset]$transaction.createdAtUtc).ToUniversalTime()
+                if($createdAtUtc -le $validatedAtUtc){continue}
+            }catch{}
+        }
         $retained=@()
         foreach($step in @($transaction.steps|Where-Object status -eq 'Completed')){
             if([string]$step.rollbackStatus -in @('Completed','NotRequiredRetainedVerified')){continue}

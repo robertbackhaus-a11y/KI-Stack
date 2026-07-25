@@ -12,7 +12,9 @@ try{
         @{path='modules/integration/installation.json';version='1.5.10'},
         @{path='modules/openwebui-agent-pack/installation.json';version='1.8.5'}
     )){[IO.File]::WriteAllText((Join-Path $fixture $entry.path),(@{version=$entry.version}|ConvertTo-Json),[Text.UTF8Encoding]::new($false))}
-    [IO.File]::WriteAllText((Join-Path $state 'components.json'),(@{completeInstallerVersion='2.3.0-rc11';components=@{comfyui='1.2.2';'models-workflows'='2.0.0';integration='1.5.9';'openwebui-agent-pack'='1.8.5'}}|ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $state 'components.json'),(@{completeInstallerVersion='2.3.0-rc11';validatedAtUtc='2026-07-25T17:56:00Z';components=@{comfyui='1.2.2';'models-workflows'='2.0.0';integration='1.5.9';'openwebui-agent-pack'='1.8.5'}}|ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false))
+    $historicDir=Join-Path $state 'KI-COMPLETE-HISTORIC-FIXTURE';New-Item -ItemType Directory $historicDir|Out-Null
+    [IO.File]::WriteAllText((Join-Path $historicDir 'transaction.json'),(@{transactionId='KI-COMPLETE-HISTORIC-FIXTURE';createdAtUtc='2026-07-25T16:00:00Z';status='Failed';steps=@(@{id='comfyui';version='1.2.2';status='Completed';rollbackStatus=$null})}|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
     $txDir=Join-Path $state 'KI-COMPLETE-RC13-FIXTURE';New-Item -ItemType Directory $txDir|Out-Null
     $steps=@(
         @{id='comfyui';version='1.2.4';status='Completed';rollbackStatus=$null},
@@ -20,16 +22,18 @@ try{
         @{id='integration';version='1.5.10';status='Completed';rollbackStatus=$null},
         @{id='openwebui-agent-pack';version='1.8.6';status='Failed';rollbackStatus=$null;result=$null;backup=$null}
     )
-    [IO.File]::WriteAllText((Join-Path $txDir 'transaction.json'),(@{transactionId='KI-COMPLETE-RC13-FIXTURE';status='Failed';steps=$steps}|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $txDir 'transaction.json'),(@{transactionId='KI-COMPLETE-RC13-FIXTURE';createdAtUtc='2026-07-25T20:28:55Z';status='Failed';steps=$steps}|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
     Import-Module (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Force
     $contract=Get-Content (Join-Path $PackageRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json -Depth 30
     $result=Resolve-KICompleteFailedTransactionState -TargetRoot $fixture -StateDirectory $state -ComponentContract $contract
     $after=Get-Content (Join-Path $txDir 'transaction.json') -Raw|ConvertFrom-Json -Depth 30
     $retained=@($after.steps|Where-Object status -eq 'Completed')
     $failed=@($after.steps|Where-Object status -eq 'Failed')
+    $historic=Get-Content (Join-Path $historicDir 'transaction.json') -Raw|ConvertFrom-Json -Depth 30
     $stored=(Get-Content (Join-Path $state 'components.json') -Raw|ConvertFrom-Json).components
-    $passed=$result.status-eq'FailedTransactionStateRecovered'-and@($retained|Where-Object {$_.rollbackStatus -ne 'NotRequiredRetainedVerified'}).Count-eq0-and$failed[0].rollbackStatus-eq'NotRequiredNoRecordedChange'-and$after.rc14Recovery.readbackPassed-and$stored.comfyui-eq'1.2.2'
-    [pscustomobject]@{passed=$passed;retained=@($retained.id);failedStepRollbackStatus=$failed[0].rollbackStatus;storedStatePreserved=$true;readbackPassed=[bool]$after.rc14Recovery.readbackPassed}|ConvertTo-Json -Depth 8
+    $historicIgnored=$null-eq$historic.steps[0].rollbackStatus
+    $passed=$result.status-eq'FailedTransactionStateRecovered'-and@($retained|Where-Object {$_.rollbackStatus -ne 'NotRequiredRetainedVerified'}).Count-eq0-and$failed[0].rollbackStatus-eq'NotRequiredNoRecordedChange'-and$after.rc14Recovery.readbackPassed-and$stored.comfyui-eq'1.2.2'-and$historicIgnored
+    [pscustomobject]@{passed=$passed;retained=@($retained.id);failedStepRollbackStatus=$failed[0].rollbackStatus;storedStatePreserved=$true;historicTransactionIgnored=$historicIgnored;readbackPassed=[bool]$after.rc14Recovery.readbackPassed}|ConvertTo-Json -Depth 8
     if(-not$passed){throw 'RC13 state recovery fixture failed'}
 }
 finally{if(Test-Path $fixture){Remove-Item $fixture -Recurse -Force}}
