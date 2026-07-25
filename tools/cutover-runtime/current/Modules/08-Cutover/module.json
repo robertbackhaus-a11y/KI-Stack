@@ -3,7 +3,7 @@
   "id": "KIModuleCutover",
   "order": 80,
   "name": "Stack Cutover and Operational Readiness",
-  "version": "1.6.4",
+  "version": "1.6.5",
   "enabled": true,
   "script": "KIModuleCutover.psm1",
   "supportsRollback": true,

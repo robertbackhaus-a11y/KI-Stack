@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 $ProjectRoot = [IO.Path]::GetFullPath($ProjectRoot)
 $sourceRoot = Join-Path $ProjectRoot 'Embedded\Preflight\Source'
 if ([string]::IsNullOrWhiteSpace($DestinationPath)) {
-    $DestinationPath = Join-Path $ProjectRoot 'State\Generated\Preflight-Continuation-v1.6.4.zip'
+    $DestinationPath = Join-Path $ProjectRoot 'State\Generated\Preflight-Continuation-v1.6.5.zip'
 }
 $DestinationPath = [IO.Path]::GetFullPath($DestinationPath)
 

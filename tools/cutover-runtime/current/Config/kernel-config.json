@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "kernelVersion": "1.6.4",
+  "kernelVersion": "1.6.5",
   "stackRoot": "C:\\KI-Stack",
   "stateRoot": "C:\\KI-Stack\\state",
   "logRoot": "C:\\KI-Stack\\logs",
@@ -185,7 +185,7 @@
     "webLoaderConcurrentRequests": 5
   },
   "executeRelease": {
-    "releaseId": "CUTOVER-1.6.4",
+    "releaseId": "CUTOVER-1.6.5",
     "enabledModules": [
       "KIModuleFoundation",
       "KIModuleRuntime",
@@ -211,7 +211,7 @@
     "searchRecursively": true,
     "sortBy": "LastWriteTimeUtc",
     "preflightSelectionMode": "EmbeddedDefault",
-    "embeddedPreflightRelativePath": "State\\Generated\\Preflight-Continuation-v1.6.4.zip",
+    "embeddedPreflightRelativePath": "State\\Generated\\Preflight-Continuation-v1.6.5.zip",
     "allowExplicitPreflightOverride": true
   },
   "cutover": {

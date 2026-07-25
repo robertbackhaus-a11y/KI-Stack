@@ -8,8 +8,9 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $resolvedRoot = (Resolve-Path -LiteralPath $ProjectRoot -ErrorAction Stop).Path
-$stateRoot = Join-Path $resolvedRoot 'State\PathValidation'
+$stateRoot = Join-Path ([IO.Path]::GetTempPath()) ('KIStack-PathValidation-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $stateRoot -Force | Out-Null
+$generatedCurrentArtifacts = [System.Collections.Generic.List[string]]::new()
 
 $requiredRelativePaths = @(
     'Bootstrap-KIStack-Cutover.cmd',
@@ -85,6 +86,16 @@ try {
         $config = Get-Content -LiteralPath (Join-Path $scenarioRoot 'Config\kernel-config.json') -Raw |
             ConvertFrom-Json -Depth 100
         $embeddedPath = Join-Path $scenarioRoot ([string]$config.starter.embeddedPreflightRelativePath)
+        $embeddedExistedBefore = Test-Path -LiteralPath $embeddedPath -PathType Leaf
+        $generated = & (Join-Path $scenarioRoot 'New-KIStackEmbeddedPreflight.ps1') `
+            -ProjectRoot $scenarioRoot `
+            -DestinationPath $embeddedPath
+        if (-not [bool]$generated.generatedFromTrackedSource) {
+            throw "Preflight-Fixture wurde nicht aus getrackten Quellen erzeugt: $scenarioRoot"
+        }
+        if (-not [bool]$scenario.copy -and -not $embeddedExistedBefore) {
+            [void]$generatedCurrentArtifacts.Add($embeddedPath)
+        }
         $embeddedExists = Test-Path -LiteralPath $embeddedPath -PathType Leaf
 
         $passed = ($missing.Count -eq 0 -and $embeddedExists)
@@ -103,6 +114,11 @@ finally {
         $scenarioRoot = [IO.Path]::GetFullPath([string]$scenario.path)
         if (Test-Path -LiteralPath $scenarioRoot) {
             Remove-Item -LiteralPath $scenarioRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    foreach ($artifact in $generatedCurrentArtifacts) {
+        if (Test-Path -LiteralPath $artifact -PathType Leaf) {
+            Remove-Item -LiteralPath $artifact -Force -ErrorAction SilentlyContinue
         }
     }
 }

@@ -28,5 +28,5 @@ if (@($ids | Group-Object | Where-Object Count -gt 1).Count -gt 0) {
     passed=$true
     frozenRelease=[string]$matrix.release
     regressionCount=$entries.Count
-    currentRuntime='1.6.4'
+    currentRuntime='1.6.5'
 } | ConvertTo-Json -Depth 10

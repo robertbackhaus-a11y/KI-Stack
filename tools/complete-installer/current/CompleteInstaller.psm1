@@ -69,7 +69,7 @@ function Get-KICompleteInstalledVersion {
     $acceptancePath=Join-Path $TargetRoot 'modules/production-recovery/acceptance.json'
     $accepted=$null;if(Test-Path $acceptancePath){$accepted=Read-KICompleteJson $acceptancePath}
     if($accepted -and [bool]$accepted.passed -and [string]$accepted.recoveryRevision -eq 'r7'){
-        $acceptedVersions=@{'foundation-runtime'='1.0.9';'python-git'='1.1.5';'cutover-runtime'='1.6.4';'production-recovery'='1.7.0-r7';'validation-gate'='1.0.3';'target-acceptance'='1.0.10'}
+        $acceptedVersions=@{'foundation-runtime'='1.0.9';'python-git'='1.1.5';'cutover-runtime'='1.6.5';'production-recovery'='1.7.0-r7';'validation-gate'='1.0.3';'target-acceptance'='1.0.10'}
         if($acceptedVersions.ContainsKey([string]$Component.id)){return [string]$acceptedVersions[[string]$Component.id]}
     }
     switch ([string]$Component.id) {
@@ -533,7 +533,7 @@ function Invoke-KIStackCompleteInstaller {
                     $cutoverRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'CutoverRuntime' -Destination $extract
                     $kernel = Join-Path $cutoverRoot 'Invoke-KIStackBuilderKernel.ps1'
                     $preflightGenerator = Join-Path $cutoverRoot 'New-KIStackEmbeddedPreflight.ps1'
-                    $preflight = Join-Path $state "$TransactionId/generated/Preflight-Continuation-v1.6.4.zip"
+                    $preflight = Join-Path $state "$TransactionId/generated/Preflight-Continuation-v1.6.5.zip"
                     if (-not (Test-Path -LiteralPath $kernel -PathType Leaf) -or -not (Test-Path -LiteralPath $preflightGenerator -PathType Leaf)) {
                         throw 'Cutover-Kernel oder Preflight-Generator fehlt.'
                     }

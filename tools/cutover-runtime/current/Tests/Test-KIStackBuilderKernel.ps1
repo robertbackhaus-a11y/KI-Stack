@@ -22,8 +22,8 @@ $expectedModules = @(
 )
 $actualModules = @($config.executeRelease.enabledModules)
 Add-Check 'Version contract' (
-    [string]$config.kernelVersion -eq '1.6.4' -and
-    [string]$config.executeRelease.releaseId -eq 'CUTOVER-1.6.4'
+    [string]$config.kernelVersion -eq '1.6.5' -and
+    [string]$config.executeRelease.releaseId -eq 'CUTOVER-1.6.5'
 ) "kernel=$($config.kernelVersion); release=$($config.executeRelease.releaseId)"
 Add-Check 'Enabled module contract' (
     @(Compare-Object ($expectedModules | Sort-Object) ($actualModules | Sort-Object)).Count -eq 0
@@ -61,7 +61,7 @@ Add-Check 'Runtime preflight generation' ([bool]$preflightTest.passed) (
 $failed = @($results | Where-Object { -not $_.passed })
 $report = [pscustomobject][ordered]@{
     generatedAtUtc=[DateTime]::UtcNow.ToString('o')
-    release='CUTOVER-1.6.4'
+    release='CUTOVER-1.6.5'
     passed=($failed.Count -eq 0)
     checksPassed=@($results | Where-Object passed).Count
     checksTotal=$results.Count
