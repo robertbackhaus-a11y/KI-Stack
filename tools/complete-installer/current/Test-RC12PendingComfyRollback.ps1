@@ -13,9 +13,16 @@ $transactionId = 'KI-COMPLETE-RC12-PARTIAL-FIXTURE'
 
 try {
     New-Item -ItemType Directory -Path $state,$backup,$payloadDirectory,(Join-Path $target 'ComfyUI'),(Join-Path $target 'modules/comfyui') -Force | Out-Null
-    $componentSource = [IO.Path]::GetFullPath((Join-Path $PackageRoot '../../comfyui/current'))
     $componentArchive = Join-Path $payloadDirectory 'KI-Stack-ComfyUI-Execute-v1.2.4.zip'
-    Compress-Archive -Path (Join-Path $componentSource '*') -DestinationPath $componentArchive
+    $packagedComponent = Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload/ComfyUI') -File -Filter 'KI-Stack-ComfyUI-Execute-v1.2.4.zip' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($packagedComponent) {
+        Copy-Item -LiteralPath $packagedComponent.FullName -Destination $componentArchive
+    }
+    else {
+        $componentSource = [IO.Path]::GetFullPath((Join-Path $PackageRoot '../../comfyui/current'))
+        if (-not (Test-Path -LiteralPath $componentSource -PathType Container)) { throw 'ComfyUI-Fixturequelle fehlt.' }
+        Compress-Archive -Path (Join-Path $componentSource '*') -DestinationPath $componentArchive
+    }
 
     $records = @()
     foreach ($index in 1..684) {
