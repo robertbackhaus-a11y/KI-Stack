@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "packageId": "KI-STACK-OPENWEBUI-AGENT-PACK",
-  "version": "1.8.7",
+  "version": "1.8.8",
   "status": "StaticPendingValidation_TargetPending",
   "targetApplication": {
     "name": "OpenWebUI",
@@ -13,8 +13,8 @@
   ],
   "codeInterpreter": {"engine":"pyodide","profiles":["ki-stack-allgemein","ki-stack-it-technik"],"workspaceToolId":false,"filePersistence":false},
   "registeredExtensions": [
-    {"canonicalToolId":"ki-stack-generate-image","openWebUIToolId":"ki_stack_generate_image","managedBy":"KI-STACK-OPENWEBUI-VISUAL-PACK","version":"2.0.5-rc2","optional":true},
-    {"canonicalToolId":"ki-stack-generate-video","openWebUIToolId":"ki_stack_generate_video","managedBy":"KI-STACK-OPENWEBUI-VISUAL-PACK","version":"2.0.5-rc2","optional":true}
+    {"canonicalToolId":"ki-stack-generate-image","openWebUIToolId":"ki_stack_generate_image","managedBy":"KI-STACK-OPENWEBUI-VISUAL-PACK","version":"2.0.5-rc3","optional":true},
+    {"canonicalToolId":"ki-stack-generate-video","openWebUIToolId":"ki_stack_generate_video","managedBy":"KI-STACK-OPENWEBUI-VISUAL-PACK","version":"2.0.5-rc3","optional":true}
   ],
   "deployment": {
     "kind": "OpenWebUI HTTP API",

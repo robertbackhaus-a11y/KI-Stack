@@ -37,7 +37,7 @@ try {
     $itLength = Invoke-TestChat -ModelId 'ki-stack-it-technik' -Prompt 'Nenne in zwei kurzen Sätzen einen sicheren ersten Diagnoseschritt bei einem nicht erreichbaren lokalen HTTP-Dienst.' -WebSearch $false
     $webLength = Invoke-TestChat -ModelId 'ki-stack-it-technik' -Prompt 'Suche im Web nach der offiziellen Bezeichnung des HTTP-Statuscodes 418 und antworte mit der Bezeichnung.' -WebSearch $true
     [ordered]@{
-        version='1.8.7'; passed=$true; integration='1.5.8'; readback=$true; searxngEndpoint=$true
+        version='1.8.8'; passed=$true; integration='1.5.8'; readback=$true; searxngEndpoint=$true
         chats=[ordered]@{ itTechnik=$itLength; itTechnikWebSearch=$webLength }
         chatHistoryCreated=$false
     } | ConvertTo-Json -Depth 10

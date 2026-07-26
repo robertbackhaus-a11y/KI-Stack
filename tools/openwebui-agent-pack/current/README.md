@@ -1,6 +1,6 @@
-# KI-Stack OpenWebUI Agent Pack 1.8.7
+# KI-Stack OpenWebUI Agent Pack 1.8.8
 
-Status: `StaticPendingValidation_TargetPending`. 1.8.7 korrigiert die StrictMode-sichere HTTP-Fehlerklassifizierung und den automatischen Rollback nach der ersten API-Änderung; RC13 ist verworfen.
+Status: `StaticPendingValidation_TargetPending`. 1.8.8 aktualisiert ausschließlich den verbindlichen Visual-Pack-Abhängigkeitsvertrag auf 2.0.5-rc3; die StrictMode-sichere HTTP-Fehlerklassifizierung und der automatische Rollback aus 1.8.7 bleiben unverändert.
 
 Reproduzierbares Paket für genau zwei verwaltete OpenWebUI-0.10.2-Workspace-Modelle: `ki-stack-it-technik` (`KI & IT-Technik`) und `ki-stack-allgemein` (`Allgemein`).
 
@@ -14,7 +14,7 @@ Das Paket verwendet ausschließlich die von der real installierten Version angeb
 
 `BaseModelId` ist ein Laufzeitparameter. Ohne Parameter wird nur dann automatisch gewählt, wenn exakt ein verwendbares Modell angeboten wird. Arena- und Embedding-Modelle werden nicht als Basismodell verwendet. Bei null oder mehreren Kandidaten bricht das Paket mit der Liste der angebotenen IDs ab.
 
-Beide Profile verwenden `params.function_calling = native`, `knowledge=[]` und die eingebaute Pyodide-Code-Interpreter-Capability. Ist das registrierte Visual Pack 2.0.5-rc2 vorhanden, bleiben ausschließlich dessen OpenWebUI-kompatible interne Tool-IDs `ki_stack_generate_image` und `ki_stack_generate_video` gebunden. `execute_code` ist keine Workspace-Tool-ID. Das Profil `ki-stack-18bravo` bleibt ohne Code Interpreter und ausschließlich an `ki_stack_ballistics_calculator` gebunden.
+Beide Profile verwenden `params.function_calling = native`, `knowledge=[]` und die eingebaute Pyodide-Code-Interpreter-Capability. Ist das registrierte Visual Pack 2.0.5-rc3 vorhanden, bleiben ausschließlich dessen OpenWebUI-kompatible interne Tool-IDs `ki_stack_generate_image` und `ki_stack_generate_video` gebunden. `execute_code` ist keine Workspace-Tool-ID. Das Profil `ki-stack-18bravo` bleibt ohne Code Interpreter und ausschließlich an `ki_stack_ballistics_calculator` gebunden.
 
 ## Abläufe
 

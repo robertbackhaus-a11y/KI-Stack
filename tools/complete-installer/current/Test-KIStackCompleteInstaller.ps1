@@ -17,7 +17,7 @@ if ($payloads.modelPolicy.nomicRole -ne 'embedding-only' -or $payloads.modelPoli
 if ([string]$payloads.modelContractAuthority.packagedArchive -ne 'Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.2.zip') { $fail.Add('Authoritative model contract') }
 if ($payloads.PSObject.Properties.Name -contains 'external' -or $payloads.PSObject.Properties.Name -contains 'lmStudioModel') { $fail.Add('Duplicate model contract') }
 if (@($components.components | Where-Object id -eq 'openwebui-visual-pack').version -ne '2.0.5-rc3') { $fail.Add('Visual Pack component') }
-if (@($components.components | Where-Object id -eq 'openwebui-agent-pack').version -ne '1.8.7') { $fail.Add('Agent Pack component') }
+if (@($components.components | Where-Object id -eq 'openwebui-agent-pack').version -ne '1.8.8') { $fail.Add('Agent Pack component') }
 if ([int]@($components.components | Where-Object id -eq 'openwebui-visual-pack').order -ge [int]@($components.components | Where-Object id -eq 'openwebui-agent-pack').order) { $fail.Add('Visual Pack must deploy before Agent Pack') }
 if (@($components.components | Where-Object id -eq 'models-workflows').version -ne '2.0.2') { $fail.Add('Visual Models component') }
 $validationComponent = @($components.components | Where-Object id -eq 'validation-gate')

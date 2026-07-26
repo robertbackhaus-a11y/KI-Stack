@@ -326,7 +326,7 @@ try {
     $agentDefinitions = @(Get-ChildItem -LiteralPath (Join-Path $agentRoot 'Definitions') -File -Filter '*.json' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -Depth 30 })
     $agentIds = @($agentDefinitions.id | Sort-Object)
     $agentSchemaOk = (
-        $agentVersion -eq '1.8.7' -and $agentManifest.version -eq $agentVersion -and $agentConfig.version -eq $agentVersion -and $agentManifest.status -eq 'StaticPendingValidation_TargetPending' -and
+        $agentVersion -eq '1.8.8' -and $agentManifest.version -eq $agentVersion -and $agentConfig.version -eq $agentVersion -and $agentManifest.status -eq 'StaticPendingValidation_TargetPending' -and
         ($agentIds -join '|') -eq 'ki-stack-allgemein|ki-stack-it-technik' -and
         @($agentDefinitions | Where-Object { $_.schemaVersion -ne '1.0' -or [string]::IsNullOrWhiteSpace([string]$_.systemPrompt) }).Count -eq 0 -and
         @($agentDefinitions | Where-Object { @($_.knowledge).Count -or @($_.toolIds).Count -or @($_.skillIds).Count -or @($_.functionIds).Count }).Count -eq 0
