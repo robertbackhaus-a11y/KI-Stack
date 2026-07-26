@@ -86,7 +86,7 @@ $payloadDefinitions = @(
     [ordered]@{ key='ModelsWorkflows'; source='tools/models-workflows/current'; file='KI-Stack-Visual-Models-Workflows-v2.0.2.zip'; root='KI-Stack-Visual-Models-Workflows-v2.0.2' },
     [ordered]@{ key='OpenWebUIAgentPack'; source='tools/openwebui-agent-pack/current'; file='KI-Stack-OpenWebUI-Agent-Pack-v1.8.7.zip'; root=$null },
     [ordered]@{ key='OpenWebUIBallisticsPack'; source='tools/openwebui-ballistics-pack/current'; file='KI-Stack-OpenWebUI-Ballistics-Pack-v1.0.0.zip'; root='KI-Stack-OpenWebUI-Ballistics-Pack-v1.0.0' },
-    [ordered]@{ key='OpenWebUIVisualPack'; source='tools/openwebui-visual-pack/current'; file='KI-Stack-OpenWebUI-Visual-Pack-v2.0.5-rc2.zip'; root='KI-Stack-OpenWebUI-Visual-Pack-v2.0.5-rc2' },
+    [ordered]@{ key='OpenWebUIVisualPack'; source='tools/openwebui-visual-pack/current'; file='KI-Stack-OpenWebUI-Visual-Pack-v2.0.5-rc3.zip'; root='KI-Stack-OpenWebUI-Visual-Pack-v2.0.5-rc3' },
     [ordered]@{ key='ValidationGate'; source='tools/package-validation-gate/current'; file='KI-Stack-Universal-Package-Validation-Gate-v1.0.3.zip'; root='KI-Stack-Universal-Package-Validation-Gate-v1.0.3' }
 )
 

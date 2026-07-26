@@ -1,7 +1,7 @@
 """
 title: KI-Stack Bildgenerierung
 managedBy: KI-STACK-OPENWEBUI-VISUAL-PACK
-version: 2.0.5-rc2
+version: 2.0.5-rc3
 canonical_id: ki-stack-generate-image
 """
 

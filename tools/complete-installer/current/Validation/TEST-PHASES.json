@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "source": [
+    {"id": "repository", "script": "scripts/Test-Repository.ps1", "arguments": ["-RootPath", "<checkout>"]},
+    {"id": "visual-pack", "script": "tools/openwebui-visual-pack/current/Test-KIStack-OpenWebUI-VisualPack-v2.0.5-rc3.ps1", "arguments": ["-PackageRoot", "<visual-pack-root>"]},
+    {"id": "model-source-contracts", "script": "scripts/Test-KIStackModelSourceContracts.ps1", "arguments": ["-RootPath", "<checkout>"]},
+    {"id": "powershell-starters", "script": "scripts/Test-PowerShell7Starters.ps1", "arguments": ["-RootPath", "<checkout>"]}
+  ],
+  "build": [
+    {"id": "build-a", "script": "tools/complete-installer/current/New-KIStackCompleteInstallerArchive.ps1", "arguments": ["-OutputDirectory", "<build-a>"]},
+    {"id": "build-b", "script": "tools/complete-installer/current/New-KIStackCompleteInstallerArchive.ps1", "arguments": ["-OutputDirectory", "<build-b>"]}
+  ],
+  "package": [
+    {"id": "native-validation-gate", "script": "tools/package-validation-gate/current/Invoke-KIStack-PackageValidationGate.ps1", "arguments": ["-PackagePath", "<final-zip>", "-OutputDirectory", "<gate-output>"]}
+  ],
+  "target": [
+    {"id": "upgrade", "script": "Start-KIStackCompleteInstaller.ps1", "arguments": []},
+    {"id": "status", "script": "Invoke-KIStackCompleteInstaller.ps1", "arguments": ["-Mode", "Validate", "-TargetRoot", "C:\\KI-Stack"]},
+    {"id": "z-image-ui", "kind": "manual-functional", "arguments": ["load visible graph", "verify official local Qwen filename", "queue graph", "verify new PNG"]}
+  ],
+  "preBuildForbidden": [
+    "tools/complete-installer/current/Test-KIStackCompleteInstaller.ps1",
+    "tools/complete-installer/current/Test-KIStackCompleteInstallerTarget.ps1",
+    "tools/production-target-acceptance/current/Test-KIStack-Target-Acceptance-Package.ps1"
+  ]
+}

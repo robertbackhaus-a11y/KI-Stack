@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "name": "KI-Stack OpenWebUI Visual Pack",
-  "version": "2.0.5-rc2",
+  "version": "2.0.5-rc3",
   "status": "StaticPendingValidation_TargetPending",
   "target": {
     "kiStackRoot": "C:\\KI-Stack",
@@ -26,6 +26,10 @@
   "managedProfiles": [
     "ki-stack-it-technik",
     "ki-stack-allgemein"
+  ],
+  "publishedUiWorkflows": [
+    "UIWorkflow/Z-Image-Turbo-Uncensored.json",
+    "UIWorkflow/WAN2.2-T2V-14B-Uncensored-4Step.json"
   ],
   "properties": {
     "containsModels": false,

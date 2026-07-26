@@ -12,7 +12,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$version = '2.0.5-rc2'
+$version = '2.0.5-rc3'
 $manager = 'KI-STACK-OPENWEBUI-VISUAL-PACK'
 $imageToolId = 'ki_stack_generate_image'
 $videoToolId = 'ki_stack_generate_video'
@@ -181,24 +181,51 @@ function Test-LocalContract {
     }
 
     $workflowContracts = @(
-        @{
-            Path = Join-Path $root 'data\comfyui\user\default\workflows\Z-Image-Turbo-Uncensored.json'
-            Hash = 'c5930fd9abbcc5a75f09c35f1295219d6116d743c085efc5889ef23fb0f3c791'
-        },
-        @{
-            Path = Join-Path $root 'data\comfyui\user\default\workflows\WAN2.2-T2V-14B-Uncensored-4Step.json'
-            Hash = '3770d1efa62f28dc6172b31a365cc24f2c281e8ba5faa2d7042ebead6a16bd24'
-        }
+        @{ Name='Z-Image-Turbo-Uncensored.json'; Nodes=11; Model='Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf' },
+        @{ Name='WAN2.2-T2V-14B-Uncensored-4Step.json'; Nodes=33; Model=$null }
     )
     foreach ($contract in $workflowContracts) {
-        if (-not (Test-Path -LiteralPath $contract.Path -PathType Leaf)) {
-            throw "Workflow fehlt: $($contract.Path)"
+        $path=Join-Path $script:packageRoot ('UIWorkflow\'+$contract.Name)
+        if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw "UI-Workflowquelle fehlt: $path"}
+        $graph=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json -Depth 100
+        if(@($graph.nodes).Count-ne[int]$contract.Nodes){throw "UI-Workflow besitzt nicht die erwarteten Nodes: $($contract.Name)"}
+        $raw=Get-Content -LiteralPath $path -Raw
+        if($raw-match'OpenWebUI-API' -or $raw-match'(?i)huggingface\.co|resolve/(main|latest)|\?download=' -or $raw.Contains('Qwen3-4b-Uncensored-Z-Image-Engineer-V4-Q8_0.gguf')){throw "UI-Workflow enthält API-Prompt oder Downloadvertrag: $($contract.Name)"}
+        if($contract.Model){
+            $loaders=@($graph.nodes|Where-Object {$_.type -eq 'CLIPLoaderGGUF'})
+            if($loaders.Count-ne1 -or [string]$loaders[0].widgets_values[0] -ne [string]$contract.Model){throw "Z-Image UI-Ladeknoten verwendet nicht exakt $($contract.Model)"}
         }
-        $actual = (Get-FileHash -LiteralPath $contract.Path -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($actual -ne $contract.Hash) {
-            throw "Workflow-Hash verletzt: $($contract.Path)"
-        }
-        Write-Host "OK: $($contract.Path)"
+        Write-Host "OK: UIWorkflow\$($contract.Name)"
+    }
+}
+
+function Get-UIWorkflowContracts {
+    @(
+        @{Name='Z-Image-Turbo-Uncensored.json';Nodes=11},
+        @{Name='WAN2.2-T2V-14B-Uncensored-4Step.json';Nodes=33}
+    )
+}
+
+function Install-UIWorkflows {
+    foreach($contract in Get-UIWorkflowContracts){
+        $source=Join-Path $script:packageRoot ('UIWorkflow\'+$contract.Name)
+        $target=Join-Path $script:KIStackRoot ('data\comfyui\user\default\workflows\'+$contract.Name)
+        New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force|Out-Null
+        $temporary=$target+'.rc3.tmp'
+        Copy-Item -LiteralPath $source -Destination $temporary -Force
+        if((Get-FileHash $source -Algorithm SHA256).Hash-ne(Get-FileHash $temporary -Algorithm SHA256).Hash){throw "UI-Workflow Staging-Readback fehlgeschlagen: $($contract.Name)"}
+        Move-Item -LiteralPath $temporary -Destination $target -Force
+    }
+}
+
+function Test-InstalledUIWorkflows {
+    foreach($contract in Get-UIWorkflowContracts){
+        $source=Join-Path $script:packageRoot ('UIWorkflow\'+$contract.Name)
+        $target=Join-Path $script:KIStackRoot ('data\comfyui\user\default\workflows\'+$contract.Name)
+        if(-not(Test-Path -LiteralPath $target -PathType Leaf)){throw "Installierter UI-Workflow fehlt: $($contract.Name)"}
+        if((Get-FileHash $source -Algorithm SHA256).Hash-ne(Get-FileHash $target -Algorithm SHA256).Hash){throw "Installierter UI-Workflow-Readback fehlgeschlagen: $($contract.Name)"}
+        $graph=Get-Content -LiteralPath $target -Raw|ConvertFrom-Json -Depth 100
+        if(@($graph.nodes).Count-ne[int]$contract.Nodes){throw "Installierter UI-Workflow ist leer oder unvollständig: $($contract.Name)"}
     }
 }
 
@@ -268,6 +295,12 @@ function New-Backup {
         manager = $script:manager
         tools = $tools
         profileBindings = $bindings
+        uiWorkflows = @(
+            foreach($contract in Get-UIWorkflowContracts){
+                $target=Join-Path $script:KIStackRoot ('data\comfyui\user\default\workflows\'+$contract.Name)
+                [ordered]@{name=$contract.Name;target=$target;existed=(Test-Path -LiteralPath $target -PathType Leaf);content=if(Test-Path -LiteralPath $target -PathType Leaf){Get-Content -LiteralPath $target -Raw}else{$null}}
+            }
+        )
     }
     $path = Join-Path $directory 'visual-pack.backup.json'
     $backup | ConvertTo-Json -Depth 50 | Set-Content -LiteralPath $path -Encoding utf8
@@ -280,6 +313,14 @@ function Restore-Backup {
         throw "Backup fehlt: $Path"
     }
     $backup = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -Depth 50
+    foreach($workflow in @($backup.uiWorkflows)){
+        if([bool]$workflow.existed){
+            New-Item -ItemType Directory -Path (Split-Path -Parent ([string]$workflow.target)) -Force|Out-Null
+            [IO.File]::WriteAllText([string]$workflow.target,[string]$workflow.content,[Text.UTF8Encoding]::new($false))
+        }elseif(Test-Path -LiteralPath ([string]$workflow.target)){
+            Remove-Item -LiteralPath ([string]$workflow.target) -Force
+        }
+    }
     foreach ($entry in @($backup.tools)) {
         $current = Get-Tool -Id ([string]$entry.id)
         if ([bool]$entry.existed) {
@@ -302,6 +343,7 @@ function Restore-Backup {
 function Install-Tools {
     $backup = New-Backup
     try {
+        Install-UIWorkflows
         foreach ($kind in @('image', 'video')) {
             $form = New-ManagedToolForm -Kind $kind
             $current = Get-Tool -Id ([string]$form.id)
@@ -420,6 +462,7 @@ switch ($Action) {
         Test-ComfyContract
         Test-OpenWebUIContract
         $createdBackup = Install-Tools
+        Test-InstalledUIWorkflows
         Test-InstalledTools
         Write-Host ''
         Write-Host 'INSTALLATION UND VALIDIERUNG BESTANDEN.' -ForegroundColor Green
@@ -435,6 +478,7 @@ switch ($Action) {
         Test-LocalContract
         Test-ComfyContract
         Test-OpenWebUIContract
+        Test-InstalledUIWorkflows
         Test-InstalledTools
         Write-Host ''
         Write-Host 'ZIELVALIDIERUNG BESTANDEN.' -ForegroundColor Green

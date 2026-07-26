@@ -114,7 +114,7 @@ try {
         'tools/openwebui-visual-pack/current/Tool/ki-stack-generate-video.py',
         'tools/openwebui-visual-pack/current/Workflow/Z-Image-Turbo-OpenWebUI-API.json',
         'tools/openwebui-visual-pack/current/Workflow/WAN2.2-T2V-14B-OpenWebUI-API.json',
-        'tools/openwebui-visual-pack/current/Test-KIStack-OpenWebUI-VisualPack-v2.0.5-rc2.ps1',
+        'tools/openwebui-visual-pack/current/Test-KIStack-OpenWebUI-VisualPack-v2.0.5-rc3.ps1',
         'tools/openwebui-visual-pack/current/SHA256SUMS.txt'
     )
     $missing = @($required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $RootPath $_)) })
@@ -347,7 +347,7 @@ try {
     $visualManifest = Get-Content -LiteralPath (Join-Path $visualRoot 'MANIFEST.json') -Raw | ConvertFrom-Json -Depth 30
     $visualToolIds = @($visualManifest.managedTools.id | Sort-Object)
     $visualContractOk = (
-        [string]$visualManifest.version -eq '2.0.5-rc2' -and
+        [string]$visualManifest.version -eq '2.0.5-rc3' -and
         ($visualToolIds -join '|') -eq 'ki_stack_generate_image|ki_stack_generate_video' -and
         [string]$visualManifest.properties.openWebUIFileItemContract -eq 'type=file,id,name,url,content_type,size,meta' -and
         [string]$visualManifest.properties.attachmentEvent -eq 'files' -and
@@ -396,7 +396,7 @@ try {
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.4'},
         @{name='Integration';root='tools/integration/current';version='1.5.10'},
         @{name='Cutover Runtime';root='tools/cutover-runtime/current';version='1.6.5'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.3.0-rc16'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.3.0-rc17'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root
@@ -411,8 +411,8 @@ try {
     $completeMissing=@($completeRequired|Where-Object{-not(Test-Path (Join-Path $completeRoot $_))})
     Add-Result 'Complete Installer source completeness' ($completeMissing.Count-eq0) $(if($completeMissing){$completeMissing-join', '}else{'complete'})
     $completeComponents=Get-Content (Join-Path $completeRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json
-    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.4' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '2.0.2' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.10'-and[string]($completeComponents.components|Where-Object id -eq 'cutover-runtime').version-eq'1.6.5'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-visual-pack').version-eq'2.0.5-rc2'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
-    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.4; Visual Models/Workflows=2.0.2; Integration=1.5.10; Cutover=1.6.5; Visual Pack=2.0.5-rc2; optional Ballistics=1.0.0'
+    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.4' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '2.0.2' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.10'-and[string]($completeComponents.components|Where-Object id -eq 'cutover-runtime').version-eq'1.6.5'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-visual-pack').version-eq'2.0.5-rc3'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
+    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.4; Visual Models/Workflows=2.0.2; Integration=1.5.10; Cutover=1.6.5; Visual Pack=2.0.5-rc3; optional Ballistics=1.0.0'
     $completeExecutable=Get-ChildItem $completeRoot -Recurse -File|Where-Object{$_.Extension-in'.ps1','.psm1','.cmd'-and$_.Name-ne'Test-KIStackCompleteInstaller.ps1'}|ForEach-Object{Get-Content $_.FullName -Raw}
     $forbiddenRuntime=('(?im)\b'+'git'+'\s+(?:cl'+'one|check'+'out|pu'+'ll|fetch|rev-parse|describe)\b|\.'+'git'+'(?:[/\\]|\b)|\bor'+'igin\b|comm'+'it[- ]hash|tr'+'ee[- ]hash')
     Add-Result 'Complete Installer Git-free runtime' (-not(($completeExecutable-join"`n")-match$forbiddenRuntime)) 'no Git acquisition or metadata dependency in executable sources'
