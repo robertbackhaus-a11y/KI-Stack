@@ -178,7 +178,7 @@ class Tools:
             self._comfy_url(path), data=data, method=method
         )
         request.add_header("Content-Type", "application/json")
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # nosec B310 - validated by _comfy_url against trusted local origins
             return json.loads(response.read().decode("utf-8"))
 
     @staticmethod
@@ -304,7 +304,7 @@ class Tools:
                 "type": video.get("type", "output"),
             }
         )
-        with urllib.request.urlopen(self._comfy_url("/view?" + query), timeout=60) as response:
+        with urllib.request.urlopen(self._comfy_url("/view?" + query), timeout=60) as response:  # nosec B310 - validated by _comfy_url against trusted local origins
             payload = response.read()
             content_type = response.headers.get("Content-Type", "")
         if not payload:
