@@ -382,7 +382,7 @@ function Resolve-KICompleteFailedTransactionState {
         if($stateChanged){
             $existingRecovery=if($transaction.PSObject.Properties.Name-contains'recovery'){$transaction.recovery}else{$null}
             $transaction|Add-Member -NotePropertyName failedStateRecovery -NotePropertyValue ([ordered]@{
-                recoveredBy='2.3.0-rc17';recoveredAtUtc=[DateTime]::UtcNow.ToString('o')
+                recoveredBy='2.3.0';recoveredAtUtc=[DateTime]::UtcNow.ToString('o')
                 strategy='RetainReadbackVerifiedComponents';retained=$retained
                 priorRecovery=$existingRecovery;readbackPassed=$true
             }) -Force
@@ -514,13 +514,13 @@ function Invoke-KIStackCompleteInstaller {
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
     $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.3.0-rc17';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.3.0-rc17';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.3.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.3.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
     if(-not$Resume -and $plan.alreadyCompliant -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.3.0-rc17'}
-        return [pscustomobject]@{version='2.3.0-rc17';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.3.0'}
+        return [pscustomobject]@{version='2.3.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
     $state = [string]$config.stateDirectory
     if ($Resume) {
@@ -667,7 +667,7 @@ function Invoke-KIStackCompleteInstaller {
                         $validation=Test-OpenWebUIAgentPack -PackageRoot $agentPackageRoot -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BaseModelId ([string]$result.baseModelId)
                     }
                     else {
-                        $installer=Get-ChildItem -LiteralPath $extract -Recurse -File -Filter 'Install-KIStack-OpenWebUI-VisualPack-v2.0.5-rc3.ps1'|Select-Object -First 1
+                        $installer=Get-ChildItem -LiteralPath $extract -Recurse -File -Filter 'Install-KIStack-OpenWebUI-VisualPack-v2.0.5.ps1'|Select-Object -First 1
                         if(-not$installer){throw 'Visual-Pack-Installer fehlt.'}
                         $result = & $installer.FullName -Action Install -KIStackRoot $TargetRoot -OpenWebUIEndpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken
                         if ($null -eq $result -or -not [bool]$result.passed -or [string]::IsNullOrWhiteSpace([string]$result.backupPath)) {
@@ -762,7 +762,7 @@ function Invoke-KIStackCompleteInstaller {
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
         $componentStatePath=Join-Path $state 'components.json';$componentVersions=[ordered]@{}
         foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
-        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.3.0-rc17';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
+        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.3.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
         Write-KICompleteJson $txPath $tx; return $tx
     }
     catch {

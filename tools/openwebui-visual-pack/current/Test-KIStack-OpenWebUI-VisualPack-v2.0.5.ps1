@@ -5,7 +5,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $required = @(
-    'Install-KIStack-OpenWebUI-VisualPack-v2.0.5-rc3.ps1',
+    'Install-KIStack-OpenWebUI-VisualPack-v2.0.5.ps1',
     'Tool\ki-stack-generate-image.py',
     'Tool\ki-stack-generate-video.py',
     'Workflow\Z-Image-Turbo-OpenWebUI-API.json',
@@ -24,7 +24,7 @@ foreach ($relative in $required) {
     }
 }
 
-$installerSource = Get-Content -LiteralPath (Join-Path $PackageRoot 'Install-KIStack-OpenWebUI-VisualPack-v2.0.5-rc3.ps1') -Raw
+$installerSource = Get-Content -LiteralPath (Join-Path $PackageRoot 'Install-KIStack-OpenWebUI-VisualPack-v2.0.5.ps1') -Raw
 if (-not $installerSource.Contains("if (`$kind -eq 'image')") -or
     -not $installerSource.Contains("'KI-STACK-OPENWEBUI-IMAGE-PACK'") -or
     -not $installerSource.Contains("rollbackStatus = 'NotRequired'") -or

@@ -1,4 +1,4 @@
-# KI-Stack OpenWebUI Visual Pack 2.0.5-rc3
+# KI-Stack OpenWebUI Visual Pack 2.0.5
 
 Dieses Paket bindet den bereinigten Visual-Runtime-Zielstand an OpenWebUI 0.10.2 an:
 
@@ -20,9 +20,9 @@ Das Paket enthält keine Modelle und führt keine Downloads durch. Es prüft die
 Alternativ:
 
 ```powershell
-.\Install-KIStack-OpenWebUI-VisualPack-v2.0.5-rc3.ps1 -Action Preflight
-.\Install-KIStack-OpenWebUI-VisualPack-v2.0.5-rc3.ps1 -Action Install
-.\Install-KIStack-OpenWebUI-VisualPack-v2.0.5-rc3.ps1 -Action Validate
+.\Install-KIStack-OpenWebUI-VisualPack-v2.0.5.ps1 -Action Preflight
+.\Install-KIStack-OpenWebUI-VisualPack-v2.0.5.ps1 -Action Install
+.\Install-KIStack-OpenWebUI-VisualPack-v2.0.5.ps1 -Action Validate
 ```
 
 Der API-Key wird ausschließlich als PowerShell `SecureString` abgefragt und nicht gespeichert.
@@ -34,7 +34,7 @@ Vor jeder Installation wird unter `C:\KI-Stack\backups\openwebui-visual-pack` ei
 Manueller Rollback:
 
 ```powershell
-.\Install-KIStack-OpenWebUI-VisualPack-v2.0.5-rc3.ps1 `
+.\Install-KIStack-OpenWebUI-VisualPack-v2.0.5.ps1 `
   -Action Rollback `
   -BackupPath 'C:\KI-Stack\backups\openwebui-visual-pack\...\visual-pack.backup.json'
 ```

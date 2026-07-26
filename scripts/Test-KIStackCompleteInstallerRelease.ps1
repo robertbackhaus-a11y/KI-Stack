@@ -92,7 +92,7 @@ try {
 
     $testMap = [ordered]@{
         ModelsWorkflows = 'Test-KIStackVisualModels.ps1'
-        OpenWebUIVisualPack = 'Test-KIStack-OpenWebUI-VisualPack-v2.0.5-rc3.ps1'
+        OpenWebUIVisualPack = 'Test-KIStack-OpenWebUI-VisualPack-v2.0.5.ps1'
         ComfyUI = 'Test-KIStackComfyUI.ps1'
         Integration = 'Test-KIStackIntegration.ps1'
         OpenWebUIAgentPack = 'Test-OpenWebUIAgentPack.ps1'

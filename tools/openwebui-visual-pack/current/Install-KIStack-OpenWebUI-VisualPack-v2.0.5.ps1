@@ -12,7 +12,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$version = '2.0.5-rc3'
+$version = '2.0.5'
 $manager = 'KI-STACK-OPENWEBUI-VISUAL-PACK'
 $imageToolId = 'ki_stack_generate_image'
 $videoToolId = 'ki_stack_generate_video'

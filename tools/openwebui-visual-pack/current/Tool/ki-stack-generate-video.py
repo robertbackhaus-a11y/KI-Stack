@@ -1,7 +1,7 @@
 """
 title: KI-Stack Videogenerierung
 managedBy: KI-STACK-OPENWEBUI-VISUAL-PACK
-version: 2.0.5-rc3
+version: 2.0.5
 canonical_id: ki-stack-generate-video
 """
 

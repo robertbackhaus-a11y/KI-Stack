@@ -45,8 +45,8 @@ $afterStatus=$null
 try{Invoke-AgentPackTransactionalOperation -BackupPath 'fixture' -Operation {param($state);$state.changesStarted=$true;throw'after'} -Rollback {$script:rollbackCalled=$true}|Out-Null}catch{$afterStatus=[string]$_.Exception.Data['KIStackRollbackStatus']}
 $afterPassed=($afterStatus-eq'Completed'-and$rollbackCalled)
 
-$success=Invoke-AgentPackTransactionalOperation -Operation {param($state);[pscustomobject]@{readback='1.8.8'}} -Rollback {throw'should not run'}
-$successPassed=($success.readback-eq'1.8.8')
+$success=Invoke-AgentPackTransactionalOperation -Operation {param($state);[pscustomobject]@{readback='1.8.9'}} -Rollback {throw'should not run'}
+$successPassed=($success.readback-eq'1.8.9')
 $passed=@($results|Where-Object{-not$_.passed}).Count-eq0-and$redactionPassed-and$beforePassed-and$afterPassed-and$successPassed
 [pscustomobject]@{passed=$passed;cases=$results;apiKeyRedaction=$redactionPassed;failureBeforeChange=$beforePassed;failureAfterChangeRollback=$afterPassed;successfulReadback=$successPassed}|ConvertTo-Json -Depth 10
 if(-not$passed){throw 'Agent-Pack HTTP/rollback regression failed'}

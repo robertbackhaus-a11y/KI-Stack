@@ -215,7 +215,7 @@ function Get-AgentPackRegisteredExtensionToolIds {
             $tool = Invoke-AgentPackApi -Endpoint $Endpoint -ApiToken $ApiToken -Path ('/api/v1/tools/id/' + $contract.id)
             if ([string]$tool.id -ne $contract.id -or
                 [string]$tool.meta.manifest.managedBy -ne 'KI-STACK-OPENWEBUI-VISUAL-PACK' -or
-                [string]$tool.meta.manifest.version -ne '2.0.5-rc3' -or
+                [string]$tool.meta.manifest.version -ne '2.0.5' -or
                 [string]$tool.meta.manifest.canonical_id -ne $contract.canonical) {
                 throw "Visual-Tool-Vertrag verletzt: $($contract.id)"
             }
@@ -244,7 +244,7 @@ function New-AgentPackModelForm {
             skillIds = @()
             functionIds = @()
             managedBy = 'KI-STACK-OPENWEBUI-AGENT-PACK'
-            agentPackVersion = '1.8.8'
+            agentPackVersion = '1.8.9'
         }
         params = [ordered]@{
             system = [string]$Definition.systemPrompt

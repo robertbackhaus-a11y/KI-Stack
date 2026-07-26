@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.3.0-rc17",
+  "version": "2.3.0",
   "baseVersion": "2.2.9",
   "status": "SourcePendingValidation_TargetPending",
   "deterministicArchive": true,
@@ -43,7 +43,7 @@
     "visual": ["Z-Image Turbo", "WAN2.2 T2V 14B", "LightX2V high 4-step", "LightX2V low 4-step"]
   },
   "comfyUI": "1.2.4",
-  "openWebUIVisualPack": "2.0.5-rc3",
-  "openWebUIAgentPack": "1.8.8",
+  "openWebUIVisualPack": "2.0.5",
+  "openWebUIAgentPack": "1.8.9",
   "validationGate": "1.0.3"
 }
