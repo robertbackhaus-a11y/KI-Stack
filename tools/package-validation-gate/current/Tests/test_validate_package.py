@@ -74,6 +74,25 @@ class ZipTests(unittest.TestCase):
 
 
 class NestedLegacyPolicyTests(unittest.TestCase):
+    def test_rootless_legacy_nested_archive_is_extracted_and_validated(self):
+        with tempfile.TemporaryDirectory() as td:
+            zpath = Path(td) / "legacy-rootless.zip"
+            payload = b"tracked"
+            digest = validator.hashlib.sha256(payload).hexdigest()
+            with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("tracked.txt", payload)
+                zf.writestr("SHA256SUMS.txt", digest + " *tracked.txt\n")
+            checks = []
+            result = validator.inspect_nested_archive(
+                zpath, depth=1, max_depth=3, checks=checks, label="Nested fixture"
+            )
+            failed = [c for c in checks if not c.passed and c.severity == "error"]
+            self.assertEqual(failed, [])
+            self.assertEqual(result["extractedTree"]["policyMode"], "legacy-nested")
+            layout = next(c for c in checks if c.name == "Nested fixture package root layout")
+            self.assertTrue(layout.passed)
+            self.assertIn("legacy-rootless=", layout.detail)
+
     def test_untracked_file_and_lf_cmd_are_warnings_for_legacy_nested_tree(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)

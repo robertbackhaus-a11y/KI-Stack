@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "1.0",
+  "packageName": "KI-Stack-Complete-Installer",
+  "packageVersion": "2.3.2",
+  "coverage": [
+    {
+      "id": "REG-023-ROOTLESS-NESTED-ARCHIVE",
+      "status": "covered",
+      "method": "Validation Gate 1.0.3 extracts rootless legacy payload archives at their archive root and validates safe paths, duplicate paths, symlinks, CRC and declared SHA-256 values."
+    }
+  ]
+}

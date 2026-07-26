@@ -1,9 +1,27 @@
 {
-  "schemaVersion":"1.0","payloadId":"KI-STACK-SEARXNG-SOURCE-2026.6.28","componentVersion":"1.5.9","upstreamVersion":"2026.6.28+357662d86",
-  "source":"https://github.com/robertbackhaus-a11y/KI-Stack/releases/download/integration-v1.5.9/KI-Stack-SearXNG-Source-Payload-2026.6.28.zip",
-  "fileName":"KI-Stack-SearXNG-Source-Payload-2026.6.28.zip","sizeBytes":6353604,
-  "sha256":"3fd677611a3e537889aa3d2963dee8f89c0152b6feebf8a92a960dffdc2cd35b","contentManifest":"Payload/CONTENT-MANIFEST.json",
-  "target":"/opt/ki-stack/searxng/src","layout":"valkey-server -> uwsgi -> nginx /searxng","offlineAvailableInComponentArchive":true,
-  "license":"AGPL-3.0-or-later; upstream LICENSE is included","redistribution":"source payload included",
-  "repair":"healthy standard installations are adopted by content and endpoint evidence; managed source files are restored only from the verified payload"
+  "schemaVersion": "2.0",
+  "payloadId": "KI-STACK-SEARXNG-SOURCE-2026.6.28",
+  "componentVersion": "1.5.10",
+  "upstreamVersion": "2026.6.28+357662d86",
+  "upstream": {
+    "repository": "https://github.com/searxng/searxng",
+    "revision": "357662d86dd225bf8f0bfe5cfaa45bed09aef788",
+    "url": "https://codeload.github.com/searxng/searxng/zip/357662d86dd225bf8f0bfe5cfaa45bed09aef788",
+    "fileName": "searxng-357662d86dd225bf8f0bfe5cfaa45bed09aef788.zip",
+    "sizeBytes": 6612776,
+    "sha256": "d760c83ba0b071c4a7795917a480a073ec3c7088b81ea06db1b5307389ef328a",
+    "license": "AGPL-3.0-or-later"
+  },
+  "contentManifest": "CONTENT-MANIFEST.json",
+  "overlay": "Overlay",
+  "output": {
+    "fileName": "KI-Stack-SearXNG-Source-Payload-2026.6.28.zip",
+    "sizeBytes": 6353624,
+    "sha256": "ebafe15e5493edc4ffbec7c3e588c1d6523d0f21f3a0debe31d86b86c6001e9b"
+  },
+  "cacheOptional": true,
+  "resumeSupported": true,
+  "manualPreloadRequired": false,
+  "target": "/opt/ki-stack/searxng/src",
+  "repair": "healthy standard installations are adopted; managed source files are restored only from the verified generated payload"
 }

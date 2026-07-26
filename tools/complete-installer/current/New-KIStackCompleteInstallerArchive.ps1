@@ -1,30 +1,143 @@
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$OutputDirectory,[Parameter(Mandatory)][hashtable]$PayloadFiles)
-Set-StrictMode -Version Latest;$ErrorActionPreference='Stop'
-$stage=Join-Path $OutputDirectory 'KI-Stack-Complete-Installer-v2.2.9'
-if(Test-Path $stage){Remove-Item $stage -Recurse -Force}
-New-Item $stage -ItemType Directory -Force|Out-Null
-Get-ChildItem $PSScriptRoot -Force|Where-Object{$_.Name-ne'SHA256SUMS.txt'}|Copy-Item -Destination $stage -Recurse
-$repositoryRoot=Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
-$documentationRoot=Join-Path $repositoryRoot 'docs'
-$documentationStage=Join-Path $stage 'Documentation'
-New-Item $documentationStage -ItemType Directory -Force|Out-Null
-foreach($relative in @('en/KI-Stack-Technical-Documentation.md','de/KI-Stack-Technische-Dokumentation.md','en/KI-Stack-Operations-and-User-Guide.md','de/KI-Stack-Betriebs-und-Benutzerhandbuch.md','en/KI-Stack-Manual-Model-Provisioning.md','de/KI-Stack-Manuelle-Modellbereitstellung.md','en/KI-Stack-Model-Download-Guide.md','de/KI-Stack-Modell-Downloadanleitung.md')){
-    Copy-Item -LiteralPath (Join-Path $documentationRoot $relative) -Destination (Join-Path $documentationStage (Split-Path $relative -Leaf))
+param(
+    [string]$OutputDirectory = (Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))) 'dist\complete-installer'),
+    [string]$BuildCacheDirectory = ''
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$repositoryRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+$version = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'VERSION') -Raw).Trim()
+$packageName = "KI-Stack-Complete-Installer-v$version"
+$epoch = [DateTimeOffset]::Parse('2000-01-01T00:00:00Z')
+
+function Update-SourceChecksums {
+    param([Parameter(Mandatory)][string]$SourceRoot)
+    $sumPath = Join-Path $SourceRoot 'SHA256SUMS.txt'
+    $lines = Get-ChildItem -LiteralPath $SourceRoot -Recurse -File |
+        Where-Object { $_.FullName -ne $sumPath } |
+        Sort-Object { [IO.Path]::GetRelativePath($SourceRoot,$_.FullName).Replace('\','/') } |
+        ForEach-Object {
+            $relative = [IO.Path]::GetRelativePath($SourceRoot,$_.FullName).Replace('\','/')
+            "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()) *$relative"
+        }
+    [IO.File]::WriteAllLines($sumPath,$lines,[Text.ASCIIEncoding]::new())
 }
-foreach($name in @('LICENSE','NOTICE','THIRD_PARTY_NOTICES.md','MODEL_LICENSES.md')){Copy-Item -LiteralPath (Join-Path $repositoryRoot $name) -Destination (Join-Path $stage $name)}
-$payloadRoot=Join-Path $stage 'Payload';New-Item $payloadRoot -ItemType Directory -Force|Out-Null
-foreach($name in ($PayloadFiles.Keys|Sort-Object)){$source=[string]$PayloadFiles[$name];if(-not(Test-Path -LiteralPath $source -PathType Leaf)){throw"Payload fehlt: $name"};$dest=Join-Path $payloadRoot $name;New-Item $dest -ItemType Directory -Force|Out-Null;Copy-Item -LiteralPath $source -Destination $dest}
-$files=Get-ChildItem $stage -Recurse -File|Sort-Object{[IO.Path]::GetRelativePath($stage,$_.FullName).Replace('\','/')}
-$lines=$files|ForEach-Object{$rel=[IO.Path]::GetRelativePath($stage,$_.FullName).Replace('\','/');"$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()) *$rel"}
-Set-Content (Join-Path $stage 'SHA256SUMS.txt') $lines -Encoding ASCII
-New-Item $OutputDirectory -ItemType Directory -Force|Out-Null
-$zip=Join-Path $OutputDirectory 'KI-Stack-Complete-Installer-v2.2.9.zip';if(Test-Path $zip){Remove-Item $zip -Force}
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$epoch=[DateTimeOffset]::Parse('2000-01-01T00:00:00Z')
-$stream=[IO.File]::Open($zip,[IO.FileMode]::CreateNew)
-try{$archive=[IO.Compression.ZipArchive]::new($stream,[IO.Compression.ZipArchiveMode]::Create,$false);try{foreach($file in Get-ChildItem $stage -Recurse -File|Sort-Object FullName){$rel=[IO.Path]::GetRelativePath((Split-Path $stage -Parent),$file.FullName).Replace('\','/');$entry=$archive.CreateEntry($rel,[IO.Compression.CompressionLevel]::Optimal);$entry.LastWriteTime=$epoch;$input=[IO.File]::OpenRead($file.FullName);$output=$entry.Open();try{$input.CopyTo($output)}finally{$output.Dispose();$input.Dispose()}}}finally{$archive.Dispose()}}finally{$stream.Dispose()}
-$hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant();Set-Content "$zip.sha256" "$hash *$(Split-Path -Leaf $zip)" -Encoding ASCII
-$sbom=Join-Path $OutputDirectory 'KI-Stack-Complete-Installer-v2.2.9.spdx.json'
-& (Join-Path $repositoryRoot 'scripts\New-KIStackSpdxSbom.ps1') -PackageName 'KI-Stack Complete Installer' -PackageVersion '2.2.9' -ZipPath $zip -OutputPath $sbom -ModelsManifestPath (Join-Path $repositoryRoot 'package\Manifests\models.manifest.json') -ComponentsPath (Join-Path $PSScriptRoot 'Contracts\COMPONENTS.json')|Out-Null
-[pscustomobject]@{zip=$zip;sizeBytes=(Get-Item $zip).Length;sha256=$hash;sbom=$sbom;payloads=$PayloadFiles.Keys|Sort-Object}
+
+function New-DeterministicArchive {
+    param(
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$Destination,
+        [string]$ArchiveRoot
+    )
+    if (Test-Path -LiteralPath $Destination) {
+        Remove-Item -LiteralPath $Destination -Force
+    }
+    Add-Type -AssemblyName System.IO.Compression
+    $stream = [IO.File]::Open($Destination,[IO.FileMode]::CreateNew)
+    try {
+        $archive = [IO.Compression.ZipArchive]::new($stream,[IO.Compression.ZipArchiveMode]::Create,$false)
+        try {
+            foreach ($file in Get-ChildItem -LiteralPath $SourceRoot -Recurse -File |
+                Sort-Object { [IO.Path]::GetRelativePath($SourceRoot,$_.FullName).Replace('\','/') }) {
+                $relative = [IO.Path]::GetRelativePath($SourceRoot,$file.FullName).Replace('\','/')
+                $entryName = if ([string]::IsNullOrWhiteSpace($ArchiveRoot)) {
+                    $relative
+                } else {
+                    "$ArchiveRoot/$relative"
+                }
+                $entry = $archive.CreateEntry($entryName,[IO.Compression.CompressionLevel]::Optimal)
+                $entry.LastWriteTime = $epoch
+                $input = [IO.File]::OpenRead($file.FullName)
+                $output = $entry.Open()
+                try { $input.CopyTo($output) }
+                finally { $output.Dispose(); $input.Dispose() }
+            }
+        }
+        finally { $archive.Dispose() }
+    }
+    finally { $stream.Dispose() }
+}
+
+function Initialize-GeneratedBuildPayloads {
+    param(
+        [Parameter(Mandatory)][string]$Key,
+        [Parameter(Mandatory)][string]$SourceRoot,
+        [Parameter(Mandatory)][string]$StateRoot
+    )
+    if ($Key -in @('ComfyUI','Integration')) {
+        $contract = Join-Path $SourceRoot 'Payload\PAYLOAD-CONTRACT.json'
+        $arguments=@{
+            ContractPath=$contract
+            OutputDirectory=(Join-Path $SourceRoot 'Payload')
+            StateDirectory=(Join-Path $StateRoot $Key)
+        }
+        if($BuildCacheDirectory){$arguments.CacheDirectory=$BuildCacheDirectory}
+        $result=& (Join-Path $repositoryRoot 'scripts\Import-KIStackBuildPayload.ps1') @arguments
+        if(-not[bool]$result.passed){throw "Build payload $Key is $($result.status): $($result.message)"}
+    }
+}
+
+$payloadDefinitions = @(
+    [ordered]@{ key='ComfyUI'; source='tools/comfyui/current'; file='KI-Stack-ComfyUI-Execute-v1.2.4.zip'; root=$null },
+    [ordered]@{ key='CutoverRuntime'; source='tools/cutover-runtime/current'; file='KI-Stack-Cutover-Execute-v1.6.5-core.zip'; root='KI-Stack-Cutover-Execute-v1.6.5' },
+    [ordered]@{ key='Integration'; source='tools/integration/current'; file='KI-Stack-Integration-Execute-v1.5.10.zip'; root=$null },
+    [ordered]@{ key='ModelsWorkflows'; source='tools/models-workflows/current'; file='KI-Stack-Visual-Models-Workflows-v2.0.3.zip'; root='KI-Stack-Visual-Models-Workflows-v2.0.3' },
+    [ordered]@{ key='OpenWebUIAgentPack'; source='tools/openwebui-agent-pack/current'; file='KI-Stack-OpenWebUI-Agent-Pack-v1.8.9.zip'; root=$null },
+    [ordered]@{ key='OpenWebUIBallisticsPack'; source='tools/openwebui-ballistics-pack/current'; file='KI-Stack-OpenWebUI-Ballistics-Pack-v1.0.0.zip'; root='KI-Stack-OpenWebUI-Ballistics-Pack-v1.0.0' },
+    [ordered]@{ key='OpenWebUIVisualPack'; source='tools/openwebui-visual-pack/current'; file='KI-Stack-OpenWebUI-Visual-Pack-v2.0.5.zip'; root='KI-Stack-OpenWebUI-Visual-Pack-v2.0.5' },
+    [ordered]@{ key='ValidationGate'; source='tools/package-validation-gate/current'; file='KI-Stack-Universal-Package-Validation-Gate-v1.0.3.zip'; root='KI-Stack-Universal-Package-Validation-Gate-v1.0.3' }
+)
+
+$tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('ki-stack-complete-build-' + [guid]::NewGuid().ToString('N'))
+$payloadRoot = Join-Path $tempRoot 'payloads'
+$stage = Join-Path $tempRoot $packageName
+New-Item -ItemType Directory -Path $payloadRoot,$stage -Force | Out-Null
+try {
+    foreach ($definition in $payloadDefinitions) {
+        $source = Join-Path $repositoryRoot $definition.source
+        if (-not (Test-Path -LiteralPath $source -PathType Container)) {
+            throw "Payload source missing: $($definition.source)"
+        }
+        $buildSource = Join-Path $tempRoot ('source-' + $definition.key)
+        Copy-Item -LiteralPath $source -Destination $buildSource -Recurse -Force
+        Get-ChildItem -LiteralPath $buildSource -Recurse -File -Filter '*.zip' -ErrorAction SilentlyContinue |
+            Remove-Item -Force
+        Initialize-GeneratedBuildPayloads -Key $definition.key -SourceRoot $buildSource -StateRoot (Join-Path $tempRoot 'download-state')
+        Update-SourceChecksums -SourceRoot $buildSource
+        $payloadArchive = Join-Path $payloadRoot $definition.file
+        New-DeterministicArchive -SourceRoot $buildSource -Destination $payloadArchive -ArchiveRoot $definition.root
+        $destination = Join-Path $stage ('Payload\' + $definition.key)
+        New-Item -ItemType Directory -Path $destination -Force | Out-Null
+        Copy-Item -LiteralPath $payloadArchive -Destination $destination
+    }
+
+    Update-SourceChecksums -SourceRoot $PSScriptRoot
+    Get-ChildItem -LiteralPath $PSScriptRoot -Force |
+        Where-Object { $_.Name -notin @('SHA256SUMS.txt','Payload') } |
+        Copy-Item -Destination $stage -Recurse -Force
+    Update-SourceChecksums -SourceRoot $stage
+
+    New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+    $zipPath = Join-Path $OutputDirectory ($packageName + '.zip')
+    New-DeterministicArchive -SourceRoot $stage -Destination $zipPath -ArchiveRoot $packageName
+    $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $sidecar = $zipPath + '.sha256'
+    [IO.File]::WriteAllText($sidecar,"$hash *$([IO.Path]::GetFileName($zipPath))`r`n",[Text.ASCIIEncoding]::new())
+    [pscustomobject][ordered]@{
+        version = $version
+        zip = $zipPath
+        sidecar = $sidecar
+        sizeBytes = (Get-Item -LiteralPath $zipPath).Length
+        sha256 = $hash
+        payloads = @($payloadDefinitions.key)
+        sourceOnlyBuild = $true
+        targetSystemAccessed = $false
+    }
+}
+finally {
+    if (Test-Path -LiteralPath $tempRoot) {
+        Remove-Item -LiteralPath $tempRoot -Recurse -Force
+    }
+}

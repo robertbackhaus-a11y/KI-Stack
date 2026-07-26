@@ -1,14 +1,20 @@
-# KI-Stack OpenWebUI Agent Pack 1.8.3
+# KI-Stack OpenWebUI Agent Pack 1.8.9
 
-Status: `TargetValidated` mit OpenWebUI 0.10.2 am 22.07.2026. API-Installation, Profil-Readback, normaler Chat, SearXNG-Websuche und die manuellen browserlokalen Pyodide-Abnahmen sind bestanden.
+Status: `StaticPendingValidation_TargetPending`. 1.8.9 aktualisiert ausschließlich den verbindlichen Visual-Pack-Abhängigkeitsvertrag auf 2.0.5; die StrictMode-sichere HTTP-Fehlerklassifizierung und der automatische Rollback aus 1.8.7 bleiben unverändert.
 
 Reproduzierbares Paket für genau zwei verwaltete OpenWebUI-0.10.2-Workspace-Modelle: `ki-stack-it-technik` (`KI & IT-Technik`) und `ki-stack-allgemein` (`Allgemein`).
+
+Die LM-Studio-Verbindung wird über den realen OpenWebUI-0.10.2-Vertrag
+`OPENAI_API_CONFIGS.<index>.model_ids` auf Heretic begrenzt. Dadurch bleiben
+Nomic und fremde LM-Studio-Modelle aus dem Chat-Modellwähler ausgeschlossen.
+Der vorherige Verbindungsfilter wird ohne API-Schlüssel im Transaktionsbackup
+gesichert und beim Rollback wiederhergestellt.
 
 Das Paket verwendet ausschließlich die von der real installierten Version angebotene HTTP-API. Ein temporärer API-Key wird verdeckt als `SecureString` eingelesen und ausschließlich für den Bearer-Header im Arbeitsspeicher verwendet. Er wird nicht gespeichert oder protokolliert.
 
 `BaseModelId` ist ein Laufzeitparameter. Ohne Parameter wird nur dann automatisch gewählt, wenn exakt ein verwendbares Modell angeboten wird. Arena- und Embedding-Modelle werden nicht als Basismodell verwendet. Bei null oder mehreren Kandidaten bricht das Paket mit der Liste der angebotenen IDs ab.
 
-Beide Profile verwenden `params.function_calling = native`, `knowledge=[]` und die eingebaute Pyodide-Code-Interpreter-Capability. Ist das registrierte Image Pack 1.9.0 vorhanden, bleibt ausschließlich dessen OpenWebUI-kompatible interne Tool-ID `ki_stack_generate_image` (kanonisch `ki-stack-generate-image`) gebunden. `execute_code` ist keine Workspace-Tool-ID. Das Profil `ki-stack-18bravo` bleibt ohne Code Interpreter und ausschließlich an `ki_stack_ballistics_calculator` gebunden.
+Beide Profile verwenden `params.function_calling = native`, `knowledge=[]` und die eingebaute Pyodide-Code-Interpreter-Capability. Ist das registrierte Visual Pack 2.0.5 vorhanden, bleiben ausschließlich dessen OpenWebUI-kompatible interne Tool-IDs `ki_stack_generate_image` und `ki_stack_generate_video` gebunden. `execute_code` ist keine Workspace-Tool-ID. Das Profil `ki-stack-18bravo` bleibt ohne Code Interpreter und ausschließlich an `ki_stack_ballistics_calculator` gebunden.
 
 ## Abläufe
 

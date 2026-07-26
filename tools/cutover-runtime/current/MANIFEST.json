@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "KI-STACK-CUTOVER-RUNTIME",
+  "version": "1.6.5",
+  "releaseId": "CUTOVER-1.6.5",
+  "status": "StaticPendingValidation_TargetPending",
+  "embeddedHistoricalState": false,
+  "preflightContract": {
+    "source": "Embedded/Preflight/Source",
+    "generatedAtRuntime": true,
+    "transactionLocal": true
+  }
+}

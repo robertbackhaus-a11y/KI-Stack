@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "id": "KIModuleCutover",
+  "order": 80,
+  "name": "Stack Cutover and Operational Readiness",
+  "version": "1.6.5",
+  "enabled": true,
+  "script": "KIModuleCutover.psm1",
+  "supportsRollback": true,
+  "dependencies": [
+    "KIModuleFoundation",
+    "KIModuleRuntime",
+    "KIModulePythonGit",
+    "KIModuleComfyUI",
+    "KIModuleApplications",
+    "KIModuleIntegration"
+  ],
+  "actions": [
+    "Test",
+    "Install",
+    "Validate",
+    "Rollback"
+  ]
+}

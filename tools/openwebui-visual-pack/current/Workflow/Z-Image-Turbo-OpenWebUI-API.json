@@ -1,0 +1,63 @@
+{
+  "3": {
+    "inputs": {
+      "seed": 0,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": ["11", 0],
+      "positive": ["27", 0],
+      "negative": ["33", 0],
+      "latent_image": ["13", 0]
+    },
+    "class_type": "KSampler"
+  },
+  "8": {
+    "inputs": {"samples": ["3", 0], "vae": ["29", 0]},
+    "class_type": "VAEDecode"
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "z-image-turbo-openwebui",
+      "images": ["8", 0]
+    },
+    "class_type": "SaveImage"
+  },
+  "11": {
+    "inputs": {"shift": 3.0, "model": ["28", 0]},
+    "class_type": "ModelSamplingAuraFlow"
+  },
+  "13": {
+    "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
+    "class_type": "EmptySD3LatentImage"
+  },
+  "27": {
+    "inputs": {"text": "", "clip": ["30", 0]},
+    "class_type": "CLIPTextEncode"
+  },
+  "28": {
+    "inputs": {
+      "unet_name": "z_image_turbo_bf16.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader"
+  },
+  "29": {
+    "inputs": {"vae_name": "ae.safetensors"},
+    "class_type": "VAELoader"
+  },
+  "30": {
+    "inputs": {
+      "clip_name": "Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf",
+      "type": "lumina2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoaderGGUF"
+  },
+  "33": {
+    "inputs": {"conditioning": ["27", 0]},
+    "class_type": "ConditioningZeroOut"
+  }
+}

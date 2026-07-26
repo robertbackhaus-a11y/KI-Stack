@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "policyId": "KI-STACK-UNIVERSAL-RELEASE-GATE",
-  "policyVersion": "1.0.2",
+  "policyVersion": "1.0.3",
   "effectiveFor": "all future KI-Stack packages",
   "releaseRules": {
     "finalZipMustBeValidated": true,

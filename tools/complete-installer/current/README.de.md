@@ -1,7 +1,15 @@
-# KI-Stack Complete Installer 2.2.9
+# KI-Stack Complete Installer 2.3.2 Stable
 
-**[Hier beginnen: Installationsanleitung](../../../docs/de/KI-Stack-Installationsanleitung.md)** · **[ComfyUI-Modell-Downloadanleitung](../../../docs/de/KI-Stack-Modell-Downloadanleitung.md)** · **[ComfyUI model download guide](../../../docs/en/KI-Stack-Model-Download-Guide.md)** · **[Manuelle Modellbereitstellung](../../../docs/de/KI-Stack-Manuelle-Modellbereitstellung.md)** · **[Manual model provisioning](../../../docs/en/KI-Stack-Manual-Model-Provisioning.md)**
+Reines Dokumentationspatch über dem funktional identischen, TargetValidated-Release 2.3.0.
 
-Der Complete Installer ist der zentrale Installations-, Upgrade-, Audit-, Validate-, Repair-, Resume-, Start-, Stop- und Rollback-Einstieg. `Start-KIStack-Installer.cmd` löst PowerShell 7 auf und fordert Administratorrechte genau einmal über UAC an. `Resume-KIStack-Installer.cmd` setzt eine benannte Transaktion fort. `Status-KIStack.cmd` startet ausschließlich den vorhandenen interaktiven read-only Status-Starter.
+- Heretic ist das einzige Chat-LLM.
+- Nomic dient ausschließlich Embeddings.
+- Z-Image verwendet nur `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf`.
+- Aktive visuelle Workflows sind Z-Image Turbo und WAN2.2 T2V 14B mit beiden LightX2V-4-Step-LoRAs.
+- Visual Pack ist 2.0.5, Agent Pack 1.8.9 und Models / Workflows 2.0.3.
+- Fehlende Modelle einschließlich des ausschließlich für Embeddings verwendeten `nomic-embed-text-v1.5.Q4_K_M.gguf` werden automatisch geladen. Gültige Ziele und optionale Caches/Preloads werden nur nach Größen- und SHA-256-Prüfung wiederverwendet.
+- Ein temporärer OpenWebUI-Administrator-API-Key bleibt ausschließlich im Arbeitsspeicher und wird nie gespeichert.
 
-Modelle sind externe Lizenzabhängigkeiten und gehören weder in Git noch in Release-ZIPs. Vollständige technische, Betriebs- und Lizenzinformationen stehen in den verlinkten Repository-Dokumenten sowie in `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md` und `MODEL_LICENSES.md`.
+Prüfe das ZIP vor dem Entpacken gegen das danebenliegende `.sha256`-Sidecar. Der endgültige ZIP-Hash ist absichtlich nicht im Paket eingebettet.
+
+Installation, Upgrade, Lifecycle, SHA-256, Resume, Recovery und Rollback stehen in `Documentation/INSTALLATION.de.md`. Der Greenfield-Vertrag wurde mit Quell-/Paketprüfungen und kleinen Fixtures geprüft; eine vollständige reale Greenfield-Neuinstallation auf einem leeren Ziel wurde nicht durchgeführt.

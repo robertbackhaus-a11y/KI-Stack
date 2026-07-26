@@ -1,4 +1,4 @@
-# KI-Stack Universal Package Validation Gate v1.0.2
+# KI-Stack Universal Package Validation Gate v1.0.3
 
 Dieses Paket macht die vollständige Code- und Paketvalidierung zu einem verbindlichen Release-Gate für alle künftig erzeugten KI-Stack-Pakete.
 
@@ -69,3 +69,9 @@ Der Selbsttest erzeugt reale Testpakete und weist unter anderem zusätzliche, fe
 ## Korrektur v1.0.2
 
 Das äußere neu gebaute Paket bleibt vollständig strikt. Unveränderliche verschachtelte Altarchive ohne eigenen Validation-Contract werden nicht rückwirkend nach neuen Formatregeln abgewiesen; Pfadsicherheit, vollständige Lesbarkeit, Duplikate, Symlinks und alle im vorhandenen Manifest deklarierten Hashwerte bleiben zwingend.
+## Korrektur v1.0.3
+
+Rootlose, unveränderliche Legacy-Payload-ZIPs werden sicher in ihr Archivwurzelverzeichnis
+entpackt und dort vollständig geprüft. Das Fehlen eines einzelnen Wrapper-Verzeichnisses
+ist für solche verschachtelten Altformate nur noch ein dokumentierter Hinweis; Pfadsicherheit,
+Duplikate, Symlinks, CRC, Syntax und deklarierte SHA-256-Werte bleiben zwingend.

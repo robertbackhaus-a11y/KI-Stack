@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "version": "2.2.9",
+  "version": "2.3.2",
   "targetRoot": "C:\\KI-Stack",
   "stateDirectory": "C:\\KI-Stack\\state\\complete-installer",
   "backupDirectory": "C:\\KI-Stack\\backups\\complete-installer",
@@ -16,3 +16,4 @@
     {"name":"SearXNG Search","url":"http://localhost/searxng/search?q=ki-stack&format=json","kind":"search"}
   ]
 }
+

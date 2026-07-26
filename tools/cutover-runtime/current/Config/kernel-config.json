@@ -1,0 +1,264 @@
+{
+  "schemaVersion": "1.0",
+  "kernelVersion": "1.6.5",
+  "stackRoot": "C:\\KI-Stack",
+  "stateRoot": "C:\\KI-Stack\\state",
+  "logRoot": "C:\\KI-Stack\\logs",
+  "cacheRoot": "C:\\KI-Stack\\cache",
+  "backupRoot": "C:\\KI-Stack\\backups",
+  "moduleRoot": "C:\\KI-Stack\\modules",
+  "defaults": {
+    "executionMode": "DryRun",
+    "stopOnFailure": true,
+    "rollbackOnFailure": true,
+    "allowDestructiveActions": false,
+    "allowNetworkDownloads": true,
+    "requireAdministratorForExecute": true
+  },
+  "supportedPreflightSchemas": [
+    "1.0"
+  ],
+  "supportedLockSchemas": [
+    "1.0"
+  ],
+  "supportedPlanSchemas": [
+    "1.0",
+    "1.0.1"
+  ],
+  "runtime": {
+    "components": [
+      {
+        "id": "PowerShell7",
+        "displayName": "PowerShell 7",
+        "requiredCommand": "pwsh.exe",
+        "minimumVersion": "7.4.0",
+        "packageManager": "winget",
+        "packageId": "Microsoft.PowerShell"
+      },
+      {
+        "id": "Git",
+        "displayName": "Git for Windows",
+        "requiredCommand": "git.exe",
+        "minimumVersion": "2.45.0",
+        "packageManager": "winget",
+        "packageId": "Git.Git"
+      },
+      {
+        "id": "Python",
+        "displayName": "Python",
+        "requiredCommand": "python.exe",
+        "minimumVersion": "3.11.0",
+        "packageManager": "winget",
+        "packageId": "Python.Python.3.12"
+      }
+    ]
+  },
+  "pythonEnvironment": {
+    "root": "C:\\KI-Stack\\python",
+    "venvRoot": "C:\\KI-Stack\\python\\venvs",
+    "packageCache": "C:\\KI-Stack\\cache\\python",
+    "preferredInstaller": "uv",
+    "bootstrapUv": true,
+    "pipUpgrade": true
+  },
+  "gitEnvironment": {
+    "repositoryRoot": "C:\\KI-Stack\\repos",
+    "defaultBranch": "main",
+    "longPaths": true,
+    "safeDirectoryRoot": "C:\\KI-Stack"
+  },
+  "comfyUI": {
+    "root": "C:\\KI-Stack\\ComfyUI",
+    "repository": "https://github.com/Comfy-Org/ComfyUI.git",
+    "ref": "v0.28.0",
+    "refType": "tag",
+    "cloneDepth": 1,
+    "updateExistingRepository": false,
+    "venv": "C:\\KI-Stack\\python\\venvs\\comfyui",
+    "customNodesRoot": "C:\\KI-Stack\\ComfyUI\\custom_nodes",
+    "modelsRoot": "C:\\KI-Stack\\models",
+    "moduleRoot": "C:\\KI-Stack\\modules\\comfyui",
+    "extraModelPathsConfig": "C:\\KI-Stack\\modules\\comfyui\\extra_model_paths.yaml",
+    "inputDirectory": "C:\\KI-Stack\\data\\comfyui\\input",
+    "outputDirectory": "C:\\KI-Stack\\data\\comfyui\\output",
+    "userDirectory": "C:\\KI-Stack\\data\\comfyui\\user",
+    "listenAddress": "127.0.0.1",
+    "port": 8188,
+    "enableManager": true,
+    "dependencyInstaller": "pip",
+    "pipUpgrade": true,
+    "installManagerRequirements": true,
+    "torch": {
+      "packages": [
+        "torch",
+        "torchvision",
+        "torchaudio"
+      ],
+      "extraIndexUrl": "https://download.pytorch.org/whl/cu130",
+      "requireCuda": true,
+      "minimumComputeCapabilityMajor": 12,
+      "expectedDeviceNamePattern": "RTX 5090"
+    }
+  },
+  "models": {
+    "root": "C:\\KI-Stack\\models",
+    "manifestPath": "Manifests\\models.manifest.json",
+    "workflowCatalogPath": "Manifests\\workflows.catalog.json",
+    "workflowSourceRoot": "Workflows",
+    "workflowTargetRoot": "C:\\KI-Stack\\data\\comfyui\\user\\default\\workflows\\KI-Stack",
+    "integrationRoot": "C:\\KI-Stack\\modules\\models-workflows",
+    "installationMarker": "C:\\KI-Stack\\modules\\models-workflows\\installation.json",
+    "downloadsEnabled": true,
+    "allowInteractiveHuggingFaceToken": true,
+    "huggingFaceTokenFile": "%LOCALAPPDATA%\\KI-Stack\\secrets\\huggingface.token.clixml",
+    "downloadRetryCount": 3,
+    "downloadBufferBytes": 8388608,
+    "importSearchRoots": [
+      "C:\\KI-Stack\\models",
+      "%USERPROFILE%\\Downloads",
+      "%USERPROFILE%\\ComfyUI\\models",
+      "%USERPROFILE%\\Documents\\ComfyUI\\models",
+      "C:\\ComfyUI\\models"
+    ],
+    "directories": [
+      "checkpoints",
+      "diffusion_models",
+      "text_encoders",
+      "vae",
+      "loras",
+      "controlnet",
+      "clip",
+      "clip_vision",
+      "unet",
+      "embeddings"
+    ]
+  },
+  "applications": {
+    "moduleRoot": "C:\\KI-Stack\\modules\\applications",
+    "installationMarker": "C:\\KI-Stack\\modules\\applications\\installation.json",
+    "lmStudio": {
+      "enabled": true,
+      "packageId": "ElementLabs.LMStudio",
+      "serverUrl": "http://127.0.0.1:1234",
+      "bindAddress": "127.0.0.1",
+      "port": 1234,
+      "allowWingetInstall": true
+    },
+    "openWebUI": {
+      "enabled": true,
+      "packageName": "open-webui",
+      "version": "0.10.2",
+      "venv": "C:\\KI-Stack\\python\\venvs\\openwebui",
+      "dataRoot": "C:\\KI-Stack\\OpenWebUI\\data",
+      "url": "http://127.0.0.1:8080",
+      "bindAddress": "127.0.0.1",
+      "port": 8080,
+      "openAIBaseUrl": "http://127.0.0.1:1234/v1",
+      "openAIKey": "lm-studio",
+      "disableOllama": true,
+      "pipUpgrade": true
+    }
+  },
+  "integration": {
+    "moduleRoot": "C:\\KI-Stack\\modules\\integration",
+    "installationMarker": "C:\\KI-Stack\\modules\\integration\\installation.json",
+    "keeperPidFile": "C:\\KI-Stack\\modules\\integration\\wsl-keeper.pid",
+    "wslDistribution": "Debian",
+    "allowWslInstall": true,
+    "requireWsl2": true,
+    "requireSystemd": true,
+    "searxngRepository": "https://github.com/searxng/searxng.git",
+    "searxngRef": "277d8469c",
+    "searxngRefType": "commit",
+    "linuxRoot": "/opt/ki-stack/searxng",
+    "linuxIntegrationRoot": "/opt/ki-stack/integration",
+    "backendPort": 8888,
+    "searxngUrl": "http://localhost/searxng",
+    "searxngQueryUrl": "http://localhost/searxng/search?q=<query>",
+    "openWebUIUrl": "http://127.0.0.1:8080",
+    "lmStudioUrl": "http://127.0.0.1:1234",
+    "comfyUIUrl": "http://127.0.0.1:8188",
+    "timeoutSeconds": 20,
+    "cutoverEnabled": true,
+    "webSearchResultCount": 5,
+    "webSearchConcurrentRequests": 3,
+    "webLoaderConcurrentRequests": 5
+  },
+  "executeRelease": {
+    "releaseId": "CUTOVER-1.6.5",
+    "enabledModules": [
+      "KIModuleFoundation",
+      "KIModuleRuntime",
+      "KIModulePythonGit",
+      "KIModuleComfyUI",
+      "KIModuleApplications",
+      "KIModuleIntegration",
+      "KIModuleCutover",
+      "KIModuleValidation"
+    ],
+    "confirmationToken": "EXECUTE",
+    "allowWingetInstall": true,
+    "allowWingetUninstallDuringRollback": true,
+    "cutoverEnabled": true
+  },
+  "starter": {
+    "preflightSearchRoots": [
+      "%USERPROFILE%\\Downloads\\KI_Stack",
+      "%USERPROFILE%\\Downloads"
+    ],
+    "preflightFilePattern": "Preflight-*.zip",
+    "requireStateDirectory": true,
+    "searchRecursively": true,
+    "sortBy": "LastWriteTimeUtc",
+    "preflightSelectionMode": "EmbeddedDefault",
+    "embeddedPreflightRelativePath": "State\\Generated\\Preflight-Continuation-v1.6.5.zip",
+    "allowExplicitPreflightOverride": true
+  },
+  "cutover": {
+    "moduleRoot": "C:\\KI-Stack\\modules\\cutover",
+    "installationMarker": "C:\\KI-Stack\\modules\\cutover\\installation.json",
+    "reportRoot": "C:\\KI-Stack\\reports\\cutover",
+    "healthReportPath": "C:\\KI-Stack\\reports\\cutover\\Health-latest.json",
+    "acceptanceReportPath": "C:\\KI-Stack\\reports\\cutover\\Acceptance-latest.json",
+    "healthTimeoutSeconds": 45,
+    "startupGraceSeconds": 5,
+    "requireLiveEndpointsDuringExecute": false,
+    "endpoints": [
+      {
+        "name": "SearXNG",
+        "kind": "searxng",
+        "url": "http://localhost/searxng/search?q=ki-stack&format=json"
+      },
+      {
+        "name": "Open WebUI",
+        "kind": "web",
+        "url": "http://127.0.0.1:8080"
+      },
+      {
+        "name": "LM Studio",
+        "kind": "openai",
+        "url": "http://127.0.0.1:1234/v1/models"
+      },
+      {
+        "name": "ComfyUI",
+        "kind": "json",
+        "url": "http://127.0.0.1:8188/system_stats"
+      }
+    ],
+    "startScripts": {
+      "searxng": "C:\\KI-Stack\\modules\\integration\\Start-KIStack-SearXNG.cmd",
+      "lmStudio": "C:\\KI-Stack\\modules\\applications\\Start-KIStack-LMStudio.cmd",
+      "openWebUI": "C:\\KI-Stack\\modules\\integration\\Start-KIStack-OpenWebUI-WithSearch.cmd",
+      "comfyUI": "C:\\KI-Stack\\modules\\comfyui\\Start-KIStack-ComfyUI.cmd"
+    },
+    "stopScripts": {
+      "applications": "C:\\KI-Stack\\modules\\applications\\Stop-KIStack-Applications.cmd",
+      "searxng": "C:\\KI-Stack\\modules\\integration\\Stop-KIStack-SearXNG.cmd",
+      "comfyUI": "C:\\KI-Stack\\modules\\comfyui\\Stop-KIStack-ComfyUI.cmd"
+    }
+  },
+  "validation": {
+    "acceptanceRoot": "C:\\KI-Stack\\reports\\cutover",
+    "latestReportPath": "C:\\KI-Stack\\reports\\cutover\\Acceptance-latest.json"
+  }
+}

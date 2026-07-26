@@ -1,1 +1,1 @@
-{"schemaVersion":"1.0","package":"KI-Stack Integration","version":"1.5.9","status":"BuiltAndTargetSystemValidated","runtimeGitDependency":false,"payloadEmbeddedAtBuild":true,"containsSecrets":false,"containsPersonalPaths":false,"deterministicArchive":true}
+{"schemaVersion":"1.0","package":"KI-Stack Integration","version":"1.5.10","status":"PendingRC12BuildAndValidation","runtimeGitDependency":false,"payloadGeneratedAtBuildFromImmutableUpstream":true,"manualPreloadRequired":false,"containsSecrets":false,"containsPersonalPaths":false,"deterministicArchive":true}

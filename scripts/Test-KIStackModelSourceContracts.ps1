@@ -1,58 +1,31 @@
 [CmdletBinding()]
-param(
-    [string]$RootPath = (Split-Path -Parent $PSScriptRoot)
-)
-
+param([string]$RootPath = (Split-Path -Parent $PSScriptRoot))
 $ErrorActionPreference = 'Stop'
-$manifestPath = Join-Path $RootPath 'package\Manifests\models.manifest.json'
-$payloadPath = Join-Path $RootPath 'tools\complete-installer\current\Contracts\PAYLOADS.json'
-$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
-$payloads = Get-Content -LiteralPath $payloadPath -Raw | ConvertFrom-Json -Depth 100
-$manual = @($manifest.models | Where-Object { [bool]$_.manualExternal })
-$errors = [System.Collections.Generic.List[string]]::new()
-
-if ($manual.Count -ne 7) { $errors.Add("Expected seven manual external models, found $($manual.Count).") }
-foreach ($model in $manual) {
-    foreach ($field in 'fileName','sizeBytes','sha256','publisher','informationSource','sourceKind','relativeTargetPath') {
-        if (-not $model.PSObject.Properties[$field] -or [string]::IsNullOrWhiteSpace([string]$model.$field)) { $errors.Add("$($model.id): missing $field.") }
-    }
-    if ($null -ne $model.source -or $null -ne $model.installationSource) { $errors.Add("$($model.id): manual model must not have an installation source.") }
-    if ([string]$model.sourceKind -ne 'manual-external-information-only') { $errors.Add("$($model.id): invalid source kind.") }
-    if ([string]$model.informationSource -match '(?i)/resolve/main/') { $errors.Add("$($model.id): mutable resolve/main is not allowed as an information source.") }
-    if ([string]$model.sha256 -notmatch '^[0-9a-f]{64}$' -or [int64]$model.sizeBytes -le 0) { $errors.Add("$($model.id): invalid integrity anchor.") }
-    $payload = @($payloads.external | Where-Object { $_.id -eq $model.id })
-    if ($payload.Count -ne 1 -or [string]$payload[0].informationSource -ne [string]$model.informationSource -or $null -ne $payload[0].installationSource -or [string]$payload[0].sha256 -ne [string]$model.sha256 -or [int64]$payload[0].sizeBytes -ne [int64]$model.sizeBytes) { $errors.Add("$($model.id): complete-installer contract differs.") }
+$manifest = Get-Content -LiteralPath (Join-Path $RootPath 'tools\models-workflows\current\Manifests\models.manifest.json') -Raw | ConvertFrom-Json -Depth 100
+$payloads = Get-Content -LiteralPath (Join-Path $RootPath 'tools\complete-installer\current\Contracts\PAYLOADS.json') -Raw | ConvertFrom-Json -Depth 100
+$errors = [Collections.Generic.List[string]]::new()
+$models=@($manifest.models)
+if([string]$payloads.modelContractAuthority.sourcePath-ne'tools/models-workflows/current/Manifests/models.manifest.json' -or
+   [string]$payloads.modelContractAuthority.packagedArchive-ne'Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.3.zip' -or
+   [string]$payloads.modelContractAuthority.schemaVersion-ne[string]$manifest.schemaVersion){
+    $errors.Add('Complete Installer does not point uniquely to the authoritative Models/Workflows manifest.')
 }
-
-$pony = @($manifest.models | Where-Object { $_.id -eq 'pony-v6-xl' })
-if ($pony.Count -ne 1 -or [bool]$pony[0].manualExternal -or [string]$pony[0].source -ne 'https://civitai.com/api/download/models/290640' -or [string]$pony[0].sourceKind -ne 'automatic-external-payload') { $errors.Add('Pony automatic external contract differs.') }
-
-$lmStudioModel = $manifest.lmStudioModel
-$payloadLmStudioModel = $payloads.lmStudioModel
-if ($null -eq $lmStudioModel -or $null -eq $payloadLmStudioModel) {
-    $errors.Add('LM Studio model contract is missing.')
-} else {
-    foreach ($field in 'id','publisher','informationSource','sourceKind','relativeTargetDirectory','expectedLmStudioModelId','license') {
-        if (-not $lmStudioModel.PSObject.Properties[$field] -or [string]::IsNullOrWhiteSpace([string]$lmStudioModel.$field)) { $errors.Add("LM Studio contract: missing $field.") }
-        if ([string]$payloadLmStudioModel.$field -ne [string]$lmStudioModel.$field) { $errors.Add("LM Studio contract: payload differs for $field.") }
-    }
-    if ($null -ne $lmStudioModel.installationSource -or [string]$lmStudioModel.sourceKind -ne 'manual-external-information-only' -or -not [bool]$lmStudioModel.manualExternal) { $errors.Add('LM Studio model must remain manual external information only.') }
-    if ([string]$lmStudioModel.informationSource -match '(?i)/resolve/main/') { $errors.Add('LM Studio information source must not use mutable resolve/main.') }
-    if (@($lmStudioModel.files).Count -ne 2 -or @($payloadLmStudioModel.files).Count -ne 2) { $errors.Add('LM Studio contract must contain exactly two files.') }
-    foreach ($file in @($lmStudioModel.files)) {
-        foreach ($field in 'id','fileName','sizeBytes','sha256','role','quantization') { if (-not $file.PSObject.Properties[$field] -or [string]::IsNullOrWhiteSpace([string]$file.$field)) { $errors.Add("LM Studio file $($file.id): missing $field.") } }
-        if ([string]$file.sha256 -notmatch '^[0-9a-f]{64}$' -or [int64]$file.sizeBytes -le 0) { $errors.Add("LM Studio file $($file.id): invalid integrity anchor.") }
-        $payloadFile = @($payloadLmStudioModel.files | Where-Object { $_.id -eq $file.id })
-        if ($payloadFile.Count -ne 1 -or [string]$payloadFile[0].fileName -ne [string]$file.fileName -or [int64]$payloadFile[0].sizeBytes -ne [int64]$file.sizeBytes -or [string]$payloadFile[0].sha256 -ne [string]$file.sha256) { $errors.Add("LM Studio file $($file.id): complete-installer contract differs.") }
-    }
+if($payloads.PSObject.Properties.Name-contains'external' -or $payloads.PSObject.Properties.Name-contains'lmStudioModel'){
+    $errors.Add('Competing model download contract remains in PAYLOADS.json.')
 }
-
-[pscustomobject]@{
-    passed = ($errors.Count -eq 0)
-    manualExternalModels = $manual.Count
-    automaticExternalModel = 'pony-v6-xl'
-    lmStudioManualExternalFiles = @($lmStudioModel.files).Count
-    errors = @($errors)
-} | ConvertTo-Json -Depth 10
-
-if ($errors.Count) { exit 1 }
+if($models.Count-ne9){$errors.Add("Expected nine visual models, found $($models.Count).")}
+if([long]($models|Measure-Object sizeBytes -Sum).Sum-ne54994650267){$errors.Add('Visual model byte total differs.')}
+foreach($model in $models){
+    foreach($field in 'id','fileName','sizeBytes','sha256','relativeTargetPath','sources'){
+        if(-not$model.PSObject.Properties[$field]){$errors.Add("$($model.id): missing $field.")}
+    }
+    if([string]$model.sha256-notmatch'^[0-9a-f]{64}$'-or[long]$model.sizeBytes-le0){$errors.Add("$($model.id): invalid integrity anchor.")}
+    if(@($model.sources).Count-lt1-or@($model.sources|Where-Object{[string]$_-notmatch'^https://huggingface\.co/.+/resolve/[0-9a-f]{40}/'}).Count){$errors.Add("$($model.id): source is absent or not revision-bound.")}
+}
+$qwen=@($models|Where-Object { $_.id -eq 'z-image-qwen3-4b' })
+if($qwen.Count-ne1-or$qwen.fileName-ne'Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf'-or$qwen.sha256-ne'be7b7285f6b80daef5b15affbe96d6626c308ef53dae878568b36664099c71d0'){$errors.Add('Public Qwen manufacturer contract differs.')}
+foreach($file in @($manifest.lmStudio.files)){
+    if([string]$file.sha256-notmatch'^[0-9a-f]{64}$'-or@($file.sources).Count-lt1-or@($file.sources|Where-Object{[string]$_-notmatch'^https://huggingface\.co/.+/resolve/[0-9a-f]{40}/'}).Count){$errors.Add("LM Studio file $($file.id): incomplete versioned download contract.")}
+}
+[pscustomobject]@{passed=($errors.Count-eq0);visualModels=$models.Count;automaticArtifacts=$models.Count+@($manifest.lmStudio.files).Count;manualPreloadsRequired=0;errors=@($errors)}|ConvertTo-Json -Depth 10
+if($errors.Count){exit 1}

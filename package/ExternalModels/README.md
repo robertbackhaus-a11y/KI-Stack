@@ -1,7 +1,7 @@
-# ExternalModels
+# Optional model cache
 
-Place the eight ComfyUI external model files directly in this directory using their exact contract filenames. Place the two Heretic LM Studio files in `LMStudio`. The importer verifies filename, byte size and SHA256 before copying a file through a `.partial` target into its managed model directory.
+Complete Installer 2.3.2 downloads missing models, including embedding-only Nomic Q4_K_M, automatically from revision-pinned manifest sources. This directory is an optional cache/preload only and is not an installation prerequisite.
 
-Run `Start-KIStack-Model-Import.cmd`, or use `Import-KIStackExternalModels.ps1 -SourcePath "<folder>"`. No model file belongs in Git or a package archive.
+Existing targets and cache candidates are accepted only after exact filename, size, and SHA-256 verification. Valid targets are reused without another download; interrupted downloads support resume where available.
 
-Deutsch: ComfyUI-Downloadschritte und Prüfsummen stehen in `docs/de/KI-Stack-Modell-Downloadanleitung.md`; Heretic in `docs/de/KI-Stack-Manuelle-Modellbereitstellung.md`. English: see `docs/en/KI-Stack-Model-Download-Guide.md` and `docs/en/KI-Stack-Manual-Model-Provisioning.md`.
+Heretic is chat-only, Nomic embedding-only, and the official Qwen artifact is used only by Z-Image.

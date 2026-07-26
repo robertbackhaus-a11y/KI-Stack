@@ -1,18 +1,18 @@
 {
   "schemaVersion": "1.0",
   "components": [
-    {"id":"foundation-runtime","name":"Foundation / Runtime","version":"1.0.9","order":10,"source":"Payload/CutoverRuntime","marker":"VERSION","kind":"kernel","installable":true},
-    {"id":"python-git","name":"Python / Git","version":"1.1.5","order":20,"source":"Payload/CutoverRuntime","marker":"VERSION","kind":"kernel","installable":true},
-    {"id":"comfyui","name":"ComfyUI","version":"1.2.2","order":30,"source":"Payload/ComfyUI","marker":"modules/comfyui/installation.json","kind":"component","installable":true},
-    {"id":"models-workflows","name":"Models / Workflows","version":"1.4.9","order":40,"source":"Payload/ModelsWorkflows","marker":"modules/models-workflows/installation.json","kind":"kernel","installable":true},
-    {"id":"applications","name":"Applications","version":"1.4.10","order":50,"source":"Payload/CutoverRuntime","marker":"modules/applications/installation.json","kind":"kernel","installable":true},
-    {"id":"integration","name":"Integration","version":"1.5.9","order":60,"source":"Payload/Integration","marker":"modules/integration/installation.json","kind":"component","installable":true},
-    {"id":"cutover-runtime","name":"Cutover Runtime","version":"1.6.3","order":70,"source":"Payload/CutoverRuntime","marker":"modules/cutover/installation.json","kind":"kernel","installable":true},
+    {"id":"foundation-runtime","name":"Foundation / Runtime","version":"1.0.9","order":10,"source":"Payload/CutoverRuntime","kind":"pinned-runtime-reference","installable":false},
+    {"id":"python-git","name":"Python / Git","version":"1.1.5","order":20,"source":"Payload/CutoverRuntime","kind":"pinned-runtime-reference","installable":false},
+    {"id":"comfyui","name":"ComfyUI","version":"1.2.4","order":30,"source":"Payload/ComfyUI","marker":"modules/comfyui/installation.json","probe":{"type":"json","path":"modules/comfyui/installation.json","fields":["version","releaseVersion","packageVersion"]},"kind":"component","installable":true},
+    {"id":"models-workflows","name":"Visual Models / Workflows","version":"2.0.3","order":40,"source":"Payload/ModelsWorkflows","marker":"modules/models-workflows/installation.json","probe":{"type":"json","path":"modules/models-workflows/installation.json","fields":["version","releaseVersion","packageVersion"]},"kind":"kernel","installable":true},
+    {"id":"applications","name":"Applications","version":"1.4.10","order":50,"source":"Payload/CutoverRuntime","marker":"modules/applications/installation.json","kind":"pinned-runtime-reference","installable":false},
+    {"id":"integration","name":"Integration","version":"1.5.10","order":60,"source":"Payload/Integration","marker":"modules/integration/installation.json","probe":{"type":"json","path":"modules/integration/installation.json","fields":["version","releaseVersion","packageVersion"]},"kind":"component","installable":true},
+    {"id":"cutover-runtime","name":"Cutover Runtime","version":"1.6.5","order":70,"source":"Payload/CutoverRuntime","kind":"pinned-runtime-reference","installable":false},
     {"id":"production-recovery","name":"Production Recovery","version":"1.7.0-r7","order":80,"source":"Payload/ProductionRecovery","kind":"recovery-reference","installable":false},
-    {"id":"validation-gate","name":"Validation Gate","version":"1.0.2","order":90,"source":"Payload/ValidationGate","kind":"validation","installable":false},
+    {"id":"validation-gate","name":"Validation Gate","version":"1.0.3","order":90,"source":"Payload/ValidationGate","probe":{"type":"text","path":"Tools/PackageValidationGate/current/VERSION"},"kind":"validation","installable":true},
     {"id":"target-acceptance","name":"Target Acceptance","version":"1.0.10","order":100,"source":"Payload/TargetAcceptance","kind":"validation","installable":false},
-    {"id":"openwebui-agent-pack","name":"OpenWebUI Agent Pack","version":"1.8.3","order":110,"source":"Payload/OpenWebUIAgentPack","marker":"openwebui-api","kind":"openwebui","installable":true},
-    {"id":"openwebui-image-pack","name":"OpenWebUI Image Pack","version":"1.9.2","order":120,"source":"Payload/OpenWebUIImagePack","marker":"openwebui-api","kind":"openwebui","installable":true},
-    {"id":"openwebui-ballistics-pack","name":"OpenWebUI Ballistics","version":"1.0.0","order":130,"source":"Payload/OpenWebUIBallisticsPack","marker":"modules/openwebui-ballistics/installation.json","kind":"openwebui-optional","installable":true,"optional":true,"preserveData":"data/ballistics"}
+    {"id":"openwebui-visual-pack","name":"OpenWebUI Visual Pack","version":"2.0.5","order":110,"source":"Payload/OpenWebUIVisualPack","marker":"openwebui-api","probe":{"type":"json","path":"modules/openwebui-visual-pack/installation.json","fields":["version"]},"kind":"openwebui","installable":true},
+    {"id":"openwebui-agent-pack","name":"OpenWebUI Agent Pack","version":"1.8.9","order":120,"source":"Payload/OpenWebUIAgentPack","marker":"openwebui-api","probe":{"type":"json","path":"modules/openwebui-agent-pack/installation.json","fields":["version"]},"kind":"openwebui","installable":true},
+    {"id":"openwebui-ballistics-pack","name":"OpenWebUI Ballistics","version":"1.0.0","order":130,"source":"Payload/OpenWebUIBallisticsPack","marker":"modules/openwebui-ballistics/installation.json","probe":{"type":"json","path":"modules/openwebui-ballistics/installation.json","fields":["version","releaseVersion","packageVersion"]},"kind":"openwebui-optional","installable":true,"optional":true,"preserveData":"data/ballistics"}
   ]
 }

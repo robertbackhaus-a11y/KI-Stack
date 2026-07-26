@@ -1,5 +1,40 @@
 # Changelog
 
+## 2.3.2
+
+- Completes the Greenfield model contract for the embedding-only LM Studio artifact `nomic-embed-text-v1.5.Q4_K_M.gguf`.
+- Reuses a valid installed Nomic file by exact size and SHA-256; otherwise the existing cache, resume, verified download, and atomic activation path applies.
+- Updates Models / Workflows to 2.0.3 and keeps every other component version unchanged.
+- No complete physical Greenfield installation was performed; unchanged functional validation is inherited.
+
+## 2.3.1
+
+- Documentation-only Stable patch over the functionally identical, TargetValidated 2.3.0 release.
+- Corrects German and English installation, upgrade, lifecycle, SHA-256, model-download, cache/preload, resume, recovery, and rollback guidance.
+- Corrects active component versions and removes FLUX, Krea, Pony, WAN-5B/I2V, and legacy Image Pack guidance from current documentation.
+- Records that the Greenfield contract was verified with source/package checks and local fixtures, while a complete physical Greenfield installation on an empty target was not performed.
+- Functional code, scripts, modules, workflows, tools, prompts, model/download contracts, and component versions remain unchanged.
+
+## 2.3.0-rc2
+
+- Integrated the Complete Installer, visual model/workflow payload and OpenWebUI
+  Visual Pack into canonical repository source directories.
+- Replaced the package-self-archiving RC1 flow with a deterministic
+  source-to-release builder.
+- Restricted chat selection to Heretic and the embedding role to Nomic.
+- Restricted visual payload contracts to Z-Image Turbo and WAN2.2 T2V 14B with
+  both LightX2V four-step LoRAs.
+- Preserved the OpenWebUI persistent MP4 download attachment contract.
+- Classified 2.3.0-rc1 as non-reproducible because its released package state
+  had not been integrated into the canonical build sources.
+
+## OpenWebUI Image Pack 1.10.0
+
+- Preserves the existing FLUX2 `generate_image` method and the 1.9.2 trusted-local-origin security guard.
+- Adds `generate_pony_image` with the pinned Pony SDXL workflow contract and the same persistent OpenWebUI chat attachment path.
+- Adds FLUX2 and Pony regression coverage, synchronized package metadata, documentation, repository validation and SHA256 contracts.
+- Records the prior practical target test of the Pony workflow and chat output without claiming a complete 1.10.0 target-system validation.
+
 ## Models / Workflows 1.4.6, Complete Installer 2.2.6 and Image Pack 1.9.2
 
 - Adds deterministic SPDX-2.3 JSON SBOM assets for release ZIPs. They identify the ZIP by SHA256, list included components and third-party dependencies, and declare all eight model files as external, not contained dependencies with publisher, size, SHA256 and license status.

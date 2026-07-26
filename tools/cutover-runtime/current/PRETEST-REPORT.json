@@ -1,0 +1,18 @@
+{
+  "package": "KI-Stack-Cutover-Execute-v1.6.5",
+  "version": "1.6.5",
+  "releaseId": "CUTOVER-1.6.5",
+  "generatedAtUtc": "2026-07-20T10:56:11Z",
+  "status": "PASSED",
+  "checks": [
+    "release manifest current schema",
+    "legacy packageVersion schema",
+    "dual schema equality",
+    "conflict rejection",
+    "missing-version rejection",
+    "historical regressions",
+    "path resolution",
+    "cmd lifecycle",
+    "github bundle semantic execution"
+  ]
+}

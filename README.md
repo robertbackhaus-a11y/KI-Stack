@@ -10,18 +10,18 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 |---|---:|---|
 | Foundation / Runtime | 1.0.9 | Stable reference; target-system validated |
 | Python / Git | 1.1.5 | Stable; target-system validated |
-| ComfyUI | 1.2.2 | Stable; Git-free content contract target-system validated |
-| Models / Workflows | 1.4.9 | Central transactional ComfyUI and Heretic LM Studio external-model importer; bilingual provisioning documentation |
+| ComfyUI | 1.2.4 | Stable component; transactional marker/readback |
+| Models / Workflows | 2.0.3 | Automatic revision-pinned model acquisition, including Nomic Q4_K_M, with optional verified cache/preload |
 | Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
-| Integration | 1.5.9 | Stable; Git-free SearXNG payload and repaired lifecycle target-system validated |
-| Cutover runtime | 1.6.3 | Accepted runtime baseline |
+| Integration | 1.5.10 | Stable component; immutable SearXNG revision plus tracked overlay |
+| Cutover runtime | 1.6.5 | Stable component; transaction-local continuation state |
 | Production recovery | 1.7.0-r7 | Target-system accepted; portable runtime resolution |
-| Universal package Validation Gate | 1.0.2 | Activated on the target system |
+| Universal package Validation Gate | 1.0.3 | Activated on the target system |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
-| OpenWebUI Agent Pack | 1.8.3 | Target validated; built-in Pyodide Code Interpreter for Allgemein and KI & IT-Technik |
-| OpenWebUI Image Pack | 1.9.2 | Stable; direct FLUX2 generation target-system validated |
+| OpenWebUI Agent Pack | 1.8.9 | Stable; Heretic-only profiles with Visual Pack 2.0.5 bindings |
+| OpenWebUI Visual Pack | 2.0.5 | Stable; Z-Image and WAN2.2 tools with persistent MP4 attachments |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
-| Complete Installer | 2.2.9 | Enforces the external ComfyUI and Heretic LM Studio contracts before Models / Workflows compliance; bilingual documentation included |
+| Complete Installer | 2.3.2 | Stable Nomic Greenfield-contract completion; functional validation otherwise inherited unchanged |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
@@ -123,7 +123,7 @@ The repository includes complete reusable sources for Production Recovery `1.7.0
 
 OpenWebUI Agent Pack `1.8.3` manages exactly the workspace models `KI & IT-Technik` and `Allgemein` through the supported OpenWebUI 0.10.2 HTTP API. It enables only the built-in browser-local Pyodide Code Interpreter capability and preserves only the registered Image Pack tool binding. `execute_code` is not a workspace tool ID.
 
-OpenWebUI Image Pack `1.9.2` manages exactly one canonical tool, `ki-stack-generate-image`, for direct generation through the existing FLUX2 Klein workflow and local ComfyUI 1.2.2. OpenWebUI 0.10.2 binds its required identifier-safe internal ID `ki_stack_generate_image`. The pack downloads no models and adds no KREA or Pony dependency.
+OpenWebUI Image Pack `1.10.0` continues to manage exactly one canonical tool, `ki-stack-generate-image`, through local ComfyUI 1.2.2. Its existing `generate_image` FLUX2 method is retained and the explicit `generate_pony_image` method adds Pony SDXL at 1024 × 1024, CLIP skip 2, 40 steps, CFG 3.1, `euler` and `normal`. Both paths persist images directly in the OpenWebUI chat. The pack downloads no models; the Pony checkpoint must already be installed. The Pony workflow and chat output were practically tested on the target, without claiming complete 1.10.0 target-system validation.
 
 OpenWebUI Ballistics Pack `1.0.0` adds the exclusively bound `18Bravo` technical profile and `ki_stack_ballistics_calculator`. Its pinned `pyballistic` 2.2.0 RK4 core supports G1/G7 calculations without Git, compiled solver extensions, SciPy engine or chart extensions. It requires complete explicit inputs, stores profiles only after confirmation and is restricted to lawful sporting, hunting and engineering use.
 

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "packageName": "KI-Stack-Universal-Package-Validation-Gate",
-  "packageVersion": "1.0.2",
+  "packageVersion": "1.0.3",
   "coverage": [
     {
       "id": "REG-001-OLD-CUTOVER-ASSET-NAME",
@@ -111,7 +111,12 @@
     {
       "id": "REG-022-NESTED-LEGACY-POLICY-SCOPE",
       "status": "covered",
-      "method": "Independent validator applies strict release policy to the outer package and nested packages with their own validation contract. Immutable nested legacy archives without a contract remain subject to safe-path, duplicate, symlink, CRC, JSON/Python syntax and declared-hash verification; untracked legacy files and CMD line-ending deviations are reported as warnings."
+      "method": "Independent validator applies strict release policy to the outer package and nested packages with their own validation contract. Immutable nested legacy archives without a contract remain subject to safe-path, duplicate, symlink, CRC and declared-hash verification; untracked files, intentional syntax fixtures and formatting deviations are reported as warnings."
+    },
+    {
+      "id": "REG-023-ROOTLESS-NESTED-ARCHIVE",
+      "status": "covered",
+      "method": "Python regression fixture proves that a safe rootless legacy nested ZIP is extracted, manifest-validated and classified as legacy-nested without an error-severity single-root failure."
     }
   ]
 }
