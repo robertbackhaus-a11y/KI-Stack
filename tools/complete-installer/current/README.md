@@ -1,4 +1,4 @@
-# KI-Stack Complete Installer 2.3.0-rc15
+# KI-Stack Complete Installer 2.3.0-rc16
 
 Repository-validated release candidate based on Complete Installer 2.2.9.
 

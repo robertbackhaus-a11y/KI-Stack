@@ -4,9 +4,9 @@
   "embedded": ["CutoverRuntime","ComfyUI","ModelsWorkflows","Integration","ValidationGate","OpenWebUIAgentPack","OpenWebUIVisualPack","OpenWebUIBallisticsPack"],
   "modelContractAuthority": {
     "component": "ModelsWorkflows",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "sourcePath": "tools/models-workflows/current/Manifests/models.manifest.json",
-    "packagedArchive": "Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.1.zip",
+    "packagedArchive": "Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.2.zip",
     "packagedEntrySuffix": "/Manifests/models.manifest.json",
     "schemaVersion": "2.1"
   },

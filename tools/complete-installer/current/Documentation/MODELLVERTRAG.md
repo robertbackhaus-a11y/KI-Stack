@@ -1,4 +1,4 @@
-# Modellvertrag 2.3.0-rc15
+# Modellvertrag 2.3.0-rc16
 
 - LM Studio stellt ausschließlich Heretic als Chat-LLM bereit.
 - Nomic ist ausschließlich Embedding-Modell und darf nicht als Chatmodell angeboten werden.

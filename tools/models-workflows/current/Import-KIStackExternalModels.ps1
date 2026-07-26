@@ -158,25 +158,22 @@ if ($Mode -eq 'Install' -and $passed) {
     $workflowTarget = Join-Path $TargetRoot 'data\comfyui\user\default\workflows\KI-Stack'
     New-Item -ItemType Directory -Path $workflowTarget -Force | Out-Null
     $workflowBackup = Join-Path $StateRoot 'workflow-backup'
-    $approvedNames = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Workflows') -File -Filter '*.json' | ForEach-Object Name)
+    $internalApiPrompts = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Workflows') -File -Filter '*.json' | ForEach-Object Name)
     foreach ($existing in Get-ChildItem -LiteralPath $workflowTarget -File -Filter '*.json' -ErrorAction SilentlyContinue) {
-        if ($existing.Name -notin $approvedNames) {
-            New-Item -ItemType Directory -Path $workflowBackup -Force | Out-Null
-            Move-Item -LiteralPath $existing.FullName -Destination (Join-Path $workflowBackup $existing.Name) -Force
-        }
+        New-Item -ItemType Directory -Path $workflowBackup -Force | Out-Null
+        Move-Item -LiteralPath $existing.FullName -Destination (Join-Path $workflowBackup $existing.Name) -Force
     }
-    Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'Workflows') -File -Filter '*.json' | Copy-Item -Destination $workflowTarget -Force
     $markerPath = Join-Path $TargetRoot 'modules\models-workflows\installation.json'
     New-Item -ItemType Directory -Path (Split-Path -Parent $markerPath) -Force | Out-Null
     [pscustomobject][ordered]@{
-        schemaVersion='1.0';managedBy='KI-STACK-VISUAL-MODELS-WORKFLOWS';version='2.0.1'
-        release='KI-Stack-Visual-Models-Workflows-v2.0.1';installedAtUtc=[DateTime]::UtcNow.ToString('o')
-        transactionId=$TransactionId;workflows=$approvedNames;workflowBackup=$workflowBackup;models=@($results)
+        schemaVersion='1.0';managedBy='KI-STACK-VISUAL-MODELS-WORKFLOWS';version='2.0.2'
+        release='KI-Stack-Visual-Models-Workflows-v2.0.2';installedAtUtc=[DateTime]::UtcNow.ToString('o')
+        transactionId=$TransactionId;workflows=@();internalApiPrompts=$internalApiPrompts;workflowBackup=$workflowBackup;models=@($results)
     } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $markerPath -Encoding UTF8
 }
 
 [pscustomobject]@{
-    version='2.0.1';transactionId=$TransactionId;mode=$Mode;passed=$passed
+    version='2.0.2';transactionId=$TransactionId;mode=$Mode;passed=$passed
     status=$(if($passed){if($Mode -eq 'Audit'){'CompliantOrReady'}else{'Completed'}}else{'WaitingForNetwork'})
     resumable=($waiting.Count -gt 0);mutatesTarget=($Mode -eq 'Install' -and $passed);results=$results
 }

@@ -27,5 +27,15 @@ foreach($file in @($manifest.lmStudio.files)){
 $downloadTest = & (Join-Path $PackageRoot 'Tests\Test-KIStackModelDownloadContract.ps1') -PackageRoot $PackageRoot | ConvertFrom-Json
 if(-not[bool]$downloadTest.passed){throw 'Greenfield download regression failed.'}
 $workflows = @(Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Workflows') -File -Filter '*.json')
-if ($workflows.Count -ne 2) { throw 'Exactly two workflows are required.' }
+if ($workflows.Count -ne 2) { throw 'Exactly two internal API prompts are required.' }
+foreach($workflow in $workflows){
+    $prompt=Get-Content -LiteralPath $workflow.FullName -Raw|ConvertFrom-Json -Depth 100
+    if($prompt.PSObject.Properties.Name -contains 'nodes'){throw "API prompt must not be published as a UI workflow: $($workflow.Name)"}
+}
+$packageManifest=Get-Content -LiteralPath (Join-Path $PackageRoot 'MANIFEST.json') -Raw|ConvertFrom-Json
+if(@($packageManifest.publishedUiWorkflows).Count-ne0){throw 'Models / Workflows must not publish API prompts as UI workflows.'}
+if(@($packageManifest.internalApiPrompts).Count-ne2){throw 'Internal API prompt manifest is incomplete.'}
+$importerSource=Get-Content -LiteralPath (Join-Path $PackageRoot 'Import-KIStackExternalModels.ps1') -Raw
+if($importerSource -match 'Copy-Item\s+-Destination\s+\$workflowTarget'){throw 'Internal API prompts are still copied into the UI workflow browser.'}
+if($importerSource -notmatch 'workflows=@\(\);internalApiPrompts=\$internalApiPrompts'){throw 'Installed marker does not distinguish UI workflows from internal API prompts.'}
 Write-Host 'VISUAL MODELS / WORKFLOWS TEST PASSED (including 8 Greenfield download regressions).'
