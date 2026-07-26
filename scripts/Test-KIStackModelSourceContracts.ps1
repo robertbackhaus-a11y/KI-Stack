@@ -6,7 +6,7 @@ $payloads = Get-Content -LiteralPath (Join-Path $RootPath 'tools\complete-instal
 $errors = [Collections.Generic.List[string]]::new()
 $models=@($manifest.models)
 if([string]$payloads.modelContractAuthority.sourcePath-ne'tools/models-workflows/current/Manifests/models.manifest.json' -or
-   [string]$payloads.modelContractAuthority.packagedArchive-ne'Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.1.zip' -or
+   [string]$payloads.modelContractAuthority.packagedArchive-ne'Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.2.zip' -or
    [string]$payloads.modelContractAuthority.schemaVersion-ne[string]$manifest.schemaVersion){
     $errors.Add('Complete Installer does not point uniquely to the authoritative Models/Workflows manifest.')
 }
