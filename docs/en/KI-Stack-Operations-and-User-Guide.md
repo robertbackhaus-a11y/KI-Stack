@@ -1,55 +1,37 @@
-# KI-Stack Operations and User Guide
+# KI-Stack 2.3.1 operations and user guide
 
-**[Start here: installation guide](KI-Stack-Installation-Guide.md)**
+## Normal operation
 
-## 1. Requirements and installation
+- Install or upgrade: `Start-KIStack-Installer.cmd`
+- Start the stack: `Start-KIStack.cmd`
+- Stop the stack: `Stop-KIStack.cmd`
+- Read-only status: `Status-KIStack.cmd`
+- Interactive status: `Lifecycle\Status-KIStack-Interactive.cmd`
 
-Use supported Windows with WSL2/Debian, PowerShell 7, the approved local LM Studio, OpenWebUI and ComfyUI installation, sufficient disk capacity for 47,356,936,991 bytes of external models, and the applicable model licences. Extract the Complete Installer, keep its files together, and use its public starter for installation or upgrade. Do not run package scripts with Windows PowerShell. The package is Git-free at runtime but is not offline.
+Use PowerShell 7. Keep package files together and do not run individual component installers manually.
 
-For an upgrade, stop the stack through the managed Stop shortcut, retain existing compliant files, run the installer, and follow any `WaitingForUserAction` request. Do not overwrite user models, workflows, chats or private data to force compliance.
+## Models and workflows
 
-## 2. External model provision
+Heretic is the only chat LLM; Nomic is embedding-only. Z-Image uses the official `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf`. The only active visual workflows are Z-Image Turbo and WAN2.2 T2V 14B with both LightX2V four-step LoRAs. FLUX, Krea, Pony, WAN-5B/I2V, and legacy Image Pack workflows are not active.
 
-Put manually supplied model files directly in `ExternalModels` beside the extracted Models / Workflows package, or use another direct folder. Start the central importer with:
+Missing required models are downloaded automatically from revision-pinned sources. Valid targets and optional cache/preload files are reused only after size and SHA-256 verification. Interrupted transfers resume when supported. A wrong size or hash fails safely; no invalid file is activated.
 
-```cmd
-Start-KIStack-Model-Import.cmd
-```
+## OpenWebUI
 
-To select another folder, pass all arguments unchanged to the CMD starter:
+The Agent Pack is 1.8.9 and the Visual Pack is 2.0.5. A temporary OpenWebUI administrator API key may be requested during a Visual/Agent update. It is hidden, held only in memory, never saved, and should be revoked after use.
 
-```cmd
-Start-KIStack-Model-Import.cmd -SourcePath "D:\\ExternalModels"
-```
+Images remain visible chat content. MP4 output remains exactly one persistent downloadable FileItem after reload through `/api/v1/files/{id}/content`.
 
-The importer checks each existing target and candidate source by exact filename, byte size and SHA256. Correct targets are `AlreadyCompliant`. A verified source is copied as `.partial` and atomically moved. Missing manual models produce `WaitingForUserAction` with the exact required file, size, SHA256 and source folder; after placing the file there, run the same command again to resume. It never searches user directories as its sole source. Pony may use only its fixed Civitai model version 290640; no Git, commit or `latest` source is used.
+## Transactions
 
-## 3. Start, stop and status
+Transaction state is stored under `C:\KI-Stack\state\complete-installer\<TransactionId>` and backups under `C:\KI-Stack\backups\complete-installer\<TransactionId>`.
 
-Use desktop shortcuts `KI-Stack Start`, `KI-Stack Stop` and `KI-Stack Status`. Start launches the managed services; Stop centrally stops them. Status is read-only, needs no administrator elevation and reports LM Studio, `/v1/models`, OpenWebUI, SearXNG HTML/JSON, ComfyUI, WSL keeper, valkey-server, uwsgi and nginx as Running, Stopped or Error. The interactive Status window shows its exit code and remains open until a key is pressed. Status does not repair or start services.
+- Resume: `Resume-KIStack-Installer.cmd <TransactionId>`
+- Audit: `Start-KIStack-Audit.cmd`
+- Validate: `Start-KIStack-Validate.cmd`
+- Repair after diagnosis: `Start-KIStack-Repair.cmd`
+- Rollback: `Start-KIStack-Rollback.cmd`
 
-Before a planned reboot, stop centrally. After reboot, confirm no KI-Stack process, listener, automatic service or stale PID exists before using Start. The stack has no required Windows autostart, boot/logon task, Run/RunOnce entry, startup-folder entry, LM Studio autostart, OpenWebUI autostart, ComfyUI autostart or WSL keeper autostart. Debian valkey-server, uwsgi and nginx are disabled for automatic startup but manually startable.
+Resume continues at the first incomplete step. Recovery checks pending and failed transactions before planning a new installation. Rollback restores only files changed by the selected transaction. Existing compliant models and user-owned data are retained.
 
-## 4. OpenWebUI
-
-Open the locally configured OpenWebUI address shown by Status. Use `Allgemein` for general local assistance and `KI & IT-Technik` for technical work. Both have native function calling, `knowledge=[]`, only the image tool binding and the browser-local Pyodide Code Interpreter. Use `18Bravo` only for lawful sporting, hunting and engineering ballistics calculations; it has only the ballistics tool, no Code Interpreter and no knowledge binding.
-
-The Code Interpreter is built into OpenWebUI: Pyodide, no Jupyter, Open Terminal, Docker, extra service or browser-restart file persistence. It cannot access Windows, shell or `C:\\KI-Stack`. Do not add `execute_code` as a normal tool ID. Revoke every temporary OpenWebUI API key immediately after administrative or validation work.
-
-Web search uses SearXNG. If it fails, first use Status and inspect the SearXNG HTML and JSON results; do not create a duplicate service. Normal chats function without RAG because all managed profiles use `knowledge=[]`.
-
-## 5. Image and workflow use
-
-The `Allgemein` and `KI & IT-Technik` profiles use the same approved image binding. Generated FLUX2 images appear directly in the chat and retain a clickable download after reload. A valid chat result has no `/mnt/uploads`, Windows path or ComfyUI path.
-
-Open ComfyUI through the locally configured address. Approved workflows are FLUX2 UI, FLUX2 API (used by OpenWebUI), KREA Realism, Pony SDXL and WAN 2.2 Official. Use only the model files named in the workflow and model contracts. The FLUX2 UI defaults to 512×512, batch 1, and its checked-in sampler values. KREA and Pony create images; WAN writes its video output to the workflow-defined video output. Do not install missing custom nodes or substitute unverified models.
-
-## 6. Audit, validate, repair, resume and rollback
-
-Use the public Complete Installer starters for Audit, Validate, Repair, Resume and Rollback. Audit and Validate are read-only. Repair is transactional and must be explicitly selected. Resume continues the recorded transaction after a missing dependency is provided. Rollback restores only backups from that transaction and removes only transaction-created files; it leaves pre-existing compliant models untouched. Read the transaction report before retrying a failed step.
-
-For logs and diagnosis, use the reported transaction directory, package validation report and Status summary. Do not publish logs containing user paths, API keys, raw OpenWebUI exports, test images or backups. Typical safe resolutions are: install PowerShell 7 when a starter returns exit code 70; provide the exact missing model file to `ExternalModels`; use Repair only after reading the failure; use Rollback when a transaction reports an unresolved error; and verify a stopped service through Status before starting it.
-
-## 7. Controlled stop and removal
-
-For normal shutdown, use `KI-Stack Stop` and confirm Status shows no managed listeners or stale PID files. A full removal is a controlled maintenance operation: stop first, preserve user-owned models, workflows, chats, prompts, uploads, browser data and unrelated tools, then remove only explicitly identified KI-Stack managed content and transaction backups after review. Do not delete WSL distributions, user profiles or shared model directories as a generic uninstall action.
+The Greenfield contract was verified with source/package checks and small download fixtures; a complete physical Greenfield installation on an empty target was not performed for this release.

@@ -2,7 +2,7 @@
   "schemaVersion": "2.0",
   "packageId": "KI-STACK-COMPLETE-INSTALLER",
   "name": "KI-Stack Complete Installer",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "status": "SourcePendingValidation_TargetPending",
   "baseVersion": "2.2.9",
   "components": {

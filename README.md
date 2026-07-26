@@ -10,18 +10,18 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 |---|---:|---|
 | Foundation / Runtime | 1.0.9 | Stable reference; target-system validated |
 | Python / Git | 1.1.5 | Stable; target-system validated |
-| ComfyUI | 1.2.4 | RC15 pending; transactional marker/readback and verified retention after incomplete RC13 transaction |
-| Models / Workflows | 1.4.9 | Central transactional ComfyUI and Heretic LM Studio external-model importer; bilingual provisioning documentation |
+| ComfyUI | 1.2.4 | Stable component; transactional marker/readback |
+| Models / Workflows | 2.0.2 | Automatic revision-pinned model acquisition with optional verified cache/preload |
 | Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
-| Integration | 1.5.10 | RC15 pending; immutable SearXNG revision plus tracked overlay, optional verified cache |
-| Cutover runtime | 1.6.5 | RC15 pending; continuation state generated transaction-locally from tracked sources |
+| Integration | 1.5.10 | Stable component; immutable SearXNG revision plus tracked overlay |
+| Cutover runtime | 1.6.5 | Stable component; transaction-local continuation state |
 | Production recovery | 1.7.0-r7 | Target-system accepted; portable runtime resolution |
-| Universal package Validation Gate | 1.0.2 | Activated on the target system |
+| Universal package Validation Gate | 1.0.3 | Activated on the target system |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
-| OpenWebUI Agent Pack | 1.8.3 | Target validated; built-in Pyodide Code Interpreter for Allgemein and KI & IT-Technik |
-| OpenWebUI Image Pack | 1.10.0 | Stable; FLUX2 regression preserved, Pony workflow and chat output practically verified |
+| OpenWebUI Agent Pack | 1.8.9 | Stable; Heretic-only profiles with Visual Pack 2.0.5 bindings |
+| OpenWebUI Visual Pack | 2.0.5 | Stable; Z-Image and WAN2.2 tools with persistent MP4 attachments |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
-| Complete Installer | 2.2.9 | Enforces the external ComfyUI and Heretic LM Studio contracts before Models / Workflows compliance; bilingual documentation included |
+| Complete Installer | 2.3.1 | Stable documentation correction; functional validation inherited unchanged from 2.3.0 |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.

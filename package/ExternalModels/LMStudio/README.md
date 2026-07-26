@@ -1,8 +1,3 @@
-# Heretic for LM Studio
+# Optional Heretic cache for LM Studio
 
-Put the two contract files here before starting `Start-KIStack-Model-Import.cmd`:
-
-- `Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf`
-- `Qwen3.6-27B-mmproj-BF16.gguf`
-
-The importer verifies exact size and SHA256, then places them beneath the current user's `.lmstudio\models` directory. No file in this folder is included in Git or a release ZIP.
+This directory is optional. Complete Installer 2.3.1 downloads missing Heretic files automatically from revision-pinned sources. A preload is reused only after exact filename, size, and SHA-256 verification. Heretic is the only chat LLM; Nomic is embedding-only.

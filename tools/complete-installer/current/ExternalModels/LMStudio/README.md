@@ -1,3 +1,3 @@
-# Heretic for LM Studio
+# Optional Heretic cache for LM Studio
 
-Put the two contract files here before starting `Start-KIStack-Model-Import.cmd`. They are verified by filename, size and SHA256 and are never embedded in a KI-Stack package.
+This directory is optional. Complete Installer 2.3.1 downloads missing Heretic contract files automatically from revision-pinned sources. A local preload is reused only after exact filename, size, and SHA-256 verification. Heretic remains the only chat LLM; Nomic remains embedding-only.

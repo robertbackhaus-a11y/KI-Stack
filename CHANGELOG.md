@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.1
+
+- Documentation-only Stable patch over the functionally identical, TargetValidated 2.3.0 release.
+- Corrects German and English installation, upgrade, lifecycle, SHA-256, model-download, cache/preload, resume, recovery, and rollback guidance.
+- Corrects active component versions and removes FLUX, Krea, Pony, WAN-5B/I2V, and legacy Image Pack guidance from current documentation.
+- Records that the Greenfield contract was verified with source/package checks and local fixtures, while a complete physical Greenfield installation on an empty target was not performed.
+- Functional code, scripts, modules, workflows, tools, prompts, model/download contracts, and component versions remain unchanged.
+
 ## 2.3.0-rc2
 
 - Integrated the Complete Installer, visual model/workflow payload and OpenWebUI

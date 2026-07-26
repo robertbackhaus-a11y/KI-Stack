@@ -10,18 +10,18 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 |---|---:|---|
 | Foundation / Runtime | 1.0.9 | Stabiler Referenzstand, auf Zielsystem validiert |
 | Python / Git | 1.1.5 | Stabil, auf Zielsystem validiert |
-| ComfyUI | 1.2.4 | RC14 ausstehend; transaktionaler Marker/Readback und verifizierte Beibehaltung nach unvollständiger RC13-Transaktion |
-| Modelle / Workflows | 1.4.9 | Zentraler transaktionssicherer Import externer ComfyUI- und Heretic-LM-Studio-Modelle |
+| ComfyUI | 1.2.4 | Stabile Komponente; transaktionaler Marker/Readback |
+| Modelle / Workflows | 2.0.2 | Automatischer revisionsgebundener Modelldownload mit optionalem geprüftem Cache/Preload |
 | Applications | 1.4.10 | Stabil; LM Studio und Open WebUI 0.10.2 auf dem Zielsystem akzeptiert |
-| Integration | 1.5.10 | RC14 ausstehend; feste SearXNG-Revision plus getracktes Overlay, optionaler geprüfter Cache |
-| Cutover Runtime | 1.6.4 | RC14 ausstehend; Fortsetzungszustand wird transaktionslokal aus getrackten Quellen erzeugt |
+| Integration | 1.5.10 | Stabile Komponente; feste SearXNG-Revision plus getracktes Overlay |
+| Cutover Runtime | 1.6.5 | Stabile Komponente; transaktionslokaler Fortsetzungszustand |
 | Production Recovery | 1.7.0-r7 | Auf dem Zielsystem akzeptiert; SearXNG-Kaltstart repariert |
-| Universeller Paket-Validation-Gate | 1.0.2 | Auf dem Zielsystem aktiviert |
+| Universeller Paket-Validation-Gate | 1.0.3 | Auf dem Zielsystem aktiviert |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` am 21.07.2026 |
-| OpenWebUI Agent Pack | 1.8.3 | Zielsystemvalidiert; eingebauter Pyodide-Code-Interpreter für Allgemein und KI & IT-Technik |
-| OpenWebUI Image Pack | 1.10.0 | Stabil; FLUX2 regressionsgesichert, Pony-Workflow und Chat-Ausgabe praktisch geprüft |
+| OpenWebUI Agent Pack | 1.8.9 | Stabil; Heretic-Profile mit Visual-Pack-2.0.5-Bindung |
+| OpenWebUI Visual Pack | 2.0.5 | Stabil; Z-Image- und WAN2.2-Tools mit persistenten MP4-Anhängen |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stabil; `18Bravo` und Solver zielsystemvalidiert |
-| Complete Installer | 2.2.9 | Erzwingt externe ComfyUI- und Heretic-LM-Studio-Verträge vor Models-/Workflows-Konformität |
+| Complete Installer | 2.3.1 | Stabile Dokumentationskorrektur; funktionale Validierung unverändert von 2.3.0 übernommen |
 | System Cleanup Audit | 1.0.0 | Audit abgeschlossen; Bereinigungsplan wartet auf ausdrückliche Freigabe |
 
 Vollständige Paketquellen liegen im Verzeichnis `package`. Fertige ZIP-Pakete werden als GitHub-Release-Artefakte veröffentlicht und nicht dauerhaft in die normale Git-Historie aufgenommen.

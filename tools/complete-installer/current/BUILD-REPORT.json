@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "baseVersion": "2.2.9",
   "status": "SourcePendingValidation_TargetPending",
   "deterministicArchive": true,
