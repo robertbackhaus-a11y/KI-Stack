@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "name": "KI-Stack Visual Models / Workflows",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "containsModels": false,
   "preloadsOptional": true,
   "automaticDownloads": true,

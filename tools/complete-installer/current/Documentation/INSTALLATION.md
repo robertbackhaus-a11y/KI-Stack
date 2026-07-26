@@ -1,11 +1,11 @@
 # Installation, upgrade, and operations
 
-1. Verify `KI-Stack-Complete-Installer-v2.3.1.zip` against its adjacent `.sha256` sidecar with `Get-FileHash -Algorithm SHA256`.
+1. Verify `KI-Stack-Complete-Installer-v2.3.2.zip` against its adjacent `.sha256` sidecar with `Get-FileHash -Algorithm SHA256`.
 2. Extract the package and run `Start-KIStack-Installer.cmd` with PowerShell 7.
 3. Confirm UAC. If requested, enter a temporary OpenWebUI administrator API key through the hidden prompt; it is never stored and should be revoked afterwards.
 4. Accept only `Completed` or `SkippedAlreadyCompliant`.
 
-Models are downloaded automatically from revision-pinned sources. Existing targets and optional caches/preloads are reused only after exact size and SHA-256 verification. Partial downloads support resume; invalid size or hash fails. No preload is required.
+Models, including embedding-only `nomic-embed-text-v1.5.Q4_K_M.gguf`, are downloaded automatically from revision-pinned sources. Existing targets and optional caches/preloads are reused only after exact size and SHA-256 verification. Partial downloads support resume; invalid size or hash fails. No preload is required.
 
 Lifecycle:
 

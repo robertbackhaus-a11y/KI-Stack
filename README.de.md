@@ -11,7 +11,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | Foundation / Runtime | 1.0.9 | Stabiler Referenzstand, auf Zielsystem validiert |
 | Python / Git | 1.1.5 | Stabil, auf Zielsystem validiert |
 | ComfyUI | 1.2.4 | Stabile Komponente; transaktionaler Marker/Readback |
-| Modelle / Workflows | 2.0.2 | Automatischer revisionsgebundener Modelldownload mit optionalem geprüftem Cache/Preload |
+| Modelle / Workflows | 2.0.3 | Automatischer revisionsgebundener Modelldownload einschließlich Nomic Q4_K_M mit optionalem geprüftem Cache/Preload |
 | Applications | 1.4.10 | Stabil; LM Studio und Open WebUI 0.10.2 auf dem Zielsystem akzeptiert |
 | Integration | 1.5.10 | Stabile Komponente; feste SearXNG-Revision plus getracktes Overlay |
 | Cutover Runtime | 1.6.5 | Stabile Komponente; transaktionslokaler Fortsetzungszustand |
@@ -21,7 +21,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | OpenWebUI Agent Pack | 1.8.9 | Stabil; Heretic-Profile mit Visual-Pack-2.0.5-Bindung |
 | OpenWebUI Visual Pack | 2.0.5 | Stabil; Z-Image- und WAN2.2-Tools mit persistenten MP4-Anhängen |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stabil; `18Bravo` und Solver zielsystemvalidiert |
-| Complete Installer | 2.3.1 | Stabile Dokumentationskorrektur; funktionale Validierung unverändert von 2.3.0 übernommen |
+| Complete Installer | 2.3.2 | Stabile Vervollständigung des Nomic-Greenfield-Vertrags; übrige funktionale Validierung unverändert übernommen |
 | System Cleanup Audit | 1.0.0 | Audit abgeschlossen; Bereinigungsplan wartet auf ausdrückliche Freigabe |
 
 Vollständige Paketquellen liegen im Verzeichnis `package`. Fertige ZIP-Pakete werden als GitHub-Release-Artefakte veröffentlicht und nicht dauerhaft in die normale Git-Historie aufgenommen.

@@ -1,8 +1,8 @@
 # Automatic model download contract
 
-This contract applies to Complete Installer 2.3.1 Stable.
+This contract applies to Complete Installer 2.3.2 Stable.
 
-The Complete Installer requires no manually supplied model or payload files on an empty target. The nine visual artifacts for Z-Image Turbo and WAN2.2 T2V 14B with both LightX2V four-step LoRAs, plus both Heretic files, have revision-bound sources, exact byte sizes and SHA-256 values in `tools/models-workflows/current/Manifests/models.manifest.json`.
+The Complete Installer requires no manually supplied model or payload files on an empty target. The nine visual artifacts for Z-Image Turbo and WAN2.2 T2V 14B with both LightX2V four-step LoRAs, both Heretic files, and the embedding-only `nomic-embed-text-v1.5.Q4_K_M.gguf` have revision-bound sources, exact byte sizes and SHA-256 values in `tools/models-workflows/current/Manifests/models.manifest.json`.
 
 The importer:
 

@@ -13,9 +13,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $payloadDirectory=Join-Path $PSScriptRoot 'Payload\ModelsWorkflows'
-$archive=Get-ChildItem -LiteralPath $payloadDirectory -File -Filter 'KI-Stack-Visual-Models-Workflows-v2.0.2.zip'|Select-Object -First 1
-if(-not$archive){throw "Visual-Models-/Workflows-Payload 2.0.2 fehlt: $payloadDirectory"}
-$extractRoot=Join-Path ([IO.Path]::GetTempPath()) ('KIStack-Visual-Models-2.0.2-'+[guid]::NewGuid().ToString('N'))
+$archive=Get-ChildItem -LiteralPath $payloadDirectory -File -Filter 'KI-Stack-Visual-Models-Workflows-v2.0.3.zip'|Select-Object -First 1
+if(-not$archive){throw "Visual-Models-/Workflows-Payload 2.0.3 fehlt: $payloadDirectory"}
+$extractRoot=Join-Path ([IO.Path]::GetTempPath()) ('KIStack-Visual-Models-2.0.3-'+[guid]::NewGuid().ToString('N'))
 try{
     Expand-Archive -LiteralPath $archive.FullName -DestinationPath $extractRoot
     $importer=Get-ChildItem -LiteralPath $extractRoot -Recurse -File -Filter 'Import-KIStackExternalModels.ps1'|Select-Object -First 1

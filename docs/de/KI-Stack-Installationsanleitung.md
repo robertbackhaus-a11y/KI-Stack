@@ -1,13 +1,13 @@
-# KI-Stack Complete Installer 2.3.1 – Installation und Upgrade
+# KI-Stack Complete Installer 2.3.2 – Installation und Upgrade
 
-Diese Anleitung gilt für das Stable-Paket `KI-Stack-Complete-Installer-v2.3.1.zip`. Version 2.3.1 korrigiert ausschließlich Dokumentation; die funktionale Validierung wurde unverändert von 2.3.0 übernommen.
+Diese Anleitung gilt für das Stable-Paket `KI-Stack-Complete-Installer-v2.3.2.zip`. Version 2.3.2 vervollständigt ausschließlich den automatischen Greenfield-Modellvertrag für Nomic Q4_K_M; die übrige funktionale Validierung wird unverändert übernommen.
 
 ## Download und SHA-256
 
-Lade ZIP und `KI-Stack-Complete-Installer-v2.3.1.zip.sha256` aus demselben GitHub-Release. Der verbindliche Hash steht ausschließlich im Sidecar und in der GitHub-Releasebeschreibung.
+Lade ZIP und `KI-Stack-Complete-Installer-v2.3.2.zip.sha256` aus demselben GitHub-Release. Der verbindliche Hash steht ausschließlich im Sidecar und in der GitHub-Releasebeschreibung.
 
 ```powershell
-$zip = '.\KI-Stack-Complete-Installer-v2.3.1.zip'
+$zip = '.\KI-Stack-Complete-Installer-v2.3.2.zip'
 $expected = ((Get-Content "$zip.sha256" -Raw) -split '\s+')[0].ToLowerInvariant()
 $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -ne $expected) { throw 'SHA-256 stimmt nicht überein.' }
@@ -22,7 +22,7 @@ Entpacke das ZIP erst nach erfolgreicher Prüfung.
 3. Wenn Visual oder Agent aktualisiert werden, gib einen temporären OpenWebUI-Administrator-API-Key verdeckt ein. Er wird nur im Arbeitsspeicher verwendet, nicht gespeichert und soll anschließend in OpenWebUI widerrufen werden.
 4. Warte auf `Completed` oder `SkippedAlreadyCompliant`.
 
-Der Installer verwendet denselben transaktionalen Upgradepfad für Greenfield, Upgrade und Reparaturplanung. Bereits anhand Dateiname, Größe und SHA-256 gültige Modelle werden wiederverwendet. Fehlende Modelle werden automatisch aus revisionsgebundenen Quellen geladen. Ein optionaler Cache beziehungsweise `ExternalModels`-Preload ist erlaubt, aber keine Voraussetzung. Teildownloads werden per Resume fortgesetzt; falsche Größe oder SHA-256 führt zu `Failed`.
+Der Installer verwendet denselben transaktionalen Upgradepfad für Greenfield, Upgrade und Reparaturplanung. Bereits anhand Dateiname, Größe und SHA-256 gültige Modelle werden wiederverwendet. Fehlende Modelle einschließlich `nomic-embed-text-v1.5.Q4_K_M.gguf` werden automatisch aus revisionsgebundenen Quellen geladen. Ein optionaler Cache beziehungsweise `ExternalModels`-Preload ist erlaubt, aber keine Voraussetzung. Teildownloads werden per Resume fortgesetzt; falsche Größe oder SHA-256 führt zu `Failed`.
 
 Der Greenfield-Vertrag wurde mit Quell-, Paket- und lokalen Download-Fixtures geprüft. Eine vollständige reale Greenfield-Neuinstallation auf einem leeren Zielsystem wurde für diesen Release nicht durchgeführt.
 

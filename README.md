@@ -11,7 +11,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | Foundation / Runtime | 1.0.9 | Stable reference; target-system validated |
 | Python / Git | 1.1.5 | Stable; target-system validated |
 | ComfyUI | 1.2.4 | Stable component; transactional marker/readback |
-| Models / Workflows | 2.0.2 | Automatic revision-pinned model acquisition with optional verified cache/preload |
+| Models / Workflows | 2.0.3 | Automatic revision-pinned model acquisition, including Nomic Q4_K_M, with optional verified cache/preload |
 | Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
 | Integration | 1.5.10 | Stable component; immutable SearXNG revision plus tracked overlay |
 | Cutover runtime | 1.6.5 | Stable component; transaction-local continuation state |
@@ -21,7 +21,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | OpenWebUI Agent Pack | 1.8.9 | Stable; Heretic-only profiles with Visual Pack 2.0.5 bindings |
 | OpenWebUI Visual Pack | 2.0.5 | Stable; Z-Image and WAN2.2 tools with persistent MP4 attachments |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
-| Complete Installer | 2.3.1 | Stable documentation correction; functional validation inherited unchanged from 2.3.0 |
+| Complete Installer | 2.3.2 | Stable Nomic Greenfield-contract completion; functional validation otherwise inherited unchanged |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.

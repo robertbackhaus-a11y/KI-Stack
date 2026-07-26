@@ -1,13 +1,13 @@
-# KI-Stack Complete Installer 2.3.1 – Installation and upgrade
+# KI-Stack Complete Installer 2.3.2 – Installation and upgrade
 
-This guide applies to the Stable package `KI-Stack-Complete-Installer-v2.3.1.zip`. Version 2.3.1 corrects documentation only; functional validation is inherited unchanged from 2.3.0.
+This guide applies to the Stable package `KI-Stack-Complete-Installer-v2.3.2.zip`. Version 2.3.2 only completes the automatic Greenfield model contract for Nomic Q4_K_M; all other functional validation is inherited unchanged.
 
 ## Download and SHA-256
 
-Download the ZIP and `KI-Stack-Complete-Installer-v2.3.1.zip.sha256` from the same GitHub Release. The authoritative hash is provided only by the sidecar and the GitHub Release description.
+Download the ZIP and `KI-Stack-Complete-Installer-v2.3.2.zip.sha256` from the same GitHub Release. The authoritative hash is provided only by the sidecar and the GitHub Release description.
 
 ```powershell
-$zip = '.\KI-Stack-Complete-Installer-v2.3.1.zip'
+$zip = '.\KI-Stack-Complete-Installer-v2.3.2.zip'
 $expected = ((Get-Content "$zip.sha256" -Raw) -split '\s+')[0].ToLowerInvariant()
 $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -ne $expected) { throw 'SHA-256 mismatch.' }
@@ -22,7 +22,7 @@ Extract the ZIP only after successful verification.
 3. When Visual or Agent changes, enter a temporary OpenWebUI administrator API key through the hidden prompt. It is used only in memory, never stored, and should be revoked in OpenWebUI afterwards.
 4. Wait for `Completed` or `SkippedAlreadyCompliant`.
 
-The same transactional upgrade path handles Greenfield, upgrade, and repair planning. Existing models that match filename, size, and SHA-256 are reused. Missing models are downloaded automatically from revision-pinned sources. An optional cache or `ExternalModels` preload may be used but is never required. Partial downloads support resume; an incorrect size or SHA-256 produces `Failed`.
+The same transactional upgrade path handles Greenfield, upgrade, and repair planning. Existing models that match filename, size, and SHA-256 are reused. Missing models, including `nomic-embed-text-v1.5.Q4_K_M.gguf`, are downloaded automatically from revision-pinned sources. An optional cache or `ExternalModels` preload may be used but is never required. Partial downloads support resume; an incorrect size or SHA-256 produces `Failed`.
 
 The Greenfield contract was verified through source, package, and small local download fixtures. A complete physical Greenfield installation on an empty target was not performed for this release.
 

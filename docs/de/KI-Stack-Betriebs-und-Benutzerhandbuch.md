@@ -1,4 +1,4 @@
-# KI-Stack 2.3.1 – Betriebs- und Benutzerhandbuch
+# KI-Stack 2.3.2 – Betriebs- und Benutzerhandbuch
 
 ## Normalbetrieb
 

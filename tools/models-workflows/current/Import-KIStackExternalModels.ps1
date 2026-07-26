@@ -3,7 +3,7 @@ param(
     [ValidateSet('Audit','Install')][string]$Mode = 'Audit',
     [string]$SourcePath = (Join-Path $PSScriptRoot 'ExternalModels'),
     [string]$TargetRoot = 'C:\KI-Stack',
-    [string]$LmStudioTargetRoot = (Join-Path $env:USERPROFILE '.lmstudio\models'),
+    [string]$LmStudioTargetRoot = (Join-Path $env:USERPROFILE '.lmstudio'),
     [string]$StateRoot,
     [string]$TransactionId,
     [string]$ManifestPath = (Join-Path $PSScriptRoot 'Manifests\models.manifest.json'),
@@ -147,7 +147,7 @@ foreach ($model in @($manifest.models)) {
 }
 foreach ($file in @($manifest.lmStudio.files)) {
     $cache = Join-Path (Join-Path $SourcePath 'LMStudio') ([string]$file.fileName)
-    $target = Join-Path (Join-Path $LmStudioTargetRoot ([string]$manifest.lmStudio.relativeTargetDirectory)) ([string]$file.fileName)
+    $target = Join-Path $LmStudioTargetRoot ([string]$file.relativeTargetPath)
     if (-not ($file.PSObject.Properties.Name -contains 'id')) { $file | Add-Member id ([string]$file.fileName) }
     $results.Add((Install-Artifact -Contract $file -Target $target -CacheSource $cache))
 }
@@ -166,14 +166,14 @@ if ($Mode -eq 'Install' -and $passed) {
     $markerPath = Join-Path $TargetRoot 'modules\models-workflows\installation.json'
     New-Item -ItemType Directory -Path (Split-Path -Parent $markerPath) -Force | Out-Null
     [pscustomobject][ordered]@{
-        schemaVersion='1.0';managedBy='KI-STACK-VISUAL-MODELS-WORKFLOWS';version='2.0.2'
-        release='KI-Stack-Visual-Models-Workflows-v2.0.2';installedAtUtc=[DateTime]::UtcNow.ToString('o')
+        schemaVersion='1.0';managedBy='KI-STACK-VISUAL-MODELS-WORKFLOWS';version='2.0.3'
+        release='KI-Stack-Visual-Models-Workflows-v2.0.3';installedAtUtc=[DateTime]::UtcNow.ToString('o')
         transactionId=$TransactionId;workflows=@();internalApiPrompts=$internalApiPrompts;workflowBackup=$workflowBackup;models=@($results)
     } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $markerPath -Encoding UTF8
 }
 
 [pscustomobject]@{
-    version='2.0.2';transactionId=$TransactionId;mode=$Mode;passed=$passed
+    version='2.0.3';transactionId=$TransactionId;mode=$Mode;passed=$passed
     status=$(if($passed){if($Mode -eq 'Audit'){'CompliantOrReady'}else{'Completed'}}else{'WaitingForNetwork'})
     resumable=($waiting.Count -gt 0);mutatesTarget=($Mode -eq 'Install' -and $passed);results=$results
 }

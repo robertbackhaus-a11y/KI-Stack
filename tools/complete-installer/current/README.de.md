@@ -1,4 +1,4 @@
-# KI-Stack Complete Installer 2.3.1 Stable
+# KI-Stack Complete Installer 2.3.2 Stable
 
 Reines Dokumentationspatch über dem funktional identischen, TargetValidated-Release 2.3.0.
 
@@ -6,8 +6,8 @@ Reines Dokumentationspatch über dem funktional identischen, TargetValidated-Rel
 - Nomic dient ausschließlich Embeddings.
 - Z-Image verwendet nur `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf`.
 - Aktive visuelle Workflows sind Z-Image Turbo und WAN2.2 T2V 14B mit beiden LightX2V-4-Step-LoRAs.
-- Visual Pack ist 2.0.5, Agent Pack 1.8.9 und Models / Workflows 2.0.2.
-- Fehlende Modelle werden automatisch geladen. Gültige Ziele und optionale Caches/Preloads werden nur nach Größen- und SHA-256-Prüfung wiederverwendet.
+- Visual Pack ist 2.0.5, Agent Pack 1.8.9 und Models / Workflows 2.0.3.
+- Fehlende Modelle einschließlich des ausschließlich für Embeddings verwendeten `nomic-embed-text-v1.5.Q4_K_M.gguf` werden automatisch geladen. Gültige Ziele und optionale Caches/Preloads werden nur nach Größen- und SHA-256-Prüfung wiederverwendet.
 - Ein temporärer OpenWebUI-Administrator-API-Key bleibt ausschließlich im Arbeitsspeicher und wird nie gespeichert.
 
 Prüfe das ZIP vor dem Entpacken gegen das danebenliegende `.sha256`-Sidecar. Der endgültige ZIP-Hash ist absichtlich nicht im Paket eingebettet.

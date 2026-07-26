@@ -11,15 +11,15 @@ foreach($requiredTest in @('Test-KIStackInstallationContracts.ps1','Test-KIStack
     if(-not(Test-Path -LiteralPath (Join-Path $PackageRoot $requiredTest) -PathType Leaf)){$fail.Add("Required test missing: $requiredTest")}
 }
 
-if ($manifest.version -ne '2.3.0' -or $manifest.baseVersion -ne '2.2.9') { $fail.Add('Version contract') }
+if ($manifest.version -ne '2.3.2' -or $manifest.baseVersion -ne '2.2.9') { $fail.Add('Version contract') }
 if ($payloads.modelPolicy.chatModels.Count -ne 1 -or $payloads.modelPolicy.chatModels[0] -ne 'qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved') { $fail.Add('Heretic chat-only contract') }
 if ($payloads.modelPolicy.nomicRole -ne 'embedding-only' -or $payloads.modelPolicy.embeddingModels.Count -ne 1) { $fail.Add('Nomic embedding-only contract') }
-if ([string]$payloads.modelContractAuthority.packagedArchive -ne 'Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.2.zip') { $fail.Add('Authoritative model contract') }
+if ([string]$payloads.modelContractAuthority.packagedArchive -ne 'Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.3.zip') { $fail.Add('Authoritative model contract') }
 if ($payloads.PSObject.Properties.Name -contains 'external' -or $payloads.PSObject.Properties.Name -contains 'lmStudioModel') { $fail.Add('Duplicate model contract') }
 if (@($components.components | Where-Object id -eq 'openwebui-visual-pack').version -ne '2.0.5') { $fail.Add('Visual Pack component') }
 if (@($components.components | Where-Object id -eq 'openwebui-agent-pack').version -ne '1.8.9') { $fail.Add('Agent Pack component') }
 if ([int]@($components.components | Where-Object id -eq 'openwebui-visual-pack').order -ge [int]@($components.components | Where-Object id -eq 'openwebui-agent-pack').order) { $fail.Add('Visual Pack must deploy before Agent Pack') }
-if (@($components.components | Where-Object id -eq 'models-workflows').version -ne '2.0.2') { $fail.Add('Visual Models component') }
+if (@($components.components | Where-Object id -eq 'models-workflows').version -ne '2.0.3') { $fail.Add('Visual Models component') }
 $validationComponent = @($components.components | Where-Object id -eq 'validation-gate')
 if ($validationComponent.version -ne '1.0.3' -or -not [bool]$validationComponent.installable) { $fail.Add('Validation Gate installable component') }
 $installableWithoutProbe=@($components.components|Where-Object{$_.installable-and(-not($_.PSObject.Properties.Name-contains'probe')-or$null-eq$_.probe)})
@@ -72,7 +72,9 @@ if (@($modelsZip).Count -eq 1) {
             $reader = [IO.StreamReader]::new($modelEntry.Open())
             try { $modelContract = $reader.ReadToEnd() | ConvertFrom-Json -Depth 100 } finally { $reader.Dispose() }
             if (@($modelContract.models).Count -ne 9 -or [long]($modelContract.models | Measure-Object sizeBytes -Sum).Sum -ne 54994650267) { $fail.Add('Visual model contract') }
-            if (@($modelContract.lmStudio.files).Count -ne 2) { $fail.Add('Heretic artifact contract') }
+            if (@($modelContract.lmStudio.files).Count -ne 3) { $fail.Add('LM Studio artifact contract') }
+            $nomic=@($modelContract.lmStudio.files|Where-Object id -eq 'nomic-embed-text-v1.5')
+            if($nomic.Count-ne1-or$nomic[0].modelId-ne'text-embedding-nomic-embed-text-v1.5'-or$nomic[0].role-ne'embedding-only'){$fail.Add('Nomic embedding contract')}
         }
         $workflows = @($archive.Entries | Where-Object FullName -match '/Workflows/[^/]+\.json$')
         if ($workflows.Count -ne 2) { $fail.Add('Workflow count') }
@@ -137,7 +139,7 @@ try {
         $fail.Add('Probe regression 5: successful readback')
     }
     $statePlan=[pscustomobject]@{steps=@([pscustomobject]@{id='validation-gate';version='1.0.3';initialState=[pscustomobject]@{compliant=$true}})}
-    $null=Update-KICompleteComponentState -Plan $statePlan -TargetRoot $planTarget -CompleteVersion '2.3.0'
+    $null=Update-KICompleteComponentState -Plan $statePlan -TargetRoot $planTarget -CompleteVersion '2.3.2'
     $storedAfterSuccess=(Get-Content -LiteralPath (Join-Path $planTarget 'state/complete-installer/components.json') -Raw|ConvertFrom-Json).components.'validation-gate'
     if($storedAfterSuccess-ne'1.0.3'){$fail.Add('Probe regression 5: state after successful readback')}
 
@@ -152,7 +154,7 @@ try {
     $orphanPlan=New-KICompletePlan -Mode Upgrade -PackageRoot $PackageRoot -TargetRoot $planTarget
     if(-not[bool]$orphanPlan.stateHasOrphans){$fail.Add('State regression 7: orphan not detected')}
     $orphanStatePlan=[pscustomobject]@{steps=@($orphanPlan.steps|Where-Object{$_.initialState.compliant})}
-    $null=Update-KICompleteComponentState -Plan $orphanStatePlan -TargetRoot $planTarget -CompleteVersion '2.3.0'
+    $null=Update-KICompleteComponentState -Plan $orphanStatePlan -TargetRoot $planTarget -CompleteVersion '2.3.2'
     $reconciledState=Get-Content -LiteralPath (Join-Path $planTarget 'state/complete-installer/components.json') -Raw|ConvertFrom-Json
     if($reconciledState.components.PSObject.Properties.Name-contains'openwebui-image-pack'){$fail.Add('State regression 7: orphan retained')}
 }
@@ -186,7 +188,7 @@ if ($syntaxErrors.Count) { $fail.Add('PowerShell syntax') }
 
 [pscustomobject]@{
     passed = ($fail.Count -eq 0)
-    version = '2.3.0'
+    version = '2.3.2'
     checks = 22
     failures = $fail
 } | ConvertTo-Json -Depth 10

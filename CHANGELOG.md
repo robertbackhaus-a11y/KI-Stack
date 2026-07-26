@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.3.2
+
+- Completes the Greenfield model contract for the embedding-only LM Studio artifact `nomic-embed-text-v1.5.Q4_K_M.gguf`.
+- Reuses a valid installed Nomic file by exact size and SHA-256; otherwise the existing cache, resume, verified download, and atomic activation path applies.
+- Updates Models / Workflows to 2.0.3 and keeps every other component version unchanged.
+- No complete physical Greenfield installation was performed; unchanged functional validation is inherited.
+
 ## 2.3.1
 
 - Documentation-only Stable patch over the functionally identical, TargetValidated 2.3.0 release.

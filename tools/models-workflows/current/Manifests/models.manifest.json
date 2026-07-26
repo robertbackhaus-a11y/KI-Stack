@@ -81,13 +81,15 @@
     }
   ],
   "lmStudio": {
-    "relativeTargetDirectory": "llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF",
+    "homeRelativeToUserProfile": ".lmstudio",
     "files": [
       {
         "id": "heretic-q5-k-m",
         "fileName": "Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf",
         "sizeBytes": 19745091680,
         "sha256": "9d309b8fadd5788bfa8ee26cd34c37b26df0205613a3be34394ba4da7d5a4285",
+        "relativeTargetPath": "models/llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf",
+        "role": "chat-only",
         "sources": ["https://huggingface.co/llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF/resolve/a6b6a6d9385fe7850644e56bfdc93a04a6cb2ee8/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-Q5_K_M.gguf?download=true"]
       },
       {
@@ -95,7 +97,19 @@
         "fileName": "Qwen3.6-27B-mmproj-BF16.gguf",
         "sizeBytes": 931146048,
         "sha256": "c5c8c41da6d155a61edd21b7e3aa50b6ef77f122d502d36afe4a4d5c3e494d4f",
+        "relativeTargetPath": "models/llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF/Qwen3.6-27B-mmproj-BF16.gguf",
+        "role": "chat-support",
         "sources": ["https://huggingface.co/llmfan46/Qwen3.6-27B-uncensored-heretic-v2-Native-MTP-Preserved-GGUF/resolve/a6b6a6d9385fe7850644e56bfdc93a04a6cb2ee8/Qwen3.6-27B-mmproj-BF16.gguf?download=true"]
+      },
+      {
+        "id": "nomic-embed-text-v1.5",
+        "modelId": "text-embedding-nomic-embed-text-v1.5",
+        "fileName": "nomic-embed-text-v1.5.Q4_K_M.gguf",
+        "sizeBytes": 84106624,
+        "sha256": "d4e388894e09cf3816e8b0896d81d265b55e7a9fff9ab03fe8bf4ef5e11295ac",
+        "relativeTargetPath": ".internal/bundled-models/nomic-ai/nomic-embed-text-v1.5-GGUF/nomic-embed-text-v1.5.Q4_K_M.gguf",
+        "role": "embedding-only",
+        "sources": ["https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/0188c9bf409793f810680a5a431e7b899c46104c/nomic-embed-text-v1.5.Q4_K_M.gguf?download=true"]
       }
     ]
   }
