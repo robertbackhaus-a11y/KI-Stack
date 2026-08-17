@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "KI-STACK-RAG",
+  "name": "KI-Stack RAG",
+  "version": "0.2.0",
+  "status": "Development_IngestionImplemented",
+  "embeddingModel": "nomic-embed-text-v1.5",
+  "chatModelCoupled": false,
+  "containsSecrets": false,
+  "runtimeGitDependency": false,
+  "openWebUIVersionContract": "0.10.2",
+  "stateModel": "sha256-delta",
+  "rollback": "checkpoint-only-until-target-acceptance"
+}

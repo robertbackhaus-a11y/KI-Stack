@@ -3,6 +3,8 @@
   "source": [
     {"id": "repository", "script": "scripts/Test-Repository.ps1", "arguments": ["-RootPath", "<checkout>"]},
     {"id": "visual-pack", "script": "tools/openwebui-visual-pack/current/Test-KIStack-OpenWebUI-VisualPack-v2.0.5.ps1", "arguments": ["-PackageRoot", "<visual-pack-root>"]},
+    {"id": "codex-local", "script": "tools/codex-local/current/Test-KIStackCodexLocal.ps1", "arguments": ["-PackageRoot", "<codex-local-root>"]},
+    {"id": "rag", "script": "tools/rag/current/Test-KIStackRAG.ps1", "arguments": ["-PackageRoot", "<rag-root>"]},
     {"id": "model-source-contracts", "script": "scripts/Test-KIStackModelSourceContracts.ps1", "arguments": ["-RootPath", "<checkout>"]},
     {"id": "powershell-starters", "script": "scripts/Test-PowerShell7Starters.ps1", "arguments": ["-RepositoryRoot", "<checkout>"]}
   ],

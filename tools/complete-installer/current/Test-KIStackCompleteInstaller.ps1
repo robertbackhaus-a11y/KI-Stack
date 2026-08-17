@@ -7,11 +7,15 @@ $fail = [Collections.Generic.List[string]]::new()
 $manifest = Get-Content -LiteralPath (Join-Path $PackageRoot 'MANIFEST.json') -Raw | ConvertFrom-Json
 $components = Get-Content -LiteralPath (Join-Path $PackageRoot 'Contracts\COMPONENTS.json') -Raw | ConvertFrom-Json
 $payloads = Get-Content -LiteralPath (Join-Path $PackageRoot 'Contracts\PAYLOADS.json') -Raw | ConvertFrom-Json
-foreach($requiredTest in @('Test-KIStackInstallationContracts.ps1','Test-KIStackCompleteInstallerTarget.ps1','Test-RC12PendingComfyRollback.ps1','Test-RC13FailedStateRecovery.ps1')){
+foreach($requiredTest in @('Test-KIStackInstallationContracts.ps1','Test-KIStackCompleteInstallerTarget.ps1','Test-RC12PendingComfyRollback.ps1','Test-RC13FailedStateRecovery.ps1','Start-KIStack-Installer.cmd','Start-KIStack-Audit.cmd','Start-KIStack-DryRun.cmd')){
     if(-not(Test-Path -LiteralPath (Join-Path $PackageRoot $requiredTest) -PathType Leaf)){$fail.Add("Required test missing: $requiredTest")}
 }
+$executeStarter=Get-Content -LiteralPath (Join-Path $PackageRoot 'Start-KIStack-Installer.cmd') -Raw
+foreach($marker in @('KI-Stack-Installer-output.txt','Start-KIStackCompleteInstaller.ps1','CompleteInstaller.psm1','INSTALLATION BEENDET. Exitcode 0.','INSTALLATION FEHLGESCHLAGEN. Exitcode %RC%.','pause')){
+    if(-not$executeStarter.Contains($marker)){$fail.Add("Execute starter contract: $marker")}
+}
 
-if ($manifest.version -ne '2.3.2' -or $manifest.baseVersion -ne '2.2.9') { $fail.Add('Version contract') }
+if ($manifest.version -ne '2.4.0-rc3' -or $manifest.baseVersion -ne '2.3.2') { $fail.Add('Version contract') }
 if ($payloads.modelPolicy.chatModels.Count -ne 1 -or $payloads.modelPolicy.chatModels[0] -ne 'qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved') { $fail.Add('Heretic chat-only contract') }
 if ($payloads.modelPolicy.nomicRole -ne 'embedding-only' -or $payloads.modelPolicy.embeddingModels.Count -ne 1) { $fail.Add('Nomic embedding-only contract') }
 if ([string]$payloads.modelContractAuthority.packagedArchive -ne 'Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.3.zip') { $fail.Add('Authoritative model contract') }
@@ -20,6 +24,11 @@ if (@($components.components | Where-Object id -eq 'openwebui-visual-pack').vers
 if (@($components.components | Where-Object id -eq 'openwebui-agent-pack').version -ne '1.8.9') { $fail.Add('Agent Pack component') }
 if ([int]@($components.components | Where-Object id -eq 'openwebui-visual-pack').order -ge [int]@($components.components | Where-Object id -eq 'openwebui-agent-pack').order) { $fail.Add('Visual Pack must deploy before Agent Pack') }
 if (@($components.components | Where-Object id -eq 'models-workflows').version -ne '2.0.3') { $fail.Add('Visual Models component') }
+$codexComponent=@($components.components|Where-Object id -eq 'codex-local')
+$ragComponent=@($components.components|Where-Object id -eq 'rag')
+if($codexComponent.Count-ne1-or$codexComponent.version-ne'0.1.3'-or-not[bool]$codexComponent.installable){$fail.Add('Codex Local component')}
+if($ragComponent.Count-ne1-or$ragComponent.version-ne'0.2.0'-or-not[bool]$ragComponent.installable){$fail.Add('RAG component')}
+if([int]$codexComponent.order-ge[int]$ragComponent.order){$fail.Add('Codex Local must deploy before RAG')}
 $validationComponent = @($components.components | Where-Object id -eq 'validation-gate')
 if ($validationComponent.version -ne '1.0.3' -or -not [bool]$validationComponent.installable) { $fail.Add('Validation Gate installable component') }
 $installableWithoutProbe=@($components.components|Where-Object{$_.installable-and(-not($_.PSObject.Properties.Name-contains'probe')-or$null-eq$_.probe)})
@@ -30,7 +39,9 @@ if($invalidPinned.Count){$fail.Add('Non-executable Cutover references marked ins
 $visualZip = Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload\OpenWebUIVisualPack') -File -Filter '*.zip'
 $modelsZip = Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload\ModelsWorkflows') -File -Filter '*.zip'
 $agentZip = Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload\OpenWebUIAgentPack') -File -Filter '*.zip'
-if (@($visualZip).Count -ne 1 -or @($modelsZip).Count -ne 1) { $fail.Add('Payload archive count') }
+$codexZip = Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload\CodexLocal') -File -Filter '*.zip'
+$ragZip = Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload\RAG') -File -Filter '*.zip'
+if (@($visualZip).Count -ne 1 -or @($modelsZip).Count -ne 1 -or @($codexZip).Count-ne1 -or @($ragZip).Count-ne1) { $fail.Add('Payload archive count') }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 if (@($visualZip).Count -eq 1) {
@@ -61,6 +72,24 @@ if (@($agentZip).Count -eq 1) {
         $legacyOwner = ('KI-STACK-OPENWEBUI-' + 'IMAGE-PACK')
         if ($text.Contains($legacyOwner)) { $fail.Add('Legacy extension ownership') }
     } finally { $archive.Dispose() }
+}
+
+if (@($codexZip).Count -eq 1) {
+    $archive=[IO.Compression.ZipFile]::OpenRead($codexZip[0].FullName)
+    try{
+        $entry=$archive.Entries|Where-Object FullName -match '/CodexLocal\.psm1$'|Select-Object -First 1
+        if(-not$entry){$fail.Add('Codex Local module missing')}
+        else{
+            $reader=[IO.StreamReader]::new($entry.Open())
+            try{$text=$reader.ReadToEnd()}finally{$reader.Dispose()}
+            foreach($marker in @('node_modules/npm/bin/npm-cli.js','node_modules/@openai/codex/bin/codex.js','Restore-KICodexBackup','secondRunReused')){
+                if(-not$text.Contains($marker)){$fail.Add("Managed Codex runtime contract: $marker")}
+            }
+            foreach($forbidden in @('npm-global/codex.cmd','runtime/npm.cmd','PathSeparator+$originalPath')){
+                if($text.Contains($forbidden)){$fail.Add("Global Codex runtime fallback: $forbidden")}
+            }
+        }
+    }finally{$archive.Dispose()}
 }
 
 if (@($modelsZip).Count -eq 1) {
@@ -96,6 +125,12 @@ if ($orchestrator.Contains("orchestratedBy='embedded validated component'")) {
 }
 foreach ($marker in @("elseif (`$step.id -eq 'validation-gate')",'Install-KIStack-ValidationGate.ps1',"orchestratedBy='public Validation Gate installer'",'Installierte Validation-Gate-Version stimmt nicht')) {
     if (-not $orchestrator.Contains($marker)) { $fail.Add("Validation Gate real deployment: $marker") }
+}
+foreach($marker in @("elseif (`$step.id -eq 'codex-local')","elseif (`$step.id -eq 'rag')",'Invoke-KIStackCodexLocal.ps1','Test-KIStackRAG.ps1','Install-KICompleteRAGModule','RAG_EMBEDDING_CONTENT_PREFIX=search_document: ','RAG_EMBEDDING_QUERY_PREFIX=search_query: ')){
+    if(-not$orchestrator.Contains($marker)){$fail.Add("Local Intelligence integration: $marker")}
+}
+foreach($marker in @('Test-KICompleteCodexLocalCompliant','Resume-Readback erforderte erneutes Deployment','Payload ist mehrdeutig:')){
+    if(-not$orchestrator.Contains($marker)){$fail.Add("Codex Resume/payload contract: $marker")}
 }
 Import-Module (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Force
 $planTarget = Join-Path ([IO.Path]::GetTempPath()) ('KIStack-Complete-Plan-' + [guid]::NewGuid().ToString('N'))
@@ -139,7 +174,7 @@ try {
         $fail.Add('Probe regression 5: successful readback')
     }
     $statePlan=[pscustomobject]@{steps=@([pscustomobject]@{id='validation-gate';version='1.0.3';initialState=[pscustomobject]@{compliant=$true}})}
-    $null=Update-KICompleteComponentState -Plan $statePlan -TargetRoot $planTarget -CompleteVersion '2.3.2'
+    $null=Update-KICompleteComponentState -Plan $statePlan -TargetRoot $planTarget -CompleteVersion '2.4.0-rc3'
     $storedAfterSuccess=(Get-Content -LiteralPath (Join-Path $planTarget 'state/complete-installer/components.json') -Raw|ConvertFrom-Json).components.'validation-gate'
     if($storedAfterSuccess-ne'1.0.3'){$fail.Add('Probe regression 5: state after successful readback')}
 
@@ -154,7 +189,7 @@ try {
     $orphanPlan=New-KICompletePlan -Mode Upgrade -PackageRoot $PackageRoot -TargetRoot $planTarget
     if(-not[bool]$orphanPlan.stateHasOrphans){$fail.Add('State regression 7: orphan not detected')}
     $orphanStatePlan=[pscustomobject]@{steps=@($orphanPlan.steps|Where-Object{$_.initialState.compliant})}
-    $null=Update-KICompleteComponentState -Plan $orphanStatePlan -TargetRoot $planTarget -CompleteVersion '2.3.2'
+    $null=Update-KICompleteComponentState -Plan $orphanStatePlan -TargetRoot $planTarget -CompleteVersion '2.4.0-rc3'
     $reconciledState=Get-Content -LiteralPath (Join-Path $planTarget 'state/complete-installer/components.json') -Raw|ConvertFrom-Json
     if($reconciledState.components.PSObject.Properties.Name-contains'openwebui-image-pack'){$fail.Add('State regression 7: orphan retained')}
 }
@@ -188,8 +223,8 @@ if ($syntaxErrors.Count) { $fail.Add('PowerShell syntax') }
 
 [pscustomobject]@{
     passed = ($fail.Count -eq 0)
-    version = '2.3.2'
-    checks = 22
+    version = '2.4.0-rc3'
+    checks = 26
     failures = $fail
 } | ConvertTo-Json -Depth 10
 if ($fail.Count) { throw ($fail -join '; ') }

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.3.2",
+  "version": "2.4.0-rc3",
   "status": "SourcePendingValidation_TargetPending",
   "results": null,
   "targetSystemAccessed": false,

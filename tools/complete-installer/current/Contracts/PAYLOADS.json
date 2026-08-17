@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.2",
   "offline": false,
-  "embedded": ["CutoverRuntime","ComfyUI","ModelsWorkflows","Integration","ValidationGate","OpenWebUIAgentPack","OpenWebUIVisualPack","OpenWebUIBallisticsPack"],
+  "embedded": ["CutoverRuntime","ComfyUI","ModelsWorkflows","Integration","ValidationGate","OpenWebUIAgentPack","OpenWebUIVisualPack","OpenWebUIBallisticsPack","CodexLocal","RAG"],
   "modelContractAuthority": {
     "component": "ModelsWorkflows",
     "version": "2.0.3",

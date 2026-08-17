@@ -1,6 +1,6 @@
 # Installation, Upgrade und Betrieb
 
-1. Prüfe `KI-Stack-Complete-Installer-v2.3.2.zip` mit `Get-FileHash -Algorithm SHA256` gegen das danebenliegende `.sha256`-Sidecar.
+1. Prüfe `KI-Stack-Complete-Installer-v2.4.0-rc3.zip` mit `Get-FileHash -Algorithm SHA256` gegen das danebenliegende `.sha256`-Sidecar.
 2. Entpacke das Paket und starte `Start-KIStack-Installer.cmd` mit PowerShell 7.
 3. Bestätige UAC. Falls abgefragt, gib einen temporären OpenWebUI-Administrator-API-Key verdeckt ein; er wird nie gespeichert und soll danach widerrufen werden.
 4. Akzeptiere nur `Completed` oder `SkippedAlreadyCompliant`.
@@ -15,6 +15,8 @@ Lifecycle:
 - Interaktiver Status: `Lifecycle\Status-KIStack-Interactive.cmd`
 
 Transaktionen liegen unter `C:\KI-Stack\state\complete-installer\<TransactionId>`, Backups unter `C:\KI-Stack\backups\complete-installer\<TransactionId>`.
+
+Codex Local verwendet ausschließlich die vom Paket verwaltete Node.js-Laufzeit unter `C:\KI-Stack\modules\codex-local\runtime`. Das offizielle Node.js-Archiv wird vor der Aktivierung gegen Dateigröße und SHA256 geprüft. Eine globale Node.js-/npm-Installation ist weder Voraussetzung noch Installationsziel.
 
 - Resume: `Resume-KIStack-Installer.cmd <TransactionId>`
 - Audit: `Start-KIStack-Audit.cmd`

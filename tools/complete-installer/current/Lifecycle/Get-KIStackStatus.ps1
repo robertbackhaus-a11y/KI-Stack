@@ -33,6 +33,11 @@ $results.Add((Test-HttpStatus 'OpenWebUI' 'http://127.0.0.1:8080/api/config' {pa
 $results.Add((Test-HttpStatus 'SearXNG HTML' 'http://localhost/searxng/' $null))
 $results.Add((Test-HttpStatus 'SearXNG JSON-Suche' 'http://localhost/searxng/search?q=ki-stack&format=json' {param($c);try{$j=$c|ConvertFrom-Json;return $null-ne$j.results}catch{return $false}}))
 $results.Add((Test-HttpStatus 'ComfyUI Health' 'http://127.0.0.1:8188/system_stats' {param($c);try{$null=$c|ConvertFrom-Json;return $true}catch{return $false}}))
+$codexMarker='C:\KI-Stack\modules\codex-local\installation.json'
+$ragMarker='C:\KI-Stack\modules\rag\installation.json'
+$codexCommand=Get-Command codex.exe,codex.cmd,codex -ErrorAction SilentlyContinue|Select-Object -First 1
+$results.Add((New-StatusResult 'Codex Local' $(if((Test-Path $codexMarker)-and$codexCommand){'Läuft'}else{'Gestoppt'}) $(if($codexCommand){"CLI $(& $codexCommand.Source --version 2>$null)"}else{'CLI nicht gefunden'})))
+$results.Add((New-StatusResult 'RAG-Modul' $(if(Test-Path $ragMarker){'Läuft'}else{'Gestoppt'}) $(if(Test-Path $ragMarker){'Installiert; Import bedarfsgesteuert'}else{'Nicht installiert'})))
 
 $keeper=@(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue|Where-Object{$_.Name -eq 'wsl.exe'-and$_.CommandLine -match '(?i)-d\s+Debian\b.*--exec\s+sleep\s+infinity\b'})
 $results.Add((New-StatusResult 'WSL-Keeper' $(if($keeper.Count){'Läuft'}else{'Gestoppt'}) $(if($keeper.Count){"PID $($keeper[0].ProcessId)"}else{'Kein Keeper-Prozess'})))

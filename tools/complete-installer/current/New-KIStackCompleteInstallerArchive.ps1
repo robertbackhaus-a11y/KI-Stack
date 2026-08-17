@@ -84,6 +84,8 @@ $payloadDefinitions = @(
     [ordered]@{ key='CutoverRuntime'; source='tools/cutover-runtime/current'; file='KI-Stack-Cutover-Execute-v1.6.5-core.zip'; root='KI-Stack-Cutover-Execute-v1.6.5' },
     [ordered]@{ key='Integration'; source='tools/integration/current'; file='KI-Stack-Integration-Execute-v1.5.10.zip'; root=$null },
     [ordered]@{ key='ModelsWorkflows'; source='tools/models-workflows/current'; file='KI-Stack-Visual-Models-Workflows-v2.0.3.zip'; root='KI-Stack-Visual-Models-Workflows-v2.0.3' },
+    [ordered]@{ key='CodexLocal'; source='tools/codex-local/current'; file='KI-Stack-Codex-Local-v0.1.3.zip'; root='KI-Stack-Codex-Local-v0.1.3' },
+    [ordered]@{ key='RAG'; source='tools/rag/current'; file='KI-Stack-RAG-v0.2.0.zip'; root='KI-Stack-RAG-v0.2.0' },
     [ordered]@{ key='OpenWebUIAgentPack'; source='tools/openwebui-agent-pack/current'; file='KI-Stack-OpenWebUI-Agent-Pack-v1.8.9.zip'; root=$null },
     [ordered]@{ key='OpenWebUIBallisticsPack'; source='tools/openwebui-ballistics-pack/current'; file='KI-Stack-OpenWebUI-Ballistics-Pack-v1.0.0.zip'; root='KI-Stack-OpenWebUI-Ballistics-Pack-v1.0.0' },
     [ordered]@{ key='OpenWebUIVisualPack'; source='tools/openwebui-visual-pack/current'; file='KI-Stack-OpenWebUI-Visual-Pack-v2.0.5.zip'; root='KI-Stack-OpenWebUI-Visual-Pack-v2.0.5' },
@@ -113,7 +115,6 @@ try {
         Copy-Item -LiteralPath $payloadArchive -Destination $destination
     }
 
-    Update-SourceChecksums -SourceRoot $PSScriptRoot
     Get-ChildItem -LiteralPath $PSScriptRoot -Force |
         Where-Object { $_.Name -notin @('SHA256SUMS.txt','Payload') } |
         Copy-Item -Destination $stage -Recurse -Force
