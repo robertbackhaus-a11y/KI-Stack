@@ -3,7 +3,7 @@
   "id": "KIModuleApplications",
   "order": 60,
   "name": "LM Studio and Open WebUI",
-  "version": "1.4.10",
+  "version": "1.4.11",
   "enabled": true,
   "script": "KIModuleApplications.psm1",
   "supportsRollback": true,

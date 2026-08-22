@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "version": "0.2.0",
+  "targetRoot": "C:\\KI-Stack",
+  "moduleRoot": "C:\\KI-Stack\\modules\\rag",
+  "stateRoot": "C:\\KI-Stack\\state\\rag",
+  "sourceRoot": "C:\\KI-Stack\\data\\rag\\sources",
+  "embeddingProvider": "lmstudio",
+  "embeddingBaseUrl": "http://127.0.0.1:1234/v1",
+  "embeddingModel": "text-embedding-nomic-embed-text-v1.5",
+  "documentPrefix": "search_document: ",
+  "queryPrefix": "search_query: ",
+  "vectorStore": "openwebui-managed",
+  "openWebUIEndpoint": "http://127.0.0.1:8080",
+  "knowledgeName": "KI-Stack Controlled Knowledge",
+  "knowledgeDescription": "SHA256-controlled local knowledge managed by KI-Stack RAG.",
+  "chunkCharacters": 6000,
+  "chunkOverlapCharacters": 600,
+  "parserVersion": "ki-stack-rag-parser-1",
+  "allowedExtensions": [".md", ".txt", ".json", ".yaml", ".yml", ".ps1", ".psm1", ".csv"],
+  "excludedDirectoryNames": [".git", "node_modules", "__pycache__", "State", "cache", "backups"],
+  "metadataFields": ["source_id", "source_type", "project", "relative_path", "file_name", "file_sha256", "document_version", "section", "chunk_index", "imported_at", "modified_at", "content_language", "visibility", "parser_version"]
+}

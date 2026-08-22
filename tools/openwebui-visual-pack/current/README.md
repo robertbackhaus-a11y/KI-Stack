@@ -1,13 +1,13 @@
 # KI-Stack OpenWebUI Visual Pack 2.0.5
 
-Dieses Paket bindet den bereinigten Visual-Runtime-Zielstand an OpenWebUI 0.10.2 an:
+Dieses Paket bindet den bereinigten Visual-Runtime-Zielstand an OpenWebUI 0.11.0 an:
 
 - Bildgenerierung ausschließlich über Z-Image Turbo.
 - Videogenerierung ausschließlich über WAN2.2 T2V 14B, die beiden LightX2V-4-Step-LoRAs und MP4/H.264.
 - MP4-Dateien werden einmalig als `type: file` über den nativen `files`-Event ausgegeben.
 - Der FileItem-Vertrag enthält `id`, `name`, `url`, `content_type`, `size` und `meta`; `url` ist exakt `/api/v1/files/{id}/content`.
-- OpenWebUI 0.10.2 persistiert den `files`-Event selbst in der Chatnachricht. Der Adapter schreibt deshalb nicht zusätzlich über `Chats.add_message_files_by_id_and_message_id`.
-- `chat:message:files` und `embeds` werden für MP4 nicht verwendet. Das reale 0.10.2-Frontend zeigt `type: file` als sichtbaren FileItem; die Content-Route liefert MP4 mit `video/mp4` und `Content-Disposition: attachment` zum direkten Download.
+- OpenWebUI 0.11.0 persistiert den `files`-Event selbst in der Chatnachricht. Der Adapter schreibt deshalb nicht zusätzlich über `Chats.add_message_files_by_id_and_message_id`.
+- `chat:message:files` und `embeds` werden für MP4 nicht verwendet. Das reale 0.11.0-Frontend zeigt `type: file` als sichtbaren FileItem; die Content-Route liefert MP4 mit `video/mp4` und `Content-Disposition: attachment` zum direkten Download.
 
 Das Paket enthält keine Modelle und führt keine Downloads durch. Es prüft die neun geschützten Modelldateien, die beiden manuell getesteten ComfyUI-Workflows, alle erforderlichen ComfyUI-Nodes, MP4/H.264 sowie die beiden vorhandenen OpenWebUI-Agentenprofile.
 
