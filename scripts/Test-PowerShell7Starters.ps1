@@ -23,6 +23,18 @@ $fixturePassed=$false
 try{
     New-Item -ItemType Directory -Path $fixture -Force|Out-Null
     Copy-Item -LiteralPath (Join-Path $RepositoryRoot 'tools/complete-installer/current/Start-KIStack-Installer.cmd') -Destination $fixture
+    # ProgramFiles cannot be faked via a child process's environment block --
+    # Windows always re-supplies the real value regardless of what is passed
+    # to CreateProcess (verified: arbitrary custom variables propagate
+    # correctly, ProgramFiles alone does not), so on a machine where
+    # PowerShell 7 is installed at the real default path (e.g. GitHub-hosted
+    # runners), the starter's %ProgramFiles% lookup always finds the real
+    # pwsh.exe and this fixture can never exercise the "missing" branch.
+    # Substitute that one lookup for a test-only variable name in this
+    # fixture copy only; the real starter file is never touched.
+    $fixtureStarterPath=Join-Path $fixture 'Start-KIStack-Installer.cmd'
+    $fixtureStarterText=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes($fixtureStarterPath)).Replace('%ProgramFiles%\PowerShell\7\pwsh.exe','%KI_STACK_TEST_PROGRAMFILES_OVERRIDE%\PowerShell\7\pwsh.exe')
+    [IO.File]::WriteAllBytes($fixtureStarterPath,[Text.Encoding]::UTF8.GetBytes($fixtureStarterText))
     [IO.File]::WriteAllText((Join-Path $fixture 'CompleteInstaller.psm1'),'',[Text.ASCIIEncoding]::new())
     [IO.File]::WriteAllText((Join-Path $fixture 'Start-KIStackCompleteInstaller.ps1'),'',[Text.ASCIIEncoding]::new())
     [IO.File]::WriteAllText((Join-Path $fixture 'Bootstrap-KIStackPowerShell7.ps1'),'[IO.File]::WriteAllText($env:KI_STACK_BOOTSTRAP_EVIDENCE,"FoundationRuntimeReached",[Text.ASCIIEncoding]::new()); exit 0',[Text.ASCIIEncoding]::new())
@@ -34,7 +46,7 @@ try{
     $processInfo.CreateNoWindow=$true
     $processInfo.RedirectStandardOutput=$true
     $processInfo.RedirectStandardError=$true
-    $processInfo.EnvironmentVariables['ProgramFiles']=(Join-Path $fixture 'No-PowerShell7')
+    $processInfo.EnvironmentVariables['KI_STACK_TEST_PROGRAMFILES_OVERRIDE']=(Join-Path $fixture 'No-PowerShell7')
     $processInfo.EnvironmentVariables['PATH']=@((Join-Path $env:SystemRoot 'System32'),$env:SystemRoot,(Join-Path $env:SystemRoot 'System32/Wbem'))-join';'
     $processInfo.EnvironmentVariables['KI_STACK_BOOTSTRAP_EVIDENCE']=$fixtureEvidence
     $process=[Diagnostics.Process]::Start($processInfo)
