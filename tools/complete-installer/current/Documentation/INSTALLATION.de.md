@@ -1,6 +1,6 @@
 # Installation, Upgrade und Betrieb
 
-1. Prüfe `KI-Stack-Complete-Installer-v2.4.0-rc10.zip` mit `Get-FileHash -Algorithm SHA256` gegen das danebenliegende `.sha256`-Sidecar.
+1. Prüfe `KI-Stack-Complete-Installer-v2.4.0-rc11.zip` mit `Get-FileHash -Algorithm SHA256` gegen das danebenliegende `.sha256`-Sidecar.
 2. Meldet der Installer nach einer erstmaligen WSL-Aktivierung `NEUSTART ERFORDERLICH` (Exitcode 31), starte Windows neu und führe `Resume-KIStack-Installer.cmd <TransactionId>` aus. Der Zustand `WaitingForRestart` ist fortsetzbar und löst keinen Rollback aus.
 2. Entpacke das Paket und starte `Start-KIStack-Installer.cmd` mit PowerShell 7.
 3. Bestätige UAC. Falls abgefragt, gib einen temporären OpenWebUI-Administrator-API-Key verdeckt ein; er wird nie gespeichert und soll danach widerrufen werden.

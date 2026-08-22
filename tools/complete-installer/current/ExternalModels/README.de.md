@@ -1,4 +1,4 @@
-# Optionaler Modellcache für Complete Installer 2.4.0-rc10
+# Optionaler Modellcache für Complete Installer 2.4.0-rc11
 
 Dieses Verzeichnis ist optional. Visual Models / Workflows 2.0.3 verwendet passend benannte Dateien nur nach exakter Größen- und SHA-256-Prüfung. Fehlende Artefakte einschließlich Nomic Q4_K_M werden aus den revisionsgebundenen Manifestquellen mit fortsetzbarem Transaktionszustand geladen und vor der atomaren Aktivierung geprüft.
 

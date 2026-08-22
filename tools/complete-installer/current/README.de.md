@@ -1,4 +1,4 @@
-# KI-Stack Complete Installer 2.4.0-rc10
+# KI-Stack Complete Installer 2.4.0-rc11
 
 Entwicklungsstand auf Basis des stabilen Complete Installers 2.3.2. Der RC ergänzt die Local Intelligence Extension; eine Zielsystemfreigabe liegt noch nicht vor.
 
