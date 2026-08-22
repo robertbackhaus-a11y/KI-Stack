@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "payloadId": "KI-STACK-SEARXNG-SOURCE-2026.6.28",
-  "componentVersion": "1.5.10",
+  "componentVersion": "1.5.11",
   "upstream": {
     "repository": "https://github.com/searxng/searxng",
     "revision": "357662d86dd225bf8f0bfe5cfaa45bed09aef788",

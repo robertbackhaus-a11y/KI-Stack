@@ -13,7 +13,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | ComfyUI | 1.2.4 | Stable component; transactional marker/readback |
 | Models / Workflows | 2.0.3 | Automatic revision-pinned model acquisition, including Nomic Q4_K_M, with optional verified cache/preload |
 | Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
-| Integration | 1.5.10 | Stable component; immutable SearXNG revision plus tracked overlay |
+| Integration | 1.5.11 | Stable component; immutable SearXNG revision plus tracked overlay |
 | Cutover runtime | 1.6.5 | Stable component; transaction-local continuation state |
 | Production recovery | 1.7.0-r7 | Target-system accepted; portable runtime resolution |
 | Universal package Validation Gate | 1.0.3 | Activated on the target system |

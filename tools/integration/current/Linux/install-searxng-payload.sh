@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
-PAYLOAD="${1:-}"; MANIFEST="${2:-}"; EXPECTED_SHA="${3:-}"; REVISION="${4:-unknown}"; RELEASE="1.5.10"
+PAYLOAD="${1:-}"; MANIFEST="${2:-}"; EXPECTED_SHA="${3:-}"; REVISION="${4:-unknown}"; RELEASE="1.5.11"
 ROOT=/opt/ki-stack/searxng; SRC="$ROOT/src"; VENV="$ROOT/venv"; MARKER=/opt/ki-stack/integration/installation.json
 STEP=initialize; CAUSE='command failed before an explicit internal cause was recorded'; TMP=''
 on_exit(){
@@ -83,7 +83,7 @@ health_diagnostics(){
 }
 write_marker(){ install -d -m 0750 /opt/ki-stack/integration; python3 - "$MARKER" "$1" <<'PY'
 import datetime,json,sys
-json.dump({"schemaVersion":"1.0","managedBy":"KI-STACK-INTEGRATION-MANAGED","version":"1.5.10","release":"KI-Stack-Integration-Execute-v1.5.10","mode":sys.argv[2],"installedAt":datetime.datetime.now(datetime.timezone.utc).isoformat(),"payloadId":"KI-STACK-SEARXNG-SOURCE-2026.6.28"},open(sys.argv[1],"w"),indent=2)
+json.dump({"schemaVersion":"1.0","managedBy":"KI-STACK-INTEGRATION-MANAGED","version":"1.5.11","release":"KI-Stack-Integration-Execute-v1.5.11","mode":sys.argv[2],"installedAt":datetime.datetime.now(datetime.timezone.utc).isoformat(),"payloadId":"KI-STACK-SEARXNG-SOURCE-2026.6.28"},open(sys.argv[1],"w"),indent=2)
 PY
 chmod 0640 "$MARKER"; }
 optional_search_functional_probe(){
@@ -153,6 +153,13 @@ search: {formats: [html, json]}
 server: {bind_address: "127.0.0.1", port: 8888, secret_key: "$SECRET", base_url: "http://localhost/searxng/"}
 valkey: {url: "valkey://localhost:6379/0"}
 EOF
+# lazy-apps=true is required: searx.network.client starts its asyncio event
+# loop on a background thread at module import time. Without lazy-apps,
+# uwsgi's master imports the app once and forks workers afterwards, and
+# threads don't survive fork() -- every worker inherits a dead loop object,
+# so every outbound engine request hangs until the request_timeout (3s)
+# elapses. lazy-apps makes each worker import (and start its own loop
+# thread) after forking.
 cat > /etc/uwsgi/apps-available/searxng.ini <<EOF
 [uwsgi]
 plugin=python3
@@ -167,6 +174,7 @@ master=true
 processes=2
 threads=4
 enable-threads=true
+lazy-apps=true
 vacuum=true
 die-on-term=true
 EOF

@@ -169,7 +169,7 @@ function Test-KICompleteCodexLocalCompliant {
 }
 
 function Test-KICompleteIntegrationCompliant {
-    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='1.5.10')
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='1.5.11')
     $root=Join-Path $TargetRoot 'modules/integration'
     $markerPath=Join-Path $root 'installation.json'
     # Must match tools/integration/current/Runtime/RUNTIME-CONTRACT.json 'files'.
