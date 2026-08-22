@@ -5,18 +5,32 @@ $ErrorActionPreference='Stop'
 $distribution='Debian'
 $pidFile='C:\KI-Stack\modules\integration\wsl-keeper.pid'
 $wsl=(Get-Command wsl.exe -ErrorAction Stop).Source
+# Historically (Integration 1.5.8) valkey-server/uwsgi/nginx were enabled
+# systemd units: the keeper's only job was to keep the Debian VM alive so
+# systemd's own boot sequence could bring them up itself. A later regression
+# left the units disabled, which forced this script to orchestrate
+# 'systemctl start ...' from Windows immediately after an async keeper
+# launch -- a sequence that was never validated as a real cold-start
+# contract and is not needed now that install-searxng-payload.sh enables
+# the units again (diag14). Restore that contract: keeper only, systemd
+# owns the service lifecycle, Windows only verifies readiness below.
+$expectedArgs=@('-d',$distribution,'-u','root','--exec','sleep','infinity')
+function Test-KeeperIdentity([int]$ProcessId){
+    $proc=Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction SilentlyContinue
+    if($null-eq$proc){return $false}
+    if($proc.Name-ne'wsl.exe'){return $false}
+    return ($proc.CommandLine-match[regex]::Escape($distribution))-and($proc.CommandLine-match'sleep')-and($proc.CommandLine-match'infinity')
+}
 $keeperAlive=$false
 if(Test-Path -LiteralPath $pidFile -PathType Leaf){
     $raw=(Get-Content -LiteralPath $pidFile -Raw).Trim()
-    if($raw-match'^\d+$'){$keeperAlive=$null-ne(Get-Process -Id([int]$raw)-ErrorAction SilentlyContinue)}
+    if($raw-match'^\d+$'){$keeperAlive=(Test-KeeperIdentity([int]$raw))}
     if(-not$keeperAlive){Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue}
 }
 if(-not$keeperAlive){
-    $keeper=Start-Process -FilePath $wsl -ArgumentList @('-d',$distribution,'-u','root','--','bash','-lc','exec sleep infinity') -WindowStyle Hidden -PassThru
+    $keeper=Start-Process -FilePath $wsl -ArgumentList $expectedArgs -WindowStyle Hidden -PassThru
     Set-Content -LiteralPath $pidFile -Value ([string]$keeper.Id) -Encoding ascii
 }
-$output=@(& $wsl -d $distribution -u root -- bash -lc 'systemctl start valkey-server uwsgi nginx && systemctl is-active --quiet valkey-server uwsgi nginx' 2>&1)
-if($LASTEXITCODE-ne0){throw('Linux-Dienste konnten nicht gestartet werden: '+($output-join' | '))}
 $deadline=(Get-Date).AddSeconds(30)
 do {
     try {

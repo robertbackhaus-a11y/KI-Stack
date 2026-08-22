@@ -116,7 +116,11 @@ if [ "${KI_STACK_SEARXNG_READINESS_SELFTEST:-0}" = "1" ]; then
 fi
 
 STEP=existing-endpoint-readback
-if readiness_probe 'http://127.0.0.1/searxng'; then optional_search_functional_probe; write_marker adopted-existing; exit 0; fi
+if readiness_probe 'http://127.0.0.1/searxng'; then
+ STEP=existing-endpoint-enable
+ systemctl enable valkey-server uwsgi nginx
+ optional_search_functional_probe; write_marker adopted-existing; exit 0
+fi
 STEP=payload-sha256
 test "$(sha256sum "$PAYLOAD" | cut -d' ' -f1)" = "$EXPECTED_SHA" || { CAUSE='payload SHA256 mismatch'; echo "$CAUSE" >&2; exit 61; }
 export DEBIAN_FRONTEND=noninteractive

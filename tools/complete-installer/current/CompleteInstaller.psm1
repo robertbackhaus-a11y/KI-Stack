@@ -181,7 +181,17 @@ function Test-KICompleteIntegrationCompliant {
     foreach($path in @($markerPath)+@($runtimeFiles|ForEach-Object{Join-Path $root $_})){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){return $false}}
     try{
         $marker=Read-KICompleteJson $markerPath
-        return [string]$marker.version-eq$ExpectedComponentVersion
+        if([string]$marker.version-ne$ExpectedComponentVersion){return $false}
+    }catch{return $false}
+    # diag14: a matching marker/runtime-files snapshot alone can't tell an
+    # enabled-at-boot SearXNG apart from one only running because something
+    # started it manually this session (e.g. the adopted-existing install
+    # path). Without this, systemd not owning the service lifecycle goes
+    # undetected until the next real cold start leaves nothing to bring the
+    # services back up.
+    try{
+        $enabled=@(& wsl.exe -d Debian -u root -- systemctl is-enabled valkey-server uwsgi nginx 2>&1)
+        return (@($enabled|Where-Object{$_-eq'enabled'}).Count-eq3)
     }catch{return $false}
 }
 

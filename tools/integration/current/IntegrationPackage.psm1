@@ -58,7 +58,20 @@ function Test-IntegrationPayload {
     if(-not(Test-Path $path)){$errors+='payload missing'}else{if((Get-Item $path).Length-ne$contract.output.sizeBytes){$errors+='size mismatch'};if((Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()-ne$contract.output.sha256){$errors+='SHA mismatch'}}
     [pscustomobject]@{passed=($errors.Count-eq0);errors=$errors;contract=$contract;path=$path}
 }
-function Test-IntegrationTarget { $runtimeContract=Get-IntegrationRuntimeContract $PSScriptRoot;[pscustomobject]@{passed=((Test-IntegrationEndpoint)-and(Test-IntegrationRuntime -Contract $runtimeContract));version='1.5.10';runtimeChain=@('wsl keeper','valkey-server','uwsgi','nginx');runtimeGitDependency=$false} }
+# Deep compliance (diag14): a marker/endpoint readback alone can't tell
+# an enabled-at-boot SearXNG apart from one that only happens to be
+# running because something started it manually this session (e.g. the
+# adopted-existing install path, or a manual systemctl start). Without
+# this, systemd not owning the service lifecycle goes undetected until
+# the next real cold start, when nothing brings the services back up.
+function Test-IntegrationServicesEnabled {
+    param([string]$Distribution='Debian')
+    try {
+        $result=@(& wsl.exe -d $Distribution -u root -- systemctl is-enabled valkey-server uwsgi nginx 2>&1)
+        return (@($result|Where-Object{$_-eq'enabled'}).Count-eq3)
+    } catch { return $false }
+}
+function Test-IntegrationTarget { $runtimeContract=Get-IntegrationRuntimeContract $PSScriptRoot;[pscustomobject]@{passed=((Test-IntegrationEndpoint)-and(Test-IntegrationRuntime -Contract $runtimeContract)-and(Test-IntegrationServicesEnabled));version='1.5.10';runtimeChain=@('wsl keeper','valkey-server','uwsgi','nginx');runtimeGitDependency=$false} }
 function ConvertTo-IntegrationWslPath { param([string]$Path) (@(wsl.exe -d Debian --exec wslpath -u $Path)|Select-Object -Last 1).Trim() }
 function Backup-IntegrationState {
     param([string]$BackupRoot='C:\KI-Stack\backups\integration-1.5.10')
