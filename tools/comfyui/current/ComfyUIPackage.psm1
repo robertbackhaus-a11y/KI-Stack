@@ -73,10 +73,55 @@ function Test-ComfyMarker {
         [Parameter(Mandatory)][object]$PayloadTest
     )
     if (-not (Test-Path -LiteralPath $Marker -PathType Leaf)) { return $false }
-    $current = Read-ComfyJson $Marker
-    [string]$current.version -eq '1.2.4' -and
-        [string]$current.release -eq 'KI-Stack-ComfyUI-Execute-v1.2.4' -and
-        [string]$current.payloadSha256 -eq [string]$PayloadTest.contract.output.sha256
+    try {
+        $current = Read-ComfyJson $Marker
+    }
+    catch {
+        throw [IO.InvalidDataException]::new(
+            "ComfyUI-Marker '$Marker' enthält kein gültiges JSON: $($_.Exception.Message)",
+            $_.Exception
+        )
+    }
+
+    if ($null -eq $current -or $current -isnot [psobject]) {
+        throw [IO.InvalidDataException]::new("ComfyUI-Marker '$Marker' enthält kein JSON-Objekt.")
+    }
+    $property = {
+        param([Parameter(Mandatory)][string]$Name)
+        $candidate = $current.PSObject.Properties[$Name]
+        if ($null -eq $candidate) { return $null }
+        return $candidate.Value
+    }
+    $schemaVersion = [string](& $property 'schemaVersion')
+    $managedBy = [string](& $property 'managedBy')
+    $release = [string](& $property 'release')
+    if ($schemaVersion -ne '1.0' -or
+        $managedBy -ne 'KI-STACK-COMFYUI-MANAGED' -or
+        $release -notmatch '^KI-Stack-ComfyUI-Execute-v[0-9]+\.[0-9]+\.[0-9]+$') {
+        throw [IO.InvalidDataException]::new(
+            "ComfyUI-Marker '$Marker' verletzt den unterstützten Marker-Vertrag: schemaVersion=1.0, managedBy=KI-STACK-COMFYUI-MANAGED und eine versionierte release-Kennung sind erforderlich."
+        )
+    }
+
+    $version = [string](& $property 'version')
+    if ([string]::IsNullOrWhiteSpace($version)) {
+        $repository = [string](& $property 'repository')
+        $tag = [string](& $property 'tag')
+        $commit = [string](& $property 'commit')
+        if ([string]::IsNullOrWhiteSpace($repository) -or
+            [string]::IsNullOrWhiteSpace($tag) -or
+            $commit -notmatch '^[0-9a-fA-F]{40}$') {
+            throw [IO.InvalidDataException]::new(
+                "ComfyUI-Marker '$Marker' entspricht weder dem aktuellen noch dem unterstützten Legacy-Schema."
+            )
+        }
+        return $false
+    }
+
+    $payloadSha256 = [string](& $property 'payloadSha256')
+    $version -eq '1.2.4' -and
+        $release -eq 'KI-Stack-ComfyUI-Execute-v1.2.4' -and
+        $payloadSha256 -eq [string]$PayloadTest.contract.output.sha256
 }
 
 function Install-ComfyPayload {

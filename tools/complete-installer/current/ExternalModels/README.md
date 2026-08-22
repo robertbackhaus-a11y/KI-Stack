@@ -1,4 +1,4 @@
-# Optional model cache for Complete Installer 2.4.0-rc3
+# Optional model cache for Complete Installer 2.4.0-rc9
 
 This directory is optional. Visual Models / Workflows 2.0.3 reuses correctly named files only after exact size and SHA-256 verification. Missing artifacts, including embedding-only Nomic Q4_K_M, are downloaded from the revision-bound manifest sources with resumable transaction state and verified before atomic activation.
 

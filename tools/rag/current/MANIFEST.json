@@ -8,7 +8,7 @@
   "chatModelCoupled": false,
   "containsSecrets": false,
   "runtimeGitDependency": false,
-  "openWebUIVersionContract": "0.10.2",
+  "openWebUIVersionContract": "0.11.0",
   "stateModel": "sha256-delta",
   "rollback": "checkpoint-only-until-target-acceptance"
 }

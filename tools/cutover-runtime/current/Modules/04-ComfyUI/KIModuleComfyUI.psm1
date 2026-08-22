@@ -133,8 +133,23 @@ function Get-KIComfyRepositoryState {
     $headExitCode = [int]$LASTEXITCODE
     $tagOutput = @(& $GitCommand.Source -C $Root describe --tags --exact-match 2>$null)
     $tagExitCode = [int]$LASTEXITCODE
-    $statusOutput = @(& $GitCommand.Source -C $Root status --porcelain 2>$null)
+    $statusOutput = @(& $GitCommand.Source -C $Root status --porcelain=v2 --untracked-files=all 2>$null)
     $statusExitCode = [int]$LASTEXITCODE
+    & $GitCommand.Source -C $Root diff --ignore-cr-at-eol --no-ext-diff --quiet -- 2>$null
+    $unstagedDiffExitCode = [int]$LASTEXITCODE
+    & $GitCommand.Source -C $Root diff --cached --ignore-cr-at-eol --no-ext-diff --quiet -- 2>$null
+    $stagedDiffExitCode = [int]$LASTEXITCODE
+    $untrackedOutput = @(& $GitCommand.Source -C $Root ls-files --others --exclude-standard 2>$null)
+    $untrackedExitCode = [int]$LASTEXITCODE
+
+    $hasUnstagedContentChanges = ($unstagedDiffExitCode -eq 1)
+    $hasStagedContentChanges = ($stagedDiffExitCode -eq 1)
+    $hasUntrackedFiles = (@($untrackedOutput).Count -gt 0)
+    $hasSemanticChanges = (
+        $hasUnstagedContentChanges -or
+        $hasStagedContentChanges -or
+        $hasUntrackedFiles
+    )
 
     $origin = if ($originExitCode -eq 0) {
         [string]($originOutput | Select-Object -Last 1)
@@ -152,7 +167,10 @@ function Get-KIComfyRepositoryState {
             $missingPaths.Count -eq 0 -and
             $originExitCode -eq 0 -and
             $headExitCode -eq 0 -and
-            $statusExitCode -eq 0
+            $statusExitCode -eq 0 -and
+            $unstagedDiffExitCode -in @(0, 1) -and
+            $stagedDiffExitCode -in @(0, 1) -and
+            $untrackedExitCode -eq 0
         )
         origin = $origin
         normalizedOrigin = if ($origin) {
@@ -160,7 +178,15 @@ function Get-KIComfyRepositoryState {
         } else { $null }
         head = $head
         exactTag = $exactTag
-        dirty = (@($statusOutput).Count -gt 0)
+        dirty = $hasSemanticChanges
+        statusEntries = @($statusOutput)
+        stagedContentChanges = $hasStagedContentChanges
+        unstagedContentChanges = $hasUnstagedContentChanges
+        untrackedPaths = @($untrackedOutput)
+        lineEndingOnlyDifferences = (
+            @($statusOutput).Count -gt 0 -and
+            -not $hasSemanticChanges
+        )
         missingPaths = $missingPaths
     }
 }
@@ -763,6 +789,7 @@ function Validate-KIModuleComfyUI {
         -Url ([string]$Context.Config.comfyUI.repository)
     $environmentState = Get-KIComfyEnvironmentState -Root $root -VenvPython $venvPython
     $issues = [System.Collections.Generic.List[string]]::new()
+    $gpuIssues = [System.Collections.Generic.List[string]]::new()
     $installationState = $null
     if (Test-Path -LiteralPath $installationStatePath -PathType Leaf) {
         try {
@@ -800,29 +827,39 @@ function Validate-KIModuleComfyUI {
         [bool]$Context.Config.comfyUI.torch.requireCuda -and
         -not [bool]$environmentState.cudaAvailable
     ) {
-        [void]$issues.Add('PyTorch erkennt keine CUDA-fähige NVIDIA-GPU.')
+        [void]$gpuIssues.Add('PyTorch erkennt keine CUDA-fähige NVIDIA-GPU.')
     }
 
     $computeCapability = @($environmentState.computeCapability)
+    $hasComputeCapability = (
+        $computeCapability.Count -gt 0 -and
+        $null -ne $computeCapability[0] -and
+        -not [string]::IsNullOrWhiteSpace([string]$computeCapability[0])
+    )
     if (
         [bool]$Context.Config.comfyUI.torch.requireCuda -and
-        $computeCapability.Count -gt 0 -and
+        [bool]$environmentState.cudaAvailable -and
+        $hasComputeCapability -and
         [int]$computeCapability[0] -lt
             [int]$Context.Config.comfyUI.torch.minimumComputeCapabilityMajor
     ) {
-        [void]$issues.Add('GPU-Compute-Capability liegt unter der Freigabegrenze.')
+        [void]$gpuIssues.Add('GPU-Compute-Capability liegt unter der Freigabegrenze.')
     }
 
     $devicePattern = [string]$Context.Config.comfyUI.torch.expectedDeviceNamePattern
+    $detectedDeviceName = [string]$environmentState.deviceName
     if (
+        [bool]$environmentState.cudaAvailable -and
         $devicePattern -and
-        [string]$environmentState.deviceName -notmatch [regex]::Escape($devicePattern)
+        $detectedDeviceName -notmatch [regex]::Escape($devicePattern)
     ) {
-        [void]$issues.Add(
-            'Erwartete GPU wurde nicht erkannt. Erwartet: {0}; erkannt: {1}' -f
-            $devicePattern,
-            [string]$environmentState.deviceName
-        )
+        $reportedDeviceName = if ([string]::IsNullOrWhiteSpace($detectedDeviceName)) {
+            '<nicht verfügbar>'
+        } else {
+            $detectedDeviceName
+        }
+        [void]$gpuIssues.Add(('Erwartete GPU wurde nicht erkannt. Erwartet: {0}; erkannt: {1}' -f
+            $devicePattern, $reportedDeviceName))
     }
     if ($null -ne $installationState) {
         if ([string]$installationState.managedBy -ne 'KI-STACK-COMFYUI-MANAGED') {
@@ -832,20 +869,26 @@ function Validate-KIModuleComfyUI {
             [void]$issues.Add('installation.json enthält nicht den freigegebenen ComfyUI-Tag.')
         }
         if (-not [bool]$installationState.cudaAvailable) {
-            [void]$issues.Add('installation.json bestätigt keine CUDA-Verfügbarkeit.')
+            [void]$gpuIssues.Add('installation.json bestätigt keine CUDA-Verfügbarkeit.')
         }
     }
+
+    $gpuReady = ($gpuIssues.Count -eq 0)
 
     return [pscustomobject][ordered]@{
         success = ($issues.Count -eq 0)
         skipped = $false
-        message = if ($issues.Count -eq 0) {
+        message = if ($issues.Count -gt 0) {
+            'Der ComfyUI-Zielzustand ist unvollständig.'
+        } elseif ($gpuReady) {
             'ComfyUI, v0.28.0, PyTorch CUDA und RTX 5090 wurden vollständig validiert.'
         } else {
-            'Der ComfyUI-Zielzustand ist unvollständig.'
+            'Die ComfyUI-Installation ist technisch konsistent; die GPU-Produktionsfreigabe ist nicht erfüllt.'
         }
         data = [pscustomobject][ordered]@{
             issues = @($issues)
+            gpuReady = $gpuReady
+            gpuIssues = @($gpuIssues)
             missingPaths = $missingPaths
             repositoryState = $repositoryState
             environmentState = $environmentState

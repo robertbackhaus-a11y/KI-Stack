@@ -2,7 +2,7 @@
 title: KI-Stack Ballistikrechner
 author: KI-Stack
 version: 1.0.0
-required_open_webui_version: 0.10.2
+required_open_webui_version: 0.11.0
 requirements: pyballistic==2.2.0,Deprecated==1.2.18,wrapt==1.17.3
 managed_by: KI-STACK-OPENWEBUI-BALLISTICS-PACK
 canonical_id: ki-stack-ballistics-calculator

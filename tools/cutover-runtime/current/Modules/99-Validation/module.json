@@ -3,7 +3,7 @@
   "id": "KIModuleValidation",
   "order": 990,
   "name": "Kernel Validation",
-  "version": "1.6.5",
+  "version": "1.6.10",
   "enabled": true,
   "script": "KIModuleValidation.psm1",
   "supportsRollback": false,

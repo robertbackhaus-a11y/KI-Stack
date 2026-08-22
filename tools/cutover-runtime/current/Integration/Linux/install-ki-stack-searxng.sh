@@ -4,7 +4,7 @@ umask 027
 
 RELEASE="${KI_RELEASE:-1.5.7}"
 REPOSITORY="${KI_SEARXNG_REPOSITORY:-https://github.com/searxng/searxng.git}"
-REF="${KI_SEARXNG_REF:-277d8469c}"
+REF="${KI_SEARXNG_REF:-277d8469cdd4af423a42783ad426e0de09f4e2e9}"
 BASE_URL="${KI_SEARXNG_BASE_URL:-http://localhost/searxng/}"
 BACKEND_PORT="${KI_SEARXNG_BACKEND_PORT:-8888}"
 ROOT="/opt/ki-stack/searxng"
@@ -13,6 +13,11 @@ MARKER="${INTEGRATION_ROOT}/installation.json"
 BACKUP_ROOT="${INTEGRATION_ROOT}/backups"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BACKUP_DIR="${BACKUP_ROOT}/${STAMP}"
+
+case "$REF" in
+  [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
+  *) printf '[KI-Stack Integration] Ungültiger SearXNG-Commit-Pin: erwartet werden exakt 40 hexadezimale Zeichen.\n' >&2; exit 56 ;;
+esac
 
 log(){ printf '[KI-Stack Integration] %s\n' "$*"; }
 json_healthy(){
@@ -135,7 +140,7 @@ if [ "$DIRECT_BACKEND" = false ]; then
     git -C "$ROOT/src" checkout --detach FETCH_HEAD
   fi
   ACTUAL_REF="$(git -C "$ROOT/src" rev-parse HEAD)"
-  case "$ACTUAL_REF" in "$REF"*) ;; *) log "SearXNG-Commit stimmt nicht: $ACTUAL_REF"; exit 54;; esac
+  [ "$ACTUAL_REF" = "$REF" ] || { log "SearXNG-Commit stimmt nicht: $ACTUAL_REF"; exit 54; }
   python3 -m venv "$ROOT/venv"
   "$ROOT/venv/bin/python" -m pip install --upgrade pip setuptools wheel
   "$ROOT/venv/bin/python" -m pip install -r "$ROOT/src/requirements.txt" -r "$ROOT/src/requirements-server.txt"

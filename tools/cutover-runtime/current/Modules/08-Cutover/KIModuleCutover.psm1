@@ -277,7 +277,7 @@ function Install-KIModuleCutover {
     $readiness=[pscustomobject][ordered]@{schemaVersion='1.0';release=[string]$Context.Config.executeRelease.releaseId;transactionId=[string]$Context.Transaction.transactionId;generatedAt=(Get-Date).ToString('o');requiredSourcesPresent=$true;liveEndpointsRequired=[bool]$config.requireLiveEndpointsDuringExecute;health=$health}
     $readinessPath=Join-Path $reportRoot 'Readiness-latest.json'
     Install-KICutoverManagedFile -Context $Context -RollbackState $rollback -Path $readinessPath -Content ($readiness|ConvertTo-Json -Depth 50)
-    $marker=[pscustomobject][ordered]@{managedBy='KI-STACK-CUTOVER-MANAGED';schemaVersion='1.0';release='KI-Stack-Cutover-Execute-v1.6.5';installedAt=(Get-Date).ToString('o');transactionId=[string]$Context.Transaction.transactionId;moduleRoot=$root;readinessReport=$readinessPath}
+    $marker=[pscustomobject][ordered]@{managedBy='KI-STACK-CUTOVER-MANAGED';schemaVersion='1.0';release='KI-Stack-Cutover-Execute-v1.6.10';installedAt=(Get-Date).ToString('o');transactionId=[string]$Context.Transaction.transactionId;moduleRoot=$root;readinessReport=$readinessPath}
     Install-KICutoverManagedFile -Context $Context -RollbackState $rollback -Path ([string]$config.installationMarker) -Content ($marker|ConvertTo-Json -Depth 30)
     return [pscustomobject][ordered]@{success=$true;skipped=$false;message='Gesamtstarter, Stopper, Healthcheck und Readiness-Bericht wurden eingerichtet.';data=[pscustomobject][ordered]@{moduleRoot=$root;readinessReport=$readinessPath;initialHealth=$health;rollbackStatePath=(Get-KICutoverRollbackStatePath -Context $Context)}}
 }

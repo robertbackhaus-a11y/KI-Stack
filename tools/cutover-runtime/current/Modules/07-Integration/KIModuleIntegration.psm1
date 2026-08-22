@@ -141,6 +141,26 @@ function Test-KIIntegrationJsonEndpoint {
     } catch { return $false }
 }
 
+function Test-KIIntegrationReadinessEndpoint {
+    param([Parameter(Mandatory)][string]$BaseUrl,[int]$TimeoutSeconds=15)
+    try {
+        $health=Invoke-WebRequest -Uri ($BaseUrl.TrimEnd('/')+'/healthz') -Method Get -TimeoutSec $TimeoutSeconds -ErrorAction Stop
+        $config=Invoke-RestMethod -Uri ($BaseUrl.TrimEnd('/')+'/config') -Method Get -TimeoutSec $TimeoutSeconds -ErrorAction Stop
+        return ($health.StatusCode-eq200-and$health.Content.Trim()-eq'OK'-and$null-ne$config.PSObject.Properties['version']-and$config.version-is[string]-and$null-ne$config.PSObject.Properties['engines']-and$config.engines-is[object[]]-and$null-ne$config.PSObject.Properties['categories']-and$config.categories-is[object[]]-and$null-ne$config.PSObject.Properties['brand'])
+    } catch { return $false }
+}
+
+function Get-KIIntegrationDistributionActivationDisposition {
+    param(
+        [Parameter(Mandatory)][bool]$DistributionActive,
+        [Parameter(Mandatory)][int]$ExitCode,
+        [AllowEmptyString()][string]$Output=''
+    )
+    if($DistributionActive){return 'Active'}
+    if(($ExitCode -in @(0,3010))-or($Output -match '(?i)(restart|reboot|neustart).*(required|erforderlich|wirksam)')){return 'RebootRequired'}
+    'Failed'
+}
+
 function Get-KIIntegrationAssetRoot {
     $projectRoot=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     return Join-Path $projectRoot 'Integration\Linux'
@@ -154,7 +174,7 @@ function Test-KIModuleIntegration {
     }
     $distributions=Get-KIIntegrationDistributions -WslCommand $wsl
     $distributionPresent=@($distributions|Where-Object{$_ -ieq [string]$config.wslDistribution}).Count -gt 0
-    $endpointHealthy=Test-KIIntegrationJsonEndpoint -BaseUrl ([string]$config.searxngUrl) -TimeoutSeconds ([int]$config.timeoutSeconds
+    $endpointHealthy=Test-KIIntegrationReadinessEndpoint -BaseUrl ([string]$config.searxngUrl) -TimeoutSeconds ([int]$config.timeoutSeconds
     )
     return [pscustomobject][ordered]@{
         success=($distributionPresent -or [bool]$config.allowWslInstall)
@@ -173,7 +193,7 @@ function Install-KIModuleIntegration {
     $wsl=Get-KIIntegrationWslCommand
     if(-not $wsl){throw 'wsl.exe wurde nicht gefunden. WSL muss durch Windows bereitgestellt werden.'}
     $distribution=[string]$config.wslDistribution
-    $rollbackState=[pscustomobject][ordered]@{schemaVersion='1.0';transactionId=[string]$Context.Transaction.transactionId;updatedAt=(Get-Date).ToString('o');distroInstalledByTransaction=$false;linuxChanged=$false;files=@()}
+    $rollbackState=[pscustomobject][ordered]@{schemaVersion='1.0';transactionId=[string]$Context.Transaction.transactionId;updatedAt=(Get-Date).ToString('o');distroInstalledByTransaction=$false;linuxChanged=$false;restartRequired=$false;resumePhase=$null;files=@()}
     Write-KIIntegrationRollbackState -Context $Context -State $rollbackState
     $distributions=Get-KIIntegrationDistributions -WslCommand $wsl
     if(@($distributions|Where-Object{$_ -ieq $distribution}).Count -eq 0){
@@ -184,7 +204,28 @@ function Install-KIModuleIntegration {
         }
         Start-Sleep -Seconds 3
         $distributions=Get-KIIntegrationDistributions -WslCommand $wsl
-        if(@($distributions|Where-Object{$_ -ieq $distribution}).Count -eq 0){throw ("Debian-Installation ist noch nicht aktiv. Windows-Neustart kann erforderlich sein. Ausgabe: {0}" -f ($installResult.output -join ' | '))}
+        if(@($distributions|Where-Object{$_ -ieq $distribution}).Count -eq 0){
+            $installOutput=($installResult.output -join ' | ')
+            $activationDisposition=Get-KIIntegrationDistributionActivationDisposition -DistributionActive $false -ExitCode ([int]$installResult.exitCode) -Output $installOutput
+            if($activationDisposition-ne'RebootRequired'){
+                throw ("Debian-Installation fehlgeschlagen oder ist nicht aktiv. Exitcode: {0}; Ausgabe: {1}" -f $installResult.exitCode,$installOutput)
+            }
+            $rollbackState.restartRequired=$true
+            $rollbackState.resumePhase='ActivateDistributionAfterRestart'
+            Write-KIIntegrationRollbackState -Context $Context -State $rollbackState
+            return [pscustomobject][ordered]@{
+                success=$true
+                skipped=$false
+                message='WSL/VirtualMachinePlatform wurden aktiviert. Windows muss neu gestartet werden; danach dieselbe Transaktion mit Resume fortsetzen.'
+                data=[pscustomobject][ordered]@{
+                    status='RebootRequired'
+                    resumeRequired=$true
+                    resumePhase='ActivateDistributionAfterRestart'
+                    distribution=$distribution
+                    containsSecrets=$false
+                }
+            }
+        }
         $rollbackState.distroInstalledByTransaction=$true; Write-KIIntegrationRollbackState -Context $Context -State $rollbackState
     }
     if([bool]$config.requireWsl2){
@@ -249,7 +290,7 @@ if(-not $keeperAlive){
 $output=@(& $wsl -d $distribution -u root -- bash -lc 'systemctl start valkey-server nginx; if systemctl list-unit-files ki-stack-searxng.service --no-legend 2>/dev/null | grep -q ki-stack; then systemctl start ki-stack-searxng; fi' 2>&1)
 if($LASTEXITCODE-ne 0){throw ('Linux-Dienste konnten nicht gestartet werden: '+($output-join ' | '))}
 $deadline=(Get-Date).AddSeconds(30)
-do { try{$result=Invoke-RestMethod -Uri 'http://localhost/searxng/search?q=ki-stack&format=json' -TimeoutSec 5; if($null -ne  $result.results){Write-Host 'SearXNG ist erreichbar.';return}}catch{};Start-Sleep -Seconds 1 } while((Get-Date) -lt  $deadline)
+do { try{$health=Invoke-WebRequest -Uri 'http://localhost/searxng/healthz' -TimeoutSec 5;$config=Invoke-RestMethod -Uri 'http://localhost/searxng/config' -TimeoutSec 5;if($health.StatusCode-eq200-and$health.Content.Trim()-eq'OK'-and$null-ne$config.version-and$null-ne$config.engines){Write-Host 'SearXNG ist erreichbar.';return}}catch{};Start-Sleep -Seconds 1 } while((Get-Date) -lt  $deadline)
 throw 'SearXNG ist nach 30 Sekunden nicht erreichbar.'
 '@
     $startPs=$startPs.Replace('__DISTRO__',$distribution.Replace("'","''")).Replace('__PID_FILE__',([string]$config.keeperPidFile).Replace("'","''"))
@@ -339,7 +380,7 @@ function Validate-KIModuleIntegration {
         if ($service.exitCode -ne 0){[void]$issues.Add('nginx oder valkey-server ist nicht aktiv.')}
       }
     }
-    if (-not (Test-KIIntegrationJsonEndpoint -BaseUrl ([string]$config.searxngUrl) -TimeoutSeconds ([int]$config.timeoutSeconds))) { [void]$issues.Add('SearXNG-JSON-Endpunkt ist nicht erreichbar.') }
+    if (-not (Test-KIIntegrationReadinessEndpoint -BaseUrl ([string]$config.searxngUrl) -TimeoutSeconds ([int]$config.timeoutSeconds))) { [void]$issues.Add('SearXNG-Readiness-Endpunkt ist nicht erreichbar.') }
     foreach($required in @([string]$config.installationMarker,(Join-Path ([string]$config.moduleRoot) 'Start-KIStack-SearXNG.cmd'),(Join-Path ([string]$config.moduleRoot) 'Start-KIStack-OpenWebUI-WithSearch.cmd'),(Join-Path ([string]$config.moduleRoot) 'Start-KIStack-IntegratedStack.cmd'))){if(-not(Test-Path -LiteralPath $required -PathType Leaf)){[void]$issues.Add("Integrationsdatei fehlt: $required")}}
     return [pscustomobject][ordered]@{success=($issues.Count -eq 0);skipped=$false;message=if($issues.Count -eq 0){'WSL/SearXNG, JSON-API und Integrationsstarter wurden validiert.'}else{$issues-join ' | '};data=[pscustomobject][ordered]@{issues=@($issues);searxngUrl=[string]$config.searxngUrl}}
 }

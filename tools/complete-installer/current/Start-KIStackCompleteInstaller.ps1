@@ -54,6 +54,7 @@ $transcriptPath=$LogPath+'.transcript.txt'
 $exitPath=$LogPath+'.exitcode.txt'
 $transcriptStarted=$false
 $exitCode=1
+$result=$null
 try{
     foreach($path in @($LogPath,$stderrPath,$exitPath)){[IO.File]::WriteAllText($path,'',[Text.UTF8Encoding]::new($false))}
     Start-Transcript -LiteralPath $transcriptPath -Force|Out-Null
@@ -84,7 +85,8 @@ try{
         $json=$result|ConvertTo-Json -Depth 100
         [IO.File]::WriteAllText($LogPath,$json+[Environment]::NewLine,[Text.UTF8Encoding]::new($false))
         Write-Output $json
-        $exitCode=0
+        $exitCode=if([string]$result.status-eq'WaitingForRestart'){31}else{0}
+        if($exitCode-eq31){Write-Host "Windows-Neustart erforderlich. Danach Resume-KIStack-Installer.cmd $($result.transactionId) ausführen." -ForegroundColor Yellow}
     }finally{
         $apiToken=$null
         [GC]::Collect()
@@ -96,8 +98,12 @@ try{
     if(-not(Test-Path -LiteralPath $LogPath)-or(Get-Item -LiteralPath $LogPath).Length-eq0){
         [IO.File]::WriteAllText($LogPath,("FAILED: "+$_.Exception.Message+[Environment]::NewLine),[Text.UTF8Encoding]::new($false))
     }
-    Write-Error -ErrorRecord $_
     $exitCode=1
+    if($_.Exception.Data.Contains('KIStackExitCode')){
+        $innerExitCode=[int]$_.Exception.Data['KIStackExitCode']
+        if($innerExitCode-ge1-and$innerExitCode-le255){$exitCode=$innerExitCode}
+    }
+    Write-Error -ErrorRecord $_ -ErrorAction Continue
 }finally{
     if($transcriptStarted){Stop-Transcript|Out-Null}
     if((Test-Path -LiteralPath $stderrPath -PathType Leaf)-and(Get-Item -LiteralPath $stderrPath).Length-eq0){

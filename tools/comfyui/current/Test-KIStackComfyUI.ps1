@@ -21,7 +21,24 @@ try {
     Set-Content (Join-Path $copy ('Payload/'+$contract.output.fileName)) 'broken'
     Import-Module (Join-Path $root 'ComfyUIPackage.psm1') -Force
     if ((Test-ComfyPayload $copy).passed) { $fail += 'bad payload accepted' }
+
+    $markerRoot=Join-Path $fixture 'markers';New-Item -ItemType Directory $markerRoot -Force|Out-Null
+    $currentMarker=Join-Path $markerRoot 'current.json'
+    [ordered]@{schemaVersion='1.0';managedBy='KI-STACK-COMFYUI-MANAGED';version='1.2.4';release='KI-Stack-ComfyUI-Execute-v1.2.4';payloadSha256=[string]$contract.output.sha256}|
+        ConvertTo-Json|Set-Content -LiteralPath $currentMarker -Encoding UTF8
+    if(-not(Test-ComfyMarker -Marker $currentMarker -PayloadTest ([pscustomobject]@{contract=$contract}))){$fail+='current marker rejected'}
+
+    $legacyMarker=Join-Path $markerRoot 'legacy.json'
+    [ordered]@{schemaVersion='1.0';managedBy='KI-STACK-COMFYUI-MANAGED';release='KI-Stack-ComfyUI-Execute-v1.2.1';repository='https://github.com/Comfy-Org/ComfyUI.git';tag='v0.28.0';commit='700821e1364eaab0e8f21c538a2131719fec57bf'}|
+        ConvertTo-Json|Set-Content -LiteralPath $legacyMarker -Encoding UTF8
+    try{if(Test-ComfyMarker -Marker $legacyMarker -PayloadTest ([pscustomobject]@{contract=$contract})){$fail+='legacy marker incorrectly compliant'}}catch{$fail+="valid legacy marker threw: $($_.Exception.Message)"}
+
+    $malformedMarker=Join-Path $markerRoot 'malformed.json';[IO.File]::WriteAllText($malformedMarker,'{"schemaVersion":',[Text.UTF8Encoding]::new($false))
+    $malformedRejected=$false
+    try{[void](Test-ComfyMarker -Marker $malformedMarker -PayloadTest ([pscustomobject]@{contract=$contract}))}
+    catch{$malformedRejected=$_.Exception.Message -like 'ComfyUI-Marker*enthält kein gültiges JSON:*'}
+    if(-not$malformedRejected){$fail+='malformed marker lacked explanatory validation error'}
 }
 finally { Remove-Item $fixture -Recurse -Force }
-$result=[ordered]@{passed=($fail.Count-eq0);version='1.2.4';checks=10;failures=$fail};$result|ConvertTo-Json -Depth 10
+$result=[ordered]@{passed=($fail.Count-eq0);version='1.2.4';checks=13;failures=$fail};$result|ConvertTo-Json -Depth 10
 if ($fail.Count) { throw ($fail-join'; ') }

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "targetRoot": "modules/integration",
+  "generatedMarker": "installation.json",
+  "files": [
+    "Start-KIStack-IntegratedStack.cmd",
+    "Start-KIStack-OpenWebUI-WithSearch.cmd",
+    "Start-KIStack-SearXNG.cmd",
+    "Start-KIStack-SearXNG.ps1",
+    "Stop-KIStack-IntegratedStack.cmd",
+    "Stop-KIStack-SearXNG.cmd",
+    "Stop-KIStack-SearXNG.ps1"
+  ]
+}

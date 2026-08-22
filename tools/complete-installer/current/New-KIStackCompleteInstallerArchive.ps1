@@ -79,18 +79,8 @@ function Initialize-GeneratedBuildPayloads {
     }
 }
 
-$payloadDefinitions = @(
-    [ordered]@{ key='ComfyUI'; source='tools/comfyui/current'; file='KI-Stack-ComfyUI-Execute-v1.2.4.zip'; root=$null },
-    [ordered]@{ key='CutoverRuntime'; source='tools/cutover-runtime/current'; file='KI-Stack-Cutover-Execute-v1.6.5-core.zip'; root='KI-Stack-Cutover-Execute-v1.6.5' },
-    [ordered]@{ key='Integration'; source='tools/integration/current'; file='KI-Stack-Integration-Execute-v1.5.10.zip'; root=$null },
-    [ordered]@{ key='ModelsWorkflows'; source='tools/models-workflows/current'; file='KI-Stack-Visual-Models-Workflows-v2.0.3.zip'; root='KI-Stack-Visual-Models-Workflows-v2.0.3' },
-    [ordered]@{ key='CodexLocal'; source='tools/codex-local/current'; file='KI-Stack-Codex-Local-v0.1.3.zip'; root='KI-Stack-Codex-Local-v0.1.3' },
-    [ordered]@{ key='RAG'; source='tools/rag/current'; file='KI-Stack-RAG-v0.2.0.zip'; root='KI-Stack-RAG-v0.2.0' },
-    [ordered]@{ key='OpenWebUIAgentPack'; source='tools/openwebui-agent-pack/current'; file='KI-Stack-OpenWebUI-Agent-Pack-v1.8.9.zip'; root=$null },
-    [ordered]@{ key='OpenWebUIBallisticsPack'; source='tools/openwebui-ballistics-pack/current'; file='KI-Stack-OpenWebUI-Ballistics-Pack-v1.0.0.zip'; root='KI-Stack-OpenWebUI-Ballistics-Pack-v1.0.0' },
-    [ordered]@{ key='OpenWebUIVisualPack'; source='tools/openwebui-visual-pack/current'; file='KI-Stack-OpenWebUI-Visual-Pack-v2.0.5.zip'; root='KI-Stack-OpenWebUI-Visual-Pack-v2.0.5' },
-    [ordered]@{ key='ValidationGate'; source='tools/package-validation-gate/current'; file='KI-Stack-Universal-Package-Validation-Gate-v1.0.3.zip'; root='KI-Stack-Universal-Package-Validation-Gate-v1.0.3' }
-)
+$payloadContract=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Contracts/REQUIRED-PAYLOADS.json') -Raw|ConvertFrom-Json -Depth 30
+$payloadDefinitions=@($payloadContract.payloads)
 
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('ki-stack-complete-build-' + [guid]::NewGuid().ToString('N'))
 $payloadRoot = Join-Path $tempRoot 'payloads'
@@ -109,7 +99,7 @@ try {
         Initialize-GeneratedBuildPayloads -Key $definition.key -SourceRoot $buildSource -StateRoot (Join-Path $tempRoot 'download-state')
         Update-SourceChecksums -SourceRoot $buildSource
         $payloadArchive = Join-Path $payloadRoot $definition.file
-        New-DeterministicArchive -SourceRoot $buildSource -Destination $payloadArchive -ArchiveRoot $definition.root
+        New-DeterministicArchive -SourceRoot $buildSource -Destination $payloadArchive -ArchiveRoot $definition.archiveRoot
         $destination = Join-Path $stage ('Payload\' + $definition.key)
         New-Item -ItemType Directory -Path $destination -Force | Out-Null
         Copy-Item -LiteralPath $payloadArchive -Destination $destination
@@ -118,6 +108,7 @@ try {
     Get-ChildItem -LiteralPath $PSScriptRoot -Force |
         Where-Object { $_.Name -notin @('SHA256SUMS.txt','Payload') } |
         Copy-Item -Destination $stage -Recurse -Force
+    $payloadValidation=& (Join-Path $stage 'Test-KIStackRequiredPayloads.ps1') -PackageRoot $stage -RequireAllDeclared -ThrowOnFailure
     Update-SourceChecksums -SourceRoot $stage
 
     New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
@@ -133,6 +124,7 @@ try {
         sizeBytes = (Get-Item -LiteralPath $zipPath).Length
         sha256 = $hash
         payloads = @($payloadDefinitions.key)
+        payloadValidation = $payloadValidation
         sourceOnlyBuild = $true
         targetSystemAccessed = $false
     }

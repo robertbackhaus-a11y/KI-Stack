@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "version": "2.4.0-rc3",
+  "version": "2.4.0-rc9",
   "targetRoot": "C:\\KI-Stack",
   "stateDirectory": "C:\\KI-Stack\\state\\complete-installer",
   "backupDirectory": "C:\\KI-Stack\\backups\\complete-installer",

@@ -17,6 +17,16 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'Core\KIStack.BuilderKernel.Core.psm1') `
     -Force -ErrorAction Stop
 
+function Get-KIInstallResultControlStatus {
+    param([AllowNull()][object]$InstallResult)
+    if($null-eq$InstallResult){return $null}
+    $dataProperty=$InstallResult.PSObject.Properties['data']
+    if($null-eq$dataProperty-or$null-eq$dataProperty.Value){return $null}
+    $statusProperty=$dataProperty.Value.PSObject.Properties['status']
+    if($null-eq$statusProperty){return $null}
+    [string]$statusProperty.Value
+}
+
 $config = Read-KIJson -Path $ConfigPath
 
 if ($Mode -eq 'Execute') {
@@ -188,6 +198,7 @@ $contextBase = [pscustomobject][ordered]@{
 }
 
 $failureDetected = $false
+$restartRequired = $false
 
 foreach ($module in $modules) {
     if (-not $module.enabled) { continue }
@@ -271,6 +282,25 @@ foreach ($module in $modules) {
 
         $moduleState.result = $installResult
         $context.ModuleResult = $installResult
+
+        $installControlStatus=Get-KIInstallResultControlStatus -InstallResult $installResult
+        if ($installControlStatus -in @('RebootRequired','WaitingForRestart')) {
+            $restartRequired = $true
+            $moduleState.status = 'WaitingForRestart'
+            $moduleState.completedAt = $null
+            $moduleState.error = $null
+            Add-KITransactionEvent `
+                -Transaction $transaction `
+                -Type 'ModuleWaitingForRestart' `
+                -Message ("Windows-Neustart und Resume erforderlich: {0}" -f $module.id) `
+                -Data $installResult.data
+            Write-KILog -LogPath $logPath -Entry (
+                New-KILogEntry -Level 'Warning' -Component $module.id `
+                    -Message ([string]$installResult.message) `
+                    -Data $installResult
+            )
+            break
+        }
 
         $validationResult = Invoke-KIModuleCommand `
             -Module $module -Command Validate -Context $context
@@ -364,8 +394,8 @@ foreach ($module in $modules) {
     }
 }
 
-$transaction.currentModuleId = $null
-$transaction.status = if ($failureDetected) { 'Failed' } else { 'Completed' }
+$transaction.currentModuleId = if ($restartRequired) { $transaction.currentModuleId } else { $null }
+$transaction.status = if ($failureDetected) { 'Failed' } elseif ($restartRequired) { 'WaitingForRestart' } else { 'Completed' }
 $transaction.updatedAt = (Get-Date).ToString('o')
 
 Add-KITransactionEvent `
@@ -382,7 +412,7 @@ $result = [pscustomobject][ordered]@{
     mode = $transaction.mode
     status = $transaction.status
     completedAt = $transaction.updatedAt
-    resumeAvailable = ($transaction.status -eq 'Failed')
+    resumeAvailable = ($transaction.status -in @('Failed','WaitingForRestart'))
     transactionPath = $transactionPath
     logPath = $logPath
     modules = @($transaction.modules)
@@ -425,5 +455,11 @@ if ($failureDetected) {
     Write-Host ("Fehlerbericht: {0}" -f $failureSummaryPath) -ForegroundColor Yellow
     Write-Host ''
     exit 30
+}
+if ($restartRequired) {
+    Write-Host 'WINDOWS-NEUSTART ERFORDERLICH.' -ForegroundColor Yellow
+    Write-Host ("Danach diese Transaktion mit -Resume -TransactionId '{0}' fortsetzen." -f $transaction.transactionId) -ForegroundColor Yellow
+    Write-Host ''
+    exit 31
 }
 exit 0

@@ -19,6 +19,6 @@ foreach($contract in @('/api/v1/knowledge/','/api/v1/knowledge/create','/api/v1/
 if($moduleText-match'(?i)api[_-]?key\s*=.*ConvertFrom-RAGSecureString'){$failures.Add('API-Key darf nicht persistiert werden.')}
 $required=@('source_id','source_type','project','relative_path','file_name','file_sha256','document_version','section','chunk_index','imported_at','modified_at','content_language','visibility','parser_version')
 foreach($field in $required){if(@($config.metadataFields)-notcontains$field){$failures.Add("Metadatenfeld fehlt: $field")}}
-$result=[pscustomobject]@{passed=($failures.Count-eq0);version=[string]$config.version;failures=@($failures);openWebUIContract='0.10.2';mutatesTarget=$false}
+$result=[pscustomobject]@{passed=($failures.Count-eq0);version=[string]$config.version;failures=@($failures);openWebUIContract='0.11.0';mutatesTarget=$false}
 $result|ConvertTo-Json -Depth 20
 if(-not$result.passed){exit 1}
