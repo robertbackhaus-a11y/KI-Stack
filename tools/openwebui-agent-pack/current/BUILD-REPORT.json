@@ -4,7 +4,7 @@
   "version": "1.8.9",
   "status": "StaticPendingValidation_TargetPending",
   "sourceContract": "two canonical workspace models",
-  "deployment": "OpenWebUI 0.10.2 HTTP API",
+  "deployment": "OpenWebUI 0.11.0 HTTP API",
   "containsSecrets": false,
   "containsPersonalPaths": false,
   "deterministicArchive": true

@@ -1,4 +1,4 @@
-# Model contract 2.3.2
+# Model contract 2.4.0-rc11
 
 - LM Studio exposes Heretic as the only chat LLM.
 - `nomic-embed-text-v1.5.Q4_K_M.gguf` is acquired automatically into the current user's LM Studio home. Nomic is embedding-only and must never be selectable as a chat model.

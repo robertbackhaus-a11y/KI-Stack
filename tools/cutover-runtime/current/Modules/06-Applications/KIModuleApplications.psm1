@@ -32,14 +32,79 @@ function Read-KIApplicationsRollbackState {
 function Invoke-KIApplicationCommand {
     param(
         [Parameter(Mandatory)][string]$FilePath,
-        [Parameter(Mandatory)][string[]]$ArgumentList
+        [Parameter(Mandatory)][string[]]$ArgumentList,
+        [int]$TimeoutSeconds = 120,
+        [AllowNull()][object]$Context = $null,
+        [string]$Operation = 'ExternalCommand'
     )
-    $commandOutput = @(& $FilePath @ArgumentList 2>&1)
-    $commandExitCode = $LASTEXITCODE
-    return [pscustomobject][ordered]@{
-        exitCode = $commandExitCode
-        output = @($commandOutput | ForEach-Object { [string]$_ })
+    if ($TimeoutSeconds -le 0) { throw 'TimeoutSeconds muss größer als 0 sein.' }
+    Write-KIApplicationsProgress -Context $Context -Step 'WaitStarted' -Data ([ordered]@{
+        target=$Operation;timeoutSeconds=$TimeoutSeconds
+    })
+    $startInfo = [Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $FilePath
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    foreach ($argument in $ArgumentList) { [void]$startInfo.ArgumentList.Add($argument) }
+    $process = [Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    try {
+        if (-not $process.Start()) { throw "Prozess konnte nicht gestartet werden: $FilePath" }
+        $standardOutput = $process.StandardOutput.ReadToEndAsync()
+        $standardError = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            try { $process.Kill($true) } catch {}
+            try { $process.WaitForExit() } catch {}
+            $message = ('Timeout bei {0} nach {1} Sekunden.' -f $Operation,$TimeoutSeconds)
+            Write-KIApplicationsProgress -Context $Context -Step 'WaitTimedOut' -Level 'Error' -Data ([ordered]@{
+                target=$Operation;timeoutSeconds=$TimeoutSeconds;message=$message
+            })
+            throw $message
+        }
+        $output = [Collections.Generic.List[string]]::new()
+        foreach ($line in @((($standardOutput.GetAwaiter().GetResult()) -split "`r?`n"))) {
+            if (-not [string]::IsNullOrEmpty($line)) { [void]$output.Add($line) }
+        }
+        foreach ($line in @((($standardError.GetAwaiter().GetResult()) -split "`r?`n"))) {
+            if (-not [string]::IsNullOrEmpty($line)) { [void]$output.Add($line) }
+        }
+        Write-KIApplicationsProgress -Context $Context -Step 'WaitCompleted' -Data ([ordered]@{
+            target=$Operation;timeoutSeconds=$TimeoutSeconds;exitCode=$process.ExitCode
+        })
+        return [pscustomobject][ordered]@{
+            exitCode = $process.ExitCode
+            output = @($output)
+        }
     }
+    catch {
+        if ($_.Exception.Message -notlike 'Timeout bei *') {
+            Write-KIApplicationsProgress -Context $Context -Step 'WaitFailed' -Level 'Error' -Data ([ordered]@{
+                target=$Operation;timeoutSeconds=$TimeoutSeconds;message=$_.Exception.Message
+            })
+        }
+        throw
+    }
+    finally {
+        $process.Dispose()
+    }
+}
+
+function Write-KIApplicationsProgress {
+    param(
+        [AllowNull()][object]$Context,
+        [Parameter(Mandatory)][string]$Step,
+        [ValidateSet('Info','Warning','Error')][string]$Level = 'Info',
+        [AllowNull()][object]$Data = $null
+    )
+    $logPath = [string](Get-KIOptionalPropertyValue -Object $Context -Name 'LogPath')
+    if ([string]::IsNullOrWhiteSpace($logPath)) { return }
+    $entry = [pscustomobject][ordered]@{
+        timestamp=(Get-Date).ToString('o');level=$Level;component='KIModuleApplications'
+        message=$Step;data=$Data
+    }
+    Add-Content -LiteralPath $logPath -Value ($entry|ConvertTo-Json -Depth 20 -Compress) -Encoding UTF8
 }
 
 function Get-KIOptionalPropertyValue {
@@ -81,6 +146,7 @@ function Write-KIApplicationsDiagnostic {
 }
 
 function Resolve-KIApplicationPython {
+    param([AllowNull()][object]$Context = $null)
     $candidatePaths = [System.Collections.Generic.List[string]]::new()
     foreach ($command in @(Get-Command python.exe -All -ErrorAction SilentlyContinue)) {
         $source = [string](Get-KIOptionalPropertyValue -Object $command -Name 'Source')
@@ -103,7 +169,7 @@ function Resolve-KIApplicationPython {
         if ($normalizedCandidatePath -match '(?i)\\Microsoft\\WindowsApps\\') { continue }
         $versionResult = Invoke-KIApplicationCommand -FilePath $candidatePath -ArgumentList @(
             '-c', 'import sys; print(".".join(map(str,sys.version_info[:3]))); raise SystemExit(0 if (3,11) <= sys.version_info[:2] < (3,13) else 1)'
-        )
+        ) -TimeoutSeconds 30 -Context $Context -Operation 'PythonVersionProbe'
         $versionText = (($versionResult.output -join '').Trim())
         [void]$tested.Add([pscustomobject][ordered]@{
             path = $candidatePath
@@ -137,7 +203,7 @@ function Get-KILMStudioState {
     if ($wingetCommand) {
         $listResult = Invoke-KIApplicationCommand -FilePath $wingetCommand.Source -ArgumentList @(
             'list','--id',$packageId,'--exact','--source','winget','--disable-interactivity'
-        )
+        ) -TimeoutSeconds 120 -Context $Context -Operation 'LMStudioWingetInventory'
         $wingetOutput = @($listResult.output)
         $combinedOutput = $wingetOutput -join [Environment]::NewLine
         $wingetInstalled = ($listResult.exitCode -eq 0 -and $combinedOutput.Contains($packageId))
@@ -225,7 +291,7 @@ function Get-KIOpenWebUIVersion {
     if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) { return $null }
     $versionResult = Invoke-KIApplicationCommand -FilePath $venvPython -ArgumentList @(
         '-c', "import importlib.metadata as metadata; print(metadata.version('open-webui'))"
-    )
+    ) -TimeoutSeconds 30 -Context $Context -Operation 'OpenWebUIVersionProbe'
     if ($versionResult.exitCode -ne 0) { return $null }
     return (($versionResult.output -join '').Trim())
 }
@@ -268,19 +334,36 @@ function Install-KIApplicationFile {
 }
 
 function Test-KIApplicationEndpoint {
-    param([Parameter(Mandatory)][string]$Uri)
+    param(
+        [Parameter(Mandatory)][string]$Uri,
+        [Parameter(Mandatory)][string]$Name,
+        [AllowNull()][object]$Context = $null,
+        [int]$TimeoutSeconds = 3
+    )
+    Write-KIApplicationsProgress -Context $Context -Step 'ReadinessWaitStarted' -Data ([ordered]@{
+        target=$Name;uri=$Uri;timeoutSeconds=$TimeoutSeconds;required=$false
+    })
     try {
-        $response = Invoke-WebRequest -Uri $Uri -Method Get -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
-        return ([int]$response.StatusCode -ge 200 -and [int]$response.StatusCode -lt 500)
+        $response = Invoke-WebRequest -Uri $Uri -Method Get -TimeoutSec $TimeoutSeconds -UseBasicParsing -ErrorAction Stop
+        $reachable = ([int]$response.StatusCode -ge 200 -and [int]$response.StatusCode -lt 500)
+        Write-KIApplicationsProgress -Context $Context -Step 'ReadinessWaitCompleted' -Data ([ordered]@{
+            target=$Name;timeoutSeconds=$TimeoutSeconds;reachable=$reachable;required=$false
+        })
+        return $reachable
     }
-    catch { return $false }
+    catch {
+        Write-KIApplicationsProgress -Context $Context -Step 'ReadinessNotRequired' -Level 'Warning' -Data ([ordered]@{
+            target=$Name;timeoutSeconds=$TimeoutSeconds;reachable=$false;classification='InstalledNotStarted';message=$_.Exception.Message
+        })
+        return $false
+    }
 }
 
 function Test-KIModuleApplications {
     param([Parameter(Mandatory)][object]$Context)
     try {
         Write-KIApplicationsDiagnostic -Context $Context -Step 'PrerequisiteTestStarted'
-        $pythonState = Resolve-KIApplicationPython
+        $pythonState = Resolve-KIApplicationPython -Context $Context
         $wingetCommand = Get-Command winget.exe -ErrorAction SilentlyContinue
         $lmState = Get-KILMStudioState -Context $Context
         $success = ([bool]$pythonState.compatible -and ($lmState.installed -or $null -ne $wingetCommand))
@@ -322,7 +405,7 @@ function Install-KIModuleApplications {
     $dataRoot = [string]$webConfig.dataRoot
     $venvPython = Join-Path $venvRoot 'Scripts\python.exe'
     $targetVersion = [string]$webConfig.version
-    $pythonState = Resolve-KIApplicationPython
+    $pythonState = Resolve-KIApplicationPython -Context $Context
     if (-not [bool]$pythonState.compatible -or [string]::IsNullOrWhiteSpace([string]$pythonState.path)) {
         throw ('Kein kompatibles Python 3.11/3.12 gefunden. Geprüfte Kandidaten: {0}' -f ((@($pythonState.tested) | ConvertTo-Json -Depth 20 -Compress)))
     }
@@ -374,6 +457,7 @@ function Install-KIModuleApplications {
         }
     }
 
+    Write-KIApplicationsProgress -Context $Context -Step 'LMStudioPhaseStarted'
     $lmStateBefore = Get-KILMStudioState -Context $Context
     if ([bool]$lmConfig.enabled -and -not [bool]$lmStateBefore.installed) {
         if (-not [bool]$lmConfig.allowWingetInstall -or -not [bool]$lmStateBefore.wingetAvailable) {
@@ -383,7 +467,7 @@ function Install-KIModuleApplications {
         $installResult = Invoke-KIApplicationCommand -FilePath $wingetCommand.Source -ArgumentList @(
             'install','--id',[string]$lmConfig.packageId,'--exact','--source','winget','--silent',
             '--accept-package-agreements','--accept-source-agreements','--disable-interactivity'
-        )
+        ) -TimeoutSeconds 1800 -Context $Context -Operation 'LMStudioWingetInstall'
         foreach ($outputLine in @($installResult.output)) { Write-Host $outputLine }
         $lmStateAfterInstall = Get-KILMStudioState -Context $Context
         if (-not [bool]$lmStateAfterInstall.installed) {
@@ -392,13 +476,17 @@ function Install-KIModuleApplications {
         $rollbackState.lmStudioInstalledByTransaction = $true
         Write-KIApplicationsRollbackState -Context $Context -State $rollbackState
     }
+    Write-KIApplicationsProgress -Context $Context -Step 'LMStudioPhaseCompleted' -Data ([ordered]@{
+        installed=$true;installedByTransaction=[bool]$rollbackState.lmStudioInstalledByTransaction
+    })
 
+    Write-KIApplicationsProgress -Context $Context -Step 'OpenWebUIPhaseStarted' -Data ([ordered]@{targetVersion=$targetVersion})
     $venvExistedBefore = Test-Path -LiteralPath $venvPython -PathType Leaf
     $previousVersion = Get-KIOpenWebUIVersion -Context $Context
     $rollbackState.openWebUIPreviousVersion = $previousVersion
     if (-not $venvExistedBefore) {
         Write-KIApplicationsDiagnostic -Context $Context -Step 'CreateOpenWebUIVenv' -Data $venvRoot
-        $venvResult = Invoke-KIApplicationCommand -FilePath $pythonPath -ArgumentList @('-m','venv',$venvRoot)
+        $venvResult = Invoke-KIApplicationCommand -FilePath $pythonPath -ArgumentList @('-m','venv',$venvRoot) -TimeoutSeconds 300 -Context $Context -Operation 'OpenWebUIVenvCreate'
         if ($venvResult.exitCode -ne 0 -or -not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
             throw ('Open-WebUI-Venv konnte nicht erstellt werden. Python: {0}; Exitcode: {1}; Ausgabe: {2}' -f $pythonPath,$venvResult.exitCode,(@($venvResult.output | Select-Object -Last 25) -join ' | '))
         }
@@ -409,7 +497,7 @@ function Install-KIModuleApplications {
     if ([bool]$webConfig.pipUpgrade) {
         $pipUpgradeResult = Invoke-KIApplicationCommand -FilePath $venvPython -ArgumentList @(
             '-m','pip','install','--upgrade','--disable-pip-version-check','--no-input','pip'
-        )
+        ) -TimeoutSeconds 1800 -Context $Context -Operation 'OpenWebUIPipUpgrade'
         foreach ($outputLine in @($pipUpgradeResult.output)) { Write-Host $outputLine }
         if ($pipUpgradeResult.exitCode -ne 0) { throw ('pip-Upgrade im Open-WebUI-Venv ist fehlgeschlagen. Exitcode: {0}; Ausgabe: {1}' -f $pipUpgradeResult.exitCode,(@($pipUpgradeResult.output | Select-Object -Last 25) -join ' | ')) }
     }
@@ -419,7 +507,7 @@ function Install-KIModuleApplications {
         $packageSpec = ('{0}=={1}' -f [string]$webConfig.packageName,$targetVersion)
         $installWebResult = Invoke-KIApplicationCommand -FilePath $venvPython -ArgumentList @(
             '-m','pip','install','--upgrade','--prefer-binary','--disable-pip-version-check','--no-input',$packageSpec
-        )
+        ) -TimeoutSeconds 1800 -Context $Context -Operation 'OpenWebUIPackageInstall'
         foreach ($outputLine in @($installWebResult.output)) { Write-Host $outputLine }
         $installedVersion = Get-KIOpenWebUIVersion -Context $Context
         if ($installWebResult.exitCode -ne 0 -or $installedVersion -ne $targetVersion) {
@@ -446,7 +534,7 @@ set "SCARF_NO_ANALYTICS=true"
 set "DO_NOT_TRACK=true"
 set "ANONYMIZED_TELEMETRY=false"
 set "PYTHONNOUSERSITE=1"
-"__VENV_PYTHON__" -m open_webui serve --host __BIND_ADDRESS__ --port __PORT__
+"__VENV_PYTHON__" -c "from open_webui import app; app()" serve --host __BIND_ADDRESS__ --port __PORT__
 set "EC=%ERRORLEVEL%"
 echo.
 echo Open WebUI wurde beendet. Exitcode: %EC%
@@ -548,7 +636,7 @@ exit /b %ERRORLEVEL%
 
     $marker = [pscustomobject][ordered]@{
         managedBy = 'KI-STACK-APPLICATIONS-MANAGED'
-        release = 'KI-Stack-Applications-Execute-v1.4.10'
+        release = 'KI-Stack-Applications-Execute-v1.4.11'
         installedAt = (Get-Date).ToString('o')
         transactionId = [string]$Context.Transaction.transactionId
         lmStudio = [pscustomobject][ordered]@{
@@ -566,6 +654,10 @@ exit /b %ERRORLEVEL%
     }
     $markerContent = $marker | ConvertTo-Json -Depth 20
     Install-KIApplicationFile -Context $Context -RollbackState $rollbackState -Path ([string]$applicationConfig.installationMarker) -Content $markerContent
+    $finalOpenWebUIVersion = Get-KIOpenWebUIVersion -Context $Context
+    Write-KIApplicationsProgress -Context $Context -Step 'OpenWebUIPhaseCompleted' -Data ([ordered]@{
+        version=$finalOpenWebUIVersion;serviceStarted=$false;readinessRequired=$false
+    })
 
     return [pscustomobject][ordered]@{
         success = $true
@@ -575,7 +667,7 @@ exit /b %ERRORLEVEL%
             lmStudioInstalled = [bool]$lmState.installed
             lmStudioExecutable = $lmState.executablePath
             lmsPath = $lmState.lmsPath
-            openWebUIVersion = (Get-KIOpenWebUIVersion -Context $Context)
+            openWebUIVersion = $finalOpenWebUIVersion
             applicationStarter = $allScriptPath
             rollbackStatePath = (Get-KIApplicationsRollbackStatePath -Context $Context)
             diagnosticPath = (Get-KIApplicationsDiagnosticPath -Context $Context)
@@ -620,6 +712,8 @@ function Validate-KIModuleApplications {
         }
         catch { [void]$issues.Add('Anwendungsmarker ist kein gültiges JSON.') }
     }
+    $lmStudioReachable = Test-KIApplicationEndpoint -Uri ([string]$applicationConfig.lmStudio.serverUrl + '/v1/models') -Name 'LMStudio' -Context $Context
+    $openWebUIReachable = Test-KIApplicationEndpoint -Uri ([string]$applicationConfig.openWebUI.url) -Name 'OpenWebUI' -Context $Context
     return [pscustomobject][ordered]@{
         success = ($issues.Count -eq 0)
         skipped = $false
@@ -629,8 +723,8 @@ function Validate-KIModuleApplications {
             lmStudioInstalled = [bool]$lmState.installed
             lmsAvailable = (-not [string]::IsNullOrWhiteSpace([string]$lmState.lmsPath))
             openWebUIVersion = $actualWebVersion
-            lmStudioServerReachable = (Test-KIApplicationEndpoint -Uri ([string]$applicationConfig.lmStudio.serverUrl + '/v1/models'))
-            openWebUIReachable = (Test-KIApplicationEndpoint -Uri ([string]$applicationConfig.openWebUI.url))
+            lmStudioServerReachable = $lmStudioReachable
+            openWebUIReachable = $openWebUIReachable
         }
     }
 }
@@ -670,7 +764,7 @@ function Rollback-KIModuleApplications {
             $previousSpec = ('open-webui=={0}' -f [string]$state.openWebUIPreviousVersion)
             $restoreResult = Invoke-KIApplicationCommand -FilePath $venvPython -ArgumentList @(
                 '-m','pip','install','--upgrade','--disable-pip-version-check','--no-input',$previousSpec
-            )
+            ) -TimeoutSeconds 1800 -Context $Context -Operation 'OpenWebUIRollback'
             if ($restoreResult.exitCode -ne 0) { [void]$issues.Add('Vorherige Open-WebUI-Version konnte nicht wiederhergestellt werden.') }
         }
     }
@@ -681,7 +775,7 @@ function Rollback-KIModuleApplications {
             $wingetCommand = Get-Command winget.exe -ErrorAction Stop
             $uninstallResult = Invoke-KIApplicationCommand -FilePath $wingetCommand.Source -ArgumentList @(
                 'uninstall','--id',[string]$Context.Config.applications.lmStudio.packageId,'--exact','--source','winget','--silent','--disable-interactivity'
-            )
+            ) -TimeoutSeconds 1800 -Context $Context -Operation 'LMStudioWingetRollback'
             $lmStateAfterRollback = Get-KILMStudioState -Context $Context
             if ([bool]$lmStateAfterRollback.installed) {
                 [void]$issues.Add(('LM Studio blieb nach Rollback installiert. winget-Exitcode: {0}' -f $uninstallResult.exitCode))

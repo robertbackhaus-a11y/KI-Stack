@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "kernelVersion": "1.6.5",
+  "kernelVersion": "1.6.10",
   "stackRoot": "C:\\KI-Stack",
   "stateRoot": "C:\\KI-Stack\\state",
   "logRoot": "C:\\KI-Stack\\logs",
@@ -50,6 +50,17 @@
         "minimumVersion": "3.11.0",
         "packageManager": "winget",
         "packageId": "Python.Python.3.12"
+      },
+      {
+        "id": "VisualCppRuntimeX64",
+        "displayName": "Microsoft Visual C++ Redistributable x64",
+        "requiredFiles": [
+          "%SystemRoot%\\System32\\vcruntime140.dll",
+          "%SystemRoot%\\System32\\msvcp140.dll"
+        ],
+        "minimumVersion": "14.0.0.0",
+        "packageManager": "winget",
+        "packageId": "Microsoft.VCRedist.2015+.x64"
       }
     ]
   },
@@ -147,7 +158,7 @@
     "openWebUI": {
       "enabled": true,
       "packageName": "open-webui",
-      "version": "0.10.2",
+      "version": "0.11.0",
       "venv": "C:\\KI-Stack\\python\\venvs\\openwebui",
       "dataRoot": "C:\\KI-Stack\\OpenWebUI\\data",
       "url": "http://127.0.0.1:8080",
@@ -168,7 +179,7 @@
     "requireWsl2": true,
     "requireSystemd": true,
     "searxngRepository": "https://github.com/searxng/searxng.git",
-    "searxngRef": "277d8469c",
+    "searxngRef": "277d8469cdd4af423a42783ad426e0de09f4e2e9",
     "searxngRefType": "commit",
     "linuxRoot": "/opt/ki-stack/searxng",
     "linuxIntegrationRoot": "/opt/ki-stack/integration",
@@ -185,7 +196,7 @@
     "webLoaderConcurrentRequests": 5
   },
   "executeRelease": {
-    "releaseId": "CUTOVER-1.6.5",
+    "releaseId": "CUTOVER-1.6.10",
     "enabledModules": [
       "KIModuleFoundation",
       "KIModuleRuntime",
@@ -211,7 +222,7 @@
     "searchRecursively": true,
     "sortBy": "LastWriteTimeUtc",
     "preflightSelectionMode": "EmbeddedDefault",
-    "embeddedPreflightRelativePath": "State\\Generated\\Preflight-Continuation-v1.6.5.zip",
+    "embeddedPreflightRelativePath": "State\\Generated\\Preflight-Continuation-v1.6.10.zip",
     "allowExplicitPreflightOverride": true
   },
   "cutover": {

@@ -100,6 +100,13 @@ function Get-KIRuntimePropertyValue {
     return $DefaultValue
 }
 
+function Get-KIRuntimeFileVersion {
+    param([Parameter(Mandatory)][string]$Path)
+    $fileVersion=[Diagnostics.FileVersionInfo]::GetVersionInfo($Path).FileVersion
+    if(-not[string]::IsNullOrWhiteSpace($fileVersion)){return $fileVersion}
+    try{return [Reflection.AssemblyName]::GetAssemblyName($Path).Version.ToString()}catch{return $null}
+}
+
 function Get-KIRuntimeComponentState {
     param([Parameter(Mandatory)][object]$Component)
 
@@ -135,6 +142,25 @@ function Get-KIRuntimeComponentState {
         -PropertyNames @('packageId') `
         -DefaultValue '')
 
+    $requiredFiles = @(
+        Get-KIRuntimePropertyValue `
+            -InputObject $Component `
+            -PropertyNames @('requiredFiles') `
+            -DefaultValue @() |
+        ForEach-Object { [Environment]::ExpandEnvironmentVariables([string]$_) }
+    )
+    $missingFiles = @($requiredFiles | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) })
+    $fileVersions = @(
+        $requiredFiles |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+        ForEach-Object {
+            [pscustomobject][ordered]@{
+                path = $_
+                version = Get-KIRuntimeFileVersion -Path $_
+            }
+        }
+    )
+
     $commandInfo = $null
     if (-not [string]::IsNullOrWhiteSpace($requiredCommand)) {
         $commandInfo = Get-Command -Name $requiredCommand `
@@ -142,7 +168,17 @@ function Get-KIRuntimeComponentState {
     }
 
     $detectedVersion = $null
-    if ($commandInfo) {
+    if ($componentId -eq 'VisualCppRuntimeX64') {
+        if ($missingFiles.Count -eq 0 -and $fileVersions.Count -eq $requiredFiles.Count) {
+            $detectedVersion = @(
+                $fileVersions |
+                ForEach-Object { ConvertTo-KINormalizedVersion -VersionText ([string]$_.version) } |
+                Where-Object { $null -ne $_ } |
+                Sort-Object
+            ) | Select-Object -First 1
+        }
+    }
+    elseif ($commandInfo) {
         try {
             switch ($componentId) {
                 'PowerShell7' {
@@ -175,7 +211,15 @@ function Get-KIRuntimeComponentState {
     }
 
     $versionSufficient = $false
-    if ($detectedVersion) {
+    if ($componentId -eq 'VisualCppRuntimeX64') {
+        $versionSufficient = (
+            $requiredFiles.Count -gt 0 -and
+            $missingFiles.Count -eq 0 -and
+            $null -ne $detectedVersion -and
+            (Test-KIVersionAtLeast -DetectedVersion ([string]$detectedVersion) -MinimumVersion $minimumVersion)
+        )
+    }
+    elseif ($detectedVersion) {
         try {
             $versionSufficient = Test-KIVersionAtLeast `
                 -DetectedVersion $detectedVersion `
@@ -191,13 +235,16 @@ function Get-KIRuntimeComponentState {
         displayName = $displayName
         requiredCommand = $requiredCommand
         command = $requiredCommand
-        commandFound = ($null -ne $commandInfo)
+        commandFound = if ($componentId -eq 'VisualCppRuntimeX64') { $missingFiles.Count -eq 0 } else { $null -ne $commandInfo }
         commandPath = if ($commandInfo) { $commandInfo.Source } else { $null }
         detectedVersion = $detectedVersion
         minimumVersion = $minimumVersion
         versionSufficient = $versionSufficient
         packageManager = $packageManager
         packageId = $packageId
+        requiredFiles = $requiredFiles
+        missingFiles = $missingFiles
+        fileVersions = $fileVersions
     }
 }
 

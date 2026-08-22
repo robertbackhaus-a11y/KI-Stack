@@ -103,7 +103,9 @@ if(-not$archiveSource){
 $temp=Join-Path ([IO.Path]::GetTempPath()) ('KIStack-BuildPayload-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temp|Out-Null
 try{
-    $extract=Join-Path $temp 'extract';Expand-Archive -LiteralPath $archiveSource -DestinationPath $extract
+    $extract=Join-Path $temp 'extract'
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [IO.Compression.ZipFile]::ExtractToDirectory($archiveSource,$extract)
     $directories=@(Get-ChildItem -LiteralPath $extract -Directory);$files=@(Get-ChildItem -LiteralPath $extract -File)
     if($directories.Count-ne1-or$files.Count){throw 'Upstream archive must contain exactly one root directory.'}
     $sourceRoot=$directories[0].FullName
@@ -133,4 +135,4 @@ try{
         source=$(if($cacheCandidate-eq$archiveSource){'cache'}else{'download'})
         resumed=$(if($downloadEvidence){[bool]$downloadEvidence.resumed}else{$false})
     }
-}finally{if(Test-Path -LiteralPath $temp){Remove-Item -LiteralPath $temp -Recurse -Force}}
+}finally{if(Test-Path -LiteralPath $temp){Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction Ignore}}

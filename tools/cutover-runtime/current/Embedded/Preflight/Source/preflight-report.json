@@ -1,13 +1,13 @@
 {
   "schemaVersion": "1.0",
-  "reportId": "PREFLIGHT-CONTINUATION-CUTOVER-1.6.5",
+  "reportId": "PREFLIGHT-CONTINUATION-CUTOVER-1.6.10",
   "generatedAtUtc": "2026-07-20T06:32:03Z",
   "source": "KI-Stack embedded continuation reference",
   "baseReferences": {
     "foundationRuntime": "1.0.9",
     "pythonGit": "1.1.5",
     "comfyUI": "1.2.3",
-    "applications": "1.4.10"
+    "applications": "1.4.11"
   },
   "result": {
     "preflightPassed": true,

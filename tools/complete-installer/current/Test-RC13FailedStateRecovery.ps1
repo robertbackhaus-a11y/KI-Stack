@@ -9,7 +9,7 @@ try{
     foreach($entry in @(
         @{path='modules/comfyui/installation.json';version='1.2.4'},
         @{path='modules/models-workflows/installation.json';version='2.0.1'},
-        @{path='modules/integration/installation.json';version='1.5.10'},
+        @{path='modules/integration/installation.json';version='1.5.11'},
         @{path='modules/openwebui-agent-pack/installation.json';version='1.8.5'}
     )){[IO.File]::WriteAllText((Join-Path $fixture $entry.path),(@{version=$entry.version}|ConvertTo-Json),[Text.UTF8Encoding]::new($false))}
     [IO.File]::WriteAllText((Join-Path $state 'components.json'),(@{completeInstallerVersion='2.3.0-rc11';validatedAtUtc='2026-07-25T17:56:00Z';components=@{comfyui='1.2.2';'models-workflows'='2.0.0';integration='1.5.9';'openwebui-agent-pack'='1.8.5'}}|ConvertTo-Json -Depth 5),[Text.UTF8Encoding]::new($false))
@@ -19,7 +19,7 @@ try{
     $steps=@(
         @{id='comfyui';version='1.2.4';status='Completed';rollbackStatus=$null},
         @{id='models-workflows';version='2.0.1';status='Completed';rollbackStatus=$null},
-        @{id='integration';version='1.5.10';status='Completed';rollbackStatus=$null},
+        @{id='integration';version='1.5.11';status='Completed';rollbackStatus=$null},
         @{id='openwebui-agent-pack';version='1.8.6';status='Failed';rollbackStatus=$null;result=$null;backup=$null}
     )
     [IO.File]::WriteAllText((Join-Path $txDir 'transaction.json'),(@{transactionId='KI-COMPLETE-RC13-FIXTURE';createdAtUtc='2026-07-25T20:28:55Z';status='Failed';steps=$steps}|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))

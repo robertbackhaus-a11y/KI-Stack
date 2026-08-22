@@ -69,7 +69,7 @@ function Get-KICompleteInstalledVersion {
     $acceptancePath=Join-Path $TargetRoot 'modules/production-recovery/acceptance.json'
     $accepted=$null;if(Test-Path $acceptancePath){$accepted=Read-KICompleteJson $acceptancePath}
     if($accepted -and [bool]$accepted.passed -and [string]$accepted.recoveryRevision -eq 'r7'){
-        $acceptedVersions=@{'foundation-runtime'='1.0.9';'python-git'='1.1.5';'cutover-runtime'='1.6.5';'production-recovery'='1.7.0-r7';'validation-gate'='1.0.3';'target-acceptance'='1.0.10'}
+        $acceptedVersions=@{'foundation-runtime'='1.0.9';'python-git'='1.1.5';'cutover-runtime'='1.6.10';'production-recovery'='1.7.0-r7';'validation-gate'='1.0.3';'target-acceptance'='1.0.10'}
         if($acceptedVersions.ContainsKey([string]$Component.id)){return [string]$acceptedVersions[[string]$Component.id]}
     }
     switch ([string]$Component.id) {
@@ -151,6 +151,50 @@ function Test-KICompleteVisualPackCompliant {
     return $true
 }
 
+function Test-KICompleteCodexLocalCompliant {
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.1.3',[string]$ExpectedCodexVersion='0.145.0',[string]$ExpectedNodeVersion='24.14.0')
+    $root=Join-Path $TargetRoot 'modules/codex-local'
+    $markerPath=Join-Path $root 'installation.json'
+    $node=Join-Path $root 'runtime/node.exe'
+    $npmCli=Join-Path $root 'runtime/node_modules/npm/bin/npm-cli.js'
+    $codexCli=Join-Path $root 'npm-global/node_modules/@openai/codex/bin/codex.js'
+    foreach($path in @($markerPath,$node,$npmCli,$codexCli)){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){return $false}}
+    try{
+        $marker=Read-KICompleteJson $markerPath
+        if([string]$marker.version-ne$ExpectedComponentVersion-or[string]$marker.codexVersion-ne$ExpectedCodexVersion-or[string]$marker.nodeRuntimeVersion-ne$ExpectedNodeVersion){return $false}
+        $nodeOutput=@(& $node --version 2>&1);if($LASTEXITCODE-ne0-or($nodeOutput-join' ').Trim()-ne('v'+$ExpectedNodeVersion)){return $false}
+        $codexOutput=@(& $node $codexCli --version 2>&1);if($LASTEXITCODE-ne0){return $false}
+        return ($codexOutput-join' ') -match ('(?<!\d)'+[regex]::Escape($ExpectedCodexVersion)+'(?!\d)')
+    }catch{return $false}
+}
+
+function Test-KICompleteIntegrationCompliant {
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='1.5.11')
+    $root=Join-Path $TargetRoot 'modules/integration'
+    $markerPath=Join-Path $root 'installation.json'
+    # Must match tools/integration/current/Runtime/RUNTIME-CONTRACT.json 'files'.
+    $runtimeFiles=@(
+        'Start-KIStack-IntegratedStack.cmd','Start-KIStack-OpenWebUI-WithSearch.cmd',
+        'Start-KIStack-SearXNG.cmd','Start-KIStack-SearXNG.ps1',
+        'Stop-KIStack-IntegratedStack.cmd','Stop-KIStack-SearXNG.cmd','Stop-KIStack-SearXNG.ps1'
+    )
+    foreach($path in @($markerPath)+@($runtimeFiles|ForEach-Object{Join-Path $root $_})){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){return $false}}
+    try{
+        $marker=Read-KICompleteJson $markerPath
+        if([string]$marker.version-ne$ExpectedComponentVersion){return $false}
+    }catch{return $false}
+    # diag14: a matching marker/runtime-files snapshot alone can't tell an
+    # enabled-at-boot SearXNG apart from one only running because something
+    # started it manually this session (e.g. the adopted-existing install
+    # path). Without this, systemd not owning the service lifecycle goes
+    # undetected until the next real cold start leaves nothing to bring the
+    # services back up.
+    try{
+        $enabled=@(& wsl.exe -d Debian -u root -- systemctl is-enabled valkey-server uwsgi nginx 2>&1)
+        return (@($enabled|Where-Object{$_-eq'enabled'}).Count-eq3)
+    }catch{return $false}
+}
+
 function New-KICompletePlan {
     param([ValidateSet('Audit','Install','Upgrade','Repair','Validate')][string]$Mode,[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[hashtable]$FixtureState,[switch]$EnableOpenWebUIBallistics)
     $contract = Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
@@ -161,6 +205,8 @@ function New-KICompletePlan {
         $compliant = $installed -eq [string]$component.version
         if([string]$component.id-eq'models-workflows'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteModelsWorkflowsCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         if([string]$component.id-eq'openwebui-visual-pack'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteVisualPackCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
+        if([string]$component.id-eq'codex-local'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
+        if([string]$component.id-eq'integration'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         $reconciliationNeeded=$compliant-and$stored-ne[string]$component.version
         $plannedMode=if($Mode -eq 'Audit' -or $Mode -eq 'Validate'){$Mode}elseif($compliant){'Skip'}elseif($null-eq$installed-and$null-ne$stored){'Repair'}elseif($installed){'Upgrade'}else{'Install'}
         [pscustomobject][ordered]@{
@@ -250,9 +296,10 @@ function Expand-KICompletePayload {
         [Parameter(Mandatory)][string]$PayloadName,
         [Parameter(Mandatory)][string]$Destination
     )
-    $archive = Get-ChildItem -LiteralPath (Join-Path $PackageRoot ('Payload/' + $PayloadName)) -File -Filter '*.zip' |
-        Select-Object -First 1
-    if (-not $archive) { throw "Payload fehlt: $PayloadName" }
+    $archives = @(Get-ChildItem -LiteralPath (Join-Path $PackageRoot ('Payload/' + $PayloadName)) -File -Filter '*.zip' -ErrorAction SilentlyContinue)
+    if ($archives.Count -eq 0) { throw "Payload fehlt: $PayloadName" }
+    if ($archives.Count -ne 1) { throw "Payload ist mehrdeutig: $PayloadName; gefunden: $($archives.Count)" }
+    $archive=$archives[0]
     if (Test-Path -LiteralPath $Destination) { Remove-Item -LiteralPath $Destination -Recurse -Force }
     Expand-Archive -LiteralPath $archive.FullName -DestinationPath $Destination
     $directories = @(Get-ChildItem -LiteralPath $Destination -Directory)
@@ -376,7 +423,10 @@ function Resolve-KICompleteFailedTransactionState {
             $component=@($ComponentContract.components|Where-Object id -eq ([string]$step.id)|Select-Object -First 1)
             if($component.Count-ne1){throw "Recovery-Komponentenvertrag fehlt: $($step.id)"}
             $actual=Get-KICompleteInstalledVersion -Component $component[0] -TargetRoot $TargetRoot
-            if($actual-ne[string]$step.version){throw "Fehlgeschlagene Transaktion ist nicht recoverbar: $($step.id); erwartet=$($step.version); real=$actual"}
+            $actualCompliant=$actual-eq[string]$step.version
+            if([string]$step.id-eq'codex-local'){$actualCompliant=$actualCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+            if([string]$step.id-eq'integration'){$actualCompliant=$actualCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+            if(-not$actualCompliant){throw "Fehlgeschlagene Transaktion ist nicht recoverbar: $($step.id); erwartet=$($step.version); real=$actual"}
             $step.rollbackStatus='NotRequiredRetainedVerified'
             $stateChanged=$true
             $retained+=@([ordered]@{id=[string]$step.id;version=[string]$step.version;actualVersion=$actual})
@@ -440,9 +490,6 @@ function Install-KICompleteOperations {
         $shortcut.Arguments=if($link.ContainsKey('arguments')){[string]$link.arguments}else{''}
         $shortcut.Save();$state.changes+=@("Desktop:$($link.name)");Write-KICompleteJson $backupPath $state
     }
-    if(Get-Command wsl.exe -ErrorAction SilentlyContinue){
-        foreach($unit in @('valkey-server','uwsgi','nginx')){$enabled=((& wsl.exe -d Debian -u root -- systemctl is-enabled $unit 2>$null)-join'').Trim();$state.systemdUnits+=@([ordered]@{unit=$unit;wasEnabled=($enabled-eq'enabled');state=$enabled});Write-KICompleteJson $backupPath $state;if($enabled-eq'enabled'){$null=& wsl.exe -d Debian -u root -- systemctl disable $unit 2>&1;if($LASTEXITCODE-ne0){throw "systemd disable fehlgeschlagen: $unit"};$state.changes+=@("systemd:$unit");Write-KICompleteJson $backupPath $state}}
-    }
     if(Get-Command docker.exe -ErrorAction SilentlyContinue){
         foreach($id in @(& docker.exe ps -aq)){$inspect=& docker.exe inspect $id|ConvertFrom-Json -Depth 50;$c=$inspect[0];$owned=([string]$c.Name-match'(?i)ki.?stack|openwebui|searxng')-or([string]$c.Config.Image-match'(?i)ki.?stack|openwebui|searxng');if(-not$owned){continue};$policy=[string]$c.HostConfig.RestartPolicy.Name;$state.dockerContainers+=@([ordered]@{id=[string]$c.Id;name=[string]$c.Name;restartPolicy=$policy});if($policy-and$policy-ne'no'){$null=& docker.exe update --restart=no $c.Id;$state.changes+=@("Docker:$($c.Name)")}}
     }
@@ -469,7 +516,7 @@ function Test-KICompleteOperations {
     param([string]$TargetRoot)
     $issues=@();$runProperties=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'electron.app.LM Studio' -ErrorAction SilentlyContinue;$runProperty=if($null-ne$runProperties){$runProperties.PSObject.Properties['electron.app.LM Studio']}else{$null};if($null-ne$runProperty-and$runProperty.Value){$issues+='LM Studio Run-Autostart vorhanden.'}
     $shell=New-Object -ComObject WScript.Shell;$desktop=[Environment]::GetFolderPath('Desktop');$pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source;foreach($link in @(@{name='KI-Stack starten.lnk';target=(Join-Path $TargetRoot 'Start-KIStack.cmd');arguments=''},@{name='KI-Stack stoppen.lnk';target=(Join-Path $TargetRoot 'Stop-KIStack.cmd');arguments=''},@{name='KI-Stack Status.lnk';target=$pwsh;arguments=('-NoLogo -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $TargetRoot 'Show-KIStackStatus.ps1')+'"')})){$path=Join-Path $desktop $link.name;if(-not(Test-Path $path)){$issues+="Desktop-Link fehlt: $($link.name)";continue};$s=$shell.CreateShortcut($path);if($s.TargetPath-ne$link.target-or$s.WorkingDirectory-ne$TargetRoot-or$s.Arguments-ne$link.arguments){$issues+="Desktop-Link falsch: $($link.name)"}}
-    $units=@();if(Get-Command wsl.exe -ErrorAction SilentlyContinue){foreach($unit in @('valkey-server','uwsgi','nginx')){$enabled=((& wsl.exe -d Debian -u root -- systemctl is-enabled $unit 2>$null)-join'').Trim();$units+=@([ordered]@{unit=$unit;enabled=$enabled});if($enabled-eq'enabled'){$issues+="systemd-Autostart aktiv: $unit"}}}
+    $units=@();if(Get-Command wsl.exe -ErrorAction SilentlyContinue){foreach($unit in @('valkey-server','uwsgi','nginx')){$enabled=((& wsl.exe -d Debian -u root -- systemctl is-enabled $unit 2>$null)-join'').Trim();$active=((& wsl.exe -d Debian -u root -- systemctl is-active $unit 2>$null)-join'').Trim();$units+=@([ordered]@{unit=$unit;enabled=$enabled;active=$active});if($enabled-ne'enabled'){$issues+="systemd-Autostart nicht aktiv: $unit ($enabled)"};if($active-ne'active'){$issues+="systemd-Dienst nicht aktiv: $unit ($active)"}}}
     [pscustomobject]@{passed=($issues.Count-eq0);issues=$issues;desktop=$desktop;systemdUnits=$units}
 }
 
@@ -480,6 +527,50 @@ function Install-KICompleteOrchestrator {
     New-Item $destination -ItemType Directory -Force|Out-Null
     Copy-Item (Join-Path $PackageRoot '*') $destination -Recurse -Force
     @('installer/complete')
+}
+
+function Install-KICompleteRAGModule {
+    param([string]$ComponentRoot,[string]$TargetRoot,[string]$BackupRoot)
+    $destination=Join-Path $TargetRoot 'modules/rag'
+    $moduleBackup=Join-Path $BackupRoot 'module'
+    $starter=Join-Path $TargetRoot 'modules/integration/Start-KIStack-OpenWebUI-WithSearch.cmd'
+    $starterBackup=Join-Path $BackupRoot 'Start-KIStack-OpenWebUI-WithSearch.cmd'
+    New-Item -ItemType Directory -Path $BackupRoot -Force|Out-Null
+    if(Test-Path -LiteralPath $destination){
+        Copy-Item -LiteralPath $destination -Destination $moduleBackup -Recurse -Force
+    }
+    if(-not(Test-Path -LiteralPath $starter -PathType Leaf)){throw 'OpenWebUI-Integrationsstarter fehlt; RAG-Startvertrag kann nicht gesetzt werden.'}
+    Copy-Item -LiteralPath $starter -Destination $starterBackup -Force
+    try{
+        $preservedSources=$null
+        $sourceConfig=Join-Path $destination 'Config/sources.json'
+        if(Test-Path -LiteralPath $sourceConfig -PathType Leaf){$preservedSources=[IO.File]::ReadAllBytes($sourceConfig)}
+        if(Test-Path -LiteralPath $destination){Remove-Item -LiteralPath $destination -Recurse -Force}
+        Copy-Item -LiteralPath $ComponentRoot -Destination $destination -Recurse -Force
+        if($null-ne$preservedSources){[IO.File]::WriteAllBytes((Join-Path $destination 'Config/sources.json'),$preservedSources)}
+        $environmentPath=Join-Path $destination 'OpenWebUI-RAG.env.cmd'
+        $environment="@echo off`r`nset `"RAG_EMBEDDING_CONTENT_PREFIX=search_document: `"`r`nset `"RAG_EMBEDDING_QUERY_PREFIX=search_query: `"`r`n"
+        [IO.File]::WriteAllText($environmentPath,$environment,[Text.Encoding]::ASCII)
+        $starterText=[IO.File]::ReadAllText($starter)
+        $callLine='call "'+$environmentPath+'"'
+        if(-not$starterText.Contains($callLine)){
+            $starterText=[regex]::Replace($starterText,'(?im)^@echo off\s*',("@echo off`r`n$callLine`r`n"),1)
+            [IO.File]::WriteAllText($starter,$starterText.Replace("`r`n","`n").Replace("`n","`r`n"),[Text.Encoding]::ASCII)
+        }
+        Write-KICompleteJson (Join-Path $destination 'installation.json') ([ordered]@{
+            schemaVersion='1.0';componentId='rag';version='0.2.0'
+            openWebUIVersionContract='0.11.0';startEnvironment=$environmentPath
+            installedAtUtc=[DateTime]::UtcNow.ToString('o')
+        })
+        [pscustomobject]@{passed=$true;backupPath=$BackupRoot;moduleRoot=$destination;startContractApplied=$true;sourcesPreserved=($null-ne$preservedSources)}
+    }catch{
+        if(Test-Path -LiteralPath $destination){Remove-Item -LiteralPath $destination -Recurse -Force}
+        if(Test-Path -LiteralPath $moduleBackup){Copy-Item -LiteralPath $moduleBackup -Destination $destination -Recurse -Force}
+        Copy-Item -LiteralPath $starterBackup -Destination $starter -Force
+        $_.Exception.Data['KIStackRollbackStatus']='Completed'
+        $_.Exception.Data['KIStackBackupPath']=$BackupRoot
+        throw
+    }
 }
 
 function Test-KICompleteDeploymentCompliant {
@@ -521,13 +612,13 @@ function Invoke-KIStackCompleteInstaller {
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
     $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.3.2';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.3.2';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.4.0-rc11';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.4.0-rc11';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
     if(-not$Resume -and $plan.alreadyCompliant -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.3.2'}
-        return [pscustomobject]@{version='2.3.2';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.4.0-rc11'}
+        return [pscustomobject]@{version='2.4.0-rc11';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
     $state = [string]$config.stateDirectory
     if ($Resume) {
@@ -555,7 +646,17 @@ function Invoke-KIStackCompleteInstaller {
             $component=@($componentContract.components|Where-Object{[string]$_.id-eq[string]$step.id})|Select-Object -First 1
             if($null-eq$component){throw "Komponentenvertrag fehlt: $($step.id)"}
             Write-Host ("Schritt {0} von {1} – {2}" -f ($index+1),$tx.steps.Count,$step.name)
-            if ($step.status -eq 'Completed' -or $step.status -eq 'SkippedAlreadyCompliant') { $index++; continue }
+            if ($step.status -eq 'Completed' -or $step.status -eq 'SkippedAlreadyCompliant') {
+                $resumeActual=Get-KICompleteInstalledVersion -Component $component -TargetRoot $TargetRoot
+                $resumeCompliant=$resumeActual-eq[string]$step.version
+                if([string]$step.id-eq'codex-local'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+                if([string]$step.id-eq'integration'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+                if($resumeCompliant){$index++;continue}
+                $step.status='Planned'
+                $step.result=$null
+                $step.rollbackStatus=$null
+                $step.error="Resume-Readback erforderte erneutes Deployment; real=$resumeActual"
+            }
             $step.startTime=[DateTime]::UtcNow.ToString('o'); $step.status='Running'; Write-KICompleteJson $txPath $tx
             if ($step.id -in @('foundation-runtime','python-git','applications','cutover-runtime')) {
                 if (-not $cutoverExecuted) {
@@ -563,7 +664,7 @@ function Invoke-KIStackCompleteInstaller {
                     $cutoverRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'CutoverRuntime' -Destination $extract
                     $kernel = Join-Path $cutoverRoot 'Invoke-KIStackBuilderKernel.ps1'
                     $preflightGenerator = Join-Path $cutoverRoot 'New-KIStackEmbeddedPreflight.ps1'
-                    $preflight = Join-Path $state "$TransactionId/generated/Preflight-Continuation-v1.6.5.zip"
+                    $preflight = Join-Path $state "$TransactionId/generated/Preflight-Continuation-v1.6.10.zip"
                     if (-not (Test-Path -LiteralPath $kernel -PathType Leaf) -or -not (Test-Path -LiteralPath $preflightGenerator -PathType Leaf)) {
                         throw 'Cutover-Kernel oder Preflight-Generator fehlt.'
                     }
@@ -579,8 +680,28 @@ function Invoke-KIStackCompleteInstaller {
                         '-TransactionId',($TransactionId + '-cutover'),'-RollbackOnFailure',
                         '-ExecutionConfirmation','EXECUTE'
                     )
+                    $cutoverTransactionPath=Join-Path $cutoverState (($TransactionId + '-cutover') + '/transaction.json')
+                    if($Resume-and(Test-Path -LiteralPath $cutoverTransactionPath -PathType Leaf)){$arguments+='-Resume'}
                     $process = Start-Process -FilePath $pwsh -ArgumentList $arguments -Wait -PassThru -NoNewWindow
-                    if ($process.ExitCode -ne 0) { throw "Cutover-Kernel fehlgeschlagen: Exitcode $($process.ExitCode)" }
+                    if ($process.ExitCode -eq 31) {
+                        $kernelResultPath=Join-Path $cutoverState (($TransactionId + '-cutover') + '/kernel-result.json')
+                        if(-not(Test-Path -LiteralPath $kernelResultPath -PathType Leaf)){throw 'Cutover-Kernel meldete RebootRequired ohne fortsetzbaren Ergebnisnachweis.'}
+                        $kernelResult=Read-KICompleteJson $kernelResultPath
+                        if([string]$kernelResult.status-ne'WaitingForRestart'-or-not[bool]$kernelResult.resumeAvailable){throw 'Cutover-Kernel meldete einen inkonsistenten RebootRequired-Status.'}
+                        $step.status='WaitingForRestart'
+                        $step.endTime=[DateTime]::UtcNow.ToString('o')
+                        $step.exitCode=31
+                        $step.result=@{orchestratedBy='CutoverRuntime public kernel';transactionId=($TransactionId + '-cutover');status='RebootRequired';resumeRequired=$true;kernelResultPath=$kernelResultPath;containsSecrets=$false}
+                        $tx.status='WaitingForRestart'
+                        Write-KICompleteJson (Join-Path $state "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;status='WaitingForRestart';cutoverTransactionId=($TransactionId + '-cutover');completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant')}|ForEach-Object id);containsSecrets=$false})
+                        Write-KICompleteJson $txPath $tx
+                        return $tx
+                    }
+                    if ($process.ExitCode -ne 0) {
+                        $kernelFailure=[InvalidOperationException]::new("Cutover-Kernel fehlgeschlagen: Exitcode $($process.ExitCode)")
+                        $kernelFailure.Data['KIStackExitCode']=[int]$process.ExitCode
+                        throw $kernelFailure
+                    }
                     $cutoverExecuted = $true
                 }
                 $step.result=@{orchestratedBy='CutoverRuntime public kernel';transactionId=($TransactionId + '-cutover');validated=$true}
@@ -700,6 +821,40 @@ function Invoke-KIStackCompleteInstaller {
                 $packageRoot=Split-Path $module.FullName -Parent;$result=Install-OpenWebUIBallisticsPack $packageRoot ([string]$config.openWebUIEndpoint) $OpenWebUIApiToken '' (Join-Path ([string]$config.backupDirectory) "$TransactionId/ballistics") $TargetRoot
                 $step.result=$result;$step.backup=$result.backupPath
             }
+            elseif ($step.id -eq 'codex-local') {
+                $extract=Join-Path $state "$TransactionId/CodexLocal"
+                $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'CodexLocal' -Destination $extract
+                $entry=Join-Path $componentRoot 'Invoke-KIStackCodexLocal.ps1'
+                if(-not(Test-Path -LiteralPath $entry -PathType Leaf)){throw 'Codex-Local-Einstieg fehlt.'}
+                $result=$null
+                try{
+                    $result=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Install';TargetRoot=$TargetRoot;WorkspacePath=$TargetRoot}
+                    if(-not[bool]$result.passed){throw 'Codex-Local-Installation fehlgeschlagen.'}
+                    $validation=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
+                    if(-not[bool]$validation.passed){throw 'Codex-Local-Validierung fehlgeschlagen.'}
+                    $step.backup=[string]$result.marker.backupPath
+                    $step.result=@{install=$result;validation=$validation;backupPath=[string]$result.marker.backupPath;validated=$true}
+                }catch{
+                    if($null -ne $result -and$null-ne$result.marker-and-not [string]::IsNullOrWhiteSpace([string]$result.marker.backupPath)){
+                        $rollback=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Rollback';BackupPath=[string]$result.marker.backupPath}
+                        $_.Exception.Data['KIStackRollbackStatus']=if([bool]$rollback.passed){'Completed'}else{'Failed'}
+                        $_.Exception.Data['KIStackBackupPath']=[string]$result.marker.backupPath
+                    }
+                    throw
+                }
+            }
+            elseif ($step.id -eq 'rag') {
+                $extract=Join-Path $state "$TransactionId/RAG"
+                $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'RAG' -Destination $extract
+                $test=Join-Path $componentRoot 'Test-KIStackRAG.ps1'
+                if(-not(Test-Path -LiteralPath $test -PathType Leaf)){throw 'RAG-Selbsttest fehlt.'}
+                $validation=Invoke-KICompleteJsonScript -Script $test -Arguments @{PackageRoot=$componentRoot}
+                if(-not[bool]$validation.passed){throw ('RAG-Quellvalidierung fehlgeschlagen: '+(@($validation.failures)-join'; '))}
+                $backupRoot=Join-Path ([string]$config.backupDirectory) "$TransactionId/rag"
+                $result=Install-KICompleteRAGModule -ComponentRoot $componentRoot -TargetRoot $TargetRoot -BackupRoot $backupRoot
+                $step.backup=$backupRoot
+                $step.result=@{install=$result;validation=$validation;ingestionDeferred=$true;validated=$true}
+            }
             elseif ($step.id -eq 'validation-gate') {
                 $payload=Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload/ValidationGate') -File -Filter '*.zip'|Select-Object -First 1
                 if(-not$payload){throw 'Validation-Gate-Payload fehlt.'}
@@ -769,7 +924,7 @@ function Invoke-KIStackCompleteInstaller {
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
         $componentStatePath=Join-Path $state 'components.json';$componentVersions=[ordered]@{}
         foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
-        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.3.2';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
+        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.4.0-rc11';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
         Write-KICompleteJson $txPath $tx; return $tx
     }
     catch {
@@ -836,4 +991,3 @@ function Invoke-KIStackCompleteInstaller {
 }
 
 Export-ModuleMember -Function *
-

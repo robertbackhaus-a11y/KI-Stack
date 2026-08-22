@@ -2,9 +2,9 @@
 
 Status: `StaticPendingValidation_TargetPending`. 1.8.9 aktualisiert ausschließlich den verbindlichen Visual-Pack-Abhängigkeitsvertrag auf 2.0.5; die StrictMode-sichere HTTP-Fehlerklassifizierung und der automatische Rollback aus 1.8.7 bleiben unverändert.
 
-Reproduzierbares Paket für genau zwei verwaltete OpenWebUI-0.10.2-Workspace-Modelle: `ki-stack-it-technik` (`KI & IT-Technik`) und `ki-stack-allgemein` (`Allgemein`).
+Reproduzierbares Paket für genau zwei verwaltete OpenWebUI-0.11.0-Workspace-Modelle: `ki-stack-it-technik` (`KI & IT-Technik`) und `ki-stack-allgemein` (`Allgemein`).
 
-Die LM-Studio-Verbindung wird über den realen OpenWebUI-0.10.2-Vertrag
+Die LM-Studio-Verbindung wird über den realen OpenWebUI-0.11.0-Vertrag
 `OPENAI_API_CONFIGS.<index>.model_ids` auf Heretic begrenzt. Dadurch bleiben
 Nomic und fremde LM-Studio-Modelle aus dem Chat-Modellwähler ausgeschlossen.
 Der vorherige Verbindungsfilter wird ohne API-Schlüssel im Transaktionsbackup

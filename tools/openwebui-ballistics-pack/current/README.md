@@ -1,6 +1,6 @@
 # KI-Stack OpenWebUI Ballistics Pack 1.0.0
 
-This package installs exactly one managed OpenWebUI 0.10.2 profile (`ki-stack-18bravo`, display name `18Bravo`) and exactly one exclusively bound tool (`ki_stack_ballistics_calculator`). It is a technical calculator for lawful sporting, hunting and engineering use and does not claim military identity or experience.
+This package installs exactly one managed OpenWebUI 0.11.0 profile (`ki-stack-18bravo`, display name `18Bravo`) and exactly one exclusively bound tool (`ki_stack_ballistics_calculator`). It is a technical calculator for lawful sporting, hunting and engineering use and does not claim military identity or experience.
 
 The solver is the pinned `pyballistic` 2.2.0 wheel with the pure-Python RK4 engine. G1 and G7 are supported. SciPy, Cython, compiled extension and chart engines are neither selected nor installed. Payloads are resolved solely by file name, size and SHA256; Git is never needed at package runtime.
 

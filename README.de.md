@@ -13,7 +13,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | ComfyUI | 1.2.4 | Stabile Komponente; transaktionaler Marker/Readback |
 | Modelle / Workflows | 2.0.3 | Automatischer revisionsgebundener Modelldownload einschließlich Nomic Q4_K_M mit optionalem geprüftem Cache/Preload |
 | Applications | 1.4.10 | Stabil; LM Studio und Open WebUI 0.10.2 auf dem Zielsystem akzeptiert |
-| Integration | 1.5.10 | Stabile Komponente; feste SearXNG-Revision plus getracktes Overlay |
+| Integration | 1.5.11 | Stabile Komponente; feste SearXNG-Revision plus getracktes Overlay |
 | Cutover Runtime | 1.6.5 | Stabile Komponente; transaktionslokaler Fortsetzungszustand |
 | Production Recovery | 1.7.0-r7 | Auf dem Zielsystem akzeptiert; SearXNG-Kaltstart repariert |
 | Universeller Paket-Validation-Gate | 1.0.3 | Auf dem Zielsystem aktiviert |

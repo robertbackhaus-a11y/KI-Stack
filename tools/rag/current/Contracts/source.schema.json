@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KI-Stack RAG source",
+  "type": "object",
+  "required": ["source_id", "source_type", "project", "root", "visibility", "enabled"],
+  "properties": {
+    "source_id": {"type": "string", "minLength": 1},
+    "source_type": {"enum": ["directory", "repository", "documents"]},
+    "project": {"type": "string", "minLength": 1},
+    "root": {"type": "string", "minLength": 1},
+    "visibility": {"enum": ["private", "internal", "public"]},
+    "enabled": {"type": "boolean"}
+  },
+  "additionalProperties": false
+}

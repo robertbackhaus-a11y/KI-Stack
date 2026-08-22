@@ -22,8 +22,8 @@ $expectedModules = @(
 )
 $actualModules = @($config.executeRelease.enabledModules)
 Add-Check 'Version contract' (
-    [string]$config.kernelVersion -eq '1.6.5' -and
-    [string]$config.executeRelease.releaseId -eq 'CUTOVER-1.6.5'
+    [string]$config.kernelVersion -eq '1.6.10' -and
+    [string]$config.executeRelease.releaseId -eq 'CUTOVER-1.6.10'
 ) "kernel=$($config.kernelVersion); release=$($config.executeRelease.releaseId)"
 Add-Check 'Enabled module contract' (
     @(Compare-Object ($expectedModules | Sort-Object) ($actualModules | Sort-Object)).Count -eq 0
@@ -32,6 +32,25 @@ Add-Check 'No legacy model module' (
     $actualModules -notcontains 'KIModuleModels' -and
     -not (Test-Path -LiteralPath (Join-Path $ProjectRoot 'Modules\05-Models'))
 ) 'Models and workflows are owned by Complete Installer component 2.0.1.'
+
+$applicationsModule=$null
+$applicationsTransaction=Join-Path ([IO.Path]::GetTempPath()) ('KIStack-Applications-DryRun-'+[guid]::NewGuid().ToString('N'))
+try {
+    New-Item -ItemType Directory -Path $applicationsTransaction -Force|Out-Null
+    $applicationsModule=Import-Module (Join-Path $ProjectRoot 'Modules/06-Applications/KIModuleApplications.psm1') -Force -PassThru -DisableNameChecking
+    $applicationsContext=[pscustomobject]@{
+        Mode='DryRun';Config=$config;TransactionDirectory=$applicationsTransaction
+        Transaction=[pscustomobject]@{transactionId='SELFTEST-APPLICATIONS-DRYRUN'}
+        LogPath=(Join-Path $applicationsTransaction 'transaction.log.jsonl')
+    }
+    $applicationsResult=Install-KIModuleApplications -Context $applicationsContext
+    Add-Check 'Applications module DryRun' ([bool]$applicationsResult.success) 'LM Studio/OpenWebUI planning completed without target access.'
+} catch {
+    Add-Check 'Applications module DryRun' $false $_.Exception.Message
+} finally {
+    if($applicationsModule){Remove-Module -ModuleInfo $applicationsModule -Force -ErrorAction SilentlyContinue}
+    if(Test-Path -LiteralPath $applicationsTransaction){Remove-Item -LiteralPath $applicationsTransaction -Recurse -Force}
+}
 
 $moduleErrors = @()
 foreach ($directory in Get-ChildItem -LiteralPath (Join-Path $ProjectRoot 'Modules') -Directory) {
@@ -57,11 +76,21 @@ $preflightTest = & (Join-Path $ProjectRoot 'Tests\Test-KIStackEmbeddedPreflight.
 Add-Check 'Runtime preflight generation' ([bool]$preflightTest.passed) (
     "tests=$($preflightTest.tests); sha256=$($preflightTest.sha256)"
 )
+$restartTest=& (Join-Path $ProjectRoot 'Tests\Test-KIStackIntegrationRebootResume.ps1') -ProjectRoot $ProjectRoot|ConvertFrom-Json
+Add-Check 'Integration reboot and resume contract' ([bool]$restartTest.passed) ("greenfield=$($restartTest.greenfield); resume=$($restartTest.resumeAfterRestart); exit=$($restartTest.rebootExitCode)")
+$searxngPinTest = & (Join-Path $ProjectRoot 'Tests\Test-KIStackIntegrationSearXNGPin.ps1') -ProjectRoot $ProjectRoot | ConvertFrom-Json
+Add-Check 'Integration SearXNG commit pin contract' ([bool]$searxngPinTest.passed) (
+    "ref=$($searxngPinTest.configuredRef); valid=$($searxngPinTest.validPinResolvedAndCheckedOut); invalid=$($searxngPinTest.invalidPinFailedDeterministically)"
+)
+$comfyDirtyTest = & (Join-Path $ProjectRoot 'Tests\Test-KIStackComfyUIDirtyRepository.ps1') -ProjectRoot $ProjectRoot | ConvertFrom-Json
+Add-Check 'ComfyUI repository dirty contract' ([bool]$comfyDirtyTest.passed) (
+    "lineEndings=$($comfyDirtyTest.lineEndingOnlyAllowed); content=$($comfyDirtyTest.realUnstagedChangeBlocked); staged=$($comfyDirtyTest.realStagedChangeBlocked); untracked=$($comfyDirtyTest.untrackedRelevantFileBlocked)"
+)
 
 $failed = @($results | Where-Object { -not $_.passed })
 $report = [pscustomobject][ordered]@{
     generatedAtUtc=[DateTime]::UtcNow.ToString('o')
-    release='CUTOVER-1.6.5'
+    release='CUTOVER-1.6.10'
     passed=($failed.Count -eq 0)
     checksPassed=@($results | Where-Object passed).Count
     checksTotal=$results.Count

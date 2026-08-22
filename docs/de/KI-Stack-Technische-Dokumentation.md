@@ -11,7 +11,7 @@ KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Inst
 | ComfyUI | 1.2.4 |
 | Models / Workflows | 2.0.3 |
 | Applications | 1.4.10 |
-| Integration | 1.5.10 |
+| Integration | 1.5.11 |
 | Cutover Runtime | 1.6.5 |
 | Production Recovery | 1.7.0-r7 |
 | Validation Gate | 1.0.3 |
