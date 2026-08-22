@@ -48,11 +48,17 @@ function Get-TreeStateHash {
 }
 function Assert-ExecutionLogs {
     param([string]$BasePath)
-    $required=@($BasePath,$BasePath+'.stderr.txt',$BasePath+'.transcript.txt',$BasePath+'.exitcode.txt')
+    # NB: each concatenation must be parenthesized -- inside an @(...) array
+    # literal, an unparenthesized "$BasePath+'.stderr.txt'" is parsed as two
+    # separate elements ($BasePath and unary +'.stderr.txt'), silently
+    # turning this 4-item list into 7 items, 3 of which are bare suffix
+    # strings that can never exist as files. That is what actually produced
+    # the "fehlend=3; leer=0" failures, not a real race or missing log.
+    $required=@($BasePath,($BasePath+'.stderr.txt'),($BasePath+'.transcript.txt'),($BasePath+'.exitcode.txt'))
     $missing=@($required|Where-Object{-not(Test-Path -LiteralPath $_ -PathType Leaf)})
     $empty=@($required|Where-Object{(Test-Path -LiteralPath $_ -PathType Leaf)-and(Get-Item -LiteralPath $_).Length-eq0})
     if($missing.Count-or$empty.Count){throw "Execute-Protokollvertrag verletzt; fehlend=$($missing.Count); leer=$($empty.Count)"}
-    [pscustomobject]@{passed=$true;files=@($required|ForEach-Object{[pscustomobject]@{path=$_;size=(Get-Item $_).Length}});exitCode=((Get-Content ($BasePath+'.exitcode.txt') -Raw).Trim())}
+    [pscustomobject]@{passed=$true;files=@($required|ForEach-Object{[pscustomobject]@{path=$_;size=(Get-Item -LiteralPath $_).Length}});exitCode=((Get-Content -LiteralPath ($BasePath+'.exitcode.txt') -Raw).Trim())}
 }
 
 New-Item -ItemType Directory -Path $build1,$build2,$evidenceRoot,$shortExtract -Force|Out-Null
