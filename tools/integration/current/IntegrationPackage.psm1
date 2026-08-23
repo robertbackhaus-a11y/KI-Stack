@@ -65,10 +65,16 @@ function Test-IntegrationPayload {
 # this, systemd not owning the service lifecycle goes undetected until
 # the next real cold start, when nothing brings the services back up.
 function Test-IntegrationServicesEnabled {
+    # Either uwsgi.service or ki-stack-searxng.service (the sibling Cutover-
+    # Runtime Integration module's unit) providing the SearXNG endpoint is a
+    # valid, compliant state; valkey-server and nginx remain required either way.
     param([string]$Distribution='Debian')
     try {
-        $result=@(& wsl.exe -d $Distribution -u root -- systemctl is-enabled valkey-server uwsgi nginx 2>&1)
-        return (@($result|Where-Object{$_-eq'enabled'}).Count-eq3)
+        $core=@(& wsl.exe -d $Distribution -u root -- systemctl is-enabled valkey-server nginx 2>&1)
+        $coreEnabled=(@($core|Where-Object{$_-eq'enabled'}).Count-eq2)
+        $searxng=@(& wsl.exe -d $Distribution -u root -- systemctl is-enabled uwsgi ki-stack-searxng 2>&1)
+        $searxngEnabled=(@($searxng|Where-Object{$_-eq'enabled'}).Count-ge1)
+        return ($coreEnabled -and $searxngEnabled)
     } catch { return $false }
 }
 function Test-IntegrationTarget { $runtimeContract=Get-IntegrationRuntimeContract $PSScriptRoot;[pscustomobject]@{passed=((Test-IntegrationEndpoint)-and(Test-IntegrationRuntime -Contract $runtimeContract)-and(Test-IntegrationServicesEnabled));version='1.5.11';runtimeChain=@('wsl keeper','valkey-server','uwsgi','nginx');runtimeGitDependency=$false} }

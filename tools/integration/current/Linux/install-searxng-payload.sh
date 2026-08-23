@@ -26,10 +26,13 @@ trap on_exit EXIT
 #   2) the uWSGI port/socket (127.0.0.1:8888) is actually listening
 #   3) the local HTTP endpoint answers (SearXNG's own liveness route)
 #   4) the answering app is really SearXNG, not some other listener
-# Steps 3+4 use SearXNG's built-in /healthz (liveness, returns plain "OK",
-# no engine calls) and /config (static instance/engine metadata, also no
-# engine calls) routes -- both ship in the pinned upstream revision
-# 357662d86dd225bf8f0bfe5cfaa45bed09aef788 (see searx/webapp.py).
+# Steps 3+4 both rely on SearXNG's built-in /healthz route alone (liveness,
+# returns plain "OK", no engine calls, limiter-exempt). /config was tried as
+# an additional identity signal but is itself subject to SearXNG's request
+# limiter (a live check showed 429 on a freshly restarted instance -- the
+# limiter counter is not process-bound), so hitting it from the 60x retry
+# loop below reproduces the same self-inflicted-outage class of bug as the
+# first diag9 /search issue, just against a different route.
 PROBE_STATUS=''; PROBE_BODY=''
 http_probe(){
  # $1 = full URL. On success sets PROBE_STATUS/PROBE_BODY and returns 0.
@@ -39,22 +42,22 @@ http_probe(){
  PROBE_BODY="${raw%$'\n'*}"
  [ -n "$PROBE_STATUS" ]
 }
-uwsgi_process_active(){ systemctl is-active --quiet uwsgi 2>/dev/null; }
+uwsgi_process_active(){
+ # Either uwsgi.service (this component's own path) or ki-stack-searxng.service
+ # (the sibling Cutover-Runtime Integration module's path) may already be
+ # serving SearXNG on this port; both are valid signals that adoption
+ # rather than a second, conflicting install is the correct next step.
+ systemctl is-active --quiet uwsgi 2>/dev/null || systemctl is-active --quiet ki-stack-searxng 2>/dev/null
+}
 port_socket_present(){ ss -H -ltn 2>/dev/null | awk '{print $4}' | grep -qE ':8888$'; }
 local_http_endpoint_responds(){ http_probe "$1/healthz" && [ "$PROBE_STATUS" = "200" ]; }
 response_is_searxng_app(){
  # PROBE_BODY currently holds the /healthz body from local_http_endpoint_responds.
- [ "$PROBE_BODY" = "OK" ] || return 1
- http_probe "$1/config" || return 1
- [ "$PROBE_STATUS" = "200" ] || return 1
- printf '%s' "$PROBE_BODY" | python3 -c '
-import json, sys
-d = json.load(sys.stdin)
-assert isinstance(d, dict)
-assert isinstance(d.get("instance_name"), str)
-assert isinstance(d.get("version"), str) and d["version"]
-assert isinstance(d.get("engines"), list)
-' >/dev/null 2>&1
+ # Exact-body match against SearXNG's own liveness route is the identity
+ # signal (matching the sibling Cutover-Runtime Integration module's
+ # local_healthy() contract); see the readiness comment block above for why
+ # the instance-metadata route is deliberately not used here.
+ [ "$PROBE_BODY" = "OK" ]
 }
 readiness_probe(){
  # $1 = base URL without trailing slash, e.g. http://127.0.0.1/searxng
@@ -116,7 +119,11 @@ if [ "${KI_STACK_SEARXNG_READINESS_SELFTEST:-0}" = "1" ]; then
 fi
 
 STEP=existing-endpoint-readback
-if readiness_probe 'http://127.0.0.1/searxng'; then
+# Direct backend, not the nginx-proxied /searxng path: this component's own
+# nginx location (written further below) does not exist yet at this point,
+# so an adoption check against it would always fail even when the sibling
+# Cutover-Runtime Integration module already has SearXNG healthy on 8888.
+if readiness_probe 'http://127.0.0.1:8888'; then
  STEP=existing-endpoint-enable
  systemctl enable valkey-server uwsgi nginx
  optional_search_functional_probe; write_marker adopted-existing; exit 0

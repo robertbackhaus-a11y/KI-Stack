@@ -70,7 +70,21 @@ if ($Resume) {
 
     $transaction = Read-KIJson -Path $transactionPath
     if ($transaction.status -eq 'Completed') {
-        throw 'Die Transaktion ist bereits abgeschlossen.'
+        $resultPath = Join-Path $transactionDirectory 'kernel-result.json'
+        $result = [pscustomobject][ordered]@{
+            schemaVersion = '1.0'
+            transactionId = $transaction.transactionId
+            mode = $transaction.mode
+            status = $transaction.status
+            completedAt = $transaction.updatedAt
+            resumeAvailable = $false
+            transactionPath = $transactionPath
+            logPath = $logPath
+            modules = @($transaction.modules)
+        }
+        Write-KIJson -Value $result -Path $resultPath
+        Write-Host ("Transaktion {0} ist bereits abgeschlossen; keine erneute Ausführung erforderlich." -f $transaction.transactionId) -ForegroundColor Green
+        exit 0
     }
 
     $reportPath = [string]$transaction.input.reportCopyPath

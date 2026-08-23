@@ -50,7 +50,7 @@ pid="$(start_server "$FIXTURES/wrong_app.py" 18890)"; sleep 1
 r=0
 if local_http_endpoint_responds 'http://127.0.0.1:18890' && response_is_searxng_app 'http://127.0.0.1:18890'; then r=1; fi
 stop_server "$pid"
-assert_true "$r" 'non-SearXNG app answering on the port => probe reports not ready (identity check, not just /healthz)'
+assert_true "$r" 'non-SearXNG app answering on the port => probe reports not ready'
 
 # --- Static contract: readiness gate never references /search --------------
 readiness_block="$(sed -n '/^readiness_probe(){/,/^}/p' "$INSTALLER")"

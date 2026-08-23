@@ -4,7 +4,12 @@ $ErrorActionPreference='Stop'
 $root=$PSScriptRoot; $fail=@()
 $executables=@('IntegrationPackage.psm1','Invoke-KIStackIntegration.ps1','Linux/install-searxng-payload.sh')
 $text=($executables|ForEach-Object{Get-Content(Join-Path $root $_)-Raw})-join"`n"
-foreach ($pattern in @('(?i)\bgit(?:\.exe)?\b','(?i)\bclone\b','(?i)\bcheckout\b','(?i)\bpull\b','(?i)origin','(?i)\.git(?:[\\/]|\b)','(?i)ki-stack-searxng\.service')) { if ($text -match $pattern) { $fail += "forbidden runtime pattern $pattern" } }
+# ki-stack-searxng.service is deliberately referenced (not forbidden): it's
+# the sibling Cutover-Runtime Integration module's unit name, recognized as
+# an equally valid already-active SearXNG service to adopt instead of
+# starting a second, port-conflicting install.
+foreach ($pattern in @('(?i)\bgit(?:\.exe)?\b','(?i)\bclone\b','(?i)\bcheckout\b','(?i)\bpull\b','(?i)origin','(?i)\.git(?:[\\/]|\b)')) { if ($text -match $pattern) { $fail += "forbidden runtime pattern $pattern" } }
+if ($text -notmatch '(?i)ki-stack-searxng') { $fail += 'missing ki-stack-searxng sibling-unit adoption contract' }
 foreach ($required in @('valkey-server','uwsgi','nginx','wsl.exe','sha256sum','CONTENT-MANIFEST.json')) { if ($text -notmatch [regex]::Escape($required)) { $fail += "missing $required" } }
 $contract=Get-Content (Join-Path $root 'Payload/PAYLOAD-CONTRACT.json') -Raw|ConvertFrom-Json
 if ($contract.output.sha256 -notmatch '^[0-9a-f]{64}$' -or $contract.output.sizeBytes -le 0 -or $contract.upstream.sha256 -notmatch '^[0-9a-f]{64}$') { $fail += 'payload contract' }
@@ -19,11 +24,16 @@ foreach($diagnosticContract in $healthDiagnostics){if(-not$linuxInstaller.Contai
 # out to external engines; 403/timeouts there saturated the installer's own
 # listen queue after 60 retries and took down even diagnostic curls. The
 # health check caused its own outage. Fixed readiness proves the app is up
-# using only local routes (/healthz liveness + /config identity), never
-# /search, and never depends on an external engine being reachable.
+# using only the local /healthz liveness+identity route, never /search, and
+# never depends on an external engine being reachable. /config was tried as
+# an additional identity signal but is itself subject to SearXNG's request
+# limiter (live check: 429 on a freshly restarted instance), so hitting it
+# from the 60x retry loop reproduced the same self-inflicted-outage class of
+# bug as the original diag9 issue -- it is deliberately not used here.
 if (-not $linuxInstaller.Contains('readiness_probe(){')) { $fail += 'local readiness_probe function missing' }
 if (-not ($linuxInstaller.Contains('uwsgi_process_active') -and $linuxInstaller.Contains('port_socket_present') -and $linuxInstaller.Contains('local_http_endpoint_responds') -and $linuxInstaller.Contains('response_is_searxng_app'))) { $fail += 'readiness must check uWSGI process, port/socket, local HTTP endpoint, and app identity' }
-if (-not ($linuxInstaller.Contains("/healthz") -and $linuxInstaller.Contains("/config"))) { $fail += 'readiness must use local /healthz and /config routes' }
+if (-not $linuxInstaller.Contains("/healthz")) { $fail += 'readiness must use the local /healthz route' }
+if ($loopMatchConfigCheck = ([regex]::Match($linuxInstaller, '(?s)^response_is_searxng_app\(\)\{.*?^\}', 'Multiline')).Value) { if ($loopMatchConfigCheck -match '/config') { $fail += 'REGRESSION: identity check hits rate-limited /config again (diag9-class bug reintroduced)' } }
 # The retry loop text (between the readiness step marker and the failure branch)
 # must never issue a real search request -- this is the exact diag9 regression.
 $loopMatch = [regex]::Match($linuxInstaller, '(?s)STEP=local-readiness-readback.*?if \[ "\$READY" -ne 1 \]; then')
@@ -37,28 +47,6 @@ if (-not $linuxInstaller.Contains('search?q=ki-stack&format=json')) { $fail += '
 $functionalProbeComment = $linuxInstaller -match 'Optional FUNCTIONAL test, not an installation readiness gate'
 if (-not $functionalProbeComment) { $fail += 'optional functional probe must be documented as non-gating' }
 if (-not (Test-Path (Join-Path $root 'Linux/Test-KIStackSearXNGReadiness.sh'))) { $fail += 'Linux/Test-KIStackSearXNGReadiness.sh regression harness missing from package' }
-
-# --- diag10: identity-check fixture (mirrors the Python /config predicate) -
-# Mirrors this exact predicate embedded in install-searxng-payload.sh's
-# response_is_searxng_app(), so a silent drift between the two is caught here.
-function Test-SearXNGConfigIdentityFixture {
-    param([string]$Json)
-    try{
-        $d=$Json|ConvertFrom-Json -Depth 20
-        if($null-eq$d){return $false}
-        if(-not($d.PSObject.Properties['instance_name'])-or$d.instance_name-isnot[string]){return $false}
-        if(-not($d.PSObject.Properties['version'])-or$d.version-isnot[string]-or[string]::IsNullOrEmpty($d.version)){return $false}
-        if(-not($d.PSObject.Properties['engines'])-or$d.engines-isnot[object[]]){return $false}
-        return $true
-    }catch{return $false}
-}
-$validConfigJson='{"instance_name":"KI-Stack SearXNG","version":"2026.6.28+357662d86","engines":[{"name":"google"}]}'
-if(-not(Test-SearXNGConfigIdentityFixture -Json $validConfigJson)){$fail+='valid SearXNG /config payload was rejected as unready'}
-if(Test-SearXNGConfigIdentityFixture -Json '{"status":"ok"}'){$fail+='non-SearXNG /config JSON (missing instance_name/version/engines) was accepted as ready'}
-if(Test-SearXNGConfigIdentityFixture -Json '{"instance_name":"","version":"","engines":[]}'){$fail+='empty instance_name/version was accepted as ready'}
-if(Test-SearXNGConfigIdentityFixture -Json 'not json'){$fail+='malformed JSON was accepted as ready'}
-$identityPredicate='assert isinstance(d.get("instance_name"), str)'
-if(-not$linuxInstaller.Contains($identityPredicate)){$fail+='SearXNG /config identity predicate contract'}
 
 # --- diag10: live regression scenarios (best-effort; needs a bash runtime) -
 # Runs the real Linux/Test-KIStackSearXNGReadiness.sh, which sources the
