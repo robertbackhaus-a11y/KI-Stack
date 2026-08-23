@@ -1,6 +1,6 @@
 # KI-Stack Complete Installer 2.4.0
 
-Development build based on stable Complete Installer 2.3.2. This RC adds the Local Intelligence Extension and is not yet target-system approved.
+Stable release. Version 2.4.0 has been verified with a complete, successful, physical Greenfield installation on an empty target: every transaction step completed and the installer finished with exit code 0.
 
 - Heretic is the only chat LLM.
 - Nomic is embedding-only.
@@ -12,7 +12,10 @@ Development build based on stable Complete Installer 2.3.2. This RC adds the Loc
 - Codex Local 0.1.3 is reproducibly connected through LM Studio. Node.js 24.14.0 and npm are provisioned as a portable, SHA256-verified module runtime; no global Node.js installation is required. The Windows build validation executes the installed CLI with the managed runtime before target approval.
 - RAG 0.2.0 is installed as an independent module; sources remain controlled and ingestion is not started without approval.
 - OpenWebUI receives the Nomic prefixes `search_document:` and `search_query:` at startup.
+- LM Studio is installed through `winget`; the managed starter `Start-KIStack-LMStudio.cmd` brings up its local API server automatically, including on a first-ever Greenfield run where LM Studio's `lms` CLI is not yet available. Codex Local depends on this endpoint and the same starter is invoked before Codex Local is configured.
+- SearXNG's local endpoint is adopted, not reinstalled, whenever an already-healthy instance is found — under either the Cutover Runtime's `ki-stack-searxng.service` or the Integration component's `uwsgi.service`, behind an `nginx` reverse proxy with `valkey-server` as its local store.
+- Without a supplied OpenWebUI administrator API key, the temporary Knowledge bootstrap-experiment rollback (unrelated to the RAG module's own ingestion) and the Code Interpreter connection configuration remain manual follow-up steps after installation.
 
 Verify the ZIP against its adjacent `.sha256` sidecar before extraction. The final ZIP hash is intentionally not embedded in this package.
 
-See `Documentation/INSTALLATION.md` for installation, upgrade, lifecycle, SHA-256, resume, recovery, and rollback instructions. The Greenfield contract was verified with source/package checks and small fixtures; a complete physical Greenfield installation on an empty target was not performed.
+See `Documentation/INSTALLATION.md` for installation, upgrade, lifecycle, SHA-256, resume, recovery, and rollback instructions.

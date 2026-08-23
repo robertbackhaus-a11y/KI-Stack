@@ -1,6 +1,6 @@
 # Optionale Modellbereitstellung und Preload
 
-Complete Installer 2.3.2 lädt fehlende Modelle einschließlich des ausschließlich für Embeddings verwendeten Nomic Q4_K_M automatisch aus den revisionsgebundenen Quellen des zentralen Modellmanifests. Eine manuelle Bereitstellung ist keine Installationsvoraussetzung.
+Complete Installer 2.4.0 lädt fehlende Modelle einschließlich des ausschließlich für Embeddings verwendeten Nomic Q4_K_M automatisch aus den revisionsgebundenen Quellen des zentralen Modellmanifests. Eine manuelle Bereitstellung ist keine Installationsvoraussetzung.
 
 Ein optionaler Cache oder `ExternalModels`-Preload kann Bandbreite sparen. Der Installer akzeptiert eine Datei ausschließlich nach Prüfung von Dateiname, exakter Größe und vollständigem SHA-256. Eine gültige Zieldatei wird wiederverwendet und nicht erneut geladen. Unterbrochene Downloads bleiben fortsetzbar; eine falsche Größe oder Prüfsumme führt zu `Failed`.
 

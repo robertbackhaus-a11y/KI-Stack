@@ -1,6 +1,6 @@
 # Optional model provisioning and preload
 
-Complete Installer 2.3.2 automatically downloads missing models, including embedding-only Nomic Q4_K_M, from revision-pinned sources in the central model manifest. Manual provisioning is not an installation prerequisite.
+Complete Installer 2.4.0 automatically downloads missing models, including embedding-only Nomic Q4_K_M, from revision-pinned sources in the central model manifest. Manual provisioning is not an installation prerequisite.
 
 An optional cache or `ExternalModels` preload can save bandwidth. A file is accepted only after filename, exact size, and full SHA-256 verification. A valid target is reused and is not downloaded again. Interrupted downloads remain resumable; an incorrect size or hash produces `Failed`.
 

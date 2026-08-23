@@ -21,7 +21,7 @@ Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python,
 | OpenWebUI Agent Pack | 1.8.9 | Stable; Heretic-only profiles with Visual Pack 2.0.5 bindings |
 | OpenWebUI Visual Pack | 2.0.5 | Stable; Z-Image and WAN2.2 tools with persistent MP4 attachments |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
-| Complete Installer | 2.3.2 | Stable Nomic Greenfield-contract completion; functional validation otherwise inherited unchanged |
+| Complete Installer | 2.4.0 | Stable; verified with a complete, successful, physical Greenfield installation on an empty target |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.

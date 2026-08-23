@@ -21,7 +21,7 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 | OpenWebUI Agent Pack | 1.8.9 | Stabil; Heretic-Profile mit Visual-Pack-2.0.5-Bindung |
 | OpenWebUI Visual Pack | 2.0.5 | Stabil; Z-Image- und WAN2.2-Tools mit persistenten MP4-Anhängen |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stabil; `18Bravo` und Solver zielsystemvalidiert |
-| Complete Installer | 2.3.2 | Stabile Vervollständigung des Nomic-Greenfield-Vertrags; übrige funktionale Validierung unverändert übernommen |
+| Complete Installer | 2.4.0 | Stabil; verifiziert mit vollständiger, erfolgreicher, realer Greenfield-Installation auf leerem Zielsystem |
 | System Cleanup Audit | 1.0.0 | Audit abgeschlossen; Bereinigungsplan wartet auf ausdrückliche Freigabe |
 
 Vollständige Paketquellen liegen im Verzeichnis `package`. Fertige ZIP-Pakete werden als GitHub-Release-Artefakte veröffentlicht und nicht dauerhaft in die normale Git-Historie aufgenommen.
