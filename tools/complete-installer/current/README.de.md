@@ -1,6 +1,6 @@
 # KI-Stack Complete Installer 2.4.0
 
-Entwicklungsstand auf Basis des stabilen Complete Installers 2.3.2. Der RC ergänzt die Local Intelligence Extension; eine Zielsystemfreigabe liegt noch nicht vor.
+Stable-Release. Version 2.4.0 wurde mit einer vollständigen, erfolgreichen, realen Greenfield-Installation auf einem leeren Zielsystem verifiziert: alle Transaktionsschritte wurden abgeschlossen, der Installer beendete sich mit Exitcode 0.
 
 - Heretic ist das einzige Chat-LLM.
 - Nomic dient ausschließlich Embeddings.
@@ -12,7 +12,10 @@ Entwicklungsstand auf Basis des stabilen Complete Installers 2.3.2. Der RC ergä
 - Codex Local 0.1.3 wird reproduzierbar über LM Studio angebunden. Node.js 24.14.0 und npm werden dabei als portable, SHA256-geprüfte Modullaufzeit paketgesteuert bereitgestellt; eine globale Node.js-Installation ist nicht erforderlich. Die Windows-Buildvalidierung führt die installierte CLI vor der Zielfreigabe real mit der verwalteten Laufzeit aus.
 - RAG 0.2.0 wird als getrenntes Modul installiert; Quellen bleiben kontrolliert und die Ingestion wird nicht ohne Freigabe automatisch gestartet.
 - OpenWebUI erhält beim Start die Nomic-Präfixe `search_document:` und `search_query:`.
+- LM Studio wird über `winget` installiert; der verwaltete Starter `Start-KIStack-LMStudio.cmd` bringt den lokalen API-Server automatisch hoch — auch bei einem allerersten Greenfield-Lauf, bei dem LM Studios `lms`-CLI noch nicht verfügbar ist. Codex Local benötigt genau diesen Endpunkt; derselbe Starter wird vor der Codex-Local-Konfiguration aufgerufen.
+- SearXNGs lokaler Endpunkt wird übernommen, nicht neu installiert, sobald eine bereits gesunde Instanz gefunden wird — entweder unter dem `ki-stack-searxng.service` der Cutover-Runtime-Komponente oder dem `uwsgi.service` der Integration-Komponente, hinter einem `nginx`-Reverse-Proxy mit `valkey-server` als lokalem Speicher.
+- Ohne angegebenen OpenWebUI-Administrator-API-Key bleiben der Rollback des temporären Knowledge-Bootstrap-Experiments (unabhängig von der eigentlichen Ingestion des RAG-Moduls) und die Konfiguration der Code-Interpreter-Verbindung manuelle Nacharbeit nach der Installation.
 
 Prüfe das ZIP vor dem Entpacken gegen das danebenliegende `.sha256`-Sidecar. Der endgültige ZIP-Hash ist absichtlich nicht im Paket eingebettet.
 
-Installation, Upgrade, Lifecycle, SHA-256, Resume, Recovery und Rollback stehen in `Documentation/INSTALLATION.de.md`. Der Greenfield-Vertrag wurde mit Quell-/Paketprüfungen und kleinen Fixtures geprüft; eine vollständige reale Greenfield-Neuinstallation auf einem leeren Ziel wurde nicht durchgeführt.
+Installation, Upgrade, Lifecycle, SHA-256, Resume, Recovery und Rollback stehen in `Documentation/INSTALLATION.de.md`.
