@@ -15,7 +15,7 @@ foreach($marker in @('KI-Stack-Installer-output.txt','Start-KIStackCompleteInsta
     if(-not$executeStarter.Contains($marker)){$fail.Add("Execute starter contract: $marker")}
 }
 
-if ($manifest.version -ne '2.4.0-rc11' -or $manifest.baseVersion -ne '2.3.2') { $fail.Add('Version contract') }
+if ($manifest.version -ne '2.4.0' -or $manifest.baseVersion -ne '2.3.2') { $fail.Add('Version contract') }
 if ($payloads.modelPolicy.chatModels.Count -ne 1 -or $payloads.modelPolicy.chatModels[0] -ne 'qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved') { $fail.Add('Heretic chat-only contract') }
 if ($payloads.modelPolicy.nomicRole -ne 'embedding-only' -or $payloads.modelPolicy.embeddingModels.Count -ne 1) { $fail.Add('Nomic embedding-only contract') }
 if ([string]$payloads.modelContractAuthority.packagedArchive -ne 'Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.3.zip') { $fail.Add('Authoritative model contract') }
@@ -204,7 +204,7 @@ try {
         $fail.Add('Probe regression 5: successful readback')
     }
     $statePlan=[pscustomobject]@{steps=@([pscustomobject]@{id='validation-gate';version='1.0.3';initialState=[pscustomobject]@{compliant=$true}})}
-    $null=Update-KICompleteComponentState -Plan $statePlan -TargetRoot $planTarget -CompleteVersion '2.4.0-rc11'
+    $null=Update-KICompleteComponentState -Plan $statePlan -TargetRoot $planTarget -CompleteVersion '2.4.0'
     $storedAfterSuccess=(Get-Content -LiteralPath (Join-Path $planTarget 'state/complete-installer/components.json') -Raw|ConvertFrom-Json).components.'validation-gate'
     if($storedAfterSuccess-ne'1.0.3'){$fail.Add('Probe regression 5: state after successful readback')}
 
@@ -219,7 +219,7 @@ try {
     $orphanPlan=New-KICompletePlan -Mode Upgrade -PackageRoot $PackageRoot -TargetRoot $planTarget
     if(-not[bool]$orphanPlan.stateHasOrphans){$fail.Add('State regression 7: orphan not detected')}
     $orphanStatePlan=[pscustomobject]@{steps=@($orphanPlan.steps|Where-Object{$_.initialState.compliant})}
-    $null=Update-KICompleteComponentState -Plan $orphanStatePlan -TargetRoot $planTarget -CompleteVersion '2.4.0-rc11'
+    $null=Update-KICompleteComponentState -Plan $orphanStatePlan -TargetRoot $planTarget -CompleteVersion '2.4.0'
     $reconciledState=Get-Content -LiteralPath (Join-Path $planTarget 'state/complete-installer/components.json') -Raw|ConvertFrom-Json
     if($reconciledState.components.PSObject.Properties.Name-contains'openwebui-image-pack'){$fail.Add('State regression 7: orphan retained')}
 
@@ -277,7 +277,7 @@ if ($syntaxErrors.Count) { $fail.Add('PowerShell syntax') }
 
 [pscustomobject]@{
     passed = ($fail.Count -eq 0)
-    version = '2.4.0-rc11'
+    version = '2.4.0'
     checks = 28
     failures = $fail
 } | ConvertTo-Json -Depth 10

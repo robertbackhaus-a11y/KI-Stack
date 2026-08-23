@@ -202,6 +202,33 @@ function Test-KILMStudioEndpoint {
     }catch{[pscustomobject]@{reachable=$false;modelCount=0;models=@();error=$_.Exception.Message}}
 }
 
+function Ensure-KILMStudioEndpointReachable {
+    # The Applications module installs LM Studio without starting its local
+    # server (see KIModuleApplications.psm1) and provides a managed starter,
+    # Start-KIStack-LMStudio.cmd, for that purpose. codex-local needs the
+    # server live; this reuses that exact starter contract (no second start
+    # mechanism) instead of treating "installed but not yet started" -- a
+    # state the Applications module itself validates as compliant -- as an
+    # installation failure.
+    param(
+        [Parameter(Mandatory)][string]$TargetRoot,
+        [Parameter(Mandatory)][string]$BaseUrl,
+        [int]$RetryCount=30,
+        [int]$RetryDelaySeconds=2
+    )
+    $endpoint=Test-KILMStudioEndpoint $BaseUrl
+    if([bool]$endpoint.reachable){return $endpoint}
+    $starterPath=Join-Path $TargetRoot 'modules/applications/Start-KIStack-LMStudio.cmd'
+    if(-not(Test-Path -LiteralPath $starterPath -PathType Leaf)){return $endpoint}
+    try{Start-Process -FilePath $starterPath -WindowStyle Hidden -ErrorAction Stop|Out-Null}catch{return $endpoint}
+    for($attempt=0;$attempt -lt $RetryCount;$attempt++){
+        Start-Sleep -Seconds $RetryDelaySeconds
+        $endpoint=Test-KILMStudioEndpoint $BaseUrl
+        if([bool]$endpoint.reachable){return $endpoint}
+    }
+    $endpoint
+}
+
 function Test-KICodexLocal {
     param([string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[switch]$SkipEndpoint)
     $config=Get-KICodexConfig $PackageRoot
@@ -267,7 +294,10 @@ function Install-KICodexLocal {
     $plan=[pscustomobject]@{version=[string]$config.version;codexVersion=[string]$config.codexVersion;workspace=$resolvedWorkspace;agentsPath=$agentsPath;profilePath=$profilePath;moduleRoot=$paths.moduleRoot}
     if($DryRun){return [pscustomobject]@{passed=$true;status='DryRun';plan=$plan;mutatesTarget=$false}}
     $endpoint=Test-KILMStudioEndpoint ([string]$config.lmStudioBaseUrl)
-    if([bool]$config.requireModelEndpoint-and-not$endpoint.reachable){throw 'LM Studio /v1/models ist nicht erreichbar.'}
+    if([bool]$config.requireModelEndpoint-and-not[bool]$endpoint.reachable){
+        $endpoint=Ensure-KILMStudioEndpointReachable -TargetRoot $TargetRoot -BaseUrl ([string]$config.lmStudioBaseUrl)
+    }
+    if([bool]$config.requireModelEndpoint-and-not[bool]$endpoint.reachable){throw 'LM Studio /v1/models ist nicht erreichbar.'}
     $existing=Test-KICodexLocal -PackageRoot $PackageRoot -TargetRoot $TargetRoot -SkipEndpoint
     if($existing.passed){return [pscustomobject]@{passed=$true;status='SkippedAlreadyCompliant';marker=(Read-KICodexJson $paths.marker);mutatesTarget=$false}}
     New-KICodexDirectory $paths.moduleRoot

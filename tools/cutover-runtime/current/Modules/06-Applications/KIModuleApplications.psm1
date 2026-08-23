@@ -395,6 +395,85 @@ function Test-KIModuleApplications {
         return [pscustomobject][ordered]@{success=$false;skipped=$false;message=$_.Exception.Message;data=$null}
     }
 }
+function Get-KILMStudioStarterScriptContent {
+    # Extracted from Install-KIModuleApplications so the generated batch
+    # contract is directly testable without running a full winget-based
+    # install. Behavior/content is unchanged from what was inline before.
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$LmsCli,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$LmExecutable,
+        [Parameter(Mandatory)][string]$Port,
+        [Parameter(Mandatory)][string]$BindAddress,
+        [int]$LmsWaitMaxAttempts=30,
+        [int]$LmsWaitIntervalSeconds=3,
+        [int]$EndpointWaitMaxAttempts=15,
+        [int]$EndpointWaitIntervalSeconds=2
+    )
+    $lmStudioTemplate = @'
+@echo off
+setlocal EnableExtensions DisableDelayedExpansion
+title KI-Stack LM Studio
+set "LMS_CLI=__LMS_CLI__"
+set "LMSTUDIO_EXE=__LMSTUDIO_EXE__"
+if not defined LMS_CLI for /f "delims=" %%I in ('where lms.exe 2^>nul') do if not defined LMS_CLI set "LMS_CLI=%%~fI"
+if not defined LMS_CLI for /f "delims=" %%I in ('where lms.cmd 2^>nul') do if not defined LMS_CLI set "LMS_CLI=%%~fI"
+if not defined LMS_CLI if exist "%USERPROFILE%\.lmstudio\bin\lms.exe" set "LMS_CLI=%USERPROFILE%\.lmstudio\bin\lms.exe"
+if not defined LMS_CLI if exist "%USERPROFILE%\.lmstudio\bin\lms.cmd" set "LMS_CLI=%USERPROFILE%\.lmstudio\bin\lms.cmd"
+if defined LMS_CLI if exist "%LMS_CLI%" goto :StartServer
+if not defined LMSTUDIO_EXE goto :NoLmStudio
+if not exist "%LMSTUDIO_EXE%" goto :NoLmStudio
+start "" "%LMSTUDIO_EXE%"
+echo LM Studio wurde gestartet (erster Start). Warte auf lms-CLI ...
+set "LMS_WAIT_ATTEMPTS=0"
+:WaitForLms
+if exist "%USERPROFILE%\.lmstudio\bin\lms.exe" set "LMS_CLI=%USERPROFILE%\.lmstudio\bin\lms.exe"
+if not defined LMS_CLI if exist "%USERPROFILE%\.lmstudio\bin\lms.cmd" set "LMS_CLI=%USERPROFILE%\.lmstudio\bin\lms.cmd"
+if defined LMS_CLI if exist "%LMS_CLI%" goto :StartServer
+set /a LMS_WAIT_ATTEMPTS+=1
+if %LMS_WAIT_ATTEMPTS% GEQ __LMS_WAIT_MAX_ATTEMPTS__ goto :LmsTimeout
+powershell -NoProfile -NonInteractive -Command "Start-Sleep -Seconds __LMS_WAIT_INTERVAL_SECONDS__"
+goto :WaitForLms
+:StartServer
+call "%LMS_CLI%" server start --port __PORT__ --bind __BIND_ADDRESS__
+set "LMS_ENDPOINT_ATTEMPTS=0"
+:WaitForEndpoint
+"%SystemRoot%\System32\curl.exe" --max-time 3 --silent --show-error --fail "http://__BIND_ADDRESS__:__PORT__/v1/models" >nul 2>&1
+if not errorlevel 1 (
+    echo LM-Studio-Server ist erreichbar auf __BIND_ADDRESS__:__PORT__.
+    exit /b 0
+)
+set /a LMS_ENDPOINT_ATTEMPTS+=1
+if %LMS_ENDPOINT_ATTEMPTS% GEQ __ENDPOINT_WAIT_MAX_ATTEMPTS__ goto :EndpointTimeout
+powershell -NoProfile -NonInteractive -Command "Start-Sleep -Seconds __ENDPOINT_WAIT_INTERVAL_SECONDS__"
+goto :WaitForEndpoint
+:EndpointTimeout
+echo LM-Studio-Server wurde gestartet, ist aber innerhalb des Wartefensters nicht erreichbar geworden.
+exit /b 1
+:LmsTimeout
+echo LM Studio wurde gestartet, aber lms wurde innerhalb des Wartefensters nicht verfuegbar.
+exit /b 1
+:NoLmStudio
+echo LM Studio ist installiert, aber weder lms noch die Programmdatei wurden aufgelöst.
+echo LM Studio einmal manuell starten und danach dieses Skript erneut ausführen.
+pause
+exit /b 1
+'@
+    $lmStudioContent = $lmStudioTemplate
+    $lmStudioContent = $lmStudioContent.Replace('__LMS_CLI__',$LmsCli)
+    $lmStudioContent = $lmStudioContent.Replace('__LMSTUDIO_EXE__',$LmExecutable)
+    $lmStudioContent = $lmStudioContent.Replace('__PORT__',$Port)
+    $lmStudioContent = $lmStudioContent.Replace('__BIND_ADDRESS__',$BindAddress)
+    # Bounded, non-infinite waits for the Greenfield first-run path: default
+    # up to 90s for the lms CLI to appear after LM Studio's very first GUI
+    # start (it is only written to %USERPROFILE%\.lmstudio\bin after that
+    # first start completes its own setup), then up to 30s for the server it
+    # starts to actually accept connections.
+    $lmStudioContent = $lmStudioContent.Replace('__LMS_WAIT_MAX_ATTEMPTS__',[string]$LmsWaitMaxAttempts)
+    $lmStudioContent = $lmStudioContent.Replace('__LMS_WAIT_INTERVAL_SECONDS__',[string]$LmsWaitIntervalSeconds)
+    $lmStudioContent = $lmStudioContent.Replace('__ENDPOINT_WAIT_MAX_ATTEMPTS__',[string]$EndpointWaitMaxAttempts)
+    $lmStudioContent = $lmStudioContent.Replace('__ENDPOINT_WAIT_INTERVAL_SECONDS__',[string]$EndpointWaitIntervalSeconds)
+    $lmStudioContent
+}
 function Install-KIModuleApplications {
     param([Parameter(Mandatory)][object]$Context)
     $applicationConfig = $Context.Config.applications
@@ -549,35 +628,7 @@ exit /b %EC%
     $openWebUIContent = $openWebUIContent.Replace('__BIND_ADDRESS__',[string]$webConfig.bindAddress)
     $openWebUIContent = $openWebUIContent.Replace('__PORT__',[string]$webConfig.port)
 
-    $lmStudioTemplate = @'
-@echo off
-setlocal EnableExtensions DisableDelayedExpansion
-title KI-Stack LM Studio
-set "LMS_CLI=__LMS_CLI__"
-set "LMSTUDIO_EXE=__LMSTUDIO_EXE__"
-if not defined LMS_CLI for /f "delims=" %%I in ('where lms.exe 2^>nul') do if not defined LMS_CLI set "LMS_CLI=%%~fI"
-if not defined LMS_CLI for /f "delims=" %%I in ('where lms.cmd 2^>nul') do if not defined LMS_CLI set "LMS_CLI=%%~fI"
-if not defined LMS_CLI if exist "%USERPROFILE%\.lmstudio\bin\lms.exe" set "LMS_CLI=%USERPROFILE%\.lmstudio\bin\lms.exe"
-if not defined LMS_CLI if exist "%USERPROFILE%\.lmstudio\bin\lms.cmd" set "LMS_CLI=%USERPROFILE%\.lmstudio\bin\lms.cmd"
-if defined LMS_CLI if exist "%LMS_CLI%" (
-    call "%LMS_CLI%" server start --port __PORT__ --bind __BIND_ADDRESS__
-    exit /b %ERRORLEVEL%
-)
-if defined LMSTUDIO_EXE if exist "%LMSTUDIO_EXE%" (
-    start "" "%LMSTUDIO_EXE%"
-    echo LM Studio wurde gestartet. Nach dem ersten Start steht der lms-Befehl zur Verfügung.
-    exit /b 0
-)
-echo LM Studio ist installiert, aber weder lms noch die Programmdatei wurden aufgelöst.
-echo LM Studio einmal manuell starten und danach dieses Skript erneut ausführen.
-pause
-exit /b 1
-'@
-    $lmStudioContent = $lmStudioTemplate
-    $lmStudioContent = $lmStudioContent.Replace('__LMS_CLI__',$lmsCli)
-    $lmStudioContent = $lmStudioContent.Replace('__LMSTUDIO_EXE__',$lmExecutable)
-    $lmStudioContent = $lmStudioContent.Replace('__PORT__',[string]$lmConfig.port)
-    $lmStudioContent = $lmStudioContent.Replace('__BIND_ADDRESS__',[string]$lmConfig.bindAddress)
+    $lmStudioContent = Get-KILMStudioStarterScriptContent -LmsCli $lmsCli -LmExecutable $lmExecutable -Port ([string]$lmConfig.port) -BindAddress ([string]$lmConfig.bindAddress)
 
     $allTemplate = @'
 @echo off

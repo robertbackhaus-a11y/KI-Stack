@@ -51,12 +51,44 @@ try {
     $invalidExitCode = $LASTEXITCODE
     if ($invalidExitCode -eq 0) { throw 'An invalid commit pin was unexpectedly accepted.' }
 
+    # Execute the installer's *actual* pin-validation logic (not a re-implementation of it)
+    # against a real, git-produced 40-char lowercase hex commit. This is what would have
+    # caught the off-by-one character-class bug: the old check only confirmed the ref
+    # string and error message text were present in the source, never that the guard
+    # itself accepted a genuine 40-char pin.
+    $validationMatch = [regex]::Match($installer, '(?s)if \[\[ ! "\$REF".*?\nfi')
+    if (-not $validationMatch.Success) { throw 'SearXNG ref validation block not found in installer.' }
+    # bash.exe on PATH can resolve to the WSL launcher stub, which requires
+    # /mnt/c-style paths rather than Windows paths. Derive Git for Windows'
+    # own bash.exe (which accepts Windows paths directly) from git.exe.
+    $gitRoot = Split-Path -Parent (Split-Path -Parent (Get-Command git.exe -ErrorAction Stop).Source)
+    $bashExe = Join-Path $gitRoot 'usr\bin\bash.exe'
+    if (-not (Test-Path -LiteralPath $bashExe -PathType Leaf)) { throw "Git for Windows bash.exe not found at expected path: $bashExe" }
+    $harnessPath = Join-Path $fixtureRoot 'validate-ref.sh'
+    $harnessBody = "#!/usr/bin/env bash`nset -Eeuo pipefail`nREF=`"`$1`"`n" + $validationMatch.Value + "`necho VALIDATION_PASSED`n"
+    [IO.File]::WriteAllText($harnessPath,$harnessBody,[Text.UTF8Encoding]::new($false))
+
+    $harnessPathForBash = $harnessPath.Replace('\','/')
+    $acceptedOutput = @(& $bashExe $harnessPathForBash $fixtureRef 2>&1)
+    $acceptedExitCode = $LASTEXITCODE
+    if ($acceptedExitCode -ne 0 -or ($acceptedOutput -notcontains 'VALIDATION_PASSED')) {
+        throw "A real, valid 40-char lowercase hex pin was rejected by the installer's own validation: exitCode=$acceptedExitCode; output=$($acceptedOutput -join ' | ')"
+    }
+
+    $rejectedOutput = @(& $bashExe $harnessPathForBash ($fixtureRef.Substring(0,39)) 2>&1)
+    $rejectedExitCode = $LASTEXITCODE
+    if ($rejectedExitCode -ne 56 -or ($rejectedOutput -contains 'VALIDATION_PASSED')) {
+        throw "A 39-char pin was unexpectedly accepted by the installer's own validation: exitCode=$rejectedExitCode; output=$($rejectedOutput -join ' | ')"
+    }
+
     [pscustomobject][ordered]@{
         passed = $true
         configuredRef = $expectedRef
         validPinResolvedAndCheckedOut = $true
         invalidPinFailedDeterministically = $true
         invalidExitCode = $invalidExitCode
+        realValidatorAcceptsGenuineFortyCharPin = $true
+        realValidatorRejectsThirtyNineCharPin = $true
     } | ConvertTo-Json -Compress
 }
 finally {

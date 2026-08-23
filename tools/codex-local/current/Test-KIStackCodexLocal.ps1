@@ -28,7 +28,9 @@ foreach($marker in @(
     'Test-KINodeArchiveContract',
     'Restore-KICodexBackup',
     "KIStackRollbackStatus",
-    "secondRunReused"
+    "secondRunReused",
+    'Ensure-KILMStudioEndpointReachable',
+    'modules/applications/Start-KIStack-LMStudio.cmd'
 )){
     if(-not$module.Contains($marker)){$failures.Add("Codex-Ausführungsvertrag fehlt: $marker")}
 }
@@ -55,6 +57,56 @@ try{
     if(-not(Test-Path -LiteralPath $nested -PathType Container)){$failures.Add('Elternverzeichnisse wurden nicht erzeugt.')}
 }finally{
     if(Test-Path -LiteralPath $fixtureRoot){Remove-Item -LiteralPath $fixtureRoot -Recurse -Force}
+}
+
+# --- Ensure-KILMStudioEndpointReachable: managed-starter regression --------
+# Endpoint down -> managed starter invoked -> endpoint becomes reachable -> success.
+# Reuses the real Applications-module starter path/contract
+# (modules/applications/Start-KIStack-LMStudio.cmd); the starter fixture here
+# stands in for the real LM Studio launcher and deliberately answers only
+# after a short delay, so the test also proves the retry loop -- not just a
+# single immediate check -- is what makes this pass.
+$starterFixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('KICX-LM-'+[guid]::NewGuid().ToString('N').Substring(0,8))
+try{
+    $appsModuleRoot=Join-Path $starterFixtureRoot 'modules/applications'
+    New-Item -ItemType Directory -Path $appsModuleRoot -Force|Out-Null
+    $port=Get-Random -Minimum 20000 -Maximum 40000
+    $starterCmd=Join-Path $appsModuleRoot 'Start-KIStack-LMStudio.cmd'
+    $mockServerScript=Join-Path $appsModuleRoot 'mock-lmstudio-server.ps1'
+    # Raw TcpListener (not HttpListener): avoids http.sys URL-ACL/namespace
+    # reservation requirements that a non-admin process would otherwise hit.
+    Set-Content -LiteralPath $mockServerScript -Encoding utf8NoBOM -Value @'
+param([int]$Port)
+$tcp=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,$Port)
+$tcp.Start()
+Start-Sleep -Milliseconds 800
+$client=$tcp.AcceptTcpClient()
+$stream=$client.GetStream()
+$bodyBytes=[Text.Encoding]::UTF8.GetBytes('{"data":[{"id":"test-model"}]}')
+$header="HTTP/1.1 200 OK`r`nContent-Type: application/json`r`nContent-Length: $($bodyBytes.Length)`r`nConnection: close`r`n`r`n"
+$headerBytes=[Text.Encoding]::ASCII.GetBytes($header)
+$stream.Write($headerBytes,0,$headerBytes.Length)
+$stream.Write($bodyBytes,0,$bodyBytes.Length)
+$stream.Flush()
+Start-Sleep -Milliseconds 200
+$client.Close()
+$tcp.Stop()
+'@
+    Set-Content -LiteralPath $starterCmd -Encoding ascii -Value @(
+        '@echo off'
+        "start `"`" powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"%~dp0mock-lmstudio-server.ps1`" -Port $port"
+    )
+    $endpointBefore=Test-KILMStudioEndpoint "http://127.0.0.1:$port/v1"
+    if([bool]$endpointBefore.reachable){$failures.Add('LM-Studio-Fixture-Endpoint war unerwartet bereits erreichbar vor Starterlauf.')}
+    $result=Ensure-KILMStudioEndpointReachable -TargetRoot $starterFixtureRoot -BaseUrl "http://127.0.0.1:$port/v1" -RetryCount 10 -RetryDelaySeconds 1
+    if(-not [bool]$result.reachable){$failures.Add('Ensure-KILMStudioEndpointReachable meldete Endpoint nach Starterlauf weiterhin als nicht erreichbar.')}
+    # No starter present -> no second start mechanism invented, existing not-reachable result is returned unchanged.
+    $noStarterRoot=Join-Path $starterFixtureRoot 'no-starter'
+    New-Item -ItemType Directory -Path $noStarterRoot -Force|Out-Null
+    $resultNoStarter=Ensure-KILMStudioEndpointReachable -TargetRoot $noStarterRoot -BaseUrl "http://127.0.0.1:$port/v1" -RetryCount 1 -RetryDelaySeconds 1
+    if([bool]$resultNoStarter.reachable){$failures.Add('Ensure-KILMStudioEndpointReachable meldete Erreichbarkeit ohne vorhandenen Starter.')}
+}finally{
+    if(Test-Path -LiteralPath $starterFixtureRoot){Remove-Item -LiteralPath $starterFixtureRoot -Recurse -Force}
 }
 
 foreach($file in Get-ChildItem -LiteralPath $PackageRoot -Recurse -File|Where-Object Extension -in '.ps1','.psm1'){

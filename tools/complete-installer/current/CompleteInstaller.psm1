@@ -13,6 +13,17 @@ function Write-KICompleteJson {
     $Value | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
+function Clear-KICompleteStaleTransactionError {
+    # A failed attempt sets a transaction-wide .error property (see the
+    # catch block below). On -Resume that property is loaded back from the
+    # persisted transaction.json; if the retry then succeeds nothing else
+    # removes it, so a stale error string from the earlier failure would
+    # otherwise still be present in the final Completed summary.
+    param([Parameter(Mandatory)][object]$Transaction)
+    if ($Transaction.PSObject.Properties['error']) { $Transaction.PSObject.Properties.Remove('error') }
+    $Transaction
+}
+
 function Test-KICompleteAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     ([Security.Principal.WindowsPrincipal]$identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -189,9 +200,15 @@ function Test-KICompleteIntegrationCompliant {
     # path). Without this, systemd not owning the service lifecycle goes
     # undetected until the next real cold start leaves nothing to bring the
     # services back up.
+    # Either uwsgi.service or ki-stack-searxng.service (the sibling Cutover-
+    # Runtime Integration module's unit) providing the SearXNG endpoint is a
+    # valid, compliant state; valkey-server and nginx remain required either way.
     try{
-        $enabled=@(& wsl.exe -d Debian -u root -- systemctl is-enabled valkey-server uwsgi nginx 2>&1)
-        return (@($enabled|Where-Object{$_-eq'enabled'}).Count-eq3)
+        $core=@(& wsl.exe -d Debian -u root -- systemctl is-enabled valkey-server nginx 2>&1)
+        $coreEnabled=(@($core|Where-Object{$_-eq'enabled'}).Count-eq2)
+        $searxng=@(& wsl.exe -d Debian -u root -- systemctl is-enabled uwsgi ki-stack-searxng 2>&1)
+        $searxngEnabled=(@($searxng|Where-Object{$_-eq'enabled'}).Count-ge1)
+        return ($coreEnabled -and $searxngEnabled)
     }catch{return $false}
 }
 
@@ -516,7 +533,15 @@ function Test-KICompleteOperations {
     param([string]$TargetRoot)
     $issues=@();$runProperties=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'electron.app.LM Studio' -ErrorAction SilentlyContinue;$runProperty=if($null-ne$runProperties){$runProperties.PSObject.Properties['electron.app.LM Studio']}else{$null};if($null-ne$runProperty-and$runProperty.Value){$issues+='LM Studio Run-Autostart vorhanden.'}
     $shell=New-Object -ComObject WScript.Shell;$desktop=[Environment]::GetFolderPath('Desktop');$pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source;foreach($link in @(@{name='KI-Stack starten.lnk';target=(Join-Path $TargetRoot 'Start-KIStack.cmd');arguments=''},@{name='KI-Stack stoppen.lnk';target=(Join-Path $TargetRoot 'Stop-KIStack.cmd');arguments=''},@{name='KI-Stack Status.lnk';target=$pwsh;arguments=('-NoLogo -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $TargetRoot 'Show-KIStackStatus.ps1')+'"')})){$path=Join-Path $desktop $link.name;if(-not(Test-Path $path)){$issues+="Desktop-Link fehlt: $($link.name)";continue};$s=$shell.CreateShortcut($path);if($s.TargetPath-ne$link.target-or$s.WorkingDirectory-ne$TargetRoot-or$s.Arguments-ne$link.arguments){$issues+="Desktop-Link falsch: $($link.name)"}}
-    $units=@();if(Get-Command wsl.exe -ErrorAction SilentlyContinue){foreach($unit in @('valkey-server','uwsgi','nginx')){$enabled=((& wsl.exe -d Debian -u root -- systemctl is-enabled $unit 2>$null)-join'').Trim();$active=((& wsl.exe -d Debian -u root -- systemctl is-active $unit 2>$null)-join'').Trim();$units+=@([ordered]@{unit=$unit;enabled=$enabled;active=$active});if($enabled-ne'enabled'){$issues+="systemd-Autostart nicht aktiv: $unit ($enabled)"};if($active-ne'active'){$issues+="systemd-Dienst nicht aktiv: $unit ($active)"}}}
+    # Either uwsgi.service or ki-stack-searxng.service (the sibling Cutover-
+    # Runtime Integration module's unit) providing the SearXNG endpoint is a
+    # valid, compliant state; valkey-server and nginx remain required either way.
+    $units=@();if(Get-Command wsl.exe -ErrorAction SilentlyContinue){
+        foreach($unit in @('valkey-server','nginx')){$enabled=((& wsl.exe -d Debian -u root -- systemctl is-enabled $unit 2>$null)-join'').Trim();$active=((& wsl.exe -d Debian -u root -- systemctl is-active $unit 2>$null)-join'').Trim();$units+=@([ordered]@{unit=$unit;enabled=$enabled;active=$active});if($enabled-ne'enabled'){$issues+="systemd-Autostart nicht aktiv: $unit ($enabled)"};if($active-ne'active'){$issues+="systemd-Dienst nicht aktiv: $unit ($active)"}}
+        $searxngOk=$false
+        foreach($unit in @('uwsgi','ki-stack-searxng')){$enabled=((& wsl.exe -d Debian -u root -- systemctl is-enabled $unit 2>$null)-join'').Trim();$active=((& wsl.exe -d Debian -u root -- systemctl is-active $unit 2>$null)-join'').Trim();$units+=@([ordered]@{unit=$unit;enabled=$enabled;active=$active});if($enabled-eq'enabled'-and$active-eq'active'){$searxngOk=$true}}
+        if(-not$searxngOk){$issues+='systemd-SearXNG-Dienst nicht aktiv: weder uwsgi noch ki-stack-searxng'}
+    }
     [pscustomobject]@{passed=($issues.Count-eq0);issues=$issues;desktop=$desktop;systemdUnits=$units}
 }
 
@@ -612,13 +637,13 @@ function Invoke-KIStackCompleteInstaller {
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
     $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.4.0-rc11';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.4.0-rc11';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.4.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.4.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
     if(-not$Resume -and $plan.alreadyCompliant -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.4.0-rc11'}
-        return [pscustomobject]@{version='2.4.0-rc11';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.4.0'}
+        return [pscustomobject]@{version='2.4.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
     $state = [string]$config.stateDirectory
     if ($Resume) {
@@ -921,10 +946,11 @@ function Invoke-KIStackCompleteInstaller {
         $codeInterpreter=if($null-ne$OpenWebUIApiToken){& (Join-Path $PackageRoot 'Operations/Set-KIStackCodeInterpreter.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BackupDirectory (Join-Path $backup 'code-interpreter')}else{[pscustomobject]@{status='CredentialRequiredForApiConfiguration';apiKeyStored=$false}}
         $finalizationPhase = 'WriteFinalState'
         $tx|Add-Member -NotePropertyName finalization -NotePropertyValue ([ordered]@{orchestratorFiles=$orchestratorChanges;centralStarters=$starterChanges;operations=$operations;knowledgeRollback=$knowledgeRollback;codeInterpreter=$codeInterpreter}) -Force
+        $tx = Clear-KICompleteStaleTransactionError -Transaction $tx
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
         $componentStatePath=Join-Path $state 'components.json';$componentVersions=[ordered]@{}
         foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
-        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.4.0-rc11';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
+        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.4.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
         Write-KICompleteJson $txPath $tx; return $tx
     }
     catch {

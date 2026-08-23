@@ -14,15 +14,26 @@ BACKUP_ROOT="${INTEGRATION_ROOT}/backups"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BACKUP_DIR="${BACKUP_ROOT}/${STAMP}"
 
-case "$REF" in
-  [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;;
-  *) printf '[KI-Stack Integration] Ungültiger SearXNG-Commit-Pin: erwartet werden exakt 40 hexadezimale Zeichen.\n' >&2; exit 56 ;;
-esac
+if [[ ! "$REF" =~ ^[0-9a-f]{40}$ ]]; then
+  printf '[KI-Stack Integration] Ungültiger SearXNG-Commit-Pin: erwartet werden exakt 40 hexadezimale Zeichen.\n' >&2
+  exit 56
+fi
 
 log(){ printf '[KI-Stack Integration] %s\n' "$*"; }
-json_healthy(){
-  local url="$1"
-  curl --connect-timeout 5 --max-time 20 --fail --silent --show-error "$url" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d,dict); assert "results" in d' >/dev/null 2>&1
+local_healthy(){
+  # $1 = base URL without trailing slash, e.g. http://127.0.0.1/searxng
+  # Local-only, deterministic liveness check: never calls /search and never
+  # depends on external engines or SearXNG's own rate limiter. This
+  # component's ki-stack-settings.yml sets limiter: true, and a live check
+  # confirmed /config is also subject to it here (429) -- only /healthz is
+  # exempt. A previous version of this probe called /search directly,
+  # which SearXNG's limiter then throttled after a handful of requests,
+  # making the installer's own readiness loop self-inflict its failure.
+  local url="$1/healthz" raw status body
+  raw="$(curl --connect-timeout 5 --max-time 20 --silent --show-error -w '\n%{http_code}' "$url" 2>/dev/null)" || return 1
+  status="${raw##*$'\n'}"
+  body="${raw%$'\n'*}"
+  [ "$status" = "200" ] && [ "$body" = "OK" ]
 }
 write_marker(){
   local mode="$1" backend="$2" changed="$3"
@@ -72,7 +83,7 @@ else
 fi
 
 # Fully healthy existing endpoint: adopt without replacing Linux configuration.
-if json_healthy 'http://127.0.0.1/searxng/search?q=ki-stack&format=json'; then
+if local_healthy 'http://127.0.0.1/searxng'; then
   write_marker 'adopted-existing' 'http://127.0.0.1/searxng' 'false'
   log 'Vorhandener SearXNG-JSON-Endpunkt wurde übernommen.'
   exit 0
@@ -92,7 +103,7 @@ done
 
 # Existing direct backend: keep it, add only the local nginx path.
 DIRECT_BACKEND=false
-if json_healthy "http://127.0.0.1:${BACKEND_PORT}/search?q=ki-stack&format=json"; then
+if local_healthy "http://127.0.0.1:${BACKEND_PORT}"; then
   DIRECT_BACKEND=true
 fi
 
@@ -144,7 +155,7 @@ if [ "$DIRECT_BACKEND" = false ]; then
   python3 -m venv "$ROOT/venv"
   "$ROOT/venv/bin/python" -m pip install --upgrade pip setuptools wheel
   "$ROOT/venv/bin/python" -m pip install -r "$ROOT/src/requirements.txt" -r "$ROOT/src/requirements-server.txt"
-  install -d /etc/searxng /etc/uwsgi/apps-available
+  install -d -m 0755 /etc/searxng /etc/uwsgi/apps-available
   SECRET="$($ROOT/venv/bin/python -c 'import secrets; print(secrets.token_urlsafe(48))')"
   cat > /etc/searxng/ki-stack-settings.yml <<EOFSETTINGS
 use_default_settings: true
@@ -181,6 +192,7 @@ chdir = ${ROOT}/src/searx
 module = webapp
 callable = app
 virtualenv = ${ROOT}/venv
+pythonpath = ${ROOT}/src
 env = SEARXNG_SETTINGS_PATH=/etc/searxng/ki-stack-settings.yml
 env = LANG=C.UTF-8
 env = LC_ALL=C.UTF-8
@@ -195,6 +207,8 @@ vacuum = true
 die-on-term = true
 disable-logging = true
 EOFUWSGI
+  chmod 0640 /etc/uwsgi/apps-available/ki-stack-searxng.ini
+  chown root:searxng /etc/uwsgi/apps-available/ki-stack-searxng.ini
   cat > /etc/systemd/system/ki-stack-searxng.service <<EOFSERVICE
 [Unit]
 Description=KI-Stack SearXNG
@@ -229,7 +243,7 @@ systemctl enable --now nginx
 systemctl restart nginx
 
 for attempt in $(seq 1 30); do
-  if json_healthy 'http://127.0.0.1/searxng/search?q=ki-stack&format=json'; then
+  if local_healthy 'http://127.0.0.1/searxng'; then
     if [ "$DIRECT_BACKEND" = true ]; then
       write_marker 'adopted-backend' "http://127.0.0.1:${BACKEND_PORT}" 'true'
     else
