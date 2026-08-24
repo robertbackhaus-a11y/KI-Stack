@@ -573,8 +573,19 @@ function Install-KICompleteRAGModule {
         if(Test-Path -LiteralPath $destination){Remove-Item -LiteralPath $destination -Recurse -Force}
         Copy-Item -LiteralPath $ComponentRoot -Destination $destination -Recurse -Force
         if($null-ne$preservedSources){[IO.File]::WriteAllBytes((Join-Path $destination 'Config/sources.json'),$preservedSources)}
+        $ragConfigPath=Join-Path $destination 'Config/rag.config.json'
+        if(-not(Test-Path -LiteralPath $ragConfigPath -PathType Leaf)){throw 'RAG-Konfiguration fehlt; Prefix-Vertrag kann nicht gesetzt werden.'}
+        $ragConfig=Get-Content -LiteralPath $ragConfigPath -Raw|ConvertFrom-Json
+        $documentPrefix=[string]$ragConfig.documentPrefix
+        $queryPrefix=[string]$ragConfig.queryPrefix
+        if([string]::IsNullOrWhiteSpace($documentPrefix)-or[string]::IsNullOrWhiteSpace($queryPrefix)){throw 'RAG-Konfiguration enthält keine gültigen Embedding-Prefixe.'}
         $environmentPath=Join-Path $destination 'OpenWebUI-RAG.env.cmd'
-        $environment="@echo off`r`nset `"RAG_EMBEDDING_CONTENT_PREFIX=search_document: `"`r`nset `"RAG_EMBEDDING_QUERY_PREFIX=search_query: `"`r`n"
+        # rag.config.json is the single source of truth for these prefixes;
+        # they are read from the installed component's own config rather
+        # than duplicated as literals here (previously three independently
+        # maintained copies of the same strings existed: this file, the RAG
+        # config itself, and the RAG package's own self-test).
+        $environment="@echo off`r`nset `"RAG_EMBEDDING_CONTENT_PREFIX=$documentPrefix`"`r`nset `"RAG_EMBEDDING_QUERY_PREFIX=$queryPrefix`"`r`n"
         [IO.File]::WriteAllText($environmentPath,$environment,[Text.Encoding]::ASCII)
         $starterText=[IO.File]::ReadAllText($starter)
         $callLine='call "'+$environmentPath+'"'

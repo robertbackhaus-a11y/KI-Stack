@@ -39,7 +39,8 @@ function Invoke-RAGApi {
         [ValidateSet('GET','POST','DELETE')][string]$Method='GET',
         [AllowNull()][object]$Body=$null,
         [AllowEmptyString()][string]$UploadPath='',
-        [AllowNull()][object]$Metadata=$null
+        [AllowNull()][object]$Metadata=$null,
+        [switch]$BodyIsArray
     )
     $plainToken = ConvertFrom-RAGSecureString $ApiToken
     try {
@@ -54,7 +55,19 @@ function Invoke-RAGApi {
             if ($null -ne $Metadata) { $parameters.Form.metadata=($Metadata|ConvertTo-Json -Depth 20 -Compress) }
         } elseif ($null -ne $Body) {
             $parameters.ContentType='application/json; charset=utf-8'
-            $parameters.Body=$Body|ConvertTo-Json -Depth 30 -Compress
+            if ($BodyIsArray) {
+                # A single-element array piped into ConvertTo-Json is enumerated by
+                # the pipeline before it arrives, so @($one) | ConvertTo-Json emits a
+                # bare JSON object instead of a one-element array. Passing via
+                # -InputObject (not the pipe) preserves the array as one object, so
+                # ConvertTo-Json serializes it correctly for 0, 1, or many elements.
+                # -AsArray is deliberately not used here: $Body is already a real
+                # array (callers pass it via @(...)), and -AsArray unconditionally
+                # adds one more array wrapper on top, double-nesting the result.
+                $parameters.Body=ConvertTo-Json -InputObject $Body -Depth 30 -Compress
+            } else {
+                $parameters.Body=$Body|ConvertTo-Json -Depth 30 -Compress
+            }
         }
         Invoke-RestMethod @parameters
     } catch {
@@ -106,6 +119,105 @@ function Get-RAGSection {
     'content'
 }
 
+function Test-RAGSourcesAgainstSchema {
+    # Validates each entry of sources.json against the published
+    # Contracts/source.schema.json via the built-in Test-Json cmdlet --
+    # no parallel, hand-written field-validation logic is maintained here.
+    # The empty default allow-list (`"sources": []`) is valid: the loop
+    # below simply does not execute.
+    param(
+        [Parameter(Mandatory)][object]$Sources,
+        [Parameter(Mandatory)][string]$SchemaPath
+    )
+    if (-not (Test-Path -LiteralPath $SchemaPath -PathType Leaf)) { throw "RAG-Quellenschema fehlt: $SchemaPath" }
+    if ($null -eq $Sources -or $null -eq $Sources.PSObject.Properties['sources']) {
+        throw "sources.json ist ungültig: das Pflichtfeld 'sources' fehlt."
+    }
+    # @($null) would yield a one-element array containing $null, not an
+    # empty array, so an explicit null-check precedes the @() wrap; a
+    # single-object JSON array is also normalized to a one-element array
+    # here (ConvertFrom-Json would otherwise return it unwrapped).
+    $list = if ($null -eq $Sources.sources) { @() } else { @($Sources.sources) }
+    $index = 0
+    foreach ($source in $list) {
+        $label = if ($null -ne $source -and $null -ne $source.PSObject.Properties['source_id'] -and -not [string]::IsNullOrWhiteSpace([string]$source.source_id)) {
+            [string]$source.source_id
+        } else {
+            "sources[$index]"
+        }
+        $itemJson = $source | ConvertTo-Json -Depth 20 -Compress
+        try {
+            $null = Test-Json -Json $itemJson -SchemaFile $SchemaPath -ErrorAction Stop
+        } catch {
+            throw "sources.json ist ungültig bei Quelle '$label': $($_.Exception.Message)"
+        }
+        $index++
+    }
+}
+
+function Resolve-RAGLMStudioCli {
+    # Mirrors the resolution order already used by the Applications
+    # module's Start-KIStack-LMStudio.cmd starter (PATH, then the
+    # per-user LM Studio install location) -- not a new mechanism.
+    param([Parameter(Mandatory)][string]$TargetRoot)
+    foreach ($name in @('lms.exe','lms.cmd')) {
+        $found = Get-Command $name -ErrorAction SilentlyContinue
+        if ($null -ne $found) { return $found.Source }
+    }
+    foreach ($name in @('lms.exe','lms.cmd')) {
+        $candidate = Join-Path $env:USERPROFILE (".lmstudio/bin/$name")
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+    }
+    $null
+}
+
+function Test-RAGEmbeddingModelAvailable {
+    param([Parameter(Mandatory)][string]$EmbeddingBaseUrl,[Parameter(Mandatory)][string]$EmbeddingModel)
+    try {
+        $models = Invoke-RestMethod -Uri ($EmbeddingBaseUrl.TrimEnd('/')+'/models') -Method GET -TimeoutSec 10
+        $ids = @($models.data | ForEach-Object { [string]$_.id })
+        $ids -contains $EmbeddingModel
+    } catch { $false }
+}
+
+function Assert-RAGEmbeddingModelReady {
+    # Execute-preflight: the embedding model previously had to be loaded
+    # into LM Studio by hand, with no automation and no clear failure
+    # message otherwise. This reuses the existing managed LM Studio
+    # starter (server readiness) and the existing lms CLI contract (model
+    # loading) -- no new LM Studio automation surface is introduced.
+    param(
+        [Parameter(Mandatory)][object]$Config,
+        [int]$LoadWaitMaxAttempts = 15,
+        [int]$LoadWaitIntervalSeconds = 2
+    )
+    if (Test-RAGEmbeddingModelAvailable -EmbeddingBaseUrl ([string]$Config.embeddingBaseUrl) -EmbeddingModel ([string]$Config.embeddingModel)) {
+        return
+    }
+    $targetRoot = [string]$Config.targetRoot
+    $lms = Resolve-RAGLMStudioCli -TargetRoot $targetRoot
+    if (-not $lms) {
+        $starter = Join-Path $targetRoot 'modules/applications/Start-KIStack-LMStudio.cmd'
+        if (-not (Test-Path -LiteralPath $starter -PathType Leaf)) {
+            throw "LM-Studio-Embedding-Modell ist nicht geladen und der verwaltete LM-Studio-Starter fehlt: $starter"
+        }
+        $null = Start-Process -FilePath $starter -Wait -PassThru -WindowStyle Hidden
+        $lms = Resolve-RAGLMStudioCli -TargetRoot $targetRoot
+    }
+    if (-not $lms) {
+        throw "LM-Studio-Embedding-Modell ist nicht geladen und die lms-CLI konnte nicht aufgelöst werden: $($Config.embeddingModel)"
+    }
+    $loadProcess = Start-Process -FilePath $lms -ArgumentList @('load', [string]$Config.embeddingModel, '-y') -Wait -PassThru -WindowStyle Hidden
+    $ready = $false
+    for ($attempt = 0; $attempt -lt $LoadWaitMaxAttempts; $attempt++) {
+        if (Test-RAGEmbeddingModelAvailable -EmbeddingBaseUrl ([string]$Config.embeddingBaseUrl) -EmbeddingModel ([string]$Config.embeddingModel)) { $ready = $true; break }
+        Start-Sleep -Seconds $LoadWaitIntervalSeconds
+    }
+    if (-not $ready) {
+        throw "LM-Studio-Embedding-Modell konnte nicht bereitgestellt werden: $($Config.embeddingModel) (lms-load-Exitcode: $($loadProcess.ExitCode))"
+    }
+}
+
 function Get-RAGInventory {
     param([Parameter(Mandatory)][object]$Config,[Parameter(Mandatory)][object]$Sources)
     $result=[Collections.Generic.List[object]]::new()
@@ -151,11 +263,18 @@ function Get-RAGPlan {
 function Get-RAGKnowledge {
     param([object]$Config,[Security.SecureString]$ApiToken,[switch]$Create)
     $response=Invoke-RAGApi $Config.openWebUIEndpoint $ApiToken '/api/v1/knowledge/'
-    $items=@(if($null-ne(Get-RAGProperty $response 'items')){$response.items}elseif($response-is[array]){$response}else{@($response)})
+    # Get-RAGProperty's plain-value return collapses an empty-array
+    # property value to $null (PowerShell's pipeline output unwraps a
+    # zero-element array to nothing), which previously made a brand-new
+    # OpenWebUI instance with zero existing Knowledge collections --
+    # "items": [] -- fall through to the wrong branch below and crash.
+    # Checked directly here instead, so existence (not value) decides.
+    $itemsProperty=$response.PSObject.Properties['items']
+    $items=@(if($null-ne$itemsProperty){$itemsProperty.Value}elseif($response-is[array]){$response}else{@($response)})
     $matches=@($items|Where-Object{[string]$_.name-eq[string]$Config.knowledgeName})
     if($matches.Count -gt 1){throw "Knowledge-Name ist nicht eindeutig: $($Config.knowledgeName)"}
-    if($matches.Count -eq 1){return$matches[0]}
-    if(-not$Create){return$null}
+    if($matches.Count -eq 1){return $matches[0]}
+    if(-not$Create){return $null}
     Invoke-RAGApi $Config.openWebUIEndpoint $ApiToken '/api/v1/knowledge/create' POST ([ordered]@{
         name=[string]$Config.knowledgeName;description=[string]$Config.knowledgeDescription;access_grants=@()
     })
@@ -163,11 +282,7 @@ function Get-RAGKnowledge {
 
 function Set-RAGEmbeddingContract {
     param([object]$Config,[Security.SecureString]$ApiToken,[string]$BackupPath)
-    $models=Invoke-RestMethod -Uri ($Config.embeddingBaseUrl.TrimEnd('/')+'/models') -Method GET -TimeoutSec 30
-    $modelIds=@($models.data|ForEach-Object{[string]$_.id})
-    if($modelIds-notcontains[string]$Config.embeddingModel){
-        throw "LM-Studio-Embedding-Modell ist nicht geladen: $($Config.embeddingModel)"
-    }
+    Assert-RAGEmbeddingModelReady -Config $Config
     $current=Invoke-RAGApi $Config.openWebUIEndpoint $ApiToken '/api/v1/retrieval/embedding'
     $safeBackup=[ordered]@{
         captured_at=[DateTime]::UtcNow.ToString('o')
@@ -236,7 +351,7 @@ function Add-RAGRemoteEntry {
         }
         if($uploaded.Count){
             $forms=@($uploaded|ForEach-Object{@{file_id=$_.file_id;directory_id=$null}})
-            $null=Invoke-RAGApi $Config.openWebUIEndpoint $ApiToken "/api/v1/knowledge/$KnowledgeId/files/batch/add" POST $forms
+            $null=Invoke-RAGApi $Config.openWebUIEndpoint $ApiToken "/api/v1/knowledge/$KnowledgeId/files/batch/add" POST $forms -BodyIsArray
         }
         [pscustomobject]@{
             key=$Entry.key;source_id=$Entry.source_id;source_type=$Entry.source_type;project=$Entry.project
@@ -249,6 +364,34 @@ function Add-RAGRemoteEntry {
     }
 }
 
+function Save-RAGStateCheckpoint {
+    # Single checkpoint writer for state.json, reused after every
+    # individually completed remote Add/Replace/Remove so a retry never
+    # re-uploads an entry that already succeeded. Persistence itself stays
+    # atomic via the existing Write-RAGJson temp-file+rename pattern -- no
+    # new atomic-write mechanism is introduced.
+    #
+    # PendingRemovals: a Replace's superseded old remote entry, recorded
+    # here from the moment its replacement's upload is confirmed until its
+    # own removal is confirmed. Not a general rollback log -- just enough
+    # to let a retry find and finish a Replace's cleanup half specifically,
+    # without ever re-uploading the (already committed) new content.
+    param(
+        [Parameter(Mandatory)][string]$StatePath,
+        [Parameter(Mandatory)][object]$Config,
+        [Parameter(Mandatory)][string]$KnowledgeId,
+        [Parameter(Mandatory)][hashtable]$Entries,
+        [object[]]$PendingRemovals=@()
+    )
+    $checkpoint=[ordered]@{
+        schemaVersion='1.0';version=[string]$Config.version;knowledge_id=$KnowledgeId
+        updated_at=[DateTime]::UtcNow.ToString('o');entries=@($Entries.Values|Sort-Object source_id,relative_path)
+        pendingRemovals=@($PendingRemovals)
+    }
+    Write-RAGJson $StatePath $checkpoint
+    $checkpoint
+}
+
 function Invoke-KIStackRAG {
     [CmdletBinding()]
     param(
@@ -256,17 +399,25 @@ function Invoke-KIStackRAG {
         [string]$PackageRoot=$PSScriptRoot,
         [string]$ConfigPath=(Join-Path $PSScriptRoot 'Config\rag.config.json'),
         [string]$SourcesPath=(Join-Path $PSScriptRoot 'Config\sources.json'),
+        [string]$SourceSchemaPath=(Join-Path $PSScriptRoot 'Contracts\source.schema.json'),
         [Security.SecureString]$ApiToken
     )
     $config=Read-RAGJson $ConfigPath;$sources=Read-RAGJson $SourcesPath
+    Test-RAGSourcesAgainstSchema -Sources $sources -SchemaPath $SourceSchemaPath
     $stateRoot=[string]$config.stateRoot;$statePath=Join-Path $stateRoot 'state.json'
     $state=if(Test-Path -LiteralPath $statePath){Read-RAGJson $statePath}else{$null}
-    $inventory=Get-RAGInventory $config $sources;$plan=Get-RAGPlan $inventory $state
+    # Get-RAGInventory's own @(...)-wrapped internal return still collapses to
+    # $null at this call site when zero files match (the last file of a
+    # source was just removed) -- the same function-output array-collapse
+    # class as Get-RAGProperty, hit here for the first time only because no
+    # real run had ever driven a source down to zero files before. Wrapping
+    # the call itself in @(...) guarantees $inventory stays a real array.
+    $inventory=@(Get-RAGInventory $config $sources);$plan=Get-RAGPlan $inventory $state
     if($Mode-in@('Audit','DryRun','Status')){
-        return[pscustomobject]@{
+        return [pscustomobject]@{
             mode=$Mode;version=[string]$config.version;sources=@($sources.sources).Count;files=$inventory.Count
-            add=@($plan|Where-Object action-eq'Add').Count;replace=@($plan|Where-Object action-eq'Replace').Count
-            remove=@($plan|Where-Object action-eq'Remove').Count;skip=@($plan|Where-Object action-eq'Skip').Count
+            add=@($plan|Where-Object action -eq 'Add').Count;replace=@($plan|Where-Object action -eq 'Replace').Count
+            remove=@($plan|Where-Object action -eq 'Remove').Count;skip=@($plan|Where-Object action -eq 'Skip').Count
             statePresent=($null-ne$state);mutatesTarget=$false
         }
     }
@@ -282,23 +433,57 @@ function Invoke-KIStackRAG {
     $embedding=Set-RAGEmbeddingContract $config $ApiToken (Join-Path $transaction 'embedding-before.json')
     if($null-ne$state){Write-RAGJson (Join-Path $stateRoot 'previous-state.json') $state}
     $entries=@{};if($null-ne$state){foreach($entry in @($state.entries)){$entries[[string]$entry.key]=$entry}}
+    # Entries a prior Replace already committed the new content for, but
+    # whose superseded old remote entry was not yet confirmed removed
+    # (that removal failed, or the process stopped, before it committed).
+    # Kept in state.json specifically so a retry can find and finish just
+    # that cleanup -- see AP02.5.
+    $pendingRemovals=@();if($null-ne$state-and$null-ne$state.PSObject.Properties['pendingRemovals']){$pendingRemovals=@($state.pendingRemovals)}
     try{
-        foreach($action in @($plan|Where-Object action-in@('Add','Replace'))){
-            $new=Add-RAGRemoteEntry $config $ApiToken ([string]$knowledge.id) $action.current $work
-            if($action.action-eq'Replace'){Remove-RAGRemoteEntry $config $ApiToken ([string]$knowledge.id) $action.previous}
-            $entries[[string]$new.key]=$new
+        foreach($pending in @($pendingRemovals)){
+            Remove-RAGRemoteEntry $config $ApiToken ([string]$knowledge.id) $pending
+            $pendingRemovals=@($pendingRemovals|Where-Object{[string]$_.removal_id -ne [string]$pending.removal_id})
+            $null=Save-RAGStateCheckpoint -StatePath $statePath -Config $config -KnowledgeId ([string]$knowledge.id) -Entries $entries -PendingRemovals $pendingRemovals
         }
-        foreach($action in @($plan|Where-Object action-eq'Remove')){
+        foreach($action in @($plan|Where-Object {$_.action -in @('Add','Replace')})){
+            # Commit point: the new remote content is confirmed to exist
+            # (upload + batch-add both succeeded) the instant control
+            # returns here, so the checkpoint is written before attempting
+            # to remove the superseded old entry. A retry after this point
+            # sees the new content as unchanged (Skip), never re-uploads
+            # it -- regardless of whether the old-entry removal below still
+            # succeeds. state.json therefore never points at remote
+            # content that does not exist.
+            $new=Add-RAGRemoteEntry $config $ApiToken ([string]$knowledge.id) $action.current $work
+            $entries[[string]$new.key]=$new
+            if($action.action-eq'Replace'){
+                # The old entry is recorded as pending *before* the removal
+                # attempt, in the same checkpoint as the new content, so a
+                # failure right here still leaves state.json naming exactly
+                # what still needs cleanup -- not silently forgotten.
+                $removalId=[guid]::NewGuid().ToString()
+                $pendingEntry=$action.previous|Select-Object *
+                $pendingEntry|Add-Member -NotePropertyName removal_id -NotePropertyValue $removalId -Force
+                $pendingRemovals=@($pendingRemovals)+$pendingEntry
+                $null=Save-RAGStateCheckpoint -StatePath $statePath -Config $config -KnowledgeId ([string]$knowledge.id) -Entries $entries -PendingRemovals $pendingRemovals
+                Remove-RAGRemoteEntry $config $ApiToken ([string]$knowledge.id) $action.previous
+                $pendingRemovals=@($pendingRemovals|Where-Object{[string]$_.removal_id -ne $removalId})
+            }
+            $null=Save-RAGStateCheckpoint -StatePath $statePath -Config $config -KnowledgeId ([string]$knowledge.id) -Entries $entries -PendingRemovals $pendingRemovals
+        }
+        foreach($action in @($plan|Where-Object action -eq 'Remove')){
+            # Commit point: only after the remote removal itself succeeds.
+            # A failed removal leaves the entry -- and therefore the
+            # previously written, still-accurate checkpoint -- untouched.
             Remove-RAGRemoteEntry $config $ApiToken ([string]$knowledge.id) $action.previous
             $entries.Remove([string]$action.previous.key)
+            $null=Save-RAGStateCheckpoint -StatePath $statePath -Config $config -KnowledgeId ([string]$knowledge.id) -Entries $entries -PendingRemovals $pendingRemovals
         }
-        $newState=[ordered]@{schemaVersion='1.0';version=[string]$config.version;knowledge_id=[string]$knowledge.id;updated_at=[DateTime]::UtcNow.ToString('o');entries=@($entries.Values|Sort-Object source_id,relative_path)}
-        Write-RAGJson $statePath $newState
-        [pscustomobject]@{mode='Execute';passed=$true;knowledge_id=[string]$knowledge.id;embeddingModel=[string]$embedding.RAG_EMBEDDING_MODEL;entries=$entries.Count;transaction=$transaction;apiKeyStored=$false}
+        [pscustomobject]@{mode='Execute';passed=$true;knowledge_id=[string]$knowledge.id;embeddingModel=[string]$embedding.RAG_EMBEDDING_MODEL;entries=$entries.Count;pendingRemovals=$pendingRemovals.Count;transaction=$transaction;apiKeyStored=$false}
     }catch{
         Write-RAGJson (Join-Path $transaction 'failure.json') ([ordered]@{failed_at=[DateTime]::UtcNow.ToString('o');message=[string]$_.Exception.Message;apiKeyStored=$false})
         throw
     }
 }
 
-Export-ModuleMember -Function Invoke-KIStackRAG,Get-RAGInventory,Get-RAGPlan,Split-RAGContent
+Export-ModuleMember -Function Invoke-KIStackRAG,Get-RAGInventory,Get-RAGPlan,Split-RAGContent,Test-RAGSourcesAgainstSchema,Resolve-RAGLMStudioCli,Test-RAGEmbeddingModelAvailable,Assert-RAGEmbeddingModelReady,Save-RAGStateCheckpoint
