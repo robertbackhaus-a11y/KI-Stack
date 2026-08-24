@@ -153,7 +153,7 @@ if ($orchestrator.Contains("orchestratedBy='embedded validated component'")) {
 foreach ($marker in @("elseif (`$step.id -eq 'validation-gate')",'Install-KIStack-ValidationGate.ps1',"orchestratedBy='public Validation Gate installer'",'Installierte Validation-Gate-Version stimmt nicht')) {
     if (-not $orchestrator.Contains($marker)) { $fail.Add("Validation Gate real deployment: $marker") }
 }
-foreach($marker in @("elseif (`$step.id -eq 'codex-local')","elseif (`$step.id -eq 'rag')",'Invoke-KIStackCodexLocal.ps1','Test-KIStackRAG.ps1','Install-KICompleteRAGModule','RAG_EMBEDDING_CONTENT_PREFIX=search_document: ','RAG_EMBEDDING_QUERY_PREFIX=search_query: ')){
+foreach($marker in @("elseif (`$step.id -eq 'codex-local')","elseif (`$step.id -eq 'rag')",'Invoke-KIStackCodexLocal.ps1','Test-KIStackRAG.ps1','Install-KICompleteRAGModule','RAG_EMBEDDING_CONTENT_PREFIX=$documentPrefix','RAG_EMBEDDING_QUERY_PREFIX=$queryPrefix','$ragConfig.documentPrefix','$ragConfig.queryPrefix')){
     if(-not$orchestrator.Contains($marker)){$fail.Add("Local Intelligence integration: $marker")}
 }
 foreach($marker in @('Test-KICompleteCodexLocalCompliant','Resume-Readback erforderte erneutes Deployment','Payload ist mehrdeutig:')){
