@@ -1,6 +1,6 @@
 # Installation, upgrade, and operations
 
-1. Verify `KI-Stack-Complete-Installer-v2.4.0.zip` against its adjacent `.sha256` sidecar with `Get-FileHash -Algorithm SHA256`.
+1. Verify `KI-Stack-Complete-Installer-v2.5.0.zip` against its adjacent `.sha256` sidecar with `Get-FileHash -Algorithm SHA256`.
 2. Extract the package and run `Start-KIStack-Installer.cmd` with PowerShell 7.
 3. If first-time WSL activation reports `RESTART REQUIRED` (exit code 31), restart Windows and run `Resume-KIStack-Installer.cmd <TransactionId>`. `WaitingForRestart` is resumable and does not trigger rollback.
 4. Confirm UAC. If requested, enter a temporary OpenWebUI administrator API key through the hidden prompt; it is never stored and should be revoked afterwards.
@@ -20,7 +20,7 @@ SearXNG's local endpoint runs under `uwsgi` behind an `nginx` reverse proxy at `
 
 ## RAG / Knowledge ingestion
 
-The RAG module (0.2.0) is installed automatically under `C:\KI-Stack\modules\rag`; installation only validates its source contract and places its files, and its OpenWebUI search-prefix environment is wired into the existing OpenWebUI starter. It does **not** ingest any documents, and no sources are configured by default (`Config/sources.json` ships as an empty allow-list). To ingest content, add entries to `Config/sources.json` yourself and run `Invoke-KIStackRAG.ps1 -Mode Execute -ApiToken <SecureString>` from that directory (modes: `Audit`, `DryRun`, `Execute`, `Status`, `Rollback`; the token is never stored). This `Execute`/`Rollback` ingestion path has not been separately target-system verified beyond the module's own installation.
+The RAG module (0.3.0) is installed automatically under `C:\KI-Stack\modules\rag`; installation only validates its source contract and places its files, and its OpenWebUI search-prefix environment is wired into the existing OpenWebUI starter. It does **not** ingest any documents, and no sources are configured by default (`Config/sources.json` ships as an empty allow-list). To ingest content, add entries to `Config/sources.json` yourself and run `Invoke-KIStackRAG.ps1 -Mode Execute -ApiToken <SecureString>` from that directory (modes: `Audit`, `DryRun`, `Execute`, `Status`, `Rollback`; the token is never stored; `Audit`/`DryRun`/`Status` are read-only and never mutate the target). `Execute` (Add/Query/Replace/Remove) and `Rollback` (of Add) have passed real target-system validation against a live OpenWebUI 0.11.0 instance, including a repeated `Rollback` call confirmed as a clean, idempotent no-op. `Rollback` of Replace/Remove is implemented and covered by an extensive mocked regression suite; it has not yet been exercised against a live target. Every `Execute` mutation of OpenWebUI's global embedding configuration is idempotent and backed up beforehand; automatic restore on failure or Rollback only happens when that backup provably held no credential value RAG could not save, otherwise the result reports `EmbeddingRestoreRequiresManualAction` instead of a destructive partial restore.
 
 ## Manual follow-up: API credentials
 

@@ -15,6 +15,6 @@
     {"id":"openwebui-agent-pack","name":"OpenWebUI Agent Pack","version":"1.8.9","order":120,"source":"Payload/OpenWebUIAgentPack","marker":"openwebui-api","probe":{"type":"json","path":"modules/openwebui-agent-pack/installation.json","fields":["version"]},"kind":"openwebui","installable":true},
     {"id":"openwebui-ballistics-pack","name":"OpenWebUI Ballistics","version":"1.0.0","order":130,"source":"Payload/OpenWebUIBallisticsPack","marker":"modules/openwebui-ballistics/installation.json","probe":{"type":"json","path":"modules/openwebui-ballistics/installation.json","fields":["version","releaseVersion","packageVersion"]},"kind":"openwebui-optional","installable":true,"optional":true,"preserveData":"data/ballistics"},
     {"id":"codex-local","name":"Codex Local","version":"0.1.3","order":140,"source":"Payload/CodexLocal","marker":"modules/codex-local/installation.json","probe":{"type":"json","path":"modules/codex-local/installation.json","fields":["version"]},"kind":"local-intelligence","installable":true},
-    {"id":"rag","name":"RAG","version":"0.2.0","order":150,"source":"Payload/RAG","marker":"modules/rag/installation.json","probe":{"type":"json","path":"modules/rag/installation.json","fields":["version"]},"kind":"local-intelligence","installable":true}
+    {"id":"rag","name":"RAG","version":"0.3.0","order":150,"source":"Payload/RAG","marker":"modules/rag/installation.json","probe":{"type":"json","path":"modules/rag/installation.json","fields":["version"]},"kind":"local-intelligence","installable":true}
   ]
 }

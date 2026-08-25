@@ -7,7 +7,7 @@ Import-Module (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Force
 $audit=Invoke-KIStackCompleteInstaller -Mode Audit -PackageRoot $PackageRoot -TargetRoot $TargetRoot
 $validate=Invoke-KIStackCompleteInstaller -Mode Validate -PackageRoot $PackageRoot -TargetRoot $TargetRoot
 [pscustomobject]@{
-    version='2.4.0'
+    version='2.5.0'
     passed=([bool]$validate.health.passed-and[bool]$validate.operations.passed)
     auditReadOnly=(-not$audit.mutatesTarget)
     existingInstallation=$true

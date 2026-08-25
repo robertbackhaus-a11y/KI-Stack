@@ -1,9 +1,9 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.4.0",
-  "baseVersion": "2.3.2",
-  "status": "SourcePendingValidation_TargetPending",
+  "version": "2.5.0",
+  "baseVersion": "2.4.0",
+  "status": "RCTargetValidated_RAGTargetValidated_GreenfieldValidated",
   "previousCandidateRejected": "2.4.0-rc8",
   "previousCandidateRejectReason": "StrictMode rejected normal module results whose data object did not expose the optional reboot control status property.",
   "deterministicArchive": true,
@@ -47,5 +47,52 @@
   "comfyUI": "1.2.4",
   "openWebUIVisualPack": "2.0.5",
   "openWebUIAgentPack": "1.8.9",
-  "validationGate": "1.0.3"
+  "validationGate": "1.0.3",
+  "rag": "0.3.0",
+  "rcBuildValidation": {
+    "script": "scripts/Invoke-KIStackCompleteInstallerRCBuildValidation.ps1",
+    "status": "WindowsArtifactValidated_TargetExecutionLocked",
+    "stepsPassed": "13/13",
+    "deterministicDualBuildConfirmed": true,
+    "codexCliArtifactValidated": true,
+    "realTargetTreeUnchangedByBuild": true,
+    "note": "Simulated empty target used for installer-logic validation; not a full physical Greenfield install of 2.5.0 itself."
+  },
+  "ragLiveTargetValidation": {
+    "execute": "passed",
+    "addThenRollback": "passed",
+    "rollbackIdempotentOnSecondCall": true,
+    "remoteFileGenuinelyDeletedNotJustDetached": true,
+    "localStateAndRollbackArchiveConsistentAfterward": true,
+    "embeddingRestoreStatusObserved": "NoMutation",
+    "testFixtureCleanedUpAfterward": true,
+    "replaceRemoveRollback": "regression-validated only via the extensive mocked test suite; not yet exercised against a live target",
+    "scope": "Execute (Add) and Rollback (of Add) both verified against a live OpenWebUI 0.11.0 instance with before/after remote evidence."
+  },
+  "greenfieldAcceptance": {
+    "status": "PhysicalGreenfieldInstallCompleted",
+    "environment": "Hyper-V VM, fresh Windows install, no prior KI-Stack state",
+    "transactionId": "KI-COMPLETE-20260824-152853",
+    "rebootResumeAfterFirstTimeWslActivation": "passed",
+    "finalExitCode": 0,
+    "allRegularStepsCompleted": true,
+    "visualAndAgentPackStatus": "WaitingForUserAction -- expected credential state because no OpenWebUI administrator API key was supplied by design, not an installation failure",
+    "manualFileOrProductWorkaroundsOnTarget": false,
+    "ragPostInstallChecks": {
+      "ragModulePresent": true,
+      "lmStudioEmbeddingModelAutoProvisioned": true,
+      "openWebUIReachable": true,
+      "sourcesJsonDefaultValid": true,
+      "auditAndDryRunRunnable": true
+    },
+    "findings": [
+      {
+        "id": "receive-artifact-http-416-resume",
+        "component": "models-workflows",
+        "description": "Receive-Artifact issued a Range request starting at the already-complete artifact's end-of-file offset (Range: bytes=<ExpectedSize>-) whenever a fully-downloaded .partial file had not yet been moved to its final target, and the source correctly answered HTTP 416 Range Not Satisfiable. Fixed: a .partial file already at the exact expected size is now verified directly via the existing size/SHA256 contract, issuing no HTTP request; a hash mismatch fails safely through the existing invalid-artifact contract, never a silent reuse.",
+        "discoveredDuring": "this physical Greenfield acceptance run",
+        "fixedAndReverifiedAgainstTheSameLiveTarget": true
+      }
+    ]
+  }
 }
