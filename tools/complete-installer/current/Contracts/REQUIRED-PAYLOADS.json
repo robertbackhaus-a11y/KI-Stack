@@ -6,7 +6,7 @@
     {"key":"Integration","source":"tools/integration/current","file":"KI-Stack-Integration-Execute-v1.5.11.zip","archiveRoot":null,"required":true},
     {"key":"ModelsWorkflows","source":"tools/models-workflows/current","file":"KI-Stack-Visual-Models-Workflows-v2.0.3.zip","archiveRoot":"KI-Stack-Visual-Models-Workflows-v2.0.3","required":true},
     {"key":"CodexLocal","source":"tools/codex-local/current","file":"KI-Stack-Codex-Local-v0.1.3.zip","archiveRoot":"KI-Stack-Codex-Local-v0.1.3","required":true},
-    {"key":"RAG","source":"tools/rag/current","file":"KI-Stack-RAG-v0.3.0.zip","archiveRoot":"KI-Stack-RAG-v0.3.0","required":true},
+    {"key":"RAG","source":"tools/rag/current","file":"KI-Stack-RAG-v0.3.1.zip","archiveRoot":"KI-Stack-RAG-v0.3.1","required":true},
     {"key":"OpenWebUIAgentPack","source":"tools/openwebui-agent-pack/current","file":"KI-Stack-OpenWebUI-Agent-Pack-v1.8.9.zip","archiveRoot":null,"required":true},
     {"key":"OpenWebUIBallisticsPack","source":"tools/openwebui-ballistics-pack/current","file":"KI-Stack-OpenWebUI-Ballistics-Pack-v1.0.0.zip","archiveRoot":"KI-Stack-OpenWebUI-Ballistics-Pack-v1.0.0","required":false},
     {"key":"OpenWebUIVisualPack","source":"tools/openwebui-visual-pack/current","file":"KI-Stack-OpenWebUI-Visual-Pack-v2.0.5.zip","archiveRoot":"KI-Stack-OpenWebUI-Visual-Pack-v2.0.5","required":true},

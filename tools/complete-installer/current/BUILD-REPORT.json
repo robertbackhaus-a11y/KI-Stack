@@ -1,9 +1,9 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.5.0",
-  "baseVersion": "2.4.0",
-  "status": "RCTargetValidated_RAGTargetValidated_GreenfieldValidated",
+  "version": "2.6.0",
+  "baseVersion": "2.5.0",
+  "status": "RAGRollbackComplete_AddReplaceRemove_TargetValidated",
   "previousCandidateRejected": "2.4.0-rc8",
   "previousCandidateRejectReason": "StrictMode rejected normal module results whose data object did not expose the optional reboot control status property.",
   "deterministicArchive": true,
@@ -48,7 +48,7 @@
   "openWebUIVisualPack": "2.0.5",
   "openWebUIAgentPack": "1.8.9",
   "validationGate": "1.0.3",
-  "rag": "0.3.0",
+  "rag": "0.3.1",
   "rcBuildValidation": {
     "script": "scripts/Invoke-KIStackCompleteInstallerRCBuildValidation.ps1",
     "status": "WindowsArtifactValidated_TargetExecutionLocked",
@@ -56,21 +56,25 @@
     "deterministicDualBuildConfirmed": true,
     "codexCliArtifactValidated": true,
     "realTargetTreeUnchangedByBuild": true,
-    "note": "Simulated empty target used for installer-logic validation; not a full physical Greenfield install of 2.5.0 itself."
+    "note": "Evidence from the 2.5.0 cycle; carried forward as still valid for 2.6.0 since none of the installer-logic/build-pipeline code this script exercises changed in 2.6.0 (the 2.6.0 scope was RAG-module-only). Simulated empty target used for installer-logic validation; not a full physical Greenfield install."
   },
   "ragLiveTargetValidation": {
     "execute": "passed",
     "addThenRollback": "passed",
+    "replaceThenRollback": "passed",
+    "removeThenRollback": "passed",
     "rollbackIdempotentOnSecondCall": true,
     "remoteFileGenuinelyDeletedNotJustDetached": true,
-    "localStateAndRollbackArchiveConsistentAfterward": true,
+    "restoredContentByteVerifiedAgainstOriginal": true,
+    "localStateConsistentAfterward": true,
     "embeddingRestoreStatusObserved": "NoMutation",
     "testFixtureCleanedUpAfterward": true,
-    "replaceRemoveRollback": "regression-validated only via the extensive mocked test suite; not yet exercised against a live target",
-    "scope": "Execute (Add) and Rollback (of Add) both verified against a live OpenWebUI 0.11.0 instance with before/after remote evidence."
+    "scope": "Execute (Add/Query/Replace/Remove) and Rollback of Add, Replace, and Remove all verified against a live OpenWebUI 0.11.0 instance with before/after remote evidence, each including a repeated Rollback call confirmed as a clean idempotent no-op.",
+    "regressionFinding": "A partial-failure-then-retry regression test for the Replace/Remove restore path (added 2.6.0 AP01, mirroring the pre-existing Add-path scenario) found a real defect: a retry could re-issue a remove call against remote content an earlier partial attempt had already deleted, failing the retry itself. Fixed in Remove-RAGRemoteEntry to treat an already-removed target as already-satisfied, matching the real server's own behavior; negative-control verified."
   },
   "greenfieldAcceptance": {
     "status": "PhysicalGreenfieldInstallCompleted",
+    "cycle": "2.5.0 -- carried forward as still valid for 2.6.0; no installer/build code changed in 2.6.0 (RAG-module-only scope), so no new Greenfield run was performed this cycle.",
     "environment": "Hyper-V VM, fresh Windows install, no prior KI-Stack state",
     "transactionId": "KI-COMPLETE-20260824-152853",
     "rebootResumeAfterFirstTimeWslActivation": "passed",

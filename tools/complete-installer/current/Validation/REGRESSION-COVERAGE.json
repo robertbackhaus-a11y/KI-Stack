@@ -1,12 +1,32 @@
 {
   "schemaVersion": "1.0",
   "packageName": "KI-Stack-Complete-Installer",
-  "packageVersion": "2.5.0",
+  "packageVersion": "2.6.0",
   "coverage": [
     {
       "id": "REG-023-ROOTLESS-NESTED-ARCHIVE",
       "status": "covered",
       "method": "Validation Gate 1.0.3 extracts rootless legacy payload archives at their archive root and validates safe paths, duplicate paths, symlinks, CRC and declared SHA-256 values."
+    },
+    {
+      "id": "REG-030-PS51-CONVERTFROM-JSON-DEPTH",
+      "status": "covered",
+      "method": "The RAG mock test server (launched as Windows PowerShell 5.1, whose ConvertFrom-Json has no -Depth parameter before PS6) no longer passes -Depth when reading its persisted state, avoiding a parameter-binding crash at mock startup that otherwise only ever surfaced to the client as a generic connection failure. Covered by Test-KIStackRAGStatePersistence.ps1."
+    },
+    {
+      "id": "REG-031-PS51-SET-CONTENT-UTF8NOBOM",
+      "status": "covered",
+      "method": "The same PowerShell 5.1 mock process no longer uses Set-Content -Encoding utf8NoBOM (not a valid enum value before PS6, threw ParameterBindingException on every write); persistence writes use plain ascii, which is lossless for ConvertTo-Json's own pure-ASCII (\\u-escaped) output. Covered by Test-KIStackRAGStatePersistence.ps1."
+    },
+    {
+      "id": "REG-032-START-PROCESS-ARGUMENTLIST-EMPTY-STRING-DROP",
+      "status": "covered",
+      "method": "Start-Process -ArgumentList silently drops a bare empty-string array element instead of passing a genuine empty argument, misbinding the following named parameter. The RAG mock launcher (Start-RAGMockOpenWebUIServer) passes the literal two-character string '\"\"' instead of an empty string for -InitialOpenAIKey, which correctly binds to an empty string in the child process. Covered by Test-KIStackRAGStatePersistence.ps1."
+    },
+    {
+      "id": "REG-033-MODELSWORKFLOWS-RECEIVE-ARTIFACT-HTTP-416-RESUME",
+      "status": "covered",
+      "method": "Receive-Artifact issued a Range request starting at an already-complete artifact's end-of-file offset whenever a fully-downloaded .partial file had not yet been moved to its final target, and the source correctly answered HTTP 416 Range Not Satisfiable. A .partial file already at the expected size is now verified directly via the existing size/SHA256 contract with no HTTP request. Found and reproduced live during the 2.5.0 Greenfield acceptance run; fixed and reverified against the same live target. Covered by Tests/Test-KIStackModelDownloadContract.ps1 (models-workflows)."
     }
   ]
 }
