@@ -23,7 +23,7 @@ Projektseite und begleitende Artikel: https://www.okami.de/category/howtos/ki-st
 | OpenWebUI Agent Pack | 1.8.9 | Stable; Heretic-only profiles with Visual Pack 2.0.5 bindings |
 | OpenWebUI Visual Pack | 2.0.5 | Stable; Z-Image and WAN2.2 tools with persistent MP4 attachments |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
-| Complete Installer | 2.4.0 | Stable; verified with a complete, successful, physical Greenfield installation on an empty target |
+| Complete Installer | 2.4.0 | Stable, currently published release; verified with a complete, successful, physical Greenfield installation on an empty target. 2.5.0 (adds the RAG module) has also passed a real physical Greenfield installation and fixes a Models/Workflows HTTP-416 resume defect found in 2.4.0 (see `docs/releases/complete-installer-v2.4.0.md`); not yet tagged or published as a GitHub Release. |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.

@@ -25,3 +25,9 @@ Unlike prior 2.4.0 release candidates, this release has been verified with a com
 Without a supplied OpenWebUI administrator API key, the temporary Knowledge bootstrap-experiment rollback and the Code Interpreter connection configuration remain manual follow-up steps in OpenWebUI after installation (`CredentialRequiredForApiReadback` / `CredentialRequiredForApiConfiguration`).
 
 The authoritative Complete Installer ZIP hash is published only in the adjacent `.sha256` sidecar and the GitHub Release description.
+
+## Known issue / superseded by 2.5.0
+
+A defect was discovered after this release shipped, during the real, physical Greenfield acceptance testing performed for 2.5.0: in the Visual Models / Workflows download logic, `Receive-Artifact` issued a Range request starting at the already-complete artifact's end-of-file offset (`Range: bytes=<ExpectedSize>-`) whenever a fully-downloaded `.partial` file had not yet been moved to its final target. The download source correctly answers such a request with HTTP 416 Range Not Satisfiable, which could prevent an otherwise fully-downloaded model artifact from finalizing on resume. This defect was present in 2.4.0 as released above; it was reproduced live during the 2.5.0 Greenfield run and is fixed and live-verified in 2.5.0.
+
+This entry documents the defect for the historical record only. 2.4.0 remains published exactly as described above; its artifact and Git tag are not replaced, amended, or re-issued. Anyone still running 2.4.0 should upgrade to 2.5.0, which includes the fix.
