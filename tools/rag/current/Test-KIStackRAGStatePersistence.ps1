@@ -250,7 +250,24 @@ for($i=0;$i -lt $RequestCount;$i++){
             if((Test-Path -LiteralPath (Join-Path $StateDir 'fail-remove.marker')) -or $removeCounter -eq $FailOnRemoveNumber){
                 Send-MockJsonResponse $stream 500 '{"error":"fixture induced remove failure"}'
             } else {
-                Send-MockJsonResponse $stream 200 '{}'
+                # Mirrors the real server: removing a file_id that is already
+                # gone (Files.get_file_by_id returns nothing) is a real 400,
+                # not a silent success -- source-confirmed against
+                # routers/knowledge.py's remove_file_from_knowledge_by_id. A
+                # retry that blindly re-issues this call for an entry whose
+                # remote content a prior, partially-failed attempt already
+                # deleted must therefore not rely on this route tolerating a
+                # repeat; $fileContents (the same store the upload/GET/DELETE
+                # routes already use) doubles as the "does this file_id still
+                # exist" ledger here, so this stays a single source of truth.
+                $removeFileId=[string]($req.Body|ConvertFrom-Json).file_id
+                if(-not $fileContents.ContainsKey($removeFileId)){
+                    Send-MockJsonResponse $stream 400 '{"detail":"Not Found"}'
+                } else {
+                    $fileContents.Remove($removeFileId)
+                    Save-MockUploadState
+                    Send-MockJsonResponse $stream 200 '{}'
+                }
             }
         }
         else{
@@ -1159,6 +1176,161 @@ try{
     if(Test-Path -LiteralPath $fixture26.Root){Remove-Item -LiteralPath $fixture26.Root -Recurse -Force -ErrorAction SilentlyContinue}
 }
 
-$result=[pscustomobject]@{passed=($failures.Count-eq0);checks=26;failures=@($failures)}
+# --- Scenario 27 (AP01, 2.6.0): Replace-Rollback fails partway through a
+# multi-entry restore -> the entry already restored is persisted and never
+# re-touched; a retry finishes only the remaining entry's restore, without
+# re-issuing a remove against remote content a prior attempt already
+# deleted. Mirrors Scenario 13's pattern against the restore-upload path
+# specifically (Scenario 13 only ever exercised the plain-delete/Add path). -
+$fixture27=New-RAGExecuteFixture -FileCount 2
+$server27=$null
+try{
+    $server27=Start-RAGMockOpenWebUIServer -Fixture $fixture27
+    $env:PATH=$minimalWindowsPath
+    Invoke-KIStackRAG -Mode Execute -ConfigPath $fixture27.ConfigPath -SourcesPath $fixture27.SourcesPath -SourceSchemaPath $schemaPath -ApiToken $plainToken|Out-Null
+    Stop-RAGMockOpenWebUIServer -Process $server27
+    $originalHash27=@{
+        'doc1.md'=(Get-FileHash -LiteralPath (Join-Path $fixture27.SourceRoot 'doc1.md') -Algorithm SHA256).Hash.ToLowerInvariant()
+        'doc2.md'=(Get-FileHash -LiteralPath (Join-Path $fixture27.SourceRoot 'doc2.md') -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+
+    Set-Content -LiteralPath (Join-Path $fixture27.SourceRoot 'doc1.md') -Value "# Document 1`n`nReplaced content 1 for partial-rollback test." -Encoding utf8NoBOM
+    Set-Content -LiteralPath (Join-Path $fixture27.SourceRoot 'doc2.md') -Value "# Document 2`n`nReplaced content 2 for partial-rollback test." -Encoding utf8NoBOM
+    $server27=Start-RAGMockOpenWebUIServer -Fixture $fixture27
+    Invoke-KIStackRAG -Mode Execute -ConfigPath $fixture27.ConfigPath -SourcesPath $fixture27.SourcesPath -SourceSchemaPath $schemaPath -ApiToken $plainToken|Out-Null
+    Stop-RAGMockOpenWebUIServer -Process $server27
+    $manifest27=Get-Content -LiteralPath (Join-Path $fixture27.StateRoot 'rollback-archive.json') -Raw|ConvertFrom-Json
+    if(@($manifest27.replaced).Count -ne 2){$failures.Add("Szenario 27: rollback-archive.json listet $(@($manifest27.replaced).Count) Replace-Einträge, erwartet 2 -- Testannahme verletzt.")}
+
+    # Der zweite Restore-Upload (das zweite von zwei Rollback-Elementen) wird
+    # induziert zum Scheitern gebracht -- der erste Restore-Upload (Upload 1)
+    # muss dabei bereits durchlaufen sein.
+    $server27=Start-RAGMockOpenWebUIServer -Fixture $fixture27 -FailOnUploadNumber 2
+    $threw27=$false
+    try{
+        Invoke-KIStackRAG -Mode Rollback -ConfigPath $fixture27.ConfigPath -SourcesPath $fixture27.SourcesPath -SourceSchemaPath $schemaPath -ApiToken $plainToken|Out-Null
+    }catch{$threw27=$true}
+    Stop-RAGMockOpenWebUIServer -Process $server27
+    if(-not$threw27){$failures.Add('Szenario 27: induzierter Fehler beim zweiten Restore-Upload führte nicht zu einem Fehlschlag.')}
+
+    $stateAfterPartial27=Get-Content -LiteralPath $fixture27.StatePath -Raw|ConvertFrom-Json
+    $restoredNow27=@($stateAfterPartial27.entries|Where-Object{[string]$_.file_sha256 -in $originalHash27.Values})
+    if(@($restoredNow27).Count -ne 1){
+        $failures.Add("Szenario 27: nach dem Teil-Rollback zeigen $(@($restoredNow27).Count) Einträge bereits den ursprünglichen Hash, erwartet genau 1 (ein Element erfolgreich zurückgerollt, das andere blieb wegen des induzierten Fehlers stehen).")
+    }
+    $partiallyRestoredKey27=if(@($restoredNow27).Count -eq 1){[string]$restoredNow27[0].key}else{$null}
+    $partiallyRestoredFileId27=if(@($restoredNow27).Count -eq 1){[string]$restoredNow27[0].chunks[0].file_id}else{$null}
+
+    # Retry: ohne induzierten Fehler muss das verbleibende Element fertig
+    # zurückgerollt werden, ohne das bereits erledigte erneut anzufassen und
+    # ohne gegen bereits entfernten Remote-Inhalt einen erneuten Remove-
+    # Aufruf abzusetzen (das würde am realen Server als 400 fehlschlagen --
+    # der Mock bildet das jetzt nach).
+    $server27=Start-RAGMockOpenWebUIServer -Fixture $fixture27
+    $retryRollback27=$null;$retryThrew27=$false;$retryMessage27=''
+    try{
+        $retryRollback27=Invoke-KIStackRAG -Mode Rollback -ConfigPath $fixture27.ConfigPath -SourcesPath $fixture27.SourcesPath -SourceSchemaPath $schemaPath -ApiToken $plainToken
+    }catch{$retryThrew27=$true;$retryMessage27=$_.Exception.Message}
+    Stop-RAGMockOpenWebUIServer -Process $server27
+
+    if($retryThrew27){
+        $failures.Add("Szenario 27: Retry-Rollback des Replace-Restore-Pfads schlug fehl statt nur die offene Recovery fortzusetzen: $retryMessage27")
+    } else {
+        if(-not $retryRollback27.passed){$failures.Add('Szenario 27: Retry-Rollback meldete passed=false.')}
+        if(@($retryRollback27.rolledBack).Count -ne 1){$failures.Add("Szenario 27: Retry-Rollback hat $(@($retryRollback27.rolledBack).Count) Elemente zurückgerollt, erwartet genau 1 (nur das zuvor fehlgeschlagene).")}
+        if(@($retryRollback27.alreadyClean).Count -ne 1){$failures.Add('Szenario 27: Retry-Rollback meldet nicht das bereits im ersten Versuch erledigte Element als bereits bereinigt.')}
+        $stateAfterRetry27=Get-Content -LiteralPath $fixture27.StatePath -Raw|ConvertFrom-Json
+        if(@($stateAfterRetry27.entries).Count -ne 2){$failures.Add('Szenario 27: state.json enthält nach dem abschließenden Retry-Rollback nicht beide Einträge.')}
+        foreach($entry in @($stateAfterRetry27.entries)){
+            if([string]$entry.file_sha256 -notin $originalHash27.Values){
+                $failures.Add("Szenario 27: Eintrag $([string]$entry.relative_path) zeigt nach dem vollständigen Rollback nicht den ursprünglichen Hash.")
+            }
+        }
+        if($null-ne$partiallyRestoredKey27){
+            $unchangedEntry27=$stateAfterRetry27.entries|Where-Object{[string]$_.key -eq $partiallyRestoredKey27}
+            if($null-eq$unchangedEntry27 -or [string]$unchangedEntry27.chunks[0].file_id -ne $partiallyRestoredFileId27){
+                $failures.Add('Szenario 27: das bereits im ersten Versuch wiederhergestellte Element wurde beim Retry erneut angefasst (file_id hat sich verändert -- doppelte Arbeit statt reiner Fortsetzung).')
+            }
+        }
+    }
+}finally{
+    $env:PATH=$previousPath
+    Stop-RAGMockOpenWebUIServer -Process $server27
+    if(Test-Path -LiteralPath $fixture27.Root){Remove-Item -LiteralPath $fixture27.Root -Recurse -Force -ErrorAction SilentlyContinue}
+}
+
+# --- Scenario 28 (AP01, 2.6.0): Remove-Rollback fails partway through a
+# multi-entry restore -> same pattern as Scenario 27, for the Remove-restore
+# path (re-upload of previously deleted content, no remote removal step
+# involved on this path at all). ------------------------------------------
+$fixture28=New-RAGExecuteFixture -FileCount 2
+$server28=$null
+try{
+    $server28=Start-RAGMockOpenWebUIServer -Fixture $fixture28
+    $env:PATH=$minimalWindowsPath
+    Invoke-KIStackRAG -Mode Execute -ConfigPath $fixture28.ConfigPath -SourcesPath $fixture28.SourcesPath -SourceSchemaPath $schemaPath -ApiToken $plainToken|Out-Null
+    Stop-RAGMockOpenWebUIServer -Process $server28
+    $originalHash28=@{
+        'doc1.md'=(Get-FileHash -LiteralPath (Join-Path $fixture28.SourceRoot 'doc1.md') -Algorithm SHA256).Hash.ToLowerInvariant()
+        'doc2.md'=(Get-FileHash -LiteralPath (Join-Path $fixture28.SourceRoot 'doc2.md') -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+
+    Remove-Item -LiteralPath (Join-Path $fixture28.SourceRoot 'doc1.md') -Force
+    Remove-Item -LiteralPath (Join-Path $fixture28.SourceRoot 'doc2.md') -Force
+    $server28=Start-RAGMockOpenWebUIServer -Fixture $fixture28
+    Invoke-KIStackRAG -Mode Execute -ConfigPath $fixture28.ConfigPath -SourcesPath $fixture28.SourcesPath -SourceSchemaPath $schemaPath -ApiToken $plainToken|Out-Null
+    Stop-RAGMockOpenWebUIServer -Process $server28
+    $manifest28=Get-Content -LiteralPath (Join-Path $fixture28.StateRoot 'rollback-archive.json') -Raw|ConvertFrom-Json
+    if(@($manifest28.removed).Count -ne 2){$failures.Add("Szenario 28: rollback-archive.json listet $(@($manifest28.removed).Count) Remove-Einträge, erwartet 2 -- Testannahme verletzt.")}
+
+    $server28=Start-RAGMockOpenWebUIServer -Fixture $fixture28 -FailOnUploadNumber 2
+    $threw28=$false
+    try{
+        Invoke-KIStackRAG -Mode Rollback -ConfigPath $fixture28.ConfigPath -SourcesPath $fixture28.SourcesPath -SourceSchemaPath $schemaPath -ApiToken $plainToken|Out-Null
+    }catch{$threw28=$true}
+    Stop-RAGMockOpenWebUIServer -Process $server28
+    if(-not$threw28){$failures.Add('Szenario 28: induzierter Fehler beim zweiten Restore-Upload führte nicht zu einem Fehlschlag.')}
+
+    $stateAfterPartial28=Get-Content -LiteralPath $fixture28.StatePath -Raw|ConvertFrom-Json
+    if(@($stateAfterPartial28.entries).Count -ne 1){
+        $failures.Add("Szenario 28: nach dem Teil-Rollback enthält state.json $(@($stateAfterPartial28.entries).Count) Einträge, erwartet 1 (ein Element erfolgreich wiederhergestellt, das andere blieb wegen des induzierten Fehlers stehen).")
+    }
+    $partiallyRestoredFileId28=if(@($stateAfterPartial28.entries).Count -eq 1){[string]$stateAfterPartial28.entries[0].chunks[0].file_id}else{$null}
+    $partiallyRestoredKey28=if(@($stateAfterPartial28.entries).Count -eq 1){[string]$stateAfterPartial28.entries[0].key}else{$null}
+
+    $server28=Start-RAGMockOpenWebUIServer -Fixture $fixture28
+    $retryRollback28=$null;$retryThrew28=$false;$retryMessage28=''
+    try{
+        $retryRollback28=Invoke-KIStackRAG -Mode Rollback -ConfigPath $fixture28.ConfigPath -SourcesPath $fixture28.SourcesPath -SourceSchemaPath $schemaPath -ApiToken $plainToken
+    }catch{$retryThrew28=$true;$retryMessage28=$_.Exception.Message}
+    Stop-RAGMockOpenWebUIServer -Process $server28
+
+    if($retryThrew28){
+        $failures.Add("Szenario 28: Retry-Rollback des Remove-Restore-Pfads schlug fehl statt nur die offene Recovery fortzusetzen: $retryMessage28")
+    } else {
+        if(-not $retryRollback28.passed){$failures.Add('Szenario 28: Retry-Rollback meldete passed=false.')}
+        if(@($retryRollback28.rolledBack).Count -ne 1){$failures.Add("Szenario 28: Retry-Rollback hat $(@($retryRollback28.rolledBack).Count) Elemente zurückgerollt, erwartet genau 1 (nur das zuvor fehlgeschlagene).")}
+        if(@($retryRollback28.alreadyClean).Count -ne 1){$failures.Add('Szenario 28: Retry-Rollback meldet nicht das bereits im ersten Versuch erledigte Element als bereits bereinigt.')}
+        $stateAfterRetry28=Get-Content -LiteralPath $fixture28.StatePath -Raw|ConvertFrom-Json
+        if(@($stateAfterRetry28.entries).Count -ne 2){$failures.Add('Szenario 28: state.json enthält nach dem abschließenden Retry-Rollback nicht beide wiederhergestellten Einträge.')}
+        foreach($entry in @($stateAfterRetry28.entries)){
+            if([string]$entry.file_sha256 -notin $originalHash28.Values){
+                $failures.Add("Szenario 28: Eintrag $([string]$entry.relative_path) zeigt nach dem vollständigen Rollback nicht den ursprünglichen Hash.")
+            }
+        }
+        if($null-ne$partiallyRestoredKey28){
+            $unchangedEntry28=$stateAfterRetry28.entries|Where-Object{[string]$_.key -eq $partiallyRestoredKey28}
+            if($null-eq$unchangedEntry28 -or [string]$unchangedEntry28.chunks[0].file_id -ne $partiallyRestoredFileId28){
+                $failures.Add('Szenario 28: das bereits im ersten Versuch wiederhergestellte Element wurde beim Retry erneut angefasst (file_id hat sich verändert -- doppelte Arbeit statt reiner Fortsetzung).')
+            }
+        }
+    }
+}finally{
+    $env:PATH=$previousPath
+    Stop-RAGMockOpenWebUIServer -Process $server28
+    if(Test-Path -LiteralPath $fixture28.Root){Remove-Item -LiteralPath $fixture28.Root -Recurse -Force -ErrorAction SilentlyContinue}
+}
+
+$result=[pscustomobject]@{passed=($failures.Count-eq0);checks=28;failures=@($failures)}
 $result|ConvertTo-Json -Depth 10
 if(-not$result.passed){exit 1}

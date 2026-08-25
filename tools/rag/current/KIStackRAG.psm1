@@ -441,7 +441,18 @@ function Remove-RAGRemoteEntry {
     param([object]$Config,[Security.SecureString]$ApiToken,[string]$KnowledgeId,[object]$Entry)
     foreach($chunk in @($Entry.chunks)){
         $body=@{file_id=[string]$chunk.file_id}
-        $null=Invoke-RAGApi $Config.openWebUIEndpoint $ApiToken "/api/v1/knowledge/$KnowledgeId/file/remove?delete_file=true" POST $body
+        try{
+            $null=Invoke-RAGApi $Config.openWebUIEndpoint $ApiToken "/api/v1/knowledge/$KnowledgeId/file/remove?delete_file=true" POST $body
+        }catch{
+            # A prior, partially-failed Replace/Remove-Rollback attempt may
+            # already have deleted this exact chunk's remote content before
+            # failing on a later step (e.g. the following restore-upload);
+            # retrying that already-satisfied removal is the idempotent
+            # case, not a new error -- source-confirmed real-server behavior
+            # for an unknown file_id is HTTP 400 (routers/knowledge.py), not
+            # any 2xx. Any other failure still propagates normally.
+            if([string]$_.Exception.Message -notmatch '\b400\b'){throw}
+        }
     }
 }
 

@@ -1,29 +1,34 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.5.0",
-  "status": "RCTargetValidated_RAGTargetValidated_GreenfieldValidated",
+  "version": "2.6.0",
+  "status": "RAGRollbackComplete_AddReplaceRemove_TargetValidated",
   "results": {
     "rcBuildValidation": {
       "status": "WindowsArtifactValidated_TargetExecutionLocked",
       "stepsPassed": "13/13",
       "deterministicDualBuildConfirmed": true,
       "codexCliArtifactValidated": true,
-      "realTargetTreeUnchangedByBuild": true
+      "realTargetTreeUnchangedByBuild": true,
+      "note": "Evidence from the 2.5.0 cycle; carried forward as still valid for 2.6.0 (RAG-module-only scope, no installer/build code changes)."
     },
     "ragLiveTargetValidation": {
       "execute": "passed",
       "addThenRollback": "passed",
+      "replaceThenRollback": "passed",
+      "removeThenRollback": "passed",
       "rollbackIdempotentOnSecondCall": true,
       "remoteFileGenuinelyDeletedNotJustDetached": true,
-      "localStateAndRollbackArchiveConsistentAfterward": true,
+      "restoredContentByteVerifiedAgainstOriginal": true,
+      "localStateConsistentAfterward": true,
       "embeddingRestoreStatusObserved": "NoMutation",
       "testFixtureCleanedUpAfterward": true,
-      "replaceRemoveRollback": "regression-validated only via the extensive mocked test suite; not yet exercised against a live target",
-      "scope": "Execute (Add) and Rollback (of Add) both verified against a live OpenWebUI 0.11.0 instance with before/after remote evidence."
+      "scope": "Execute (Add/Query/Replace/Remove) and Rollback of Add, Replace, and Remove all verified against a live OpenWebUI 0.11.0 instance with before/after remote evidence, each including a repeated Rollback call confirmed as a clean idempotent no-op.",
+      "regressionFinding": "A partial-failure-then-retry regression test for the Replace/Remove restore path (added 2.6.0 AP01, mirroring the pre-existing Add-path scenario) found a real defect: a retry could re-issue a remove call against remote content an earlier partial attempt had already deleted, failing the retry itself. Fixed in Remove-RAGRemoteEntry to treat an already-removed target as already-satisfied, matching the real server's own behavior; negative-control verified."
     },
     "greenfieldAcceptance": {
       "status": "PhysicalGreenfieldInstallCompleted",
+      "cycle": "2.5.0 -- carried forward as still valid for 2.6.0; no new Greenfield run was performed this cycle (RAG-module-only scope).",
       "environment": "Hyper-V VM, fresh Windows install, no prior KI-Stack state",
       "transactionId": "KI-COMPLETE-20260824-152853",
       "rebootResumeAfterFirstTimeWslActivation": "passed",
@@ -49,10 +54,10 @@
       ]
     },
     "regressionSuites": {
-      "Test-KIStackRAGStatePersistence.ps1": "passed 26/26",
+      "Test-KIStackRAGStatePersistence.ps1": "passed 28/28 (including 2 new 2.6.0 Replace/Remove-restore partial-failure-then-retry regressions, negative-control verified)",
       "Test-KIStackRAG.ps1": "passed",
       "Test-KIStackRAGPrefixIntegration.ps1": "passed 4/4",
-      "Test-KIStackModelDownloadContract.ps1": "passed 11/11 (including 3 new HTTP-416 resume-fix regressions, negative-control verified)",
+      "Test-KIStackModelDownloadContract.ps1": "passed 11/11 (including 3 HTTP-416 resume-fix regressions from 2.5.0, negative-control verified)",
       "Test-KIStackVisualModels.ps1": "passed",
       "completeInstallerSelfTest": "passed 28/28 (against freshly extracted final build 1)",
       "completeInstallerShaContract": "passed, 0 errors (against freshly extracted final build 1)",

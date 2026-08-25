@@ -2,16 +2,16 @@
   "schemaVersion": "2.0",
   "packageId": "KI-STACK-COMPLETE-INSTALLER",
   "name": "KI-Stack Complete Installer",
-  "version": "2.5.0",
-  "status": "RCTargetValidated_RAGTargetValidated_GreenfieldValidated",
-  "baseVersion": "2.4.0",
+  "version": "2.6.0",
+  "status": "RAGRollbackComplete_AddReplaceRemove_TargetValidated",
+  "baseVersion": "2.5.0",
   "components": {
     "comfyUI": "1.2.4",
     "visualModelsWorkflows": "2.0.3",
     "openWebUIAgentPack": "1.8.9",
     "openWebUIVisualPack": "2.0.5",
     "codexLocal": "0.1.3",
-    "rag": "0.3.0"
+    "rag": "0.3.1"
   },
   "modelPolicy": {
     "chatLlm": "Heretic only",
