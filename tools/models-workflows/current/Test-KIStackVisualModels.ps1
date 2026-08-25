@@ -38,4 +38,4 @@ if(@($packageManifest.internalApiPrompts).Count-ne2){throw 'Internal API prompt 
 $importerSource=Get-Content -LiteralPath (Join-Path $PackageRoot 'Import-KIStackExternalModels.ps1') -Raw
 if($importerSource -match 'Copy-Item\s+-Destination\s+\$workflowTarget'){throw 'Internal API prompts are still copied into the UI workflow browser.'}
 if($importerSource -notmatch 'workflows=@\(\);internalApiPrompts=\$internalApiPrompts'){throw 'Installed marker does not distinguish UI workflows from internal API prompts.'}
-Write-Host 'VISUAL MODELS / WORKFLOWS TEST PASSED (including 8 Greenfield download regressions).'
+Write-Host 'VISUAL MODELS / WORKFLOWS TEST PASSED (including 11 Greenfield download regressions).'

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "targetRoot": "C:\\KI-Stack",
   "moduleRoot": "C:\\KI-Stack\\modules\\rag",
   "stateRoot": "C:\\KI-Stack\\state\\rag",

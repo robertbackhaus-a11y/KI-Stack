@@ -57,6 +57,36 @@ try {
     $resume = Invoke-Import $interrupt 'resume'
     if (-not $resume.passed -or -not $resume.results[0].resumed -or $resume.results[0].resumedFromBytes -le 0) { throw 'Interrupted download was not resumed.' }
 
+    $unreachableManifest = New-Manifest 'http://127.0.0.1:1/should-not-be-called'
+    $completeCase = 'partial-complete-valid'
+    $completePartial = Join-Path $fixture "$completeCase\state\downloads\fixture.partial"
+    New-Item -ItemType Directory -Path (Split-Path -Parent $completePartial) -Force | Out-Null
+    [IO.File]::WriteAllBytes($completePartial,$bytes)
+    $completeResult = Invoke-Import $unreachableManifest $completeCase
+    if (-not $completeResult.passed -or $completeResult.results[0].status -ne 'Installed' -or $completeResult.results[0].resumed) {
+        throw 'A .partial file already at the expected size (valid hash) was not verified and finalized without a network request.'
+    }
+
+    $badHashCase = 'partial-complete-invalid-hash'
+    $badHashPartial = Join-Path $fixture "$badHashCase\state\downloads\fixture.partial"
+    New-Item -ItemType Directory -Path (Split-Path -Parent $badHashPartial) -Force | Out-Null
+    $badHashBytes = [byte[]]::new($bytes.Length)
+    [Array]::Copy($bytes,$badHashBytes,$bytes.Length)
+    $badHashBytes[0] = $badHashBytes[0] -bxor 0xff
+    [IO.File]::WriteAllBytes($badHashPartial,$badHashBytes)
+    $badHashFailed = $false
+    try { $null = Invoke-Import $unreachableManifest $badHashCase } catch { $badHashFailed = $_.Exception.Message -like 'ChecksumMismatch:*' }
+    if (-not $badHashFailed) { throw 'A .partial file at the expected size with an invalid SHA256 was not safely rejected via the existing invalid-artifact contract.' }
+
+    $oversizedCase = 'partial-oversized'
+    $oversizedPartial = Join-Path $fixture "$oversizedCase\state\downloads\fixture.partial"
+    New-Item -ItemType Directory -Path (Split-Path -Parent $oversizedPartial) -Force | Out-Null
+    [IO.File]::WriteAllBytes($oversizedPartial,($bytes + [byte[]]@(1,2,3,4)))
+    $oversizedResult = Invoke-Import $normal $oversizedCase
+    if (-not $oversizedResult.passed -or $oversizedResult.results[0].status -ne 'Installed') { throw 'An oversized .partial file was not discarded and re-downloaded correctly.' }
+    $oversizedTargetHash = (Get-FileHash -LiteralPath $oversizedResult.results[0].target -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($oversizedTargetHash -ne $sha) { throw 'An oversized .partial file re-download did not produce the expected artifact.' }
+
     foreach($case in @(
         @{name='wrong-size';manifest=(New-Manifest "http://127.0.0.1:$port/short")},
         @{name='wrong-hash';manifest=(New-Manifest "http://127.0.0.1:$port/bad-hash")}
@@ -77,8 +107,8 @@ try {
     if(-not$reused.passed -or $reused.results[0].status-ne'Reused'){throw 'Valid installed artifact was not reused.'}
 
     [pscustomobject]@{
-        passed=$true;tests=8
-        cases=@('optional-cache-reuse','legacy-file-preserved','download-interruption-retained','range-resume','wrong-size-failed','wrong-hash-failed','offline-resumable','installed-target-reuse')
+        passed=$true;tests=11
+        cases=@('optional-cache-reuse','legacy-file-preserved','download-interruption-retained','range-resume','partial-complete-valid-skips-network','partial-complete-invalid-hash-fails-safely','partial-oversized-recovers','wrong-size-failed','wrong-hash-failed','offline-resumable','installed-target-reuse')
     } | ConvertTo-Json -Depth 5
 }
 finally {

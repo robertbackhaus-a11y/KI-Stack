@@ -38,6 +38,9 @@ function Receive-Artifact {
         Remove-Item -LiteralPath $PartialPath -Force
         $existing = 0L
     }
+    if ((Test-Path -LiteralPath $PartialPath -PathType Leaf) -and $existing -eq $ExpectedSize) {
+        return [pscustomobject]@{ resumed=$false; resumedFromBytes=0L }
+    }
     $handler = [Net.Http.HttpClientHandler]::new()
     $client = [Net.Http.HttpClient]::new($handler)
     $request = $null

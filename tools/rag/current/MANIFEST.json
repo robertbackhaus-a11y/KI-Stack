@@ -2,13 +2,13 @@
   "schemaVersion": "1.0",
   "packageId": "KI-STACK-RAG",
   "name": "KI-Stack RAG",
-  "version": "0.2.0",
-  "status": "Development_IngestionImplemented",
+  "version": "0.3.0",
+  "status": "IngestionTargetValidated_RollbackTargetValidated",
   "embeddingModel": "nomic-embed-text-v1.5",
   "chatModelCoupled": false,
   "containsSecrets": false,
   "runtimeGitDependency": false,
   "openWebUIVersionContract": "0.11.0",
   "stateModel": "sha256-delta",
-  "rollback": "checkpoint-only-until-target-acceptance"
+  "rollback": "implemented-target-validated"
 }

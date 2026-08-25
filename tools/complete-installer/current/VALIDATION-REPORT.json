@@ -1,11 +1,67 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.4.0",
-  "status": "SourcePendingValidation_TargetPending",
-  "results": null,
-  "targetSystemAccessed": false,
-  "targetSystemMutated": false,
+  "version": "2.5.0",
+  "status": "RCTargetValidated_RAGTargetValidated_GreenfieldValidated",
+  "results": {
+    "rcBuildValidation": {
+      "status": "WindowsArtifactValidated_TargetExecutionLocked",
+      "stepsPassed": "13/13",
+      "deterministicDualBuildConfirmed": true,
+      "codexCliArtifactValidated": true,
+      "realTargetTreeUnchangedByBuild": true
+    },
+    "ragLiveTargetValidation": {
+      "execute": "passed",
+      "addThenRollback": "passed",
+      "rollbackIdempotentOnSecondCall": true,
+      "remoteFileGenuinelyDeletedNotJustDetached": true,
+      "localStateAndRollbackArchiveConsistentAfterward": true,
+      "embeddingRestoreStatusObserved": "NoMutation",
+      "testFixtureCleanedUpAfterward": true,
+      "replaceRemoveRollback": "regression-validated only via the extensive mocked test suite; not yet exercised against a live target",
+      "scope": "Execute (Add) and Rollback (of Add) both verified against a live OpenWebUI 0.11.0 instance with before/after remote evidence."
+    },
+    "greenfieldAcceptance": {
+      "status": "PhysicalGreenfieldInstallCompleted",
+      "environment": "Hyper-V VM, fresh Windows install, no prior KI-Stack state",
+      "transactionId": "KI-COMPLETE-20260824-152853",
+      "rebootResumeAfterFirstTimeWslActivation": "passed",
+      "finalExitCode": 0,
+      "allRegularStepsCompleted": true,
+      "visualAndAgentPackStatus": "WaitingForUserAction -- expected credential state because no OpenWebUI administrator API key was supplied by design, not an installation failure",
+      "manualFileOrProductWorkaroundsOnTarget": false,
+      "ragPostInstallChecks": {
+        "ragModulePresent": true,
+        "lmStudioEmbeddingModelAutoProvisioned": true,
+        "openWebUIReachable": true,
+        "sourcesJsonDefaultValid": true,
+        "auditAndDryRunRunnable": true
+      },
+      "findings": [
+        {
+          "id": "receive-artifact-http-416-resume",
+          "component": "models-workflows",
+          "description": "A .partial file already at the exact expected size was previously re-requested with an end-of-file Range header, causing HTTP 416 from the source. Fixed to verify such a file directly via the existing size/SHA256 contract with no HTTP request; a hash mismatch fails safely through the existing invalid-artifact contract.",
+          "discoveredDuring": "this physical Greenfield acceptance run",
+          "fixedAndReverifiedAgainstTheSameLiveTarget": true
+        }
+      ]
+    },
+    "regressionSuites": {
+      "Test-KIStackRAGStatePersistence.ps1": "passed 26/26",
+      "Test-KIStackRAG.ps1": "passed",
+      "Test-KIStackRAGPrefixIntegration.ps1": "passed 4/4",
+      "Test-KIStackModelDownloadContract.ps1": "passed 11/11 (including 3 new HTTP-416 resume-fix regressions, negative-control verified)",
+      "Test-KIStackVisualModels.ps1": "passed",
+      "completeInstallerSelfTest": "passed 28/28 (against freshly extracted final build 1)",
+      "completeInstallerShaContract": "passed, 0 errors (against freshly extracted final build 1)",
+      "scriptsTestRepository": "passed 34/34"
+    }
+  },
+  "targetSystemAccessed": true,
+  "targetSystemMutated": true,
+  "targetSystemMutationNote": "RAG Execute created one isolated test Knowledge collection on the live target; Rollback (verified idempotent on a repeated call) genuinely deleted the remote file and Knowledge collection, and the local test fixture was removed -- net state fully reverted, confirmed via pre/post remote file-existence and knowledge-collection checks. This is separate from the physical Greenfield installer run recorded under results.greenfieldAcceptance, which targeted a disposable Hyper-V VM, not the persistent real target machine referenced here.",
   "containsModels": false,
   "containsSecrets": false
 }
