@@ -3,10 +3,14 @@
 1. Verify `KI-Stack-Complete-Installer-v2.7.0.zip` against its adjacent `.sha256` sidecar with `Get-FileHash -Algorithm SHA256`.
 2. Extract the package and run `Start-KIStack-Installer.cmd` with PowerShell 7.
 3. If first-time WSL activation reports `RESTART REQUIRED` (exit code 31), restart Windows and run `Resume-KIStack-Installer.cmd <TransactionId>`. `WaitingForRestart` is resumable and does not trigger rollback.
-4. Confirm UAC. If requested, enter a temporary OpenWebUI administrator API key through the hidden prompt; it is never stored and should be revoked afterwards.
+4. Confirm UAC. If the OpenWebUI Visual Pack step is not yet compliant, OpenWebUI opens in your default browser once it and ComfyUI are reachable: complete first login (create the admin account) or sign in, generate an API key under Settings -> Account -> API Keys, then return to the installer and press Enter to continue. Enter that key through the hidden prompt; it is held only in memory as a `SecureString`, never stored, and should be revoked afterwards. The existing Visual Pack install/validate path then runs with that key, and a final prompt asks for one real image test and one real video test in OpenWebUI before the step is accepted.
 5. Accept only `Completed` or `SkippedAlreadyCompliant`.
 
 Models, including embedding-only `nomic-embed-text-v1.5.Q4_K_M.gguf`, are downloaded automatically from revision-pinned sources. Existing targets and optional caches/preloads are reused only after exact size and SHA-256 verification. Partial downloads support resume; invalid size or hash fails. No preload is required.
+
+## OpenWebUI Visual Pack: first login and API key
+
+OpenWebUI and ComfyUI are each checked with a bounded readiness wait before this step runs. `WaitingForUserAction` is reported only when both are reachable but no API key has been entered yet -- resume by re-running the installer command once the key is ready. If OpenWebUI or ComfyUI stays unreachable beyond its readiness wait, the installer fails with a real error instead, since no user action can resolve a service that is not running.
 
 ## LM Studio and Codex Local
 

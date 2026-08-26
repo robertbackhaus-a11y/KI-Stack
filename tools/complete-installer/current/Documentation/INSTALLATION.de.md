@@ -3,10 +3,14 @@
 1. Prüfe `KI-Stack-Complete-Installer-v2.7.0.zip` mit `Get-FileHash -Algorithm SHA256` gegen das danebenliegende `.sha256`-Sidecar.
 2. Entpacke das Paket und starte `Start-KIStack-Installer.cmd` mit PowerShell 7.
 3. Meldet der Installer nach einer erstmaligen WSL-Aktivierung `NEUSTART ERFORDERLICH` (Exitcode 31), starte Windows neu und führe `Resume-KIStack-Installer.cmd <TransactionId>` aus. Der Zustand `WaitingForRestart` ist fortsetzbar und löst keinen Rollback aus.
-4. Bestätige UAC. Falls abgefragt, gib einen temporären OpenWebUI-Administrator-API-Key verdeckt ein; er wird nie gespeichert und soll danach widerrufen werden.
+4. Bestätige UAC. Ist der OpenWebUI-Visual-Pack-Schritt noch nicht konform, öffnet sich OpenWebUI im Standardbrowser, sobald es und ComfyUI erreichbar sind: führe die Erstanmeldung durch (Admin-Konto anlegen) bzw. melde dich an, erzeuge unter Einstellungen -> Konto -> API-Keys einen neuen API-Key, kehre dann zum Installer zurück und bestätige mit Enter. Gib diesen Key anschließend verdeckt ein; er bleibt ausschließlich im Arbeitsspeicher als `SecureString`, wird nie gespeichert und soll danach widerrufen werden. Der bestehende Visual-Pack-Install-/Validate-Pfad läuft danach mit diesem Key weiter, und eine abschließende Abfrage verlangt genau einen echten Bild- und einen echten Videotest in OpenWebUI, bevor der Schritt akzeptiert wird.
 5. Akzeptiere nur `Completed` oder `SkippedAlreadyCompliant`.
 
 Modelle einschließlich des ausschließlich für Embeddings verwendeten `nomic-embed-text-v1.5.Q4_K_M.gguf` werden automatisch aus revisionsgebundenen Quellen geladen. Vorhandene Ziele und optionale Caches/Preloads werden nur nach exakter Größen- und SHA-256-Prüfung wiederverwendet. Teildownloads unterstützen Resume; falsche Größe oder falscher Hash schlägt fehl. Kein Preload ist erforderlich.
+
+## OpenWebUI Visual Pack: Erstanmeldung und API-Key
+
+OpenWebUI und ComfyUI werden vor diesem Schritt jeweils mit einem begrenzten Readiness-Zeitfenster geprüft. `WaitingForUserAction` wird nur gemeldet, wenn beide erreichbar sind, aber noch kein API-Key eingegeben wurde — Fortsetzung durch erneuten Aufruf des Installer-Kommandos, sobald der Key bereitsteht. Bleibt OpenWebUI oder ComfyUI über sein Readiness-Zeitfenster hinaus nicht erreichbar, schlägt der Installer stattdessen mit einem echten Fehler fehl, da keine Benutzeraktion einen nicht laufenden Dienst beheben kann.
 
 ## LM Studio und Codex Local
 
