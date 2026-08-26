@@ -9,7 +9,7 @@ foreach($path in $required){
 }
 $config=Get-Content -LiteralPath (Join-Path $PackageRoot 'Config/codex-local.config.json') -Raw|ConvertFrom-Json
 $version=(Get-Content -LiteralPath (Join-Path $PackageRoot 'VERSION') -Raw).Trim()
-if($version-ne'0.1.3'-or$config.version-ne$version){$failures.Add('Versionsvertrag inkonsistent.')}
+if($version-ne'0.1.4'-or$config.version-ne$version){$failures.Add('Versionsvertrag inkonsistent.')}
 if($config.codexPackage-ne'@openai/codex'-or$config.codexVersion-ne'0.145.0'){$failures.Add('Codex-Paketvertrag inkonsistent.')}
 if($config.localProvider-ne'lmstudio'){$failures.Add('LM-Studio-Providervertrag fehlt.')}
 if($config.sandboxMode-ne'workspace-write'){$failures.Add('Workspace-write-Vertrag fehlt.')}
@@ -109,11 +109,70 @@ $tcp.Stop()
     if(Test-Path -LiteralPath $starterFixtureRoot){Remove-Item -LiteralPath $starterFixtureRoot -Recurse -Force}
 }
 
+# --- Ensure-KILMStudioEndpointReachable: 2.7.0 regression -- the caller's
+# own retry budget must not be shorter than the managed starter's genuine
+# first-run contract (reproduced live during a Greenfield run: the old
+# default of 30*2s=60s gave up while the starter's up-to-~120s first-run GUI
+# wait was still legitimately in progress). Two parts, neither of which
+# sleeps anywhere near the real 120s window:
+#
+# Part A is a static assertion on the actual shipped defaults (zero sleep,
+# fully deterministic): reverting the fix's parameter defaults makes this
+# fail immediately, which is this scenario's negative control.
+$moduleSource=[IO.File]::ReadAllText($modulePath)
+if($moduleSource-match'function Ensure-KILMStudioEndpointReachable[\s\S]*?\[int\]\$RetryCount=(?<count>\d+)[\s\S]*?\[int\]\$RetryDelaySeconds=(?<delay>\d+)'){
+    $shippedBudget=[int]$Matches.count*[int]$Matches.delay
+    if($shippedBudget-lt120){
+        $failures.Add("Ensure-KILMStudioEndpointReachable-Standardbudget beträgt nur $($shippedBudget)s -- kleiner als das legitime bis zu 120s-Zeitfenster des verwalteten Starters (90s CLI-Warten + 30s Endpoint-Warten in KIModuleApplications.psm1).")
+    }
+} else {
+    $failures.Add('Ensure-KILMStudioEndpointReachable: RetryCount-/RetryDelaySeconds-Standardwerte konnten nicht aus dem Quelltext ermittelt werden.')
+}
+
+# Part B proves the starter-process-awareness this fix adds, without
+# racing real network timing (a single failed-connection check on this
+# module was measured to itself take up to ~2s here, which would make any
+# wall-clock "starts up slower than budget X but faster than budget Y"
+# simulation an unreliable, environment-dependent race -- exactly what
+# "deterministisch mocken" rules out). Part A above already deterministically
+# locks in the actual shipped budget; Part B only needs to prove the starter
+# process's own exit code is observed correctly, in both directions.
+$timingFixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('KICX-LMTIME-'+[guid]::NewGuid().ToString('N').Substring(0,8))
+try{
+    # B2: the starter itself fails fast (non-zero exit) -- must be surfaced
+    # immediately (short elapsed time, starterExitCode present), never
+    # silently outlived by continued polling for the rest of the budget.
+    $failRoot=Join-Path $timingFixtureRoot 'fail/modules/applications'
+    New-Item -ItemType Directory -Path $failRoot -Force|Out-Null
+    Set-Content -LiteralPath (Join-Path $failRoot 'Start-KIStack-LMStudio.cmd') -Encoding ascii -Value @('@echo off','exit /b 1')
+    $failTargetRoot=Join-Path $timingFixtureRoot 'fail'
+    $failPort=Get-Random -Minimum 20000 -Maximum 40000
+    $sw=[Diagnostics.Stopwatch]::StartNew()
+    $failResult=Ensure-KILMStudioEndpointReachable -TargetRoot $failTargetRoot -BaseUrl "http://127.0.0.1:$failPort/v1" -RetryCount 15 -RetryDelaySeconds 1
+    $sw.Stop()
+    if([bool]$failResult.reachable){$failures.Add('B2: ein sofort fehlschlagender Starter meldete fälschlich Erreichbarkeit.')}
+    if(-not$failResult.PSObject.Properties['starterExitCode'] -or $failResult.starterExitCode-ne1){$failures.Add('B2: der Exitcode eines fehlschlagenden Starters wurde nicht erkannt/gemeldet -- Fehler wurde verschluckt.')}
+    if($sw.Elapsed.TotalSeconds-gt6){$failures.Add("B2: die Erkennung des Starter-Fehlschlags dauerte $($sw.Elapsed.TotalSeconds)s -- das volle Wartebudget wurde ausgeschöpft statt sofort auf den Exitcode zu reagieren.")}
+
+    # B3: a genuine timeout (starter exits 0 having done nothing, endpoint
+    # never comes up) must still fail -- the new exit-code awareness must
+    # not turn a real timeout into a false success.
+    $timeoutRoot=Join-Path $timingFixtureRoot 'timeout/modules/applications'
+    New-Item -ItemType Directory -Path $timeoutRoot -Force|Out-Null
+    Set-Content -LiteralPath (Join-Path $timeoutRoot 'Start-KIStack-LMStudio.cmd') -Encoding ascii -Value @('@echo off')
+    $timeoutTargetRoot=Join-Path $timingFixtureRoot 'timeout'
+    $timeoutPort=Get-Random -Minimum 20000 -Maximum 40000
+    $timeoutResult=Ensure-KILMStudioEndpointReachable -TargetRoot $timeoutTargetRoot -BaseUrl "http://127.0.0.1:$timeoutPort/v1" -RetryCount 2 -RetryDelaySeconds 1
+    if([bool]$timeoutResult.reachable){$failures.Add('B3: ein echter Timeout (Endpoint wird nie erreichbar) wurde fälschlich als Erfolg gemeldet.')}
+}finally{
+    if(Test-Path -LiteralPath $timingFixtureRoot){Remove-Item -LiteralPath $timingFixtureRoot -Recurse -Force -ErrorAction SilentlyContinue}
+}
+
 foreach($file in Get-ChildItem -LiteralPath $PackageRoot -Recurse -File|Where-Object Extension -in '.ps1','.psm1'){
     $tokens=$null;$errors=$null
     [void][Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors)
     if(@($errors).Count){$failures.Add("$($file.Name): $(@($errors).Message -join '; ')")}
 }
-$result=[pscustomobject]@{passed=($failures.Count-eq0);version=[string]$config.version;checks=12;failures=@($failures);mutatesTarget=$false}
+$result=[pscustomobject]@{passed=($failures.Count-eq0);version=[string]$config.version;checks=13;failures=@($failures);mutatesTarget=$false}
 $result|ConvertTo-Json -Depth 20
 if(-not$result.passed){exit 1}

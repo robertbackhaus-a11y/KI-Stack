@@ -13,7 +13,7 @@ $RepositoryRoot=(Resolve-Path -LiteralPath $RepositoryRoot).Path
 $builder=Join-Path $RepositoryRoot 'tools\complete-installer\current\New-KIStackCompleteInstallerArchive.ps1'
 if(-not(Test-Path -LiteralPath $builder -PathType Leaf)){throw "Complete-Installer-Builder fehlt: $builder"}
 $version=(Get-Content -LiteralPath (Join-Path $RepositoryRoot 'tools\complete-installer\current\VERSION') -Raw).Trim()
-if($version-ne'2.6.0'){throw "Unerwarteter Quellstand: $version"}
+if($version-ne'2.7.0'){throw "Unerwarteter Quellstand: $version"}
 if([string]::IsNullOrWhiteSpace($OutputDirectory)){$OutputDirectory=Join-Path $RepositoryRoot 'dist\complete-installer-rc-validation'}
 $OutputDirectory=[IO.Path]::GetFullPath($OutputDirectory)
 $runId='RC-BUILD-'+(Get-Date -Format 'yyyyMMdd-HHmmss')

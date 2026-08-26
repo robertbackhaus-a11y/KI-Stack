@@ -1,8 +1,8 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.6.0",
-  "status": "RAGRollbackComplete_AddReplaceRemove_TargetValidated",
+  "version": "2.7.0",
+  "status": "CodexLocalLMStudioTimingFixed_TargetValidated",
   "results": {
     "rcBuildValidation": {
       "status": "WindowsArtifactValidated_TargetExecutionLocked",
@@ -10,7 +10,29 @@
       "deterministicDualBuildConfirmed": true,
       "codexCliArtifactValidated": true,
       "realTargetTreeUnchangedByBuild": true,
-      "note": "Evidence from the 2.5.0 cycle; carried forward as still valid for 2.6.0 (RAG-module-only scope, no installer/build code changes)."
+      "note": "Evidence from the 2.5.0 cycle; carried forward as still valid for 2.6.0 and 2.7.0 (module-only scopes, no installer/build code changes)."
+    },
+    "codexLocalLmStudioTimingFix": {
+      "status": "targetValidated",
+      "rootCause": "Ensure-KILMStudioEndpointReachable's own retry budget (30*2s=60s) was shorter than the managed LM Studio starter's genuine first-run contract (up to ~120s), and the starter's own process/exit code was never observed -- reproduced live during the 2.5.0 Greenfield acceptance run.",
+      "fix": "The starter is now the authoritative start/timeout contract: the default retry budget is sized to its own up-to-120s window, and its process/exit code is tracked so a real starter failure surfaces immediately instead of being outlived by continued polling.",
+      "validation": "Test-KIStackCodexLocal.ps1: a static assertion on the shipped default values plus fast behavioral checks (starter exit code observed, genuine timeout still fails). Negative control confirmed.",
+      "liveTargetValidation": {
+        "environment": "existing real target (C:\\KI-Stack)",
+        "controlledState": "real LM Studio server stopped via 'lms server stop' (GUI left running) so the managed starter was genuinely required; lms CLI was already materialized from prior sessions, so this exercises the starter's server-start/endpoint-wait phase specifically, not a from-scratch first-ever GUI/CLI-materialization cold start",
+        "starterInvoked": true,
+        "endpointReachable": true,
+        "modelCount": 3,
+        "elapsedSeconds": 4.13,
+        "outcome": "PASS",
+        "starterFailurePathProof": {
+          "method": "synthetic starter (exit /b 1) under a scratch TargetRoot, side-effect-free",
+          "starterExitCode": 1,
+          "elapsedSecondsToDetection": 5.12,
+          "outcome": "PASS -- surfaced immediately via starterExitCode, not outlived by polling"
+        }
+      },
+      "greenfieldValidated": false
     },
     "ragLiveTargetValidation": {
       "execute": "passed",
@@ -28,7 +50,7 @@
     },
     "greenfieldAcceptance": {
       "status": "PhysicalGreenfieldInstallCompleted",
-      "cycle": "2.5.0 -- carried forward as still valid for 2.6.0; no new Greenfield run was performed this cycle (RAG-module-only scope).",
+      "cycle": "2.5.0 -- carried forward as still valid for 2.6.0 and 2.7.0; no new Greenfield run was performed in either cycle (module-only scopes).",
       "environment": "Hyper-V VM, fresh Windows install, no prior KI-Stack state",
       "transactionId": "KI-COMPLETE-20260824-152853",
       "rebootResumeAfterFirstTimeWslActivation": "passed",
@@ -59,6 +81,7 @@
       "Test-KIStackRAGPrefixIntegration.ps1": "passed 4/4",
       "Test-KIStackModelDownloadContract.ps1": "passed 11/11 (including 3 HTTP-416 resume-fix regressions from 2.5.0, negative-control verified)",
       "Test-KIStackVisualModels.ps1": "passed",
+      "Test-KIStackCodexLocal.ps1": "passed 13/13 (including the new 2.7.0 LM Studio startup-timing regression, negative-control verified)",
       "completeInstallerSelfTest": "passed 28/28 (against freshly extracted final build 1)",
       "completeInstallerShaContract": "passed, 0 errors (against freshly extracted final build 1)",
       "scriptsTestRepository": "passed 34/34"
@@ -66,7 +89,7 @@
   },
   "targetSystemAccessed": true,
   "targetSystemMutated": true,
-  "targetSystemMutationNote": "RAG Execute created one isolated test Knowledge collection on the live target; Rollback (verified idempotent on a repeated call) genuinely deleted the remote file and Knowledge collection, and the local test fixture was removed -- net state fully reverted, confirmed via pre/post remote file-existence and knowledge-collection checks. This is separate from the physical Greenfield installer run recorded under results.greenfieldAcceptance, which targeted a disposable Hyper-V VM, not the persistent real target machine referenced here.",
+  "targetSystemMutationNote": "RAG Execute created one isolated test Knowledge collection on the live target; Rollback (verified idempotent on a repeated call) genuinely deleted the remote file and Knowledge collection, and the local test fixture was removed -- net state fully reverted, confirmed via pre/post remote file-existence and knowledge-collection checks. This is separate from the physical Greenfield installer run recorded under results.greenfieldAcceptance, which targeted a disposable Hyper-V VM, not the persistent real target machine referenced here. Separately, the 2.7.0 Codex Local LM Studio timing fix's live-target validation stopped and let the managed starter restart the real target's local LM Studio API server (GUI left running throughout) -- net state fully reverted (server reachable again, same as before); the starter-failure-path proof used a synthetic starter under a disposable scratch directory only, never the real production starter.",
   "containsModels": false,
   "containsSecrets": false
 }

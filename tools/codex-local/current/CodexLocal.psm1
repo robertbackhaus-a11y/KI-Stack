@@ -210,21 +210,37 @@ function Ensure-KILMStudioEndpointReachable {
     # mechanism) instead of treating "installed but not yet started" -- a
     # state the Applications module itself validates as compliant -- as an
     # installation failure.
+    #
+    # The starter is the authoritative start/timeout contract, not this
+    # function: on a genuine first run it legitimately needs up to ~120s
+    # (KIModuleApplications.psm1's LmsWaitMaxAttempts*LmsWaitIntervalSeconds
+    # = 90s waiting for the lms CLI to appear after LM Studio's very first
+    # GUI launch, plus EndpointWaitMaxAttempts*EndpointWaitIntervalSeconds
+    # = 30s waiting for the server it then starts to accept connections).
+    # The default retry budget below is sized to that same window (plus
+    # margin), and the starter's own process is tracked so its exit code is
+    # never silently outlived by a shorter, independent poll -- reproduced
+    # live during a Greenfield run: this function used to give up at 60s
+    # while the starter's first-run GUI wait was still legitimately running.
     param(
         [Parameter(Mandatory)][string]$TargetRoot,
         [Parameter(Mandatory)][string]$BaseUrl,
-        [int]$RetryCount=30,
+        [int]$RetryCount=65,
         [int]$RetryDelaySeconds=2
     )
     $endpoint=Test-KILMStudioEndpoint $BaseUrl
     if([bool]$endpoint.reachable){return $endpoint}
     $starterPath=Join-Path $TargetRoot 'modules/applications/Start-KIStack-LMStudio.cmd'
     if(-not(Test-Path -LiteralPath $starterPath -PathType Leaf)){return $endpoint}
-    try{Start-Process -FilePath $starterPath -WindowStyle Hidden -ErrorAction Stop|Out-Null}catch{return $endpoint}
+    try{$starterProcess=Start-Process -FilePath $starterPath -WindowStyle Hidden -PassThru -ErrorAction Stop}catch{return $endpoint}
     for($attempt=0;$attempt -lt $RetryCount;$attempt++){
         Start-Sleep -Seconds $RetryDelaySeconds
         $endpoint=Test-KILMStudioEndpoint $BaseUrl
         if([bool]$endpoint.reachable){return $endpoint}
+        if($starterProcess.HasExited -and $starterProcess.ExitCode -ne 0){
+            $endpoint|Add-Member -NotePropertyName starterExitCode -NotePropertyValue $starterProcess.ExitCode -Force
+            return $endpoint
+        }
     }
     $endpoint
 }
@@ -297,7 +313,10 @@ function Install-KICodexLocal {
     if([bool]$config.requireModelEndpoint-and-not[bool]$endpoint.reachable){
         $endpoint=Ensure-KILMStudioEndpointReachable -TargetRoot $TargetRoot -BaseUrl ([string]$config.lmStudioBaseUrl)
     }
-    if([bool]$config.requireModelEndpoint-and-not[bool]$endpoint.reachable){throw 'LM Studio /v1/models ist nicht erreichbar.'}
+    if([bool]$config.requireModelEndpoint-and-not[bool]$endpoint.reachable){
+        $starterDetail=if($endpoint.PSObject.Properties['starterExitCode']){" Der verwaltete LM-Studio-Starter wurde mit Exitcode $($endpoint.starterExitCode) beendet."}else{''}
+        throw "LM Studio /v1/models ist nicht erreichbar.$starterDetail"
+    }
     $existing=Test-KICodexLocal -PackageRoot $PackageRoot -TargetRoot $TargetRoot -SkipEndpoint
     if($existing.passed){return [pscustomobject]@{passed=$true;status='SkippedAlreadyCompliant';marker=(Read-KICodexJson $paths.marker);mutatesTarget=$false}}
     New-KICodexDirectory $paths.moduleRoot
