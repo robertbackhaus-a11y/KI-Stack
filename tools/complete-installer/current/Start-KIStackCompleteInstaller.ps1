@@ -76,6 +76,8 @@ try{
             $config=$null
             $openWebUIWaitMaxAttempts=15
             $openWebUIWaitIntervalSeconds=2
+            $openWebUIHeartbeat=New-KICompleteStepHeartbeat -StepLabel 'OpenWebUI Erreichbarkeit'
+            Write-KICompleteStepStatus -Heartbeat $openWebUIHeartbeat -Status Waiting -Message 'OpenWebUI Health-Endpoint wird geprüft'
             for($openWebUIAttempt=1;$openWebUIAttempt-le$openWebUIWaitMaxAttempts;$openWebUIAttempt++){
                 try{
                     $config=Invoke-WebRequest -Uri 'http://127.0.0.1:8080/api/config' -UseBasicParsing -TimeoutSec 5
@@ -83,15 +85,24 @@ try{
                     break
                 }catch{
                     $config=$null
-                    if($openWebUIAttempt-lt$openWebUIWaitMaxAttempts){Start-Sleep -Seconds $openWebUIWaitIntervalSeconds}
+                    if($openWebUIAttempt-lt$openWebUIWaitMaxAttempts){
+                        Write-KICompleteStepHeartbeatIfDue -Heartbeat $openWebUIHeartbeat -Status Waiting -Message 'OpenWebUI Health-Endpoint noch nicht erreichbar'
+                        Start-Sleep -Seconds $openWebUIWaitIntervalSeconds
+                    }
                 }
             }
-            if($null-eq$config){throw "OpenWebUI ist unter http://127.0.0.1:8080 nach $openWebUIWaitMaxAttempts Versuchen (je $openWebUIWaitIntervalSeconds s) nicht erreichbar."}
+            if($null-eq$config){
+                Write-KICompleteStepStatus -Heartbeat $openWebUIHeartbeat -Status Failed -Message 'OpenWebUI nicht erreichbar'
+                throw "OpenWebUI ist unter http://127.0.0.1:8080 nach $openWebUIWaitMaxAttempts Versuchen (je $openWebUIWaitIntervalSeconds s) nicht erreichbar."
+            }
+            Write-KICompleteStepStatus -Heartbeat $openWebUIHeartbeat -Status Completed -Message 'OpenWebUI erreichbar'
             if($needsVisualPackCutover){
+                $comfyHeartbeat=New-KICompleteStepHeartbeat -StepLabel 'ComfyUI Erreichbarkeit'
                 try{
                     $comfy=Invoke-WebRequest -Uri 'http://127.0.0.1:8188/system_stats' -UseBasicParsing -TimeoutSec 5
                     if($comfy.StatusCode-lt200-or$comfy.StatusCode-ge400){throw 'ComfyUI nicht bereit'}
                 }catch{
+                    Write-KICompleteStepStatus -Heartbeat $comfyHeartbeat -Status Failed -Message 'ComfyUI nicht erreichbar'
                     throw 'ComfyUI ist unter http://127.0.0.1:8188 nicht erreichbar; der Visual-Pack-Cutover benötigt einen laufenden ComfyUI-Dienst.'
                 }
             }
