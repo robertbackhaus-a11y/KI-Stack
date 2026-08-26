@@ -452,7 +452,8 @@ function Resolve-KICompleteFailedTransactionState {
     param(
         [Parameter(Mandatory)][string]$TargetRoot,
         [Parameter(Mandatory)][string]$StateDirectory,
-        [Parameter(Mandatory)][object]$ComponentContract
+        [Parameter(Mandatory)][object]$ComponentContract,
+        [hashtable]$FixtureState
     )
     $reconciled=@()
     $componentStatePath=Join-Path $StateDirectory 'components.json'
@@ -482,8 +483,8 @@ function Resolve-KICompleteFailedTransactionState {
             if($component.Count-ne1){throw "Recovery-Komponentenvertrag fehlt: $($step.id)"}
             $actual=Get-KICompleteInstalledVersion -Component $component[0] -TargetRoot $TargetRoot
             $actualCompliant=$actual-eq[string]$step.version
-            if([string]$step.id-eq'codex-local'){$actualCompliant=$actualCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
-            if([string]$step.id-eq'integration'){$actualCompliant=$actualCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+            if([string]$step.id-eq'codex-local'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+            if([string]$step.id-eq'integration'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
             if(-not$actualCompliant){throw "Fehlgeschlagene Transaktion ist nicht recoverbar: $($step.id); erwartet=$($step.version); real=$actual"}
             $step.rollbackStatus='NotRequiredRetainedVerified'
             $stateChanged=$true
