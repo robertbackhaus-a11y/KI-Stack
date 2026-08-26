@@ -30,7 +30,7 @@ try{
     )}|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
     Import-Module (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Force
     $contract=Get-Content (Join-Path $PackageRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json -Depth 30
-    $result=Resolve-KICompleteFailedTransactionState -TargetRoot $fixture -StateDirectory $state -ComponentContract $contract
+    $result=Resolve-KICompleteFailedTransactionState -TargetRoot $fixture -StateDirectory $state -ComponentContract $contract -FixtureState @{}
     $after=Get-Content (Join-Path $txDir 'transaction.json') -Raw|ConvertFrom-Json -Depth 30
     $rc14After=Get-Content (Join-Path $rc14Dir 'transaction.json') -Raw|ConvertFrom-Json -Depth 30
     $retained=@($after.steps|Where-Object status -eq 'Completed')
