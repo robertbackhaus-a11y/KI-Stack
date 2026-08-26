@@ -7,7 +7,7 @@ $fail = [Collections.Generic.List[string]]::new()
 $manifest = Get-Content -LiteralPath (Join-Path $PackageRoot 'MANIFEST.json') -Raw | ConvertFrom-Json
 $components = Get-Content -LiteralPath (Join-Path $PackageRoot 'Contracts\COMPONENTS.json') -Raw | ConvertFrom-Json
 $payloads = Get-Content -LiteralPath (Join-Path $PackageRoot 'Contracts\PAYLOADS.json') -Raw | ConvertFrom-Json
-foreach($requiredTest in @('Test-KIStackInstallationContracts.ps1','Test-KIStackCompleteInstallerTarget.ps1','Test-KIStackExitCodePropagation.ps1','Test-KIStackBootstrapLogging.ps1','Test-KIStackRequiredPayloads.ps1','Test-RC12PendingComfyRollback.ps1','Test-RC13FailedStateRecovery.ps1','Start-KIStack-Installer.cmd','Bootstrap-KIStackPowerShell7.ps1','Start-KIStack-Audit.cmd','Start-KIStack-DryRun.cmd')){
+foreach($requiredTest in @('Test-KIStackInstallationContracts.ps1','Test-KIStackCompleteInstallerTarget.ps1','Test-KIStackExitCodePropagation.ps1','Test-KIStackBootstrapLogging.ps1','Test-KIStackRequiredPayloads.ps1','Test-RC12PendingComfyRollback.ps1','Test-RC13FailedStateRecovery.ps1','Test-KIStackOpenWebUIVisualPackCutover.ps1','Start-KIStack-Installer.cmd','Bootstrap-KIStackPowerShell7.ps1','Start-KIStack-Audit.cmd','Start-KIStack-DryRun.cmd')){
     if(-not(Test-Path -LiteralPath (Join-Path $PackageRoot $requiredTest) -PathType Leaf)){$fail.Add("Required test missing: $requiredTest")}
 }
 $executeStarter=Get-Content -LiteralPath (Join-Path $PackageRoot 'Start-KIStack-Installer.cmd') -Raw

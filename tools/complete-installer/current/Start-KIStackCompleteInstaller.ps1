@@ -69,22 +69,64 @@ try{
     Import-Module (Join-Path $PSScriptRoot 'CompleteInstaller.psm1') -Force
     $plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot 'C:\KI-Stack'
     $needsOpenWebUI=@($plan.steps|Where-Object{$_.id-in@('openwebui-agent-pack','openwebui-visual-pack')-and$_.plannedMode-ne'Skip'})
+    $needsVisualPackCutover=@($needsOpenWebUI|Where-Object{$_.id-eq'openwebui-visual-pack'}).Count-gt0
     $apiToken=$null
     try{
         if($needsOpenWebUI.Count){
             $config=$null
-            try{
-                $config=Invoke-WebRequest -Uri 'http://127.0.0.1:8080/api/config' -UseBasicParsing -TimeoutSec 5
-                if($config.StatusCode-lt200-or$config.StatusCode-ge400){throw 'OpenWebUI nicht bereit'}
-            }catch{
-                Write-Host 'OpenWebUI-Erstanmeldung oder Dienst nicht bereit; Transaktion wird ohne API-Schlüssel als WaitingForUserAction fortgesetzt.' -ForegroundColor Yellow
+            $openWebUIWaitMaxAttempts=15
+            $openWebUIWaitIntervalSeconds=2
+            for($openWebUIAttempt=1;$openWebUIAttempt-le$openWebUIWaitMaxAttempts;$openWebUIAttempt++){
+                try{
+                    $config=Invoke-WebRequest -Uri 'http://127.0.0.1:8080/api/config' -UseBasicParsing -TimeoutSec 5
+                    if($config.StatusCode-lt200-or$config.StatusCode-ge400){throw 'OpenWebUI nicht bereit'}
+                    break
+                }catch{
+                    $config=$null
+                    if($openWebUIAttempt-lt$openWebUIWaitMaxAttempts){Start-Sleep -Seconds $openWebUIWaitIntervalSeconds}
+                }
             }
-            if($null-ne$config){$apiToken=Read-Host 'Temporären OpenWebUI-Administrator-API-Key eingeben' -AsSecureString}
+            if($null-eq$config){throw "OpenWebUI ist unter http://127.0.0.1:8080 nach $openWebUIWaitMaxAttempts Versuchen (je $openWebUIWaitIntervalSeconds s) nicht erreichbar."}
+            if($needsVisualPackCutover){
+                try{
+                    $comfy=Invoke-WebRequest -Uri 'http://127.0.0.1:8188/system_stats' -UseBasicParsing -TimeoutSec 5
+                    if($comfy.StatusCode-lt200-or$comfy.StatusCode-ge400){throw 'ComfyUI nicht bereit'}
+                }catch{
+                    throw 'ComfyUI ist unter http://127.0.0.1:8188 nicht erreichbar; der Visual-Pack-Cutover benötigt einen laufenden ComfyUI-Dienst.'
+                }
+            }
+            if($needsVisualPackCutover){
+                Write-Host ''
+                Write-Host '=== OpenWebUI Visual-Pack-Cutover: einmaliger Erstanmelde-/API-Key-Schritt ===' -ForegroundColor Cyan
+                Write-Host '1. OpenWebUI oeffnet sich jetzt im Standardbrowser (http://127.0.0.1:8080).' -ForegroundColor Cyan
+                Write-Host '2. Ersten Benutzer als Administrator anlegen, falls noch keiner existiert - sonst anmelden.' -ForegroundColor Cyan
+                Write-Host '3. Zu Einstellungen -> Konto -> API-Keys wechseln und einen neuen API-Key erzeugen.' -ForegroundColor Cyan
+                Write-Host '4. Zu diesem Fenster zurueckkehren.' -ForegroundColor Cyan
+                Write-Host ''
+                try{Start-Process 'http://127.0.0.1:8080'}catch{Write-Host "OpenWebUI konnte nicht automatisch im Browser geoeffnet werden: $($_.Exception.Message)" -ForegroundColor Yellow}
+                Read-Host 'Enter druecken, sobald der API-Key erzeugt wurde und bereitsteht'
+            }
+            $enteredApiToken=Read-Host 'Temporären OpenWebUI-Administrator-API-Key eingeben' -AsSecureString
+            if($enteredApiToken.Length-gt0){
+                $apiToken=$enteredApiToken
+            }else{
+                Write-Host 'Kein API-Key eingegeben; Transaktion wird ohne API-Schlüssel als WaitingForUserAction fortgesetzt.' -ForegroundColor Yellow
+            }
         }
         $result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot 'C:\KI-Stack' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken
         $json=$result|ConvertTo-Json -Depth 100
         [IO.File]::WriteAllText($LogPath,$json+[Environment]::NewLine,[Text.UTF8Encoding]::new($false))
         Write-Output $json
+        if($needsVisualPackCutover){
+            $visualStep=@($result.steps|Where-Object{$_.id-eq'openwebui-visual-pack'-and$_.status-eq'Completed'}|Select-Object -First 1)
+            if($visualStep.Count){
+                Write-Host ''
+                Write-Host '=== Visual-Pack-Cutover: abschliessender manueller Funktionstest ===' -ForegroundColor Cyan
+                Write-Host 'ki_stack_generate_image und ki_stack_generate_video wurden installiert und sind an beide vorgesehenen Profile gebunden.' -ForegroundColor Cyan
+                Write-Host 'Bitte in OpenWebUI genau einen echten Bildtest und genau einen echten Videotest durchfuehren.' -ForegroundColor Cyan
+                Read-Host 'Enter druecken, sobald beide Tests erfolgreich abgeschlossen wurden'
+            }
+        }
         $exitCode=if([string]$result.status-eq'WaitingForRestart'){31}else{0}
         if($exitCode-eq31){Write-Host "Windows-Neustart erforderlich. Danach Resume-KIStack-Installer.cmd $($result.transactionId) ausführen." -ForegroundColor Yellow}
     }finally{
