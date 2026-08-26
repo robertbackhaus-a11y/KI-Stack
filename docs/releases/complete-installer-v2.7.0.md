@@ -1,10 +1,12 @@
 # KI-Stack Complete Installer v2.7.0
 
-Development release. Fixes a real Codex Local defect reproduced during the 2.5.0 Greenfield acceptance run: LM Studio first-run startup timing.
+Stable release. Published: [GitHub Release 2.7.0](https://github.com/robertbackhaus-a11y/KI-Stack/releases/tag/2.7.0). Fixes a real Codex Local defect reproduced during the 2.5.0 Greenfield acceptance run: LM Studio first-run startup timing.
 
 - Complete Installer: 2.7.0
 - Codex Local: 0.1.4 (patch: LM Studio first-run timing fix)
 - Other component versions: unchanged from 2.6.0; see the active-components table in the technical documentation
+- Asset: `KI-Stack-Complete-Installer-v2.7.0.zip`, 18,257,207 bytes, SHA256 `438887892bf9cc47ba3bde5432e298b461d24fa4a85117910ac4811a302a81bb`
+- PackageSelfTest: 28/28 passed; Codex Local tests: 13/13 passed; repository validation: 34/34 passed
 
 ## Scope: codex-local-module-only
 
@@ -33,6 +35,10 @@ The starter is now treated as the authoritative start/timeout contract rather th
 All 13 checks pass; negative control confirmed (reverting the fix reproduces exactly the expected failures).
 
 Additionally validated against the existing real target (`C:\KI-Stack`, not a fresh Greenfield VM): the real, already-running LM Studio server was stopped via `lms server stop` (GUI left running) so the managed starter was genuinely required, then `Ensure-KILMStudioEndpointReachable` was called directly against the real `C:\KI-Stack` target root and the real starter. The starter was invoked, `/v1/models` became reachable (3 models listed) in ~4.13s, well within the legitimate window -- PASS. Because `lms` was already materialized on this machine from prior sessions, this run exercises the starter's server-start/endpoint-wait phase specifically, not a from-scratch first-ever GUI/CLI-materialization cold start (that sub-path remains covered by the deterministic regression test's static budget assertion only). A real starter failure path was also proven, side-effect-free, using a synthetic starter (`exit /b 1`) under a disposable scratch directory rather than the real production starter: the exit code was surfaced via `starterExitCode` after ~5.12s, well before the configured budget was exhausted.
+
+## Build reproducibility fix (post-merge, no functional change)
+
+After the initial merge to `main`, the resulting build's ZIP differed from the previously validated reference build by 3 bytes. Root cause: `.gitattributes` was missing a line-ending exception for `tools/codex-local/current/**` (the exception already existed for `tools/rag/current/**`, `tools/models-workflows/current/**`, and `tools/complete-installer/current/**`), so `tools/codex-local/current/VERSION` was normalized from LF to CRLF on checkout. Fixed by adding `tools/codex-local/current/** -text` to `.gitattributes` and restoring `VERSION` to its original LF bytes (`0.1.4\n`, 6 bytes, SHA256 `8a3dad16d348c163566a456fcf650d85d7aeeda5e53d01ee1fa8dc15212915a7`). No functional content changed. Two independent rebuilds after the fix reproduced the exact reference hash; the published release asset matches it.
 
 ## Known manual follow-up
 
