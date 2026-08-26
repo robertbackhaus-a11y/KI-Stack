@@ -16,6 +16,7 @@
 - LM Studio is installed through `winget`; the managed starter `Start-KIStack-LMStudio.cmd` brings up its local API server automatically, including on a first-ever Greenfield run where LM Studio's `lms` CLI is not yet available. Codex Local depends on this endpoint and the same starter is invoked before Codex Local is configured.
 - SearXNG's local endpoint is adopted, not reinstalled, whenever an already-healthy instance is found — under either the Cutover Runtime's `ki-stack-searxng.service` or the Integration component's `uwsgi.service`, behind an `nginx` reverse proxy with `valkey-server` as its local store.
 - Without a supplied OpenWebUI administrator API key, the temporary Knowledge bootstrap-experiment rollback (unrelated to the RAG module's own ingestion) and the Code Interpreter connection configuration remain manual follow-up steps after installation.
+- The installer prints a console status line per step (`Running`, `Waiting`, `WaitingForUserAction`, `Completed`, `Failed`) with a timestamp, and a heartbeat at least every ~20-30s while an existing wait loop (such as the OpenWebUI readiness check) is still active, so a long-running step never looks stuck. There is no progress bar or invented percentage -- only the current step, elapsed runtime, and a short status description.
 
 Verify the ZIP against its adjacent `.sha256` sidecar before extraction. The final ZIP hash is intentionally not embedded in this package.
 

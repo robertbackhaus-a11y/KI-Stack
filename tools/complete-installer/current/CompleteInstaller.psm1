@@ -13,6 +13,47 @@ function Write-KICompleteJson {
     $Value | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
+function New-KICompleteStepHeartbeat {
+    # Central, reusable console status/heartbeat tracker for one installer step.
+    # Callers announce one-shot state transitions with Write-KICompleteStepStatus
+    # (Running-start, WaitingForUserAction, Completed, Failed -- printed exactly
+    # once each) and, only inside an already-existing retry/wait loop, periodic
+    # progress with Write-KICompleteStepHeartbeatIfDue (rate-limited to
+    # IntervalSeconds so it never adds new sleeps or polling by itself).
+    param([Parameter(Mandatory)][string]$StepLabel,[int]$IntervalSeconds=25)
+    [pscustomobject]@{
+        StepLabel=$StepLabel
+        IntervalSeconds=$IntervalSeconds
+        Stopwatch=[Diagnostics.Stopwatch]::StartNew()
+        LastHeartbeatSeconds=0.0
+        Announced=$false
+    }
+}
+
+function Write-KICompleteStepStatus {
+    param(
+        [Parameter(Mandatory)]$Heartbeat,
+        [Parameter(Mandatory)][ValidateSet('Running','Waiting','WaitingForUserAction','Completed','Failed')][string]$Status,
+        [Parameter(Mandatory)][string]$Message
+    )
+    if (-not $Heartbeat.Announced) { Write-Host ("[{0}]" -f $Heartbeat.StepLabel); $Heartbeat.Announced=$true }
+    $Heartbeat.LastHeartbeatSeconds=$Heartbeat.Stopwatch.Elapsed.TotalSeconds
+    Write-Host ("[{0}] {1} - {2}" -f (Get-Date).ToString('HH:mm:ss'),$Status,$Message)
+}
+
+function Write-KICompleteStepHeartbeatIfDue {
+    param(
+        [Parameter(Mandatory)]$Heartbeat,
+        [Parameter(Mandatory)][ValidateSet('Running','Waiting')][string]$Status,
+        [Parameter(Mandatory)][string]$Message
+    )
+    $elapsedSeconds=$Heartbeat.Stopwatch.Elapsed.TotalSeconds
+    if (($elapsedSeconds-$Heartbeat.LastHeartbeatSeconds) -lt $Heartbeat.IntervalSeconds) { return }
+    $Heartbeat.LastHeartbeatSeconds=$elapsedSeconds
+    $runtime='{0:mm\:ss}' -f $Heartbeat.Stopwatch.Elapsed
+    Write-Host ("[{0}] {1} - {2}, Laufzeit {3}" -f (Get-Date).ToString('HH:mm:ss'),$Status,$Message,$runtime)
+}
+
 function Clear-KICompleteStaleTransactionError {
     # A failed attempt sets a transaction-wide .error property (see the
     # catch block below). On -Resume that property is loaded back from the
@@ -678,6 +719,7 @@ function Invoke-KIStackCompleteInstaller {
     try {
         $cutoverExecuted = $false
         $index=0
+        $currentStepHeartbeat=$null
         foreach ($step in @($tx.steps)) {
             $component=@($componentContract.components|Where-Object{[string]$_.id-eq[string]$step.id})|Select-Object -First 1
             if($null-eq$component){throw "Komponentenvertrag fehlt: $($step.id)"}
@@ -694,6 +736,8 @@ function Invoke-KIStackCompleteInstaller {
                 $step.error="Resume-Readback erforderte erneutes Deployment; real=$resumeActual"
             }
             $step.startTime=[DateTime]::UtcNow.ToString('o'); $step.status='Running'; Write-KICompleteJson $txPath $tx
+            $currentStepHeartbeat=New-KICompleteStepHeartbeat -StepLabel $step.name
+            Write-KICompleteStepStatus -Heartbeat $currentStepHeartbeat -Status Running -Message ("Schritt {0} von {1} wird ausgeführt" -f ($index+1),$tx.steps.Count)
             if ($step.id -in @('foundation-runtime','python-git','applications','cutover-runtime')) {
                 if (-not $cutoverExecuted) {
                     $extract = Join-Path $state "$TransactionId/CutoverRuntime"
@@ -940,6 +984,11 @@ function Invoke-KIStackCompleteInstaller {
                 $step.status='Completed'
             }
             $step.endTime=[DateTime]::UtcNow.ToString('o'); $step.exitCode=0; $index++
+            if($step.status-eq'WaitingForUserAction'){
+                Write-KICompleteStepStatus -Heartbeat $currentStepHeartbeat -Status WaitingForUserAction -Message ([string]$step.result.reason)
+            }else{
+                Write-KICompleteStepStatus -Heartbeat $currentStepHeartbeat -Status Completed -Message ("{0} abgeschlossen" -f $step.name)
+            }
             Write-KICompleteJson (Join-Path $state "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant')}|ForEach-Object id);containsSecrets=$false})
             Write-KICompleteJson $txPath $tx
         }
@@ -982,6 +1031,8 @@ function Invoke-KIStackCompleteInstaller {
             if ($failure.Exception.Data.Contains('KIStackBackupPath')) {
                 $runningStep[0].backup = [string]$failure.Exception.Data['KIStackBackupPath']
             }
+            $failureHeartbeat=if($null-ne$currentStepHeartbeat){$currentStepHeartbeat}else{New-KICompleteStepHeartbeat -StepLabel $runningStep[0].name}
+            Write-KICompleteStepStatus -Heartbeat $failureHeartbeat -Status Failed -Message $failure.Exception.Message
         }
         if ($operationsStarted -and $finalizationPhase -eq 'InstallOperations') {
             try {
