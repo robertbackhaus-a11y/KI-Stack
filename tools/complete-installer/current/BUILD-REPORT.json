@@ -1,9 +1,9 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.6.0",
-  "baseVersion": "2.5.0",
-  "status": "RAGRollbackComplete_AddReplaceRemove_TargetValidated",
+  "version": "2.7.0",
+  "baseVersion": "2.6.0",
+  "status": "CodexLocalLMStudioTimingFixed_TargetValidated",
   "previousCandidateRejected": "2.4.0-rc8",
   "previousCandidateRejectReason": "StrictMode rejected normal module results whose data object did not expose the optional reboot control status property.",
   "deterministicArchive": true,
@@ -49,6 +49,7 @@
   "openWebUIAgentPack": "1.8.9",
   "validationGate": "1.0.3",
   "rag": "0.3.1",
+  "codexLocal": "0.1.4",
   "rcBuildValidation": {
     "script": "scripts/Invoke-KIStackCompleteInstallerRCBuildValidation.ps1",
     "status": "WindowsArtifactValidated_TargetExecutionLocked",
@@ -56,7 +57,30 @@
     "deterministicDualBuildConfirmed": true,
     "codexCliArtifactValidated": true,
     "realTargetTreeUnchangedByBuild": true,
-    "note": "Evidence from the 2.5.0 cycle; carried forward as still valid for 2.6.0 since none of the installer-logic/build-pipeline code this script exercises changed in 2.6.0 (the 2.6.0 scope was RAG-module-only). Simulated empty target used for installer-logic validation; not a full physical Greenfield install."
+    "note": "Evidence from the 2.5.0 cycle; carried forward as still valid for 2.7.0 since none of the installer-logic/build-pipeline code this script exercises changed in 2.6.0 or 2.7.0 (both cycles were module-only: RAG in 2.6.0, Codex Local in 2.7.0). Simulated empty target used for installer-logic validation; not a full physical Greenfield install."
+  },
+  "codexLocalLmStudioTimingFix": {
+    "status": "targetValidated",
+    "rootCause": "Ensure-KILMStudioEndpointReachable's own retry budget (30 attempts * 2s = 60s) was independently timed and shorter than the managed LM Studio starter's genuine first-run contract (up to ~120s: 90s for the lms CLI to appear after LM Studio's first GUI launch, plus 30s for the server it starts to accept connections), and the starter's own process/exit code was never observed -- reproduced live during the 2.5.0 Greenfield acceptance run (Codex Local failed with 'LM Studio /v1/models ist nicht erreichbar' while the starter's first-run GUI wait was still legitimately in progress).",
+    "fix": "The starter is now treated as the authoritative start/timeout contract rather than a second, independently-timed one: the default retry budget is sized to the starter's own up-to-120s window, and the starter's own process handle is tracked so a real starter failure (non-zero exit) is detected and surfaced immediately via a new starterExitCode field instead of being silently outlived by continued polling for the rest of the budget.",
+    "scope": "codex-local module only; no changes to the LM Studio starter itself (KIModuleApplications.psm1) or to any other component.",
+    "validation": "Test-KIStackCodexLocal.ps1: a static, zero-sleep assertion on the shipped default values (total budget >= 120s) plus fast behavioral checks that a starter's own exit code is observed immediately and that a genuine timeout still fails. Negative control confirmed: reverting the fix reproduces exactly this failure.",
+    "liveTargetValidation": {
+      "environment": "existing real target (C:\\KI-Stack), not a fresh Greenfield VM",
+      "controlledState": "the real, already-installed LM Studio server was stopped via 'lms server stop' (GUI left running) so the managed starter was genuinely required; the lms CLI was already materialized on this machine from prior sessions, so this run exercises the starter's server-start/endpoint-wait phase, not a from-scratch first-ever GUI/CLI-materialization cold start (that sub-path remains covered by the deterministic regression test only)",
+      "starterInvoked": true,
+      "endpointResult": {"reachable": true, "modelCount": 3, "models": ["qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved","qwen/qwen3.6-35b-a3b","text-embedding-nomic-embed-text-v1.5"]},
+      "elapsedSeconds": 4.13,
+      "outcome": "PASS -- endpoint reached well within the legitimate starter window; verified independently afterward via a direct request to the endpoint.",
+      "starterFailurePathProof": {
+        "method": "a separate, synthetic starter (exit /b 1) under a scratch TargetRoot, not the real production starter -- side-effect-free, no real target files touched",
+        "starterExitCode": 1,
+        "elapsedSecondsToDetection": 5.12,
+        "retryBudgetSeconds": 15,
+        "outcome": "PASS -- starter failure surfaced immediately (well under the full budget) via the starterExitCode field, not silently outlived by continued polling"
+      }
+    },
+    "greenfieldValidated": false
   },
   "ragLiveTargetValidation": {
     "execute": "passed",
@@ -74,7 +98,7 @@
   },
   "greenfieldAcceptance": {
     "status": "PhysicalGreenfieldInstallCompleted",
-    "cycle": "2.5.0 -- carried forward as still valid for 2.6.0; no installer/build code changed in 2.6.0 (RAG-module-only scope), so no new Greenfield run was performed this cycle.",
+    "cycle": "2.5.0 -- carried forward as still valid for 2.6.0 and 2.7.0; no installer/build code changed in either cycle (2.6.0 was RAG-module-only, 2.7.0 is codex-local-module-only), so no new Greenfield run was performed.",
     "environment": "Hyper-V VM, fresh Windows install, no prior KI-Stack state",
     "transactionId": "KI-COMPLETE-20260824-152853",
     "rebootResumeAfterFirstTimeWslActivation": "passed",

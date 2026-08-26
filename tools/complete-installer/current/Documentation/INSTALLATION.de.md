@@ -1,6 +1,6 @@
 # Installation, Upgrade und Betrieb
 
-1. Prüfe `KI-Stack-Complete-Installer-v2.6.0.zip` mit `Get-FileHash -Algorithm SHA256` gegen das danebenliegende `.sha256`-Sidecar.
+1. Prüfe `KI-Stack-Complete-Installer-v2.7.0.zip` mit `Get-FileHash -Algorithm SHA256` gegen das danebenliegende `.sha256`-Sidecar.
 2. Entpacke das Paket und starte `Start-KIStack-Installer.cmd` mit PowerShell 7.
 3. Meldet der Installer nach einer erstmaligen WSL-Aktivierung `NEUSTART ERFORDERLICH` (Exitcode 31), starte Windows neu und führe `Resume-KIStack-Installer.cmd <TransactionId>` aus. Der Zustand `WaitingForRestart` ist fortsetzbar und löst keinen Rollback aus.
 4. Bestätige UAC. Falls abgefragt, gib einen temporären OpenWebUI-Administrator-API-Key verdeckt ein; er wird nie gespeichert und soll danach widerrufen werden.
@@ -12,7 +12,7 @@ Modelle einschließlich des ausschließlich für Embeddings verwendeten `nomic-e
 
 LM Studio wird über `winget` installiert, sein lokaler API-Server wird dabei nicht mitgestartet. Der verwaltete Starter `Start-KIStack-LMStudio.cmd` (unter `C:\KI-Stack\modules\applications`) übernimmt das: Ist LM Studios `lms`-CLI bereits verfügbar, startet er den Server direkt; bei einem allerersten Greenfield-Lauf, bei dem `lms` erst nach Abschluss der eigenen Ersteinrichtung der LM-Studio-GUI unter `%USERPROFILE%\.lmstudio\bin` bereitgestellt wird, startet der Starter einmalig die GUI, wartet begrenzt darauf, dass `lms` erscheint, startet dann den Server und bestätigt, dass er unter `http://127.0.0.1:1234/v1/models` antwortet.
 
-Codex Local benötigt genau diesen Endpunkt. Der Installer ruft den LM-Studio-Starter unmittelbar vor der Konfiguration des Codex-Local-Profils auf, sodass eine normale Installation kein manuelles Starten von LM Studio erfordert.
+Codex Local benötigt genau diesen Endpunkt. Der Installer ruft den LM-Studio-Starter unmittelbar vor der Konfiguration des Codex-Local-Profils auf, sodass eine normale Installation kein manuelles Starten von LM Studio erfordert. Codex Locals eigenes Warten auf diesen Endpunkt behandelt den Starter als maßgeblichen Timeout-Vertrag: es wartet mindestens so lange wie das legitime Erststart-Zeitfenster des Starters selbst (bis zu ~120s) und beobachtet dessen Prozess/Exitcode, sodass ein echter Starter-Fehlschlag sofort gemeldet wird, statt dass der Aufrufer bei einem kürzeren, unabhängigen Zeitgeber aufgibt, während der Starter noch legitim läuft.
 
 ## SearXNG, nginx und Valkey
 

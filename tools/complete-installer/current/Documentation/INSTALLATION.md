@@ -1,6 +1,6 @@
 # Installation, upgrade, and operations
 
-1. Verify `KI-Stack-Complete-Installer-v2.6.0.zip` against its adjacent `.sha256` sidecar with `Get-FileHash -Algorithm SHA256`.
+1. Verify `KI-Stack-Complete-Installer-v2.7.0.zip` against its adjacent `.sha256` sidecar with `Get-FileHash -Algorithm SHA256`.
 2. Extract the package and run `Start-KIStack-Installer.cmd` with PowerShell 7.
 3. If first-time WSL activation reports `RESTART REQUIRED` (exit code 31), restart Windows and run `Resume-KIStack-Installer.cmd <TransactionId>`. `WaitingForRestart` is resumable and does not trigger rollback.
 4. Confirm UAC. If requested, enter a temporary OpenWebUI administrator API key through the hidden prompt; it is never stored and should be revoked afterwards.
@@ -12,7 +12,7 @@ Models, including embedding-only `nomic-embed-text-v1.5.Q4_K_M.gguf`, are downlo
 
 LM Studio is installed through `winget` and its local API server is not started as part of that install. The managed starter `Start-KIStack-LMStudio.cmd` (under `C:\KI-Stack\modules\applications`) handles this: if LM Studio's `lms` CLI is already available it starts the server directly; on a first-ever Greenfield run, where `lms` is only published under `%USERPROFILE%\.lmstudio\bin` after LM Studio's GUI completes its own first-run setup, the starter launches the GUI once, waits (bounded) for `lms` to appear, then starts the server and confirms it answers at `http://127.0.0.1:1234/v1/models`.
 
-Codex Local requires that same endpoint. The installer invokes the LM Studio starter immediately before configuring the Codex Local profile, so a normal installation does not require starting LM Studio by hand.
+Codex Local requires that same endpoint. The installer invokes the LM Studio starter immediately before configuring the Codex Local profile, so a normal installation does not require starting LM Studio by hand. Codex Local's own wait for that endpoint treats the starter as the authoritative timeout contract: it waits at least as long as the starter's own genuine first-run window (up to ~120s) and observes the starter's process/exit code, so a real starter failure is reported immediately instead of the caller giving up on a shorter, independent timer while the starter is still legitimately starting.
 
 ## SearXNG, nginx, and Valkey
 

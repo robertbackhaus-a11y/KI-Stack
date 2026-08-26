@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "packageName": "KI-Stack-Complete-Installer",
-  "packageVersion": "2.6.0",
+  "packageVersion": "2.7.0",
   "coverage": [
     {
       "id": "REG-023-ROOTLESS-NESTED-ARCHIVE",
@@ -27,6 +27,11 @@
       "id": "REG-033-MODELSWORKFLOWS-RECEIVE-ARTIFACT-HTTP-416-RESUME",
       "status": "covered",
       "method": "Receive-Artifact issued a Range request starting at an already-complete artifact's end-of-file offset whenever a fully-downloaded .partial file had not yet been moved to its final target, and the source correctly answered HTTP 416 Range Not Satisfiable. A .partial file already at the expected size is now verified directly via the existing size/SHA256 contract with no HTTP request. Found and reproduced live during the 2.5.0 Greenfield acceptance run; fixed and reverified against the same live target. Covered by Tests/Test-KIStackModelDownloadContract.ps1 (models-workflows)."
+    },
+    {
+      "id": "REG-034-CODEXLOCAL-LMSTUDIO-STARTUP-TIMING",
+      "status": "covered",
+      "method": "Ensure-KILMStudioEndpointReachable's own retry budget (previously 30*2s=60s) was shorter than the managed LM Studio starter's genuine first-run contract (up to ~120s: 90s waiting for the lms CLI after LM Studio's first GUI launch, plus 30s waiting for the server to accept connections), causing Codex Local to report the endpoint unreachable and fail while the starter was still legitimately starting -- reproduced live during the 2.5.0 Greenfield acceptance run. The default budget is now sized to the starter's own window, and the starter's own process/exit code is tracked so a real starter failure is detected and surfaced immediately instead of being silently outlived by continued polling. Covered by Test-KIStackCodexLocal.ps1 (a static assertion on the shipped default values, plus behavioral checks that a starter's own exit code is observed and that a genuine timeout still fails)."
     }
   ]
 }
