@@ -1,9 +1,9 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.7.0",
-  "baseVersion": "2.6.0",
-  "status": "CodexLocalLMStudioTimingFixed_TargetValidated",
+  "version": "2.8.0",
+  "baseVersion": "2.7.0",
+  "status": "OpenWebUICutover_Heartbeat_ManagedUpdate_TargetValidated",
   "previousCandidateRejected": "2.4.0-rc8",
   "previousCandidateRejectReason": "StrictMode rejected normal module results whose data object did not expose the optional reboot control status property.",
   "deterministicArchive": true,
@@ -57,7 +57,45 @@
     "deterministicDualBuildConfirmed": true,
     "codexCliArtifactValidated": true,
     "realTargetTreeUnchangedByBuild": true,
-    "note": "Evidence from the 2.5.0 cycle; carried forward as still valid for 2.7.0 since none of the installer-logic/build-pipeline code this script exercises changed in 2.6.0 or 2.7.0 (both cycles were module-only: RAG in 2.6.0, Codex Local in 2.7.0). Simulated empty target used for installer-logic validation; not a full physical Greenfield install."
+    "note": "Evidence from the 2.5.0 cycle; carried forward as still valid through 2.6.0, 2.7.0 and 2.8.0 since none of the installer-logic/build-pipeline code this script exercises changed in any of those cycles (2.6.0: RAG module only; 2.7.0: Codex Local module only; 2.8.0: orchestrator-level cutover/heartbeat/update UX and payload deployment hygiene, no change to this script's own exercised paths). Simulated empty target used for installer-logic validation; not a full physical Greenfield install."
+  },
+  "openWebUICutoverHeartbeatManagedUpdate": {
+    "status": "targetValidated",
+    "scope": "complete-installer package only; no other component payload changed in this cycle.",
+    "guidedOpenWebUICutover": {
+      "change": "Start-KIStackCompleteInstaller.ps1 opens OpenWebUI in the default browser and guides first-login/API-key creation before the existing Visual Pack install/validate path runs; WaitingForUserAction now means only 'services reachable, key still missing', and OpenWebUI/ComfyUI unreachable beyond their readiness wait is a real error instead.",
+      "validation": "Test-KIStackOpenWebUIVisualPackCutover.ps1: Skip/reachable-no-key, OpenWebUI-unreachable-after-budget, ComfyUI-unreachable, and successful token path -- all PASS.",
+      "realTargetNote": "Not end-to-end re-triggered on the existing real target in this cycle: openwebui-visual-pack and openwebui-agent-pack were both already compliant (confirmed via a read-only Audit-mode plan against C:\\KI-Stack), so plannedMode resolves to Skip and the guided flow itself never executes. No existing Force/Repair/Replay contract can re-trigger an already-compliant step without deleting real files or changing a pinned component version, both of which were deliberately not done. This is a First-Install acceptance boundary, not a release defect -- the flow's own building blocks (readiness checks, SecureString handling, the underlying Visual Pack install/validate path) are independently real-target proven elsewhere in this same cycle and in prior releases."
+    },
+    "installerProgressHeartbeat": {
+      "change": "Central Write-KICompleteStepStatus/Write-KICompleteStepHeartbeatIfDue helpers report Running/Waiting/WaitingForUserAction/Completed/Failed with a timestamp, and a heartbeat at least every ~20-30s while an existing wait loop is still active; wired into the main step loop, its failure handler, and the OpenWebUI readiness loop.",
+      "validation": "Test-KIStackInstallerHeartbeat.ps1: short step produces no heartbeat, long step produces exactly one due heartbeat with elapsed runtime, WaitingForUserAction/Completed/Failed each print exactly once, orchestrator wiring confirmed via static source markers -- all PASS.",
+      "realTargetNote": "Incidentally confirmed live during this cycle's real Upgrade runs against C:\\KI-Stack: heartbeat-formatted step lines (e.g. '[Codex Local] ... Running ... Completed') were observed in the actual console output of both real installer executions performed for the managed-update acceptance below."
+    },
+    "rc13FixtureRecoveryFix": {
+      "change": "Resolve-KICompleteFailedTransactionState gained the same optional FixtureState bypass New-KICompletePlan already used, so its codex-local/integration live-compliance sub-checks can be skipped under a test fixture; no change to any real-target compliance behavior (FixtureState remains unset on every real invocation).",
+      "validation": "Test-RC13FailedStateRecovery.ps1 PASS; negative control re-run without FixtureState reproduces the exact original real-path failure, confirming the real compliance path is untouched.",
+      "realTargetNote": "Not applicable by nature -- pure test-harness testability fix, no real-install code path changed."
+    },
+    "managedOpenWebUIUpdate": {
+      "change": "New Lifecycle/Update-KIStack-OpenWebUI.cmd + .ps1, deployed to C:\\KI-Stack, reads the target version from the single kernel-config.json also used by the Applications module, reuses the existing managed venv in place for both upgrade and downgrade via the same contract, performs a managed stop/restart and local healthcheck, and rolls back automatically on install or healthcheck failure.",
+      "validation": "Test-KIStackOpenWebUIManagedUpdate.ps1: Skip, successful upgrade, successful downgrade, install-failure rollback, healthcheck-failure rollback -- all PASS against fixtures.",
+      "realTargetValidation": {
+        "environment": "existing real target (C:\\KI-Stack), via two real administrator-elevated Complete Installer Upgrade runs with a temporarily retargeted kernel-config.json, reverted to 0.11.0 afterward",
+        "skip": {"outcome": "PASS", "version": "0.11.0", "mutation": false},
+        "downgrade": {"outcome": "PASS", "from": "0.11.0", "to": "0.10.2", "managedVenvOnly": true},
+        "upgradeBack": {"outcome": "PASS", "from": "0.10.2", "to": "0.11.0"},
+        "healthcheck": "HTTP 200 after every step",
+        "secondVenvCreated": false,
+        "manualPipMutationOutsideScript": false,
+        "finalInstalledVersion": "0.11.0"
+      }
+    },
+    "payloadDeploymentHygiene": {
+      "change": "Install-KICompleteOrchestrator now removes, per payload-type folder under installer/complete/Payload/, any destination file whose name is no longer present in the current source payload before copying the current one in -- fixing accumulated stale/misplaced payload zips that made Expand-KICompletePayload fail with 'Payload ist mehrdeutig'.",
+      "validation": "Test-KIStackPayloadDeploymentHygiene.ps1: empty destination, stale-same-type versions removed (with pre-cleanup state still backed up), foreign misplaced payload removed without affecting a sibling payload type, repeated run idempotent -- all PASS.",
+      "realTargetNote": "Confirmed against the real target: C:\\KI-Stack\\installer\\complete\\Payload\\CutoverRuntime contained 5 accumulated historical zips before this fix; a real Complete Installer Upgrade run after the fix reduced it to exactly the one current zip, and Expand-KICompletePayload -Name CutoverRuntime resolved unambiguously on every subsequent real run performed for the managed-update acceptance above."
+    }
   },
   "codexLocalLmStudioTimingFix": {
     "status": "targetValidated",
@@ -98,7 +136,7 @@
   },
   "greenfieldAcceptance": {
     "status": "PhysicalGreenfieldInstallCompleted",
-    "cycle": "2.5.0 -- carried forward as still valid for 2.6.0 and 2.7.0; no installer/build code changed in either cycle (2.6.0 was RAG-module-only, 2.7.0 is codex-local-module-only), so no new Greenfield run was performed.",
+    "cycle": "2.5.0 -- carried forward as still valid through 2.6.0, 2.7.0 and 2.8.0; no build-pipeline/payload-acquisition code changed in any of those cycles (2.6.0: RAG module only; 2.7.0: Codex Local module only; 2.8.0: orchestrator-level cutover/heartbeat/update UX and payload deployment hygiene only), so no new physical Greenfield run was performed.",
     "environment": "Hyper-V VM, fresh Windows install, no prior KI-Stack state",
     "transactionId": "KI-COMPLETE-20260824-152853",
     "rebootResumeAfterFirstTimeWslActivation": "passed",

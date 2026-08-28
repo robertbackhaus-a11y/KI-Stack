@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "packageName": "KI-Stack-Complete-Installer",
-  "packageVersion": "2.7.0",
+  "packageVersion": "2.8.0",
   "coverage": [
     {
       "id": "REG-023-ROOTLESS-NESTED-ARCHIVE",
@@ -32,6 +32,31 @@
       "id": "REG-034-CODEXLOCAL-LMSTUDIO-STARTUP-TIMING",
       "status": "covered",
       "method": "Ensure-KILMStudioEndpointReachable's own retry budget (previously 30*2s=60s) was shorter than the managed LM Studio starter's genuine first-run contract (up to ~120s: 90s waiting for the lms CLI after LM Studio's first GUI launch, plus 30s waiting for the server to accept connections), causing Codex Local to report the endpoint unreachable and fail while the starter was still legitimately starting -- reproduced live during the 2.5.0 Greenfield acceptance run. The default budget is now sized to the starter's own window, and the starter's own process/exit code is tracked so a real starter failure is detected and surfaced immediately instead of being silently outlived by continued polling. Covered by Test-KIStackCodexLocal.ps1 (a static assertion on the shipped default values, plus behavioral checks that a starter's own exit code is observed and that a genuine timeout still fails)."
+    },
+    {
+      "id": "REG-035-GUIDED-OPENWEBUI-FIRST-LOGIN-CUTOVER",
+      "status": "covered",
+      "method": "Start-KIStackCompleteInstaller.ps1 opens OpenWebUI in the default browser and guides first-login/API-key creation before the existing Visual Pack install/validate path runs; WaitingForUserAction is now reported only when OpenWebUI and ComfyUI are both reachable but no API key has been entered, and either service staying unreachable beyond its bounded readiness wait is a real error instead of a silent WaitingForUserAction. Covered by Test-KIStackOpenWebUIVisualPackCutover.ps1 (reachable-no-key Skip path, OpenWebUI-unreachable-after-budget error, ComfyUI-unreachable error, successful token path). Not end-to-end re-triggered against the real target in the 2.8.0 cycle -- openwebui-visual-pack/openwebui-agent-pack were already compliant, a documented First-Install acceptance boundary, not a release defect."
+    },
+    {
+      "id": "REG-036-INSTALLER-PROGRESS-HEARTBEAT",
+      "status": "covered",
+      "method": "The installer previously gave no visible sign of progress during long-running steps or wait loops. Write-KICompleteStepStatus/Write-KICompleteStepHeartbeatIfDue now report Running/Waiting/WaitingForUserAction/Completed/Failed with a timestamp and a heartbeat at least every ~20-30s while an existing wait loop is active, wired into the main step loop, its failure handler, and the OpenWebUI readiness loop, with no new sleeps or polling introduced. Covered by Test-KIStackInstallerHeartbeat.ps1 (short-step no-heartbeat, long-step single due heartbeat with elapsed runtime, one-shot terminal states, static orchestrator-wiring markers); confirmed live in real Upgrade runs against C:\\KI-Stack during the 2.8.0 managed-update acceptance."
+    },
+    {
+      "id": "REG-037-RC13-FIXTURE-RECOVERY-COMPLIANCE-BYPASS",
+      "status": "covered",
+      "method": "Resolve-KICompleteFailedTransactionState unconditionally called Test-KICompleteIntegrationCompliant/Test-KICompleteCodexLocalCompliant even under a test fixture, and those checks depend on real runtime/WSL state a fixture cannot provide, causing Test-RC13FailedStateRecovery.ps1 to fail with 'Fehlgeschlagene Transaktion ist nicht recoverbar' despite identical, byte-verified version strings. The function now accepts the same optional FixtureState bypass New-KICompletePlan already used for the identical compliance-check class, skipping those two live-environment checks only when FixtureState is supplied; every real invocation (Invoke-KIStackCompleteInstaller never passes FixtureState) is unaffected, confirmed by a negative-control run reproducing the exact original real-path failure. Covered by Test-RC13FailedStateRecovery.ps1."
+    },
+    {
+      "id": "REG-038-MANAGED-OPENWEBUI-UPDATE",
+      "status": "covered",
+      "method": "OpenWebUI's installed version had no dedicated, rollback-safe update path; manual pip upgrades/downgrades inside its venv were the only option. Update-KIStack-OpenWebUI.cmd/.ps1 (deployed to C:\\KI-Stack) now reads the target version from the single kernel-config.json also used by the Applications module, reuses the existing managed venv in place for both upgrade and downgrade via the same contract, performs a managed stop/restart and local healthcheck, reports Skip when already at target, and automatically rolls back to the previous version (re-verifying its version and healthcheck) on install or healthcheck failure. Covered by Test-KIStackOpenWebUIManagedUpdate.ps1 (Skip, upgrade, downgrade, install-failure rollback, healthcheck-failure rollback) and real-target validated against C:\\KI-Stack: Skip PASS, downgrade 0.11.0->0.10.2 PASS, upgrade 0.10.2->0.11.0 PASS, HTTP 200 healthcheck after every step, no second venv, no manual pip mutation outside the script, final installed version 0.11.0."
+    },
+    {
+      "id": "REG-039-PAYLOAD-DEPLOYMENT-HYGIENE",
+      "status": "covered",
+      "method": "Install-KICompleteOrchestrator copied the current package into installer/complete with Copy-Item -Force, which only adds or overwrites files and never removes a destination file whose name no longer exists in the source; over repeated real deployments this accumulated stale and even foreign, misplaced payload zips per payload-type folder (5 zips found under C:\\KI-Stack\\installer\\complete\\Payload\\CutoverRuntime, one of them a wrong-type Models-Workflows archive), causing Expand-KICompletePayload to fail with 'Payload ist mehrdeutig' since it requires exactly one zip per type. Before the existing copy step, each payload-type folder under the source's Payload/ directory is now reconciled to remove any destination file not present by name in the current source folder, leaving exactly the current payload after the copy. Covered by Test-KIStackPayloadDeploymentHygiene.ps1 (empty destination, stale-version removal with pre-cleanup backup preserved, foreign-payload removal without affecting a sibling payload type, idempotent rerun); real-target validated -- a real Upgrade run against C:\\KI-Stack reduced the 5 accumulated zips to exactly one, and Expand-KICompletePayload -Name CutoverRuntime resolved unambiguously on every subsequent real run."
     }
   ]
 }
