@@ -253,9 +253,16 @@ function Test-KICompleteIntegrationCompliant {
     }catch{return $false}
 }
 
+$script:KICompleteReplayableComponentIds=@('openwebui-visual-pack','openwebui-agent-pack')
+
 function New-KICompletePlan {
-    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate')][string]$Mode,[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[hashtable]$FixtureState,[switch]$EnableOpenWebUIBallistics)
+    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate')][string]$Mode,[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[hashtable]$FixtureState,[switch]$EnableOpenWebUIBallistics,[string[]]$ReplayComponent=@())
     $contract = Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
+    $knownComponentIds=@($contract.components|ForEach-Object{[string]$_.id})
+    foreach($replayId in @($ReplayComponent|Select-Object -Unique)){
+        if($knownComponentIds-notcontains$replayId){throw "Unbekannte Replay-Komponente: $replayId"}
+        if($script:KICompleteReplayableComponentIds-notcontains$replayId){throw "Replay ist für diese Komponente nicht freigegeben: $replayId"}
+    }
     $steps = foreach ($component in @($contract.components | Sort-Object order)) {
         if($component.psobject.Properties.Name-contains'optional'-and[bool]$component.optional-and-not$EnableOpenWebUIBallistics){continue}
         $installed = Get-KICompleteInstalledVersion $component $TargetRoot $FixtureState
@@ -266,12 +273,13 @@ function New-KICompletePlan {
         if([string]$component.id-eq'codex-local'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'integration'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         $reconciliationNeeded=$compliant-and$stored-ne[string]$component.version
-        $plannedMode=if($Mode -eq 'Audit' -or $Mode -eq 'Validate'){$Mode}elseif($compliant){'Skip'}elseif($null-eq$installed-and$null-ne$stored){'Repair'}elseif($installed){'Upgrade'}else{'Install'}
+        $isReplaySelected=$compliant-and($ReplayComponent-contains[string]$component.id)
+        $plannedMode=if($Mode -eq 'Audit' -or $Mode -eq 'Validate'){$Mode}elseif($isReplaySelected){'Replay'}elseif($compliant){'Skip'}elseif($null-eq$installed-and$null-ne$stored){'Repair'}elseif($installed){'Upgrade'}else{'Install'}
         [pscustomobject][ordered]@{
             id=[string]$component.id; name=[string]$component.name; version=[string]$component.version
             plannedMode=$plannedMode
             initialState=[ordered]@{storedVersion=$stored;installedVersion=$installed;compliant=$compliant;reconciliationNeeded=$reconciliationNeeded}
-            status=$(if($compliant-and$Mode-notin@('Audit','Validate')){'SkippedAlreadyCompliant'}else{'Planned'})
+            status=$(if($compliant-and-not$isReplaySelected-and$Mode-notin@('Audit','Validate')){'SkippedAlreadyCompliant'}else{'Planned'})
         }
     }
     $stateHasOrphans=$false
@@ -283,7 +291,7 @@ function New-KICompletePlan {
             $stateHasOrphans=@($storedState.components.PSObject.Properties|Where-Object{$_.Name-notin$plannedIds}).Count-gt0
         }
     }
-    [pscustomobject][ordered]@{schemaVersion='1.0';mode=$Mode;targetRoot=$TargetRoot;steps=@($steps);alreadyCompliant=(@($steps|Where-Object{-not $_.initialState.compliant}).Count -eq 0);stateHasOrphans=$stateHasOrphans}
+    [pscustomobject][ordered]@{schemaVersion='1.0';mode=$Mode;targetRoot=$TargetRoot;steps=@($steps);alreadyCompliant=(@($steps|Where-Object{-not $_.initialState.compliant}).Count -eq 0);stateHasOrphans=$stateHasOrphans;hasReplay=(@($steps|Where-Object{$_.plannedMode-eq'Replay'}).Count-gt0)}
 }
 
 function Write-KICompleteComponentMarker {
@@ -695,7 +703,7 @@ function Invoke-KICompleteLifecycle {
 }
 
 function Invoke-KIStackCompleteInstaller {
-    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate','Rollback','Start','Stop')][string]$Mode='Audit',[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[string]$TransactionId,[switch]$Resume,[switch]$DryRun,[switch]$EnableOpenWebUIBallistics,[Security.SecureString]$OpenWebUIApiToken)
+    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate','Rollback','Start','Stop')][string]$Mode='Audit',[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[string]$TransactionId,[switch]$Resume,[switch]$DryRun,[switch]$EnableOpenWebUIBallistics,[Security.SecureString]$OpenWebUIApiToken,[string[]]$ReplayComponent=@())
     $PackageRoot = Get-KICompletePackageRoot $PackageRoot
     $config = Read-KICompleteJson (Join-Path $PackageRoot 'Config/complete-installer.config.json')
     $componentContract=Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
@@ -708,10 +716,10 @@ function Invoke-KIStackCompleteInstaller {
         $failedStateRecovery=Resolve-KICompleteFailedTransactionState -TargetRoot $TargetRoot -StateDirectory ([string]$config.stateDirectory) -ComponentContract $componentContract
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
-    $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics
+    $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics -ReplayComponent $ReplayComponent
     if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.8.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
     if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.8.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if(-not$Resume -and $plan.alreadyCompliant -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){
+    if(-not$Resume -and $plan.alreadyCompliant -and -not[bool]$plan.hasReplay -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
         if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.8.0'}

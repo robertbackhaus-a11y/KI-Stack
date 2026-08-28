@@ -9,14 +9,14 @@ try{
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Destination $temp
     $source=Get-Content -LiteralPath (Join-Path $PackageRoot 'Start-KIStackCompleteInstaller.ps1') -Raw
     $source=$source.Replace('if(-not(Test-KICompleteAdministrator)){','if($false){')
-    $source=$source.Replace('$plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack''','$plan=[pscustomobject]@{steps=@()}')
+    $source=$source.Replace('$plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -ReplayComponent $ReplayComponent','$plan=[pscustomobject]@{steps=@()}')
     $successScript=Join-Path $temp 'success.ps1';[IO.File]::WriteAllText($successScript,$source,[Text.UTF8Encoding]::new($false))
     $successLog=Join-Path $temp 'success.log'; & (Get-Command pwsh.exe).Source -NoLogo -NoProfile -File $successScript -Elevated -LoggingProbe -LogPath $successLog *> $null;$successCode=$LASTEXITCODE
 
-    $failureSource=$source.Replace('$result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken','$failure=[InvalidOperationException]::new(''Cutover-Kernel fehlgeschlagen: Exitcode 30''); $failure.Data[''KIStackExitCode'']=30; throw $failure')
+    $failureSource=$source.Replace('$result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken -ReplayComponent $ReplayComponent','$failure=[InvalidOperationException]::new(''Cutover-Kernel fehlgeschlagen: Exitcode 30''); $failure.Data[''KIStackExitCode'']=30; throw $failure')
     $failureScript=Join-Path $temp 'failure.ps1';[IO.File]::WriteAllText($failureScript,$failureSource,[Text.UTF8Encoding]::new($false))
     $failureLog=Join-Path $temp 'failure.log'; & (Get-Command pwsh.exe).Source -NoLogo -NoProfile -File $failureScript -Elevated -LogPath $failureLog *> $null;$failureCode=$LASTEXITCODE
-    $restartSource=$source.Replace('$result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken','$result=[pscustomobject]@{status=''WaitingForRestart'';transactionId=''TEST-RESTART''}')
+    $restartSource=$source.Replace('$result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken -ReplayComponent $ReplayComponent','$result=[pscustomobject]@{status=''WaitingForRestart'';transactionId=''TEST-RESTART''}')
     $restartScript=Join-Path $temp 'restart.ps1';[IO.File]::WriteAllText($restartScript,$restartSource,[Text.UTF8Encoding]::new($false))
     $restartLog=Join-Path $temp 'restart.log'; & (Get-Command pwsh.exe).Source -NoLogo -NoProfile -File $restartScript -Elevated -LogPath $restartLog *> $null;$restartCode=$LASTEXITCODE
     $cmdSource=Get-Content -LiteralPath (Join-Path $PackageRoot 'Start-KIStack-Installer.cmd') -Raw

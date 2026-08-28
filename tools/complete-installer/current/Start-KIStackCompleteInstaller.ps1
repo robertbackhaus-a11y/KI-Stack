@@ -4,7 +4,8 @@ param(
     [string]$TransactionId,
     [switch]$Elevated,
     [switch]$LoggingProbe,
-    [string]$LogPath
+    [string]$LogPath,
+    [string[]]$ReplayComponent=@()
 )
 
 Set-StrictMode -Version Latest
@@ -27,12 +28,13 @@ function Get-KIPowerShell7 {
 }
 
 function Start-KICompleteElevated {
-    param([string]$ScriptPath,[switch]$Resume,[string]$TransactionId,[switch]$LoggingProbe,[string]$LogPath)
+    param([string]$ScriptPath,[switch]$Resume,[string]$TransactionId,[switch]$LoggingProbe,[string]$LogPath,[string[]]$ReplayComponent=@())
     $arguments=[Collections.Generic.List[string]]::new()
     foreach($item in @('-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$ScriptPath,'-Elevated','-LogPath',$LogPath)){$arguments.Add($item)}
     if($Resume){$arguments.Add('-Resume')}
     if($LoggingProbe){$arguments.Add('-LoggingProbe')}
     if($TransactionId){$arguments.Add('-TransactionId');$arguments.Add($TransactionId)}
+    if($ReplayComponent.Count){$arguments.Add('-ReplayComponent');foreach($id in $ReplayComponent){$arguments.Add($id)}}
     $process=Start-Process -FilePath (Get-KIPowerShell7) -ArgumentList $arguments -Verb RunAs -Wait -PassThru -ErrorAction Stop
     exit $process.ExitCode
 }
@@ -45,7 +47,7 @@ if(-not(Test-Path -LiteralPath $logParent)){New-Item -ItemType Directory -Path $
 
 if(-not(Test-KICompleteAdministrator)){
     if($Elevated){throw 'Die UAC-Elevation wurde abgebrochen oder war nicht wirksam.'}
-    Start-KICompleteElevated -ScriptPath $PSCommandPath -Resume:$Resume -TransactionId $TransactionId -LoggingProbe:$LoggingProbe -LogPath $LogPath
+    Start-KICompleteElevated -ScriptPath $PSCommandPath -Resume:$Resume -TransactionId $TransactionId -LoggingProbe:$LoggingProbe -LogPath $LogPath -ReplayComponent $ReplayComponent
 }
 if($Resume-and[string]::IsNullOrWhiteSpace($TransactionId)){throw 'Resume erfordert eine TransactionId.'}
 
@@ -67,7 +69,7 @@ try{
         return
     }
     Import-Module (Join-Path $PSScriptRoot 'CompleteInstaller.psm1') -Force
-    $plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot 'C:\KI-Stack'
+    $plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot 'C:\KI-Stack' -ReplayComponent $ReplayComponent
     $needsOpenWebUI=@($plan.steps|Where-Object{$_.id-in@('openwebui-agent-pack','openwebui-visual-pack')-and$_.plannedMode-ne'Skip'})
     $needsVisualPackCutover=@($needsOpenWebUI|Where-Object{$_.id-eq'openwebui-visual-pack'}).Count-gt0
     $apiToken=$null
@@ -124,7 +126,7 @@ try{
                 Write-Host 'Kein API-Key eingegeben; Transaktion wird ohne API-Schlüssel als WaitingForUserAction fortgesetzt.' -ForegroundColor Yellow
             }
         }
-        $result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot 'C:\KI-Stack' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken
+        $result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot 'C:\KI-Stack' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken -ReplayComponent $ReplayComponent
         $json=$result|ConvertTo-Json -Depth 100
         [IO.File]::WriteAllText($LogPath,$json+[Environment]::NewLine,[Text.UTF8Encoding]::new($false))
         Write-Output $json
