@@ -1,8 +1,8 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.8.0",
-  "status": "OpenWebUICutover_Heartbeat_ManagedUpdate_TargetValidated",
+  "version": "2.9.0",
+  "status": "ReplayComponent_TargetValidated",
   "results": {
     "rcBuildValidation": {
       "status": "WindowsArtifactValidated_TargetExecutionLocked",
@@ -10,13 +10,31 @@
       "deterministicDualBuildConfirmed": true,
       "codexCliArtifactValidated": true,
       "realTargetTreeUnchangedByBuild": true,
-      "note": "Evidence from the 2.5.0 cycle; carried forward as still valid through 2.6.0, 2.7.0 and 2.8.0 (module-only or orchestrator-only scopes, no change to this script's own exercised installer/build-pipeline code)."
+      "note": "Evidence from the 2.5.0 cycle; carried forward as still valid through 2.6.0, 2.7.0, 2.8.0 and 2.9.0 (module-only or orchestrator-only scopes, no change to this script's own exercised installer/build-pipeline code)."
+    },
+    "replayComponent": {
+      "status": "targetValidated",
+      "validation": "Test-KIStackReplayComponent.ps1: compliant+no-replay stays Skip; compliant+replay resolves to plannedMode='Replay' without affecting sibling components; unknown component id throws before any mutation; known-but-not-permitted component id throws before any mutation; a genuinely non-compliant component's normal Upgrade path is unaffected; the alreadyCompliant-short-circuit guard is confirmed wired to a new hasReplay plan field; the guided OpenWebUI cutover is demonstrably entered when a step arrives with plannedMode='Replay' -- all PASS.",
+      "realTargetValidation": {
+        "environment": "C:\\KI-Stack, interactive elevated run of Start-KIStackCompleteInstaller.ps1 -ReplayComponent openwebui-visual-pack",
+        "plannedMode": "Replay",
+        "guidedBrowserApiKeyFlow": "PASS",
+        "apiKeyStored": false,
+        "visualPackReplayValidation": "PASS",
+        "realBackupCreated": true,
+        "imageTest": "PASS",
+        "videoTest": "PASS",
+        "transactionStatus": "Completed",
+        "openWebUIHealthcheck": "HTTP 200",
+        "comfyUIHealthcheck": "HTTP 200",
+        "secondVenvOrUnexpectedMutation": false
+      }
     },
     "openWebUICutoverHeartbeatManagedUpdate": {
       "status": "targetValidated",
       "guidedOpenWebUICutover": {
         "validation": "Test-KIStackOpenWebUIVisualPackCutover.ps1: Skip/reachable-no-key, OpenWebUI-unreachable-after-budget, ComfyUI-unreachable, successful token path -- all PASS.",
-        "realTargetNote": "Not end-to-end re-triggered against C:\\KI-Stack in this cycle -- openwebui-visual-pack and openwebui-agent-pack were both already compliant (confirmed via read-only Audit-mode plan), so the guided flow's own code path never executes without deleting real files or changing a pinned component version, neither of which was done. First-Install acceptance boundary, not a release defect."
+        "realTargetNote": "Not end-to-end re-triggered against C:\\KI-Stack in the 2.8.0 cycle itself -- openwebui-visual-pack and openwebui-agent-pack were both already compliant (confirmed via read-only Audit-mode plan), so the guided flow's own code path never executed without deleting real files or changing a pinned component version, neither of which was done. This was a First-Install acceptance boundary, not a release defect, and was subsequently closed in 2.9.0 via the new ReplayComponent contract (see results.replayComponent above), which re-triggered this exact flow for real without deleting anything or changing any pinned version."
       },
       "installerProgressHeartbeat": {
         "validation": "Test-KIStackInstallerHeartbeat.ps1 PASS (short/long-step heartbeat gating, one-shot status states, orchestrator wiring).",
@@ -82,7 +100,7 @@
     },
     "greenfieldAcceptance": {
       "status": "PhysicalGreenfieldInstallCompleted",
-      "cycle": "2.5.0 -- carried forward as still valid through 2.6.0, 2.7.0 and 2.8.0; no new Greenfield run was performed in any of those cycles (module-only or orchestrator-only scopes).",
+      "cycle": "2.5.0 -- carried forward as still valid through 2.6.0, 2.7.0, 2.8.0 and 2.9.0; no new Greenfield run was performed in any of those cycles (module-only or orchestrator-only scopes).",
       "environment": "Hyper-V VM, fresh Windows install, no prior KI-Stack state",
       "transactionId": "KI-COMPLETE-20260824-152853",
       "rebootResumeAfterFirstTimeWslActivation": "passed",
@@ -119,6 +137,7 @@
       "Test-RC13FailedStateRecovery.ps1": "passed (2.8.0, FixtureState bypass fix)",
       "Test-KIStackOpenWebUIManagedUpdate.ps1": "passed (2.8.0, new)",
       "Test-KIStackPayloadDeploymentHygiene.ps1": "passed (2.8.0, new)",
+      "Test-KIStackReplayComponent.ps1": "passed (2.9.0, new)",
       "completeInstallerSelfTest": "passed 28/28 (against freshly extracted final build 1)",
       "completeInstallerShaContract": "passed, 0 errors (against freshly extracted final build 1)",
       "scriptsTestRepository": "passed"
@@ -126,7 +145,7 @@
   },
   "targetSystemAccessed": true,
   "targetSystemMutated": true,
-  "targetSystemMutationNote": "RAG Execute created one isolated test Knowledge collection on the live target; Rollback (verified idempotent on a repeated call) genuinely deleted the remote file and Knowledge collection, and the local test fixture was removed -- net state fully reverted, confirmed via pre/post remote file-existence and knowledge-collection checks. This is separate from the physical Greenfield installer run recorded under results.greenfieldAcceptance, which targeted a disposable Hyper-V VM, not the persistent real target machine referenced here. Separately, the 2.7.0 Codex Local LM Studio timing fix's live-target validation stopped and let the managed starter restart the real target's local LM Studio API server (GUI left running throughout) -- net state fully reverted (server reachable again, same as before); the starter-failure-path proof used a synthetic starter under a disposable scratch directory only, never the real production starter. For 2.8.0, the managed OpenWebUI update acceptance ran two real administrator-elevated Complete Installer Upgrade transactions against C:\\KI-Stack with kernel-config.json temporarily retargeted to 0.10.2 and back to 0.11.0 (reverted exactly in the source repo afterward, byte-identical to the committed state), and genuinely downgraded then upgraded the real OpenWebUI venv package via Update-KIStack-OpenWebUI.ps1 -- net state fully reverted to the pinned 0.11.0, confirmed via direct venv version readback and a passing HTTP healthcheck. The pre-existing five accumulated stale/misplaced CutoverRuntime payload zips under installer/complete were also genuinely reduced to one by the payload-hygiene fix during these same real runs, which is the intended, permanent end state, not something reverted.",
+  "targetSystemMutationNote": "RAG Execute created one isolated test Knowledge collection on the live target; Rollback (verified idempotent on a repeated call) genuinely deleted the remote file and Knowledge collection, and the local test fixture was removed -- net state fully reverted, confirmed via pre/post remote file-existence and knowledge-collection checks. This is separate from the physical Greenfield installer run recorded under results.greenfieldAcceptance, which targeted a disposable Hyper-V VM, not the persistent real target machine referenced here. Separately, the 2.7.0 Codex Local LM Studio timing fix's live-target validation stopped and let the managed starter restart the real target's local LM Studio API server (GUI left running throughout) -- net state fully reverted (server reachable again, same as before); the starter-failure-path proof used a synthetic starter under a disposable scratch directory only, never the real production starter. For 2.8.0, the managed OpenWebUI update acceptance ran two real administrator-elevated Complete Installer Upgrade transactions against C:\\KI-Stack with kernel-config.json temporarily retargeted to 0.10.2 and back to 0.11.0 (reverted exactly in the source repo afterward, byte-identical to the committed state), and genuinely downgraded then upgraded the real OpenWebUI venv package via Update-KIStack-OpenWebUI.ps1 -- net state fully reverted to the pinned 0.11.0, confirmed via direct venv version readback and a passing HTTP healthcheck. The pre-existing five accumulated stale/misplaced CutoverRuntime payload zips under installer/complete were also genuinely reduced to one by the payload-hygiene fix during these same real runs, which is the intended, permanent end state, not something reverted. For 2.9.0, the ReplayComponent acceptance ran a real, interactive, administrator-elevated Start-KIStackCompleteInstaller.ps1 -ReplayComponent openwebui-visual-pack transaction against the already-compliant real Visual Pack on C:\\KI-Stack: this genuinely re-ran the existing Visual Pack install/validate path (real backup created, real API key entered interactively as a SecureString and never persisted, real browser-based first-login/API-key flow, real image and video generation tests both passing) and left the target functionally unchanged (same pinned Visual Pack version, same OpenWebUI/ComfyUI health, no second venv or other unexpected mutation) -- this is the intended, idempotent end state of a Replay, not something requiring reversion.",
   "containsModels": false,
   "containsSecrets": false
 }

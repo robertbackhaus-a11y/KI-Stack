@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "packageName": "KI-Stack-Complete-Installer",
-  "packageVersion": "2.8.0",
+  "packageVersion": "2.9.0",
   "coverage": [
     {
       "id": "REG-023-ROOTLESS-NESTED-ARCHIVE",
@@ -57,6 +57,11 @@
       "id": "REG-039-PAYLOAD-DEPLOYMENT-HYGIENE",
       "status": "covered",
       "method": "Install-KICompleteOrchestrator copied the current package into installer/complete with Copy-Item -Force, which only adds or overwrites files and never removes a destination file whose name no longer exists in the source; over repeated real deployments this accumulated stale and even foreign, misplaced payload zips per payload-type folder (5 zips found under C:\\KI-Stack\\installer\\complete\\Payload\\CutoverRuntime, one of them a wrong-type Models-Workflows archive), causing Expand-KICompletePayload to fail with 'Payload ist mehrdeutig' since it requires exactly one zip per type. Before the existing copy step, each payload-type folder under the source's Payload/ directory is now reconciled to remove any destination file not present by name in the current source folder, leaving exactly the current payload after the copy. Covered by Test-KIStackPayloadDeploymentHygiene.ps1 (empty destination, stale-version removal with pre-cleanup backup preserved, foreign-payload removal without affecting a sibling payload type, idempotent rerun); real-target validated -- a real Upgrade run against C:\\KI-Stack reduced the 5 accumulated zips to exactly one, and Expand-KICompletePayload -Name CutoverRuntime resolved unambiguously on every subsequent real run."
+    },
+    {
+      "id": "REG-040-REPLAYCOMPONENT",
+      "status": "covered",
+      "method": "There was no supported way to deliberately re-run an already-compliant component's install/validate path without deleting real files or changing a pinned component version to manufacture artificial non-compliance -- the documented First-Install acceptance boundary for the guided OpenWebUI cutover (see REG-035). A new -ReplayComponent <component-id> parameter on Invoke-KIStackCompleteInstaller.ps1 and Start-KIStackCompleteInstaller.ps1, threaded through New-KICompletePlan, plans an explicitly listed and already-compliant component with plannedMode='Replay' instead of 'Skip' and re-runs its existing install/validate/backup path unchanged; only openwebui-visual-pack and openwebui-agent-pack are permitted, and an unknown or non-permitted component id throws before any plan step is built or anything is mutated. New-KICompletePlan's alreadyCompliant field keeps its original, honest raw-compliance meaning; a new hasReplay field is combined with it to gate Invoke-KIStackCompleteInstaller's already-compliant short-circuit so a requested replay is never silently skipped. No existing compliance check or Upgrade/Repair/Skip dispatch for any other component was changed, and replaying one component never cascades to a dependent one. Covered by Test-KIStackReplayComponent.ps1 (compliant+no-replay stays Skip, compliant+replay resolves to Replay without affecting sibling components, unknown/non-permitted component id each throw before mutation, a genuinely non-compliant component's normal Upgrade path is unaffected, the early-return guard is statically confirmed wired to hasReplay, the guided OpenWebUI cutover is demonstrably entered via a Replay-planned step). Real-target validated against C:\\KI-Stack: -ReplayComponent openwebui-visual-pack resolved plannedMode='Replay', the real interactive browser/API-key flow completed, apiKeyStored:false, the existing Visual Pack validation passed, a real backup was created, the real image and video tests both passed, the transaction finished Completed, and OpenWebUI/ComfyUI both answered HTTP 200 afterward with no second venv or other unexpected mutation -- closing the REG-035 First-Install acceptance boundary."
     }
   ]
 }
