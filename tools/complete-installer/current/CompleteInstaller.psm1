@@ -512,7 +512,7 @@ function Resolve-KICompleteFailedTransactionState {
 function Install-KICompleteCentralStarters {
     param([string]$PackageRoot,[string]$TargetRoot,[string]$BackupRoot)
     $source=Join-Path $PackageRoot 'Lifecycle';$changed=@()
-    foreach($name in @('Start-KIStack.cmd','Stop-KIStack.cmd','Stop-KIStack-Managed.ps1','Validate-KIStack.cmd','Get-KIStackStatus.ps1','Show-KIStackStatus.ps1','Status-KIStack-Interactive.cmd','Repair-KIStack.cmd')){
+    foreach($name in @('Start-KIStack.cmd','Stop-KIStack.cmd','Stop-KIStack-Managed.ps1','Validate-KIStack.cmd','Get-KIStackStatus.ps1','Show-KIStackStatus.ps1','Status-KIStack-Interactive.cmd','Repair-KIStack.cmd','Update-KIStack-OpenWebUI.cmd','Update-KIStack-OpenWebUI.ps1')){
         $src=Join-Path $source $name;$dst=Join-Path $TargetRoot $name
         if((Test-Path $dst) -and ((Get-FileHash $src).Hash -eq (Get-FileHash $dst).Hash)){continue}
         if(Test-Path $dst){New-Item -ItemType Directory $BackupRoot -Force|Out-Null;Copy-Item $dst (Join-Path $BackupRoot $name) -Force}
@@ -592,6 +592,25 @@ function Install-KICompleteOrchestrator {
     $destination=Join-Path $TargetRoot 'installer/complete'
     if(Test-Path $destination){$backup=Join-Path $BackupRoot 'installer/complete';New-Item (Split-Path $backup -Parent) -ItemType Directory -Force|Out-Null;Copy-Item $destination $backup -Recurse -Force}
     New-Item $destination -ItemType Directory -Force|Out-Null
+    # Copy-Item -Force below only adds/overwrites; it never removes a destination
+    # file whose name no longer exists in the source. Without this pass, a stale
+    # payload zip from an earlier version (or one misplaced under the wrong
+    # payload-type folder) survives every future deployment, and
+    # Expand-KICompletePayload then fails with "Payload ist mehrdeutig" because
+    # it requires exactly one zip per payload type. Clean each payload-type
+    # folder down to exactly the current source's file set before copying.
+    $sourcePayloadRoot=Join-Path $PackageRoot 'Payload'
+    if(Test-Path -LiteralPath $sourcePayloadRoot -PathType Container){
+        $destinationPayloadRoot=Join-Path $destination 'Payload'
+        foreach($sourceTypeDir in @(Get-ChildItem -LiteralPath $sourcePayloadRoot -Directory)){
+            $destinationTypeDir=Join-Path $destinationPayloadRoot $sourceTypeDir.Name
+            if(-not(Test-Path -LiteralPath $destinationTypeDir -PathType Container)){continue}
+            $currentNames=@((Get-ChildItem -LiteralPath $sourceTypeDir.FullName -File).Name)
+            foreach($existingFile in @(Get-ChildItem -LiteralPath $destinationTypeDir -File)){
+                if($currentNames-notcontains$existingFile.Name){Remove-Item -LiteralPath $existingFile.FullName -Force}
+            }
+        }
+    }
     Copy-Item (Join-Path $PackageRoot '*') $destination -Recurse -Force
     @('installer/complete')
 }
@@ -656,7 +675,7 @@ function Test-KICompleteDeploymentCompliant {
     $destination=Join-Path $TargetRoot 'installer/complete'
     if(-not(Test-Path $destination)){return $false}
     foreach($file in Get-ChildItem $PackageRoot -Recurse -File){$relative=[IO.Path]::GetRelativePath($PackageRoot,$file.FullName);$target=Join-Path $destination $relative;if(-not(Test-Path $target)-or(Get-Item $target).Length-ne$file.Length-or(Get-FileHash $target -Algorithm SHA256).Hash-ne(Get-FileHash $file.FullName -Algorithm SHA256).Hash){return $false}}
-    foreach($name in @('Start-KIStack.cmd','Stop-KIStack.cmd','Stop-KIStack-Managed.ps1','Validate-KIStack.cmd','Get-KIStackStatus.ps1','Show-KIStackStatus.ps1','Status-KIStack-Interactive.cmd','Repair-KIStack.cmd')){$source=Join-Path $PackageRoot ('Lifecycle/'+$name);$target=Join-Path $TargetRoot $name;if(-not(Test-Path $target)-or(Get-FileHash $source).Hash-ne(Get-FileHash $target).Hash){return $false}}
+    foreach($name in @('Start-KIStack.cmd','Stop-KIStack.cmd','Stop-KIStack-Managed.ps1','Validate-KIStack.cmd','Get-KIStackStatus.ps1','Show-KIStackStatus.ps1','Status-KIStack-Interactive.cmd','Repair-KIStack.cmd','Update-KIStack-OpenWebUI.cmd','Update-KIStack-OpenWebUI.ps1')){$source=Join-Path $PackageRoot ('Lifecycle/'+$name);$target=Join-Path $TargetRoot $name;if(-not(Test-Path $target)-or(Get-FileHash $source).Hash-ne(Get-FileHash $target).Hash){return $false}}
     return $true
 }
 

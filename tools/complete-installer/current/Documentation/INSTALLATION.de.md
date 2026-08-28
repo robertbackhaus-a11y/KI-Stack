@@ -18,6 +18,10 @@ LM Studio wird über `winget` installiert, sein lokaler API-Server wird dabei ni
 
 Codex Local benötigt genau diesen Endpunkt. Der Installer ruft den LM-Studio-Starter unmittelbar vor der Konfiguration des Codex-Local-Profils auf, sodass eine normale Installation kein manuelles Starten von LM Studio erfordert. Codex Locals eigenes Warten auf diesen Endpunkt behandelt den Starter als maßgeblichen Timeout-Vertrag: es wartet mindestens so lange wie das legitime Erststart-Zeitfenster des Starters selbst (bis zu ~120s) und beobachtet dessen Prozess/Exitcode, sodass ein echter Starter-Fehlschlag sofort gemeldet wird, statt dass der Aufrufer bei einem kürzeren, unabhängigen Zeitgeber aufgibt, während der Starter noch legitim läuft.
 
+## OpenWebUI aktualisieren
+
+OpenWebUI nicht manuell per `pip` im Venv aktualisieren oder downgraden. Stattdessen `Update-KIStack-OpenWebUI.cmd` (nach `C:\KI-Stack` ausgerollt) ausführen. Es liest die Zielversion aus derselben zentralen `kernel-config.json`, die auch das Applications-Modul verwendet, führt das Upgrade oder Downgrade im bestehenden Venv über denselben In-Venv-Installationspfad in beide Richtungen durch, startet den verwalteten OpenWebUI-Prozess neu und führt einen lokalen Healthcheck aus. Ist die Zielversion bereits installiert, meldet es sauber `Skip` und ändert nichts. Schlägt das Update oder der anschließende Healthcheck fehl, wird automatisch auf die zuvor installierte Version zurückgerollt, diese Version und ihr Healthcheck werden erneut geprüft, und danach wird der ursprüngliche Fehler gemeldet. Es entsteht nie ein neues Venv oder eine parallele OpenWebUI-Installation.
+
 ## SearXNG, nginx und Valkey
 
 SearXNGs lokaler Endpunkt läuft unter `uwsgi` hinter einem `nginx`-Reverse-Proxy unter `/searxng`, gestützt durch `valkey-server` als lokalen Ratenlimiter-/Session-Speicher. Er kann bereits durch den eigenen `ki-stack-searxng.service` der Cutover-Runtime-Komponente oder den `uwsgi.service` der Integration-Komponente bereitgestellt sein; beide werden als gültige, bereits laufende Instanz erkannt und übernommen, statt eine zweite, portkonfliktäre Installation zu starten.
@@ -36,6 +40,7 @@ Lifecycle:
 - Stop: `Stop-KIStack.cmd`
 - Status: `Status-KIStack.cmd`
 - Interaktiver Status: `Lifecycle\Status-KIStack-Interactive.cmd`
+- Verwaltetes OpenWebUI-Update (Upgrade oder Downgrade auf die in `kernel-config.json` festgelegte Version, mit automatischem Rollback bei Fehler): `Update-KIStack-OpenWebUI.cmd`
 
 Transaktionen liegen unter `C:\KI-Stack\state\complete-installer\<TransactionId>`, Backups unter `C:\KI-Stack\backups\complete-installer\<TransactionId>`.
 

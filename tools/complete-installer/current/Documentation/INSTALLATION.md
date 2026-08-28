@@ -18,6 +18,10 @@ LM Studio is installed through `winget` and its local API server is not started 
 
 Codex Local requires that same endpoint. The installer invokes the LM Studio starter immediately before configuring the Codex Local profile, so a normal installation does not require starting LM Studio by hand. Codex Local's own wait for that endpoint treats the starter as the authoritative timeout contract: it waits at least as long as the starter's own genuine first-run window (up to ~120s) and observes the starter's process/exit code, so a real starter failure is reported immediately instead of the caller giving up on a shorter, independent timer while the starter is still legitimately starting.
 
+## Updating OpenWebUI
+
+Do not upgrade or downgrade OpenWebUI by hand with `pip` inside its venv. Run `Update-KIStack-OpenWebUI.cmd` (deployed to `C:\KI-Stack`) instead. It reads the target version from the single central `kernel-config.json` used by the Applications module, upgrades or downgrades the existing venv in place with the same in-venv install path either direction, restarts the managed OpenWebUI process, and runs a local healthcheck. If the target version is already installed it reports `Skip` and changes nothing. If the update or the post-update healthcheck fails, it automatically rolls back to the previously installed version, re-verifies that version and its healthcheck, and then reports the original failure. No new venv or parallel OpenWebUI installation is ever created.
+
 ## SearXNG, nginx, and Valkey
 
 SearXNG's local endpoint runs under `uwsgi` behind an `nginx` reverse proxy at `/searxng`, with `valkey-server` backing its local rate-limiter/session store. It may already be served by the Cutover Runtime's dedicated `ki-stack-searxng.service` or the Integration component's own `uwsgi.service`; either is recognized as a valid, already-serving instance and adopted instead of starting a second, port-conflicting installation.
@@ -36,6 +40,7 @@ Lifecycle:
 - Stop: `Stop-KIStack.cmd`
 - Status: `Status-KIStack.cmd`
 - Interactive status: `Lifecycle\Status-KIStack-Interactive.cmd`
+- Managed OpenWebUI update (upgrade or downgrade to the version pinned in `kernel-config.json`, with automatic rollback on failure): `Update-KIStack-OpenWebUI.cmd`
 
 Transactions are under `C:\KI-Stack\state\complete-installer\<TransactionId>` and backups under `C:\KI-Stack\backups\complete-installer\<TransactionId>`.
 
