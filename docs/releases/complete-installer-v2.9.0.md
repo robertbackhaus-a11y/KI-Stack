@@ -1,6 +1,6 @@
 # KI-Stack Complete Installer v2.9.0
 
-Regression- and real-target-validated. Not yet tagged or published as a GitHub Release.
+Regression- and real-target-validated.
 
 - Complete Installer: 2.9.0 (base: 2.8.0)
 - Status: `ReplayComponent_TargetValidated`
@@ -41,4 +41,4 @@ This closes the 2.8.0 guided-cutover First-Install acceptance boundary: the flow
 
 Unchanged from prior releases: without a supplied OpenWebUI administrator API key, the temporary Knowledge bootstrap-experiment rollback and the Code Interpreter connection configuration remain manual follow-up steps in OpenWebUI after installation (`CredentialRequiredForApiReadback` / `CredentialRequiredForApiConfiguration`).
 
-The authoritative Complete Installer ZIP hash will be published only in the adjacent `.sha256` sidecar and the GitHub Release description once tagged.
+
