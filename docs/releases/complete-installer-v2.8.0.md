@@ -1,7 +1,5 @@
 # KI-Stack Complete Installer v2.8.0
 
-Regression- and real-target-validated. Not yet tagged or published as a GitHub Release.
-
 - Complete Installer: 2.8.0 (base: 2.7.0)
 - Status: `OpenWebUICutover_Heartbeat_ManagedUpdate_TargetValidated`
 - Other component versions: unchanged from 2.7.0 (ComfyUI 1.2.4, Visual Models/Workflows 2.0.3, OpenWebUI Agent Pack 1.8.9, OpenWebUI Visual Pack 2.0.5, Codex Local 0.1.4, RAG 0.3.1) -- no other component payload changed in this cycle.
@@ -61,4 +59,4 @@ The guided OpenWebUI first-login cutover was **not** re-triggered end-to-end aga
 
 Unchanged from prior releases: without a supplied OpenWebUI administrator API key, the temporary Knowledge bootstrap-experiment rollback and the Code Interpreter connection configuration remain manual follow-up steps in OpenWebUI after installation (`CredentialRequiredForApiReadback` / `CredentialRequiredForApiConfiguration`).
 
-The authoritative Complete Installer ZIP hash will be published only in the adjacent `.sha256` sidecar and the GitHub Release description once tagged.
+The authoritative Complete Installer ZIP and its SHA256 sidecar are published with this GitHub Release.
