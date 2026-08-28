@@ -9,11 +9,11 @@ try{
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Destination $temp
     $source=Get-Content -LiteralPath (Join-Path $PackageRoot 'Start-KIStackCompleteInstaller.ps1') -Raw
     $source=$source.Replace('if(-not(Test-KICompleteAdministrator)){','if($false){')
-    $source=$source.Replace('$plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack''','$plan=[pscustomobject]@{steps=@([pscustomobject]@{id=''openwebui-visual-pack'';plannedMode=''Upgrade''})}')
+    $source=$source.Replace('$plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -ReplayComponent $ReplayComponent','$plan=[pscustomobject]@{steps=@([pscustomobject]@{id=''openwebui-visual-pack'';plannedMode=''Upgrade''})}')
     $source=$source.Replace('try{Start-Process ''http://127.0.0.1:8080''}catch{Write-Host "OpenWebUI konnte nicht automatisch im Browser geoeffnet werden: $($_.Exception.Message)" -ForegroundColor Yellow}','Write-Host ''FIXTURE:BROWSER-OPENED''')
     $source=$source.Replace('Read-Host ''Enter druecken, sobald der API-Key erzeugt wurde und bereitsteht''','''FIXTURE-CONFIRM-READY''')
     $source=$source.Replace('Read-Host ''Enter druecken, sobald beide Tests erfolgreich abgeschlossen wurden''','''FIXTURE-CONFIRM-TESTS-DONE''')
-    $source=$source.Replace('$result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken','$result=if($null-eq$apiToken){[pscustomobject]@{status=''WaitingForUserAction'';transactionId=''TEST-NOAPIKEY'';steps=@()}}else{[pscustomobject]@{status=''Completed'';transactionId=''TEST-VISUAL'';steps=@([pscustomobject]@{id=''openwebui-visual-pack'';status=''Completed''})}}')
+    $source=$source.Replace('$result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken -ReplayComponent $ReplayComponent','$result=if($null-eq$apiToken){[pscustomobject]@{status=''WaitingForUserAction'';transactionId=''TEST-NOAPIKEY'';steps=@()}}else{[pscustomobject]@{status=''Completed'';transactionId=''TEST-VISUAL'';steps=@([pscustomobject]@{id=''openwebui-visual-pack'';status=''Completed''})}}')
 
     $owuiLine="`$config=Invoke-WebRequest -Uri 'http://127.0.0.1:8080/api/config' -UseBasicParsing -TimeoutSec 5"
     $comfyLine="`$comfy=Invoke-WebRequest -Uri 'http://127.0.0.1:8188/system_stats' -UseBasicParsing -TimeoutSec 5"
