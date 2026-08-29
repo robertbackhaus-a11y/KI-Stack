@@ -54,26 +54,50 @@ foreach ($component in $included) {
     $index++
 }
 
+function Get-KIStackOptionalManifestValue {
+    # The models manifest schema has evolved (e.g. displayName/publisher/license/sourceKind/
+    # informationSource/targetDirectory/lmStudioModel existed in older releases and no longer do;
+    # sources is now a plural array where a singular source used to be) -- every manifest field
+    # this generator reads is therefore optional here, falling back to a real, already-present
+    # field or SPDX's own 'NOASSERTION' convention, never a fabricated value.
+    param([AllowNull()][object]$Object,[Parameter(Mandatory)][string]$Name,[AllowNull()][object]$Default = $null)
+    if ($null -eq $Object) { return $Default }
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property -or $null -eq $property.Value) { return $Default }
+    return $property.Value
+}
+
 $modelsManifest = Get-Content -LiteralPath $ModelsManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 30
 $models = @($modelsManifest.models)
-$lmStudioModel = $modelsManifest.lmStudioModel
+$lmStudioModel = Get-KIStackOptionalManifestValue -Object $modelsManifest -Name 'lmStudio' -Default (Get-KIStackOptionalManifestValue -Object $modelsManifest -Name 'lmStudioModel' -Default $null)
 $modelIndex = 1
 foreach ($model in $models) {
     $id = "SPDXRef-ExternalModel-$modelIndex"
-    $publisher = if ($model.PSObject.Properties['publisher'] -and $model.publisher) { [string]$model.publisher } else { 'NOASSERTION' }
-    $relativePath = if ($model.PSObject.Properties['relativeTargetPath'] -and $model.relativeTargetPath) { [string]$model.relativeTargetPath } else { "models/$($model.targetDirectory)/$($model.fileName)" }
-    $sourceKind = if ($model.PSObject.Properties['sourceKind'] -and $model.sourceKind) { [string]$model.sourceKind } else { 'external-payload-contract' }
-    $infoSource = if ($model.PSObject.Properties['informationSource'] -and $model.informationSource) { [string]$model.informationSource } elseif ($model.PSObject.Properties['source'] -and $model.source) { [string]$model.source } else { 'NOASSERTION' }
-    $comment = "NOT_CONTAINED_EXTERNAL_MODEL; publisher=$publisher; fileName=$($model.fileName); sizeBytes=$($model.sizeBytes); sha256=$($model.sha256); licenseStatus=$($model.license); relativeTargetPath=$relativePath; sourceKind=$sourceKind; informationSource=$infoSource"
-    $packages.Add((New-SpdxPackage -Name ([string]$model.displayName) -Id $id -Version 'external' -Supplier ("Organization: " + $publisher) -License 'NOASSERTION' -Purpose 'OTHER' -Comment $comment -Sha256 ([string]$model.sha256)))
+    $displayName = [string](Get-KIStackOptionalManifestValue -Object $model -Name 'displayName' -Default $model.fileName)
+    $publisher = [string](Get-KIStackOptionalManifestValue -Object $model -Name 'publisher' -Default 'NOASSERTION')
+    $license = [string](Get-KIStackOptionalManifestValue -Object $model -Name 'license' -Default 'NOASSERTION')
+    $relativePath = if ($model.PSObject.Properties['relativeTargetPath'] -and $model.relativeTargetPath) { [string]$model.relativeTargetPath } elseif ($model.PSObject.Properties['targetDirectory']) { "models/$($model.targetDirectory)/$($model.fileName)" } else { "models/$($model.fileName)" }
+    $sourceKind = [string](Get-KIStackOptionalManifestValue -Object $model -Name 'sourceKind' -Default 'external-payload-contract')
+    $sourcesList = Get-KIStackOptionalManifestValue -Object $model -Name 'sources' -Default $null
+    $infoSource = [string](Get-KIStackOptionalManifestValue -Object $model -Name 'informationSource' -Default (Get-KIStackOptionalManifestValue -Object $model -Name 'source' -Default $(if ($sourcesList) { [string]@($sourcesList)[0] } else { 'NOASSERTION' })))
+    $comment = "NOT_CONTAINED_EXTERNAL_MODEL; publisher=$publisher; fileName=$($model.fileName); sizeBytes=$($model.sizeBytes); sha256=$($model.sha256); licenseStatus=$license; relativeTargetPath=$relativePath; sourceKind=$sourceKind; informationSource=$infoSource"
+    $packages.Add((New-SpdxPackage -Name $displayName -Id $id -Version 'external' -Supplier ("Organization: " + $publisher) -License 'NOASSERTION' -Purpose 'OTHER' -Comment $comment -Sha256 ([string]$model.sha256)))
     $relationships.Add([ordered]@{ spdxElementId = $rootId; relationshipType = 'DEPENDS_ON'; relatedSpdxElement = $id })
     $modelIndex++
 }
 if ($lmStudioModel) {
+    $lmPublisher = [string](Get-KIStackOptionalManifestValue -Object $lmStudioModel -Name 'publisher' -Default 'NOASSERTION')
+    $lmLicense = [string](Get-KIStackOptionalManifestValue -Object $lmStudioModel -Name 'license' -Default 'NOASSERTION')
+    $lmSourceKind = [string](Get-KIStackOptionalManifestValue -Object $lmStudioModel -Name 'sourceKind' -Default 'external-payload-contract')
+    $lmInfoSource = [string](Get-KIStackOptionalManifestValue -Object $lmStudioModel -Name 'informationSource' -Default 'NOASSERTION')
+    $lmHome = [string](Get-KIStackOptionalManifestValue -Object $lmStudioModel -Name 'homeRelativeToUserProfile' -Default (Get-KIStackOptionalManifestValue -Object $lmStudioModel -Name 'relativeTargetDirectory' -Default '.lmstudio'))
     foreach ($file in @($lmStudioModel.files)) {
         $id = "SPDXRef-ExternalModel-$modelIndex"
-        $comment = "NOT_CONTAINED_EXTERNAL_MODEL; publisher=$($lmStudioModel.publisher); fileName=$($file.fileName); sizeBytes=$($file.sizeBytes); sha256=$($file.sha256); licenseStatus=$($lmStudioModel.license); relativeTargetPath=%USERPROFILE%/.lmstudio/models/$($lmStudioModel.relativeTargetDirectory); sourceKind=$($lmStudioModel.sourceKind); informationSource=$($lmStudioModel.informationSource); role=$($file.role); quantization=$($file.quantization)"
-        $packages.Add((New-SpdxPackage -Name ([string]$file.fileName) -Id $id -Version 'external' -Supplier ("Organization: " + [string]$lmStudioModel.publisher) -License 'NOASSERTION' -Purpose 'OTHER' -Comment $comment -Sha256 ([string]$file.sha256)))
+        $fileRelativePath = [string](Get-KIStackOptionalManifestValue -Object $file -Name 'relativeTargetPath' -Default "%USERPROFILE%/$lmHome/models/$($file.fileName)")
+        $fileSourcesList = Get-KIStackOptionalManifestValue -Object $file -Name 'sources' -Default $null
+        $fileInfoSource = if ($fileSourcesList) { [string]@($fileSourcesList)[0] } else { $lmInfoSource }
+        $comment = "NOT_CONTAINED_EXTERNAL_MODEL; publisher=$lmPublisher; fileName=$($file.fileName); sizeBytes=$($file.sizeBytes); sha256=$($file.sha256); licenseStatus=$lmLicense; relativeTargetPath=$fileRelativePath; sourceKind=$lmSourceKind; informationSource=$fileInfoSource; role=$(Get-KIStackOptionalManifestValue -Object $file -Name 'role' -Default 'NOASSERTION'); quantization=$(Get-KIStackOptionalManifestValue -Object $file -Name 'quantization' -Default 'NOASSERTION')"
+        $packages.Add((New-SpdxPackage -Name ([string]$file.fileName) -Id $id -Version 'external' -Supplier ("Organization: " + $lmPublisher) -License 'NOASSERTION' -Purpose 'OTHER' -Comment $comment -Sha256 ([string]$file.sha256)))
         $relationships.Add([ordered]@{ spdxElementId = $rootId; relationshipType = 'DEPENDS_ON'; relatedSpdxElement = $id })
         $modelIndex++
     }

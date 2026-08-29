@@ -117,10 +117,13 @@ try {
     $hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $sidecar = $zipPath + '.sha256'
     [IO.File]::WriteAllText($sidecar,"$hash *$([IO.Path]::GetFileName($zipPath))`r`n",[Text.ASCIIEncoding]::new())
+    $sbomPath = Join-Path $OutputDirectory ($packageName + '.spdx.json')
+    & (Join-Path $repositoryRoot 'scripts\New-KIStackSpdxSbom.ps1') -PackageName 'KI-Stack Complete Installer' -PackageVersion $version -ZipPath $zipPath -OutputPath $sbomPath -ModelsManifestPath (Join-Path $repositoryRoot 'tools\models-workflows\current\Manifests\models.manifest.json') -ComponentsPath (Join-Path $PSScriptRoot 'Contracts\COMPONENTS.json') | Out-Null
     [pscustomobject][ordered]@{
         version = $version
         zip = $zipPath
         sidecar = $sidecar
+        sbom = $sbomPath
         sizeBytes = (Get-Item -LiteralPath $zipPath).Length
         sha256 = $hash
         payloads = @($payloadDefinitions.key)
