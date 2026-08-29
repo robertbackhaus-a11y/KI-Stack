@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.10.0
+
+- Adds `Update-KIStack-All.cmd`/`.ps1`, a new central update-checking and safe-update entry point for every KI-Stack-managed component.
+- Separates `InstalledVersion` (real, installed state), `PinnedVersion` (currently pinned/shipped version), and `AvailableVersion` (real, read-only upstream detection) instead of a single version value; `upstreamStatus` is purely informational and never installs anything unattended -- only a genuine `InstalledVersion`/`PinnedVersion` mismatch is ever auto-executed.
+- Fixes a Knowledge-rollback readback-validation gap that could silently report success despite leftover Knowledge bindings.
+- ComfyUI: introduces a reference/supported-version contract (`ReferenceVersion v0.28.0`, `MinimumSupportedVersion v0.28.0`, no maximum) -- an existing, supported, newer installation (e.g. `v0.34.0`) is preserved and never automatically downgraded; a live git-based support probe replaces trusting the self-reported installation marker alone.
+- ComfyUI: closes a real-target incident where a stale/incorrectly-sourced compliance probe could authorize the git-free reference-payload package to overlay `v0.28.0` content onto an existing, newer, supported checkout; adds a defense-in-depth re-check immediately before any mutating Install/Upgrade/Repair, independent of the planning-time fix.
+- Complete Installer: hardens failed-transaction recovery (`Resolve-KICompleteFailedTransactionState`) so a resolved, rolled-back prior transaction no longer permanently blocks a new run once the target is confirmed consistent and compliant again; and fixes the planner so `pinned-runtime-reference`/`recovery-reference` components (Cutover Runtime, Foundation/Runtime, Python/Git, Production Recovery) correctly trigger a real Upgrade/Reconciliation pass instead of a vacuous Skip when their pin changes -- already-compliant components remain a plain Skip.
+- LM Studio: the generated `Start-KIStack-LMStudio.cmd` steady-state starter now removes the competing `electron.app.LM Studio` Windows autostart entry both before and after the server start (`lms server start` itself was found to re-create it), using the same narrowly-scoped, throw-on-ambiguous contract as before -- never a blanket registry deletion, and the server remains reachable on `127.0.0.1:1234`.
+- Open WebUI: introduces the same reference/supported-version contract (`ReferenceVersion 0.11.0`, `MinimumSupportedVersion 0.11.0`) -- an existing, supported, newer installation (`0.11.1`, real-target-validated) is preserved and never automatically downgraded via pip.
+- Cutover Runtime bumped 1.6.10 -> 1.6.13 across the fixes above (1.6.11: LM-Studio pre-start guard; 1.6.12: LM-Studio post-start guard, first ComfyUI overlay-protection layer; 1.6.13: ComfyUI defense in depth, Open WebUI contract). Applications component 1.4.11.
+- Real-target validated end to end: Complete Installer transaction `KI-COMPLETE-20260829-183643` completed; ComfyUI `v0.34.0` clean and preserved; Open WebUI `0.11.1` preserved; LM Studio reachable with the competing Run-key absent after start. See `docs/releases/complete-installer-v2.10.0.md`.
+
 ## 2.3.2
 
 - Completes the Greenfield model contract for the embedding-only LM Studio artifact `nomic-embed-text-v1.5.Q4_K_M.gguf`.

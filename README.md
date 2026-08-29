@@ -12,17 +12,19 @@ Projektseite und begleitende Artikel: https://www.okami.de/category/howtos/ki-st
 |---|---:|---|
 | Foundation / Runtime | 1.0.9 | Stable reference; target-system validated |
 | Python / Git | 1.1.5 | Stable; target-system validated |
-| ComfyUI | 1.2.4 | Stable component; transactional marker/readback |
+| ComfyUI | 1.2.4 | Stable component; transactional marker/readback. Reference version `v0.28.0` for reproducible Greenfield installs; an existing, supported newer installation (e.g. `v0.34.0`) is preserved, never auto-downgraded |
 | Models / Workflows | 2.0.3 | Automatic revision-pinned model acquisition, including Nomic Q4_K_M, with optional verified cache/preload |
-| Applications | 1.4.10 | Stable; LM Studio and Open WebUI 0.10.2 target-system accepted |
+| Applications | 1.4.11 | Stable; LM Studio (competing Electron autostart removed before *and* after server start) and Open WebUI (reference `0.11.0`, `MinimumSupportedVersion` `0.11.0`; a newer supported installation such as `0.11.1` is preserved, never auto-downgraded) |
 | Integration | 1.5.11 | Stable component; immutable SearXNG revision plus tracked overlay |
-| Cutover runtime | 1.6.5 | Stable component; transaction-local continuation state |
+| Cutover runtime | 1.6.13 | Stable component; transaction-local continuation state; real-target-validated ComfyUI supported-version contract, v0.28.0-payload-overlay protection, and the Applications fixes above (see `docs/releases/complete-installer-v2.10.0.md`) |
 | Production recovery | 1.7.0-r7 | Target-system accepted; portable runtime resolution |
 | Universal package Validation Gate | 1.0.3 | Activated on the target system |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
 | OpenWebUI Agent Pack | 1.8.9 | Stable; Heretic-only profiles with Visual Pack 2.0.5 bindings |
 | OpenWebUI Visual Pack | 2.0.5 | Stable; Z-Image and WAN2.2 tools with persistent MP4 attachments |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
+| Codex Local | 0.1.4 | Stable component |
+| RAG | 0.3.1 | Stable component; ingestion deferred, remote-rollback validated |
 | Complete Installer | 2.10.0 | Adds `Update-KIStack-All.cmd`, a central update checker reporting `InstalledVersion`/`PinnedVersion`/`AvailableVersion` and a `classification` (`UpToDate`/`PinnedUpdatePending`/`DowngradeRequired`/`Blocked`/`NotManaged`) per managed component, with real read-only upstream detection (`upstreamStatus`) that is purely informational and never installed unattended -- only a genuine `InstalledVersion`/`PinnedVersion` mismatch is ever auto-executed; OpenWebUI updates through its own isolated contract, all other components through the existing Complete-Installer-Upgrade batch, with execution blocked when a partial `-Component` selection would understate the batch's real scope; also fixes a Knowledge-rollback readback-validation gap that could silently report success despite leftover Knowledge bindings. The same cycle's real-target validation also closed three Cutover Runtime defects bumping it to 1.6.13: ComfyUI and Open WebUI no longer auto-downgrade an already-supported, newer real installation back to their reproducible reference version (`v0.28.0`/`0.11.0`) just because it isn't an exact match, and the LM-Studio steady-state autostart guard now also reasserts after the server start, not only before it. Regression- and real-target-validated (see `docs/releases/complete-installer-v2.10.0.md`). 2.9.0 (`KI-Stack-Complete-Installer-v2.9.0.zip`, SHA256 `81a578dd2d1e8cf521cf903a65e4e586d48efbde0ee99d20d897636205cfb551`) is the latest published [GitHub Release](https://github.com/robertbackhaus-a11y/KI-Stack/releases/tag/2.9.0) prior to this cycle. Builds on 2.5.0's physical Greenfield installation and 2.6.0's RAG remote-rollback completion, both still current. |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
@@ -85,7 +87,7 @@ pwsh -NoProfile -File .\scripts\New-ReleaseArchive.ps1
 Do not commit credentials, access tokens, private keys, personal transaction logs or machine-specific state. No open-source license has been selected yet; public visibility alone does not grant reuse rights.
 
 
-The current repository runtime remains Cutover `1.6.3`. Production Recovery `1.7.0-r7` is a recovery line, not a new runtime version; r5 remains its published predecessor.
+Production Recovery `1.7.0-r7` is a recovery line, not a new runtime version; r5 remains its published predecessor. The current Cutover Runtime version is `1.6.13` (see the table above and `docs/releases/complete-installer-v2.10.0.md`).
 
 
 ## Applications v1.4.0-rc1
@@ -113,9 +115,9 @@ Sets repository-local Git author identity before commits and annotated tags with
 `cutover-v1.6.2-rc1` fixes final validation and diagnostic regression contracts.
 
 
-## Current accepted runtime
+## Cutover release history (1.6.3, historical)
 
-`cutover-v1.6.3-rc1` fixes release-manifest schema validation.
+`cutover-v1.6.3-rc1` fixes release-manifest schema validation. Superseded by `1.6.13` (see the table above).
 
 ## Production recovery and target acceptance
 
@@ -123,7 +125,7 @@ The repository includes complete reusable sources for Production Recovery `1.7.0
 
 ## OpenWebUI Agent Pack
 
-OpenWebUI Agent Pack `1.8.3` manages exactly the workspace models `KI & IT-Technik` and `Allgemein` through the supported OpenWebUI 0.10.2 HTTP API. It enables only the built-in browser-local Pyodide Code Interpreter capability and preserves only the registered Image Pack tool binding. `execute_code` is not a workspace tool ID.
+OpenWebUI Agent Pack `1.8.9` manages exactly the workspace models `KI & IT-Technik` and `Allgemein` through the supported OpenWebUI HTTP API (reference version `0.11.0`; a newer supported installation such as `0.11.1` is preserved). It enables only the built-in browser-local Pyodide Code Interpreter capability and preserves only the registered Image Pack tool binding. `execute_code` is not a workspace tool ID.
 
 OpenWebUI Image Pack `1.10.0` continues to manage exactly one canonical tool, `ki-stack-generate-image`, through local ComfyUI 1.2.2. Its existing `generate_image` FLUX2 method is retained and the explicit `generate_pony_image` method adds Pony SDXL at 1024 × 1024, CLIP skip 2, 40 steps, CFG 3.1, `euler` and `normal`. Both paths persist images directly in the OpenWebUI chat. The pack downloads no models; the Pony checkpoint must already be installed. The Pony workflow and chat output were practically tested on the target, without claiming complete 1.10.0 target-system validation.
 
