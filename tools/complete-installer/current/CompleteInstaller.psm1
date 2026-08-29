@@ -121,6 +121,14 @@ function Get-KICompleteInstalledVersion {
     $acceptancePath=Join-Path $TargetRoot 'modules/production-recovery/acceptance.json'
     $accepted=$null;if(Test-Path $acceptancePath){$accepted=Read-KICompleteJson $acceptancePath}
     if($accepted -and [bool]$accepted.passed -and [string]$accepted.recoveryRevision -eq 'r7'){
+        # This map is the frozen, real-target-validated snapshot from the production-recovery r7
+        # acceptance event, not a live mirror of Contracts/COMPONENTS.json's current pins -- it
+        # must NOT be bumped in lockstep with a component's pin, or Get-KICompleteInstalledVersion
+        # would report a pin bump as "already installed" without anything actually being
+        # reconciled/reinstalled on the target. Confirmed empirically: bumping 'cutover-runtime'
+        # here to match its new pin made New-KICompletePlan report it compliant/Skip even though
+        # the real target's deployed Cutover Runtime kernel/modules (e.g. the LM-Studio starter)
+        # were never actually refreshed, defeating the whole point of the version bump.
         $acceptedVersions=@{'foundation-runtime'='1.0.9';'python-git'='1.1.5';'cutover-runtime'='1.6.10';'production-recovery'='1.7.0-r7';'validation-gate'='1.0.3';'target-acceptance'='1.0.10'}
         if($acceptedVersions.ContainsKey([string]$Component.id)){return [string]$acceptedVersions[[string]$Component.id]}
     }
@@ -253,6 +261,71 @@ function Test-KICompleteIntegrationCompliant {
     }catch{return $false}
 }
 
+function Test-KICompleteComfyUICompliant {
+    # Contracts/COMPONENTS.json's own 'comfyui' probe only reads the self-reported
+    # modules/comfyui/installation.json marker, which cannot detect a real checkout drift if the
+    # marker itself was never rewritten (e.g. after an out-of-band ComfyUI Manager update). This
+    # adds a real, independent read of the actual repository, using the same "supported range, not
+    # exact match" contract as the Cutover Runtime's own KIModuleComfyUI: a newer, still-supported
+    # ComfyUI must not be reported non-compliant, but a genuine drift outside the supported range,
+    # a wrong source, or a non-tag checkout must not be hidden behind a stale marker either. No
+    # downgrade or other mutation happens here -- this only classifies the real state.
+    #
+    # Complete Installer's own executable sources must stay free of any direct source-control
+    # tooling dependency (see scripts/Test-Repository.ps1's "Complete Installer Git-free runtime"
+    # check) -- the actual repository read is delegated to the Cutover Runtime payload's own
+    # KIModuleComfyUI.psm1, which already owns that logic and is real-target-tested there; this
+    # function only imports and calls it, exactly like Update-KIStack-All.ps1 already delegates
+    # its OpenWebUI version read to the same payload's KIModuleApplications.psm1.
+    #
+    # The CutoverRuntime payload MUST be sourced from the currently-executing package (-PackageRoot,
+    # matching the already-established Test-KICompleteModelsWorkflowsCompliant/
+    # Test-KICompleteVisualPackCompliant sibling-hook pattern) -- never from whatever happens to be
+    # already deployed under $TargetRoot\installer\complete. That target-side copy reflects the
+    # PREVIOUS run, not the one currently deciding whether to mutate, and can lack helpers this
+    # exact probe depends on (e.g. an older CutoverRuntime without Get-KIComfyVersionSupportState).
+    #
+    # A probe that genuinely runs and reaches a real answer -- no marker, invalid repo, wrong
+    # remote source, unsupported version -- legitimately returns $false; that is a real, determinate
+    # "not compliant" result. A probe that CANNOT be evaluated at all (missing helper, broken
+    # payload, unexpected exception) must never be silently folded into that same $false, because
+    # here $false drives a mutating Upgrade/Repair. Fail closed instead: throw a clear, specific
+    # error and let the caller abort without touching the target.
+    param([Parameter(Mandatory)][string]$PackageRoot,[Parameter(Mandatory)][string]$TargetRoot)
+    $markerPath=Join-Path $TargetRoot 'modules/comfyui/installation.json'
+    if(-not(Test-Path -LiteralPath $markerPath -PathType Leaf)){return $false}
+    $extract=$null
+    try{
+        $extract=Join-Path ([IO.Path]::GetTempPath()) ('ki-complete-comfyui-compliance-'+[guid]::NewGuid().ToString('N'))
+        $payloadRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'CutoverRuntime' -Destination $extract
+        Import-Module (Join-Path $payloadRoot 'Modules/04-ComfyUI/KIModuleComfyUI.psm1') -Force -Global -DisableNameChecking
+        $config=Read-KICompleteJson (Join-Path $payloadRoot 'Config/kernel-config.json')
+        $probe=Get-Command git.exe -ErrorAction SilentlyContinue
+        if(-not$probe){throw 'git.exe wurde nicht gefunden -- der reale ComfyUI-Repository-Zustand kann nicht ermittelt werden.'}
+        $repositoryState=Get-KIComfyRepositoryState -Root (Join-Path $TargetRoot 'ComfyUI') -GitCommand $probe
+        if(-not[bool]$repositoryState.valid){return $false}
+        $expectedSource=ConvertTo-KIComfyNormalizedRepositoryUrl -Url ([string]$config.comfyUI.repository)
+        if([string]$repositoryState.normalizedOrigin-ne$expectedSource){return $false}
+        $versionSupport=Get-KIComfyVersionSupportState -InstalledTag $repositoryState.exactTag `
+            -ReferenceVersion ([string]$config.comfyUI.ref) `
+            -MinimumSupportedVersion ([string](Get-KICompleteOptionalConfigValue $config.comfyUI 'minimumSupportedVersion' ([string]$config.comfyUI.ref))) `
+            -MaximumSupportedVersion ([string](Get-KICompleteOptionalConfigValue $config.comfyUI 'maximumSupportedVersion' $null))
+        return [bool]$versionSupport.supported
+    }
+    catch{
+        throw [InvalidOperationException]::new("ComfyUI-Compliance-Probe konnte nicht ausgewertet werden (PackageRoot='$PackageRoot'): $($_.Exception.Message)",$_.Exception)
+    }
+    finally{if($extract-and(Test-Path -LiteralPath $extract)){Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue}}
+}
+
+function Get-KICompleteOptionalConfigValue {
+    param([AllowNull()][object]$Object,[Parameter(Mandatory)][string]$Name,[AllowNull()][object]$Default=$null)
+    if($null-eq$Object){return $Default}
+    $property=$Object.PSObject.Properties[$Name]
+    if($null-ne$property-and$null-ne$property.Value){return $property.Value}
+    return $Default
+}
+
 $script:KICompleteReplayableComponentIds=@('openwebui-visual-pack','openwebui-agent-pack')
 
 function New-KICompletePlan {
@@ -272,14 +345,25 @@ function New-KICompletePlan {
         if([string]$component.id-eq'openwebui-visual-pack'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteVisualPackCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         if([string]$component.id-eq'codex-local'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'integration'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
+        if([string]$component.id-eq'comfyui'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         $reconciliationNeeded=$compliant-and$stored-ne[string]$component.version
         $isReplaySelected=$compliant-and($ReplayComponent-contains[string]$component.id)
-        $plannedMode=if($Mode -eq 'Audit' -or $Mode -eq 'Validate'){$Mode}elseif($isReplaySelected){'Replay'}elseif($compliant){'Skip'}elseif($null-eq$installed-and$null-ne$stored){'Repair'}elseif($installed){'Upgrade'}else{'Install'}
+        # pinned-runtime-reference/recovery-reference components have no independent, real
+        # per-target probe -- Get-KICompleteInstalledVersion falls back to the frozen
+        # $acceptedVersions snapshot for them, so "compliant" here only means "matches that
+        # static snapshot", never "verified on this target". If the pin changed since the last
+        # recorded state (reconciliationNeeded), that must not be silently treated as Skip plus a
+        # state-file-only catch-up the way it correctly is for a real, probe-verified component:
+        # it needs the existing Upgrade dispatch (which already reaches these components' shared
+        # kernel path) to actually run for real. Probe-based components are unaffected.
+        $isUnverifiedReferenceKind=[string]$component.kind-in@('pinned-runtime-reference','recovery-reference')
+        $forcesReconciliationUpgrade=$compliant-and$reconciliationNeeded-and$isUnverifiedReferenceKind-and$Mode-notin@('Audit','Validate')
+        $plannedMode=if($Mode -eq 'Audit' -or $Mode -eq 'Validate'){$Mode}elseif($isReplaySelected){'Replay'}elseif($forcesReconciliationUpgrade){'Upgrade'}elseif($compliant){'Skip'}elseif($null-eq$installed-and$null-ne$stored){'Repair'}elseif($installed){'Upgrade'}else{'Install'}
         [pscustomobject][ordered]@{
             id=[string]$component.id; name=[string]$component.name; version=[string]$component.version
             plannedMode=$plannedMode
             initialState=[ordered]@{storedVersion=$stored;installedVersion=$installed;compliant=$compliant;reconciliationNeeded=$reconciliationNeeded}
-            status=$(if($compliant-and-not$isReplaySelected-and$Mode-notin@('Audit','Validate')){'SkippedAlreadyCompliant'}else{'Planned'})
+            status=$(if($compliant-and-not$isReplaySelected-and-not$forcesReconciliationUpgrade-and$Mode-notin@('Audit','Validate')){'SkippedAlreadyCompliant'}else{'Planned'})
         }
     }
     $stateHasOrphans=$false
@@ -458,6 +542,7 @@ function Invoke-KICompletePendingComponentRollback {
 
 function Resolve-KICompleteFailedTransactionState {
     param(
+        [Parameter(Mandatory)][string]$PackageRoot,
         [Parameter(Mandatory)][string]$TargetRoot,
         [Parameter(Mandatory)][string]$StateDirectory,
         [Parameter(Mandatory)][object]$ComponentContract,
@@ -493,6 +578,7 @@ function Resolve-KICompleteFailedTransactionState {
             $actualCompliant=$actual-eq[string]$step.version
             if([string]$step.id-eq'codex-local'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
             if([string]$step.id-eq'integration'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+            if([string]$step.id-eq'comfyui'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
             if(-not$actualCompliant){throw "Fehlgeschlagene Transaktion ist nicht recoverbar: $($step.id); erwartet=$($step.version); real=$actual"}
             $step.rollbackStatus='NotRequiredRetainedVerified'
             $stateChanged=$true
@@ -529,11 +615,16 @@ function Install-KICompleteCentralStarters {
     $changed
 }
 
-function Install-KICompleteOperations {
-    param([string]$TargetRoot,[string]$BackupRoot)
-    $state=[ordered]@{schemaVersion='1.0';createdAtUtc=[DateTime]::UtcNow.ToString('o');runValues=@();desktopLinks=@();systemdUnits=@();dockerContainers=@();changes=@()}
-    New-Item -ItemType Directory -Path $BackupRoot -Force|Out-Null
-    $backupPath=Join-Path $BackupRoot 'operations.backup.json';Write-KICompleteJson $backupPath $state
+function Remove-KICompleteLMStudioCompetingAutostart {
+    # Shared, narrowly-scoped safety contract for the "no competing LM-Studio autostart" KI-Stack
+    # policy: only ever removes an exact, expected LM Studio Run/RunOnce value (LM Studio.exe
+    # --run-as-service, matched case-insensitively); anything else under the same value name is
+    # left untouched and throws instead of being silently deleted. Reused by both
+    # Install-KICompleteOperations (a Complete Installer Install/Upgrade/Repair transaction) and
+    # the steady-state Start-KIStack-LMStudio.cmd starter, so compliance can no longer regress
+    # silently between installer runs whenever LM Studio's own "start at login" preference
+    # re-establishes this value on a later, ordinary LM Studio start.
+    param([scriptblock]$OnBeforeRemove)
     $runLocations=@(
         @{path='HKCU:\Software\Microsoft\Windows\CurrentVersion\Run';name='electron.app.LM Studio'},
         @{path='HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce';name='electron.app.LM Studio'},
@@ -542,11 +633,29 @@ function Install-KICompleteOperations {
         @{path='HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Run';name='electron.app.LM Studio'},
         @{path='HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\RunOnce';name='electron.app.LM Studio'}
     )
+    $removed=@()
     foreach($entry in $runLocations){
         if(-not(Test-Path $entry.path)){continue};$properties=Get-ItemProperty -LiteralPath $entry.path -Name $entry.name -ErrorAction SilentlyContinue;$property=if($null-ne$properties){$properties.PSObject.Properties[$entry.name]}else{$null};$value=if($null-ne$property){$property.Value}else{$null}
         if($null-eq$value){continue};if([string]$value-notmatch'(?i)LM Studio(?:\.exe)?\s+--run-as-service'){throw "Nicht eindeutiger LM-Studio-Autostart wird nicht verändert: $value"}
-        $state.runValues+=@([ordered]@{path=$entry.path;name=$entry.name;value=[string]$value});Write-KICompleteJson $backupPath $state;Remove-ItemProperty -LiteralPath $entry.path -Name $entry.name -Force;$state.changes+=@("Run:$($entry.name)");Write-KICompleteJson $backupPath $state
+        $foundEntry=[ordered]@{path=$entry.path;name=$entry.name;value=[string]$value}
+        if($OnBeforeRemove){& $OnBeforeRemove $foundEntry}
+        Remove-ItemProperty -LiteralPath $entry.path -Name $entry.name -Force
+        $removed+=@($foundEntry)
     }
+    [pscustomobject]@{removed=@($removed)}
+}
+
+function Install-KICompleteOperations {
+    param([string]$TargetRoot,[string]$BackupRoot)
+    $state=[ordered]@{schemaVersion='1.0';createdAtUtc=[DateTime]::UtcNow.ToString('o');runValues=@();desktopLinks=@();systemdUnits=@();dockerContainers=@();changes=@()}
+    New-Item -ItemType Directory -Path $BackupRoot -Force|Out-Null
+    $backupPath=Join-Path $BackupRoot 'operations.backup.json';Write-KICompleteJson $backupPath $state
+    $autostartResult=Remove-KICompleteLMStudioCompetingAutostart -OnBeforeRemove {
+        param($foundEntry)
+        $state.runValues+=@($foundEntry);Write-KICompleteJson $backupPath $state
+    }
+    foreach($removedEntry in $autostartResult.removed){$state.changes+=@("Run:$($removedEntry.name)")}
+    if($autostartResult.removed.Count){Write-KICompleteJson $backupPath $state}
     $desktop=[Environment]::GetFolderPath('Desktop');$shell=New-Object -ComObject WScript.Shell;$pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source
     foreach($link in @(@{name='KI-Stack starten.lnk';target='Start-KIStack.cmd'},@{name='KI-Stack stoppen.lnk';target='Stop-KIStack.cmd'},@{name='KI-Stack Status.lnk';target='Show-KIStackStatus.ps1';executable=$pwsh;arguments=('-NoLogo -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $TargetRoot 'Show-KIStackStatus.ps1')+'"')})){
         $path=Join-Path $desktop $link.name
@@ -713,17 +822,17 @@ function Invoke-KIStackCompleteInstaller {
     if (-not $preflight.passed) { throw ('Preflight fehlgeschlagen: ' + ($preflight.issues -join '; ')) }
     $pendingRollback = if ($Mode -notin @('Audit','Validate') -and -not $DryRun -and -not $Resume) {
         $rollbackRecovery=Invoke-KICompletePendingComponentRollback -PackageRoot $PackageRoot -TargetRoot $TargetRoot -StateDirectory ([string]$config.stateDirectory)
-        $failedStateRecovery=Resolve-KICompleteFailedTransactionState -TargetRoot $TargetRoot -StateDirectory ([string]$config.stateDirectory) -ComponentContract $componentContract
+        $failedStateRecovery=Resolve-KICompleteFailedTransactionState -PackageRoot $PackageRoot -TargetRoot $TargetRoot -StateDirectory ([string]$config.stateDirectory) -ComponentContract $componentContract
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
     $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics -ReplayComponent $ReplayComponent
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.9.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.9.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.10.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.10.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
     if(-not$Resume -and $plan.alreadyCompliant -and -not[bool]$plan.hasReplay -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.9.0'}
-        return [pscustomobject]@{version='2.9.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.10.0'}
+        return [pscustomobject]@{version='2.10.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
     $state = [string]$config.stateDirectory
     if ($Resume) {
@@ -752,11 +861,12 @@ function Invoke-KIStackCompleteInstaller {
             $component=@($componentContract.components|Where-Object{[string]$_.id-eq[string]$step.id})|Select-Object -First 1
             if($null-eq$component){throw "Komponentenvertrag fehlt: $($step.id)"}
             Write-Host ("Schritt {0} von {1} – {2}" -f ($index+1),$tx.steps.Count,$step.name)
-            if ($step.status -eq 'Completed' -or $step.status -eq 'SkippedAlreadyCompliant') {
+            if ($step.status -eq 'Completed' -or $step.status -eq 'SkippedAlreadyCompliant' -or $step.status -eq 'SkippedSupportedInstallation') {
                 $resumeActual=Get-KICompleteInstalledVersion -Component $component -TargetRoot $TargetRoot
                 $resumeCompliant=$resumeActual-eq[string]$step.version
                 if([string]$step.id-eq'codex-local'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'integration'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+                if([string]$step.id-eq'comfyui'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
                 if($resumeCompliant){$index++;continue}
                 $step.status='Planned'
                 $step.result=$null
@@ -772,7 +882,7 @@ function Invoke-KIStackCompleteInstaller {
                     $cutoverRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'CutoverRuntime' -Destination $extract
                     $kernel = Join-Path $cutoverRoot 'Invoke-KIStackBuilderKernel.ps1'
                     $preflightGenerator = Join-Path $cutoverRoot 'New-KIStackEmbeddedPreflight.ps1'
-                    $preflight = Join-Path $state "$TransactionId/generated/Preflight-Continuation-v1.6.10.zip"
+                    $preflight = Join-Path $state "$TransactionId/generated/Preflight-Continuation-v1.6.13.zip"
                     if (-not (Test-Path -LiteralPath $kernel -PathType Leaf) -or -not (Test-Path -LiteralPath $preflightGenerator -PathType Leaf)) {
                         throw 'Cutover-Kernel oder Preflight-Generator fehlt.'
                     }
@@ -801,7 +911,7 @@ function Invoke-KIStackCompleteInstaller {
                         $step.exitCode=31
                         $step.result=@{orchestratedBy='CutoverRuntime public kernel';transactionId=($TransactionId + '-cutover');status='RebootRequired';resumeRequired=$true;kernelResultPath=$kernelResultPath;containsSecrets=$false}
                         $tx.status='WaitingForRestart'
-                        Write-KICompleteJson (Join-Path $state "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;status='WaitingForRestart';cutoverTransactionId=($TransactionId + '-cutover');completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant')}|ForEach-Object id);containsSecrets=$false})
+                        Write-KICompleteJson (Join-Path $state "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;status='WaitingForRestart';cutoverTransactionId=($TransactionId + '-cutover');completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')}|ForEach-Object id);containsSecrets=$false})
                         Write-KICompleteJson $txPath $tx
                         return $tx
                     }
@@ -815,30 +925,44 @@ function Invoke-KIStackCompleteInstaller {
                 $step.result=@{orchestratedBy='CutoverRuntime public kernel';transactionId=($TransactionId + '-cutover');validated=$true}
             }
             elseif ($step.id -eq 'comfyui') {
-                $extract = Join-Path $state "$TransactionId/ComfyUI"
-                $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'ComfyUI' -Destination $extract
-                $entry = Join-Path $componentRoot 'Invoke-KIStackComfyUI.ps1'
                 $action = if ($step.plannedMode -eq 'Repair') { 'Repair' } elseif ($step.plannedMode -eq 'Upgrade') { 'Upgrade' } else { 'Install' }
-                $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=(Join-Path $TargetRoot 'ComfyUI')}
-                try {
-                    $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=(Join-Path $TargetRoot 'ComfyUI')}
-                    $actual = Get-KICompleteInstalledVersion -Component $component -TargetRoot $TargetRoot
-                    if (-not [bool]$validation.passed -or $actual -ne [string]$component.version) {
-                        throw "ComfyUI-Readback verletzt: Payload=$([bool]$validation.passed); Marker=$actual; erwartet=$($component.version)"
-                    }
-                    $step.result=@{install=$result;validation=$validation;markerVersion=$actual}
+                # Defense in depth (does not replace the planning-time check above, or the
+                # PackageRoot/fail-closed fixes to Test-KICompleteComfyUICompliant itself): re-verify
+                # the real ComfyUI support status immediately before the one place that can actually
+                # mutate ComfyUI source files, so a stale plan, a resumed transaction, or any future
+                # planning-side regression can never reach Install-ComfyPayload -- the git-unaware
+                # v0.28.0 reference-payload overlay -- against an existing, already-supported,
+                # git-managed installation. Throws (fail closed, no mutation) if the probe itself
+                # cannot be evaluated; see Test-KICompleteComfyUICompliant.
+                if (Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot) {
+                    $step.result=@{skippedReason='ExistingSupportedInstallationProtected'}
+                    $step.status='SkippedSupportedInstallation'
                 }
-                catch {
-                    $rollbackStatus = 'Failed'
+                else {
+                    $extract = Join-Path $state "$TransactionId/ComfyUI"
+                    $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'ComfyUI' -Destination $extract
+                    $entry = Join-Path $componentRoot 'Invoke-KIStackComfyUI.ps1'
+                    $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=(Join-Path $TargetRoot 'ComfyUI')}
                     try {
-                        if ($result.changed -and $result.backup) {
-                            $rollback = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Rollback';TargetRoot=(Join-Path $TargetRoot 'ComfyUI');BackupPath=[string]$result.backup}
-                            if ([bool]$rollback.passed) { $rollbackStatus='Completed' }
-                        } else { $rollbackStatus='NotRequired' }
-                    } catch { $rollbackStatus='Failed' }
-                    $_.Exception.Data['KIStackRollbackStatus']=$rollbackStatus
-                    $_.Exception.Data['KIStackBackupPath']=[string]$result.backup
-                    throw
+                        $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=(Join-Path $TargetRoot 'ComfyUI')}
+                        $actual = Get-KICompleteInstalledVersion -Component $component -TargetRoot $TargetRoot
+                        if (-not [bool]$validation.passed -or $actual -ne [string]$component.version) {
+                            throw "ComfyUI-Readback verletzt: Payload=$([bool]$validation.passed); Marker=$actual; erwartet=$($component.version)"
+                        }
+                        $step.result=@{install=$result;validation=$validation;markerVersion=$actual}
+                    }
+                    catch {
+                        $rollbackStatus = 'Failed'
+                        try {
+                            if ($result.changed -and $result.backup) {
+                                $rollback = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Rollback';TargetRoot=(Join-Path $TargetRoot 'ComfyUI');BackupPath=[string]$result.backup}
+                                if ([bool]$rollback.passed) { $rollbackStatus='Completed' }
+                            } else { $rollbackStatus='NotRequired' }
+                        } catch { $rollbackStatus='Failed' }
+                        $_.Exception.Data['KIStackRollbackStatus']=$rollbackStatus
+                        $_.Exception.Data['KIStackBackupPath']=[string]$result.backup
+                        throw
+                    }
                 }
             }
             elseif ($step.id -eq 'integration') {
@@ -1002,7 +1126,7 @@ function Invoke-KIStackCompleteInstaller {
             else {
                 throw "Kein öffentlicher Installationspfad für nicht-konforme Komponente: $($step.id)"
             }
-            if ($step.status -ne 'WaitingForUserAction') {
+            if ($step.status -ne 'WaitingForUserAction' -and $step.status -ne 'SkippedSupportedInstallation') {
                 if([bool]$component.installable){
                     $actualVersion=Get-KICompleteInstalledVersion -Component $component -TargetRoot $TargetRoot
                     if($actualVersion-ne[string]$step.version){throw "Komponenten-Readback verletzt: $($step.id); erwartet=$($step.version); real=$actualVersion"}
@@ -1017,7 +1141,7 @@ function Invoke-KIStackCompleteInstaller {
             }else{
                 Write-KICompleteStepStatus -Heartbeat $currentStepHeartbeat -Status Completed -Message ("{0} abgeschlossen" -f $step.name)
             }
-            Write-KICompleteJson (Join-Path $state "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant')}|ForEach-Object id);containsSecrets=$false})
+            Write-KICompleteJson (Join-Path $state "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')}|ForEach-Object id);containsSecrets=$false})
             Write-KICompleteJson $txPath $tx
         }
         $backup=Join-Path ([string]$config.backupDirectory) $TransactionId
@@ -1037,8 +1161,8 @@ function Invoke-KIStackCompleteInstaller {
         $tx = Clear-KICompleteStaleTransactionError -Transaction $tx
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
         $componentStatePath=Join-Path $state 'components.json';$componentVersions=[ordered]@{}
-        foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
-        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.9.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
+        foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
+        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.10.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
         Write-KICompleteJson $txPath $tx; return $tx
     }
     catch {

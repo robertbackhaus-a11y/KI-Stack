@@ -296,6 +296,71 @@ function Get-KIOpenWebUIVersion {
     return (($versionResult.output -join '').Trim())
 }
 
+function ConvertTo-KIOpenWebUISemanticVersion {
+    # Normalizes a plain "0.11.0"-style pip version into a comparable [version]; returns $null for
+    # anything that isn't a plain numeric dotted version instead of silently accepting an unknown
+    # format (pre-releases, local version suffixes, etc.).
+    param([AllowNull()][string]$Version)
+    if ([string]::IsNullOrWhiteSpace($Version)) { return $null }
+    $normalized = $Version.Trim()
+    if ($normalized -notmatch '^\d+(\.\d+){1,3}$') { return $null }
+    try { return [version]$normalized } catch { return $null }
+}
+
+function Get-KIOpenWebUIVersionSupportState {
+    # Separates "matches the reference version exactly" (ReferenceMatch) from "is a version this
+    # release actually supports" (Supported) -- mirrors the same contract already established for
+    # ComfyUI (Get-KIComfyVersionSupportState in KIModuleComfyUI.psm1): a newer, still-supported
+    # Open WebUI installation must not be reported non-compliant or reinstalled/downgraded to the
+    # reference just because it isn't byte-identical to the pin used for reproducible Greenfield
+    # installs. A missing/unparsable installed version or bound is never silently treated as
+    # supported.
+    param(
+        [AllowNull()][string]$InstalledVersion,
+        [Parameter(Mandatory)][string]$ReferenceVersion,
+        [Parameter(Mandatory)][string]$MinimumSupportedVersion,
+        [AllowNull()][string]$MaximumSupportedVersion
+    )
+    $installed = ConvertTo-KIOpenWebUISemanticVersion -Version $InstalledVersion
+    $reference = ConvertTo-KIOpenWebUISemanticVersion -Version $ReferenceVersion
+    $minimum = ConvertTo-KIOpenWebUISemanticVersion -Version $MinimumSupportedVersion
+    $maximum = if ([string]::IsNullOrWhiteSpace($MaximumSupportedVersion)) {
+        $null
+    } else {
+        ConvertTo-KIOpenWebUISemanticVersion -Version $MaximumSupportedVersion
+    }
+    $referenceMatch = ($null -ne $installed -and $null -ne $reference -and $installed -eq $reference)
+    $supported = $false
+    $reason = $null
+    if ([string]::IsNullOrWhiteSpace($InstalledVersion)) {
+        $reason = 'Open WebUI ist nicht installiert oder die Version konnte technisch nicht ermittelt werden.'
+    }
+    elseif ($null -eq $installed) {
+        $reason = "Open-WebUI-Version '$InstalledVersion' ist kein unterstütztes Versionsformat (erwartet X.Y[.Z])."
+    }
+    elseif ($null -eq $minimum) {
+        $reason = "MinimumSupportedVersion '$MinimumSupportedVersion' ist kein gültiges Versionsformat."
+    }
+    elseif ($installed -lt $minimum) {
+        $reason = "Open WebUI $InstalledVersion liegt unter der unterstützten Mindestversion $MinimumSupportedVersion."
+    }
+    elseif ($null -ne $maximum -and $installed -gt $maximum) {
+        $reason = "Open WebUI $InstalledVersion liegt über der unterstützten Maximalversion $MaximumSupportedVersion."
+    }
+    else {
+        $supported = $true
+    }
+    return [pscustomobject][ordered]@{
+        installedVersion = $InstalledVersion
+        referenceVersion = $ReferenceVersion
+        minimumSupportedVersion = $MinimumSupportedVersion
+        maximumSupportedVersion = $MaximumSupportedVersion
+        referenceMatch = $referenceMatch
+        supported = $supported
+        reason = $reason
+    }
+}
+
 function Write-KIUtf8NoBomCrLf {
     param(
         [Parameter(Mandatory)][string]$Path,
@@ -398,7 +463,8 @@ function Test-KIModuleApplications {
 function Get-KILMStudioStarterScriptContent {
     # Extracted from Install-KIModuleApplications so the generated batch
     # contract is directly testable without running a full winget-based
-    # install. Behavior/content is unchanged from what was inline before.
+    # install. Behavior/content is unchanged from what was inline before,
+    # apart from the steady-state autostart-compliance step documented below.
     param(
         [Parameter(Mandatory)][AllowEmptyString()][string]$LmsCli,
         [Parameter(Mandatory)][AllowEmptyString()][string]$LmExecutable,
@@ -407,12 +473,33 @@ function Get-KILMStudioStarterScriptContent {
         [int]$LmsWaitMaxAttempts=30,
         [int]$LmsWaitIntervalSeconds=3,
         [int]$EndpointWaitMaxAttempts=15,
-        [int]$EndpointWaitIntervalSeconds=2
+        [int]$EndpointWaitIntervalSeconds=2,
+        # Path to the deployed Complete Installer module, which owns the shared
+        # Remove-KICompleteLMStudioCompetingAutostart safety contract (see there for why: LM
+        # Studio's own "start at login" preference can re-establish a competing autostart entry on
+        # any ordinary LM Studio start, not just during an installer transaction). Empty/missing is
+        # tolerated -- this cleanup step is best-effort and must never block starting the server.
+        [AllowEmptyString()][string]$CompleteInstallerModulePath=''
     )
     $lmStudioTemplate = @'
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 title KI-Stack LM Studio
+rem Steady-state autostart-compliance step: LM Studio's own "start at login" preference can
+rem re-establish a competing Run-key autostart entry on any ordinary start -- including as a
+rem side effect of "lms server start" itself, not only during an installer transaction -- so the
+rem same narrowly-scoped safety contract used by the Complete Installer
+rem (Remove-KICompleteLMStudioCompetingAutostart: only ever removes an exact, expected value;
+rem anything unexpected is left untouched) is reasserted twice, via the shared :CleanupAutostart
+rem subroutine below: once before the server starts, and once more right after the endpoint is
+rem confirmed reachable, since the pre-start pass alone cannot catch a re-creation triggered by
+rem the start itself. Both passes are best-effort only -- never block starting the server, and
+rem never run on the timeout/error exit paths, which are unrelated to this steady-state drift.
+set "KI_COMPLETE_MODULE=__COMPLETE_INSTALLER_MODULE__"
+set "KI_AUTOSTART_PWSH="
+if exist "%ProgramFiles%\PowerShell\7\pwsh.exe" set "KI_AUTOSTART_PWSH=%ProgramFiles%\PowerShell\7\pwsh.exe"
+if not defined KI_AUTOSTART_PWSH for /f "delims=" %%I in ('where pwsh.exe 2^>nul') do if not defined KI_AUTOSTART_PWSH set "KI_AUTOSTART_PWSH=%%~fI"
+call :CleanupAutostart
 set "LMS_CLI=__LMS_CLI__"
 set "LMSTUDIO_EXE=__LMSTUDIO_EXE__"
 if not defined LMS_CLI for /f "delims=" %%I in ('where lms.exe 2^>nul') do if not defined LMS_CLI set "LMS_CLI=%%~fI"
@@ -440,6 +527,11 @@ set "LMS_ENDPOINT_ATTEMPTS=0"
 "%SystemRoot%\System32\curl.exe" --max-time 3 --silent --show-error --fail "http://__BIND_ADDRESS__:__PORT__/v1/models" >nul 2>&1
 if not errorlevel 1 (
     echo LM-Studio-Server ist erreichbar auf __BIND_ADDRESS__:__PORT__.
+    rem lms server start (or LM Studio's own backend) can re-establish its Run-key autostart
+    rem entry as a side effect of starting -- exactly the steady-state drift this starter exists
+    rem to prevent -- so the same narrowly-scoped, best-effort cleanup is reasserted here, once
+    rem the server is confirmed reachable, before this successful exit.
+    call :CleanupAutostart
     exit /b 0
 )
 set /a LMS_ENDPOINT_ATTEMPTS+=1
@@ -457,8 +549,13 @@ echo LM Studio ist installiert, aber weder lms noch die Programmdatei wurden auf
 echo LM Studio einmal manuell starten und danach dieses Skript erneut ausführen.
 pause
 exit /b 1
+goto :eof
+:CleanupAutostart
+if defined KI_AUTOSTART_PWSH if defined KI_COMPLETE_MODULE if exist "%KI_COMPLETE_MODULE%" "%KI_AUTOSTART_PWSH%" -NoLogo -NoProfile -Command "try { Import-Module '%KI_COMPLETE_MODULE%' -Force; Remove-KICompleteLMStudioCompetingAutostart | Out-Null } catch { Write-Host ('LM-Studio-Autostart-Bereinigung uebersprungen: ' + $_.Exception.Message) }"
+exit /b 0
 '@
     $lmStudioContent = $lmStudioTemplate
+    $lmStudioContent = $lmStudioContent.Replace('__COMPLETE_INSTALLER_MODULE__',$CompleteInstallerModulePath)
     $lmStudioContent = $lmStudioContent.Replace('__LMS_CLI__',$LmsCli)
     $lmStudioContent = $lmStudioContent.Replace('__LMSTUDIO_EXE__',$LmExecutable)
     $lmStudioContent = $lmStudioContent.Replace('__PORT__',$Port)
@@ -582,7 +679,17 @@ function Install-KIModuleApplications {
     }
 
     $currentVersion = Get-KIOpenWebUIVersion -Context $Context
-    if ($currentVersion -ne $targetVersion) {
+    $minimumSupportedVersion = Get-KIOptionalPropertyValue $webConfig 'minimumSupportedVersion'
+    if ([string]::IsNullOrWhiteSpace($minimumSupportedVersion)) { $minimumSupportedVersion = $targetVersion }
+    $maximumSupportedVersion = Get-KIOptionalPropertyValue $webConfig 'maximumSupportedVersion'
+    $versionSupport = Get-KIOpenWebUIVersionSupportState -InstalledVersion $currentVersion -ReferenceVersion $targetVersion -MinimumSupportedVersion $minimumSupportedVersion -MaximumSupportedVersion $maximumSupportedVersion
+    Write-KIApplicationsDiagnostic -Context $Context -Step 'OpenWebUIVersionSupportEvaluated' -Data $versionSupport
+    # A real, already-supported installation (e.g. a newer patch than the reproducible Greenfield
+    # reference) must never be reinstalled/downgraded just because it isn't an exact reference
+    # match -- only genuinely unsupported states (not installed, below minimum, unparsable version,
+    # a technically failed version probe) fall through to this existing pip-install path, which
+    # always installs the exact reference/target version (unchanged from before this fix).
+    if (-not [bool]$versionSupport.supported) {
         $packageSpec = ('{0}=={1}' -f [string]$webConfig.packageName,$targetVersion)
         $installWebResult = Invoke-KIApplicationCommand -FilePath $venvPython -ArgumentList @(
             '-m','pip','install','--upgrade','--prefer-binary','--disable-pip-version-check','--no-input',$packageSpec
@@ -628,7 +735,12 @@ exit /b %EC%
     $openWebUIContent = $openWebUIContent.Replace('__BIND_ADDRESS__',[string]$webConfig.bindAddress)
     $openWebUIContent = $openWebUIContent.Replace('__PORT__',[string]$webConfig.port)
 
-    $lmStudioContent = Get-KILMStudioStarterScriptContent -LmsCli $lmsCli -LmExecutable $lmExecutable -Port ([string]$lmConfig.port) -BindAddress ([string]$lmConfig.bindAddress)
+    # moduleRoot is <TargetRoot>\modules\applications; the Complete Installer package (which owns
+    # the shared Remove-KICompleteLMStudioCompetingAutostart contract) is always deployed to
+    # <TargetRoot>\installer\complete alongside it -- derived, not hardcoded, so this keeps working
+    # under any TargetRoot. Missing is tolerated (see Get-KILMStudioStarterScriptContent).
+    $completeInstallerModulePath = Join-Path (Split-Path -Parent (Split-Path -Parent $moduleRoot)) 'installer\complete\CompleteInstaller.psm1'
+    $lmStudioContent = Get-KILMStudioStarterScriptContent -LmsCli $lmsCli -LmExecutable $lmExecutable -Port ([string]$lmConfig.port) -BindAddress ([string]$lmConfig.bindAddress) -CompleteInstallerModulePath $completeInstallerModulePath
 
     $allTemplate = @'
 @echo off
@@ -739,8 +851,12 @@ function Validate-KIModuleApplications {
         [void]$issues.Add('LM Studio ist nicht installiert oder nicht nachweisbar.')
     }
     $actualWebVersion = Get-KIOpenWebUIVersion -Context $Context
-    if ($actualWebVersion -ne [string]$applicationConfig.openWebUI.version) {
-        [void]$issues.Add(('Open WebUI hat Version {0}; erwartet wird {1}.' -f $actualWebVersion,[string]$applicationConfig.openWebUI.version))
+    $webMinimumSupportedVersion = Get-KIOptionalPropertyValue $applicationConfig.openWebUI 'minimumSupportedVersion'
+    if ([string]::IsNullOrWhiteSpace($webMinimumSupportedVersion)) { $webMinimumSupportedVersion = [string]$applicationConfig.openWebUI.version }
+    $webMaximumSupportedVersion = Get-KIOptionalPropertyValue $applicationConfig.openWebUI 'maximumSupportedVersion'
+    $openWebUIVersionSupport = Get-KIOpenWebUIVersionSupportState -InstalledVersion $actualWebVersion -ReferenceVersion ([string]$applicationConfig.openWebUI.version) -MinimumSupportedVersion $webMinimumSupportedVersion -MaximumSupportedVersion $webMaximumSupportedVersion
+    if (-not [bool]$openWebUIVersionSupport.supported) {
+        [void]$issues.Add(('Open WebUI Version {0} ist nicht unterstützt: {1}' -f $actualWebVersion,[string]$openWebUIVersionSupport.reason))
     }
     foreach ($requiredPath in @(
         [string]$applicationConfig.installationMarker,
@@ -774,6 +890,7 @@ function Validate-KIModuleApplications {
             lmStudioInstalled = [bool]$lmState.installed
             lmsAvailable = (-not [string]::IsNullOrWhiteSpace([string]$lmState.lmsPath))
             openWebUIVersion = $actualWebVersion
+            openWebUIVersionSupport = $openWebUIVersionSupport
             lmStudioServerReachable = $lmStudioReachable
             openWebUIReachable = $openWebUIReachable
         }

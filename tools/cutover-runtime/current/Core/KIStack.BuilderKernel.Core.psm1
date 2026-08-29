@@ -305,7 +305,7 @@ function New-KITransaction {
     return [pscustomobject][ordered]@{
         schemaVersion = '1.0'
         transactionId = $TransactionId
-        kernelVersion = '1.6.10'
+        kernelVersion = '1.6.13'
         createdAt = (Get-Date).ToString('o')
         updatedAt = (Get-Date).ToString('o')
         mode = $Mode

@@ -2,7 +2,7 @@
   "schemaVersion": "1.0",
   "payloads": [
     {"key":"ComfyUI","source":"tools/comfyui/current","file":"KI-Stack-ComfyUI-Execute-v1.2.4.zip","archiveRoot":null,"required":true},
-    {"key":"CutoverRuntime","source":"tools/cutover-runtime/current","file":"KI-Stack-Cutover-Execute-v1.6.10-core.zip","archiveRoot":"KI-Stack-Cutover-Execute-v1.6.10","required":true},
+    {"key":"CutoverRuntime","source":"tools/cutover-runtime/current","file":"KI-Stack-Cutover-Execute-v1.6.13-core.zip","archiveRoot":"KI-Stack-Cutover-Execute-v1.6.13","required":true},
     {"key":"Integration","source":"tools/integration/current","file":"KI-Stack-Integration-Execute-v1.5.11.zip","archiveRoot":null,"required":true},
     {"key":"ModelsWorkflows","source":"tools/models-workflows/current","file":"KI-Stack-Visual-Models-Workflows-v2.0.3.zip","archiveRoot":"KI-Stack-Visual-Models-Workflows-v2.0.3","required":true},
     {"key":"CodexLocal","source":"tools/codex-local/current","file":"KI-Stack-Codex-Local-v0.1.4.zip","archiveRoot":"KI-Stack-Codex-Local-v0.1.4","required":true},
