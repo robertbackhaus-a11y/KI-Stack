@@ -19,4 +19,6 @@ foreach($profile in $profiles){$form=$profile.form;$meta=$form.meta;if($null -eq
 foreach($collection in $collectionBackup){$null=Invoke-Api("/api/v1/knowledge/$($collection.id)/delete") 'DELETE'}
 foreach($fileId in $fileIds){try{$null=Invoke-Api("/api/v1/files/$fileId") 'DELETE'}catch{if($_.Exception.Response.StatusCode.value__ -ne 404){throw}}}
 $readback=@();foreach($id in 'ki-stack-allgemein','ki-stack-it-technik','ki-stack-18bravo'){$model=Invoke-Api('/api/v1/models/model?id='+[Uri]::EscapeDataString($id));$readback+=@([ordered]@{id=$id;knowledge=@(Get-Optional (Get-Optional $model meta ([pscustomobject]@{})) knowledge @());toolIds=@(Get-Optional (Get-Optional $model meta ([pscustomobject]@{})) toolIds @())})}
-[pscustomobject]@{passed=(@($readback|Where-Object{@($_.knowledge).Count -ne 0}).Count -eq 0);removedCollections=$collectionBackup.Count;removedFiles=$fileIds.Count;profiles=$readback;backupPath=(Join-Path $BackupDirectory 'knowledge-rollback.backup.json');apiKeyStored=$false}
+$passed=(@($readback|Where-Object{@($_.knowledge).Count -ne 0}).Count -eq 0)
+if(-not$passed){throw'Knowledge-Rollback-Readback entspricht nicht dem KI-Stack-Vertrag: mindestens ein Profil enthält nach der Entfernung weiterhin Knowledge-Bindungen.'}
+[pscustomobject]@{passed=$passed;removedCollections=$collectionBackup.Count;removedFiles=$fileIds.Count;profiles=$readback;backupPath=(Join-Path $BackupDirectory 'knowledge-rollback.backup.json');apiKeyStored=$false}

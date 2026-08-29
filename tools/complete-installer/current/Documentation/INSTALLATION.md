@@ -30,6 +30,16 @@ Do not upgrade or downgrade OpenWebUI by hand with `pip` inside its venv, and do
 
 Real-target acceptance (`C:\KI-Stack`): `Skip` with the target version already installed -- PASS, no mutation. Controlled downgrade `0.11.0 -> 0.10.2` via this script -- PASS (managed venv only, stop/restart, healthcheck). Controlled upgrade back `0.10.2 -> 0.11.0` via this script -- PASS. Healthcheck after each step -- HTTP 200. Final installed version -- `0.11.0`, matching `kernel-config.json`.
 
+## Update-KIStack-All: central update checker
+
+`Update-KIStack-All.cmd` (deployed to `C:\KI-Stack`) enumerates every component KI-Stack manages -- all `Contracts/COMPONENTS.json` entries plus OpenWebUI, tracked separately -- and reports, then optionally executes, safe updates. `-CheckOnly` shows the plan and exits without asking for confirmation or changing anything; `-Component <id[]>` restricts the plan/report to specific component IDs; `-NonInteractive` skips the `EXECUTE` confirmation prompt.
+
+Each component reports `InstalledVersion` (the real, installed state), `PinnedVersion` (the version KI-Stack currently pins/ships), and `AvailableVersion` (the latest version from a real, read-only upstream source, when one reliably exists for that component). `classification` (`UpToDate`, `PinnedUpdatePending`, `DowngradeRequired`, `Blocked`, `NotManaged`) compares only `InstalledVersion` against `PinnedVersion` and is the sole basis for automatic execution -- `AvailableVersion` and `upstreamStatus` (`Current`, `UpdateAvailableUpstream`, `Unknown`) are purely informational. An upstream update is never installed unattended: `UpdateAvailableUpstream` is only ever reported, and `AvailableVersion=Unknown` is a valid, expected result for a component with no reliable upstream source (most KI-Stack-authored bundles) rather than a guess.
+
+OpenWebUI has its own isolated update/rollback contract (`Update-KIStack-OpenWebUI.cmd`, above) and can be selected and executed on its own. Every other `Contracts/COMPONENTS.json` component instead runs through the existing Complete-Installer-Upgrade batch, which has no per-component isolation -- it reconciles every currently non-compliant component in one transaction. If an explicit `-Component` selection would understate that scope (naming only some of the components the batch would actually touch), execution is blocked before any confirmation prompt or mutation, with a clear error naming the omitted component(s); either select every affected component, drop `-Component`, or use `-CheckOnly`.
+
+Real-target check (`C:\KI-Stack`): all `Contracts/COMPONENTS.json` components `UpToDate`; OpenWebUI real installed version `0.11.1` against pinned `0.11.0` -> `DowngradeRequired`, with the real PyPI upstream lookup also reporting `AvailableVersion=0.11.1` (`UpdateAvailableUpstream`) -- no mutation performed.
+
 ## SearXNG, nginx, and Valkey
 
 SearXNG's local endpoint runs under `uwsgi` behind an `nginx` reverse proxy at `/searxng`, with `valkey-server` backing its local rate-limiter/session store. It may already be served by the Cutover Runtime's dedicated `ki-stack-searxng.service` or the Integration component's own `uwsgi.service`; either is recognized as a valid, already-serving instance and adopted instead of starting a second, port-conflicting installation.
@@ -40,7 +50,7 @@ The RAG module (0.3.1) is installed automatically under `C:\KI-Stack\modules\rag
 
 ## Manual follow-up: API credentials
 
-Without a supplied OpenWebUI administrator API key, the temporary Knowledge bootstrap-experiment rollback (`CredentialRequiredForApiReadback`, unrelated to the RAG module's own ingestion above) and the Code Interpreter connection configuration (`CredentialRequiredForApiConfiguration`) remain manual follow-up steps in OpenWebUI after installation.
+Without a supplied OpenWebUI administrator API key, the temporary Knowledge bootstrap-experiment rollback (`CredentialRequiredForApiReadback`, unrelated to the RAG module's own ingestion above) and the Code Interpreter connection configuration (`CredentialRequiredForApiConfiguration`) remain manual follow-up steps in OpenWebUI after installation. When a key is supplied, both already run automatically as part of the guided cutover and are validated; a Knowledge-rollback readback that still finds leftover Knowledge bindings now raises a clear error instead of silently reporting success.
 
 Lifecycle:
 
@@ -49,6 +59,7 @@ Lifecycle:
 - Status: `Status-KIStack.cmd`
 - Interactive status: `Lifecycle\Status-KIStack-Interactive.cmd`
 - Managed OpenWebUI update (upgrade or downgrade to the version pinned in `kernel-config.json`, with automatic rollback on failure): `Update-KIStack-OpenWebUI.cmd`
+- Central update checker (plan, then optionally execute, safe updates across every managed component): `Update-KIStack-All.cmd`
 
 Transactions are under `C:\KI-Stack\state\complete-installer\<TransactionId>` and backups under `C:\KI-Stack\backups\complete-installer\<TransactionId>`.
 
