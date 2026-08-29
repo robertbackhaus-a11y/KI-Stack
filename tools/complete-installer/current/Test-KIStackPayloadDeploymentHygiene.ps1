@@ -21,7 +21,7 @@ try{
     }
 
     $packageRoot=Join-Path $fixtureRoot 'package'
-    New-KIFixturePackage -Root $packageRoot -CutoverRuntimeFileName 'KI-Stack-Cutover-Execute-v1.6.10-core.zip' -ComfyUIFileName 'KI-Stack-ComfyUI-v1.2.4.zip'
+    New-KIFixturePackage -Root $packageRoot -CutoverRuntimeFileName 'KI-Stack-Cutover-Execute-v1.6.11-core.zip' -ComfyUIFileName 'KI-Stack-ComfyUI-v1.2.4.zip'
 
     # 1. Empty/nonexistent destination -> current payload gets installed cleanly.
     $targetRoot1=Join-Path $fixtureRoot 'target-empty'
@@ -31,7 +31,7 @@ try{
     $cutoverFiles1=@(Get-ChildItem -LiteralPath (Join-Path $targetRoot1 'installer/complete/Payload/CutoverRuntime') -File)
     $checks.emptyDestination=[ordered]@{
         exactlyOneFile=$cutoverFiles1.Count-eq1
-        correctFile=$cutoverFiles1.Count-gt0-and$cutoverFiles1[0].Name-eq'KI-Stack-Cutover-Execute-v1.6.10-core.zip'
+        correctFile=$cutoverFiles1.Count-gt0-and$cutoverFiles1[0].Name-eq'KI-Stack-Cutover-Execute-v1.6.11-core.zip'
     }
     if($checks.emptyDestination.Values-contains$false){$fail.Add('Scenario EmptyDestination failed: '+(($cutoverFiles1.Name)-join', '))}
 
@@ -47,7 +47,7 @@ try{
     $backedUpStale=@(Get-ChildItem -LiteralPath (Join-Path $backupRoot2 'installer/complete/Payload/CutoverRuntime') -File -ErrorAction SilentlyContinue)
     $checks.staleVersionsRemoved=[ordered]@{
         exactlyOneFileRemains=$cutoverFiles2.Count-eq1
-        correctFileRemains=$cutoverFiles2.Count-gt0-and$cutoverFiles2[0].Name-eq'KI-Stack-Cutover-Execute-v1.6.10-core.zip'
+        correctFileRemains=$cutoverFiles2.Count-gt0-and$cutoverFiles2[0].Name-eq'KI-Stack-Cutover-Execute-v1.6.11-core.zip'
         staleFilesGone=(@($cutoverFiles2.Name)-notcontains'KI-Stack-Cutover-Execute-v1.6.3-core.zip')-and(@($cutoverFiles2.Name)-notcontains'KI-Stack-Cutover-Execute-v1.6.5-core.zip')
         preCleanupStateWasBackedUp=$backedUpStale.Count-eq2
     }
@@ -68,7 +68,7 @@ try{
     $comfyFiles3=@(Get-ChildItem -LiteralPath $comfyPath3 -File)
     $checks.foreignPayloadRemoved=[ordered]@{
         foreignFileGone=(@($cutoverFiles3.Name)-notcontains'KI-Stack-Models-Workflows-Execute-v1.3.8.zip')
-        currentFilePresent=(@($cutoverFiles3.Name)-contains'KI-Stack-Cutover-Execute-v1.6.10-core.zip')
+        currentFilePresent=(@($cutoverFiles3.Name)-contains'KI-Stack-Cutover-Execute-v1.6.11-core.zip')
         siblingTypeUnaffected=$comfyFiles3.Count-eq1-and$comfyFiles3[0].Name-eq'KI-Stack-ComfyUI-v1.2.4.zip'
     }
     if($checks.foreignPayloadRemoved.Values-contains$false){$fail.Add('Scenario ForeignPayloadRemoved failed: cutover='+(($cutoverFiles3.Name)-join', ')+'; comfy='+(($comfyFiles3.Name)-join', '))}

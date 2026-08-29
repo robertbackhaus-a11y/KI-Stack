@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "kernelVersion": "1.6.10",
+  "kernelVersion": "1.6.13",
   "stackRoot": "C:\\KI-Stack",
   "stateRoot": "C:\\KI-Stack\\state",
   "logRoot": "C:\\KI-Stack\\logs",
@@ -83,6 +83,8 @@
     "repository": "https://github.com/Comfy-Org/ComfyUI.git",
     "ref": "v0.28.0",
     "refType": "tag",
+    "minimumSupportedVersion": "v0.28.0",
+    "maximumSupportedVersion": null,
     "cloneDepth": 1,
     "updateExistingRepository": false,
     "venv": "C:\\KI-Stack\\python\\venvs\\comfyui",
@@ -159,6 +161,8 @@
       "enabled": true,
       "packageName": "open-webui",
       "version": "0.11.0",
+      "minimumSupportedVersion": "0.11.0",
+      "maximumSupportedVersion": null,
       "venv": "C:\\KI-Stack\\python\\venvs\\openwebui",
       "dataRoot": "C:\\KI-Stack\\OpenWebUI\\data",
       "url": "http://127.0.0.1:8080",
@@ -196,7 +200,7 @@
     "webLoaderConcurrentRequests": 5
   },
   "executeRelease": {
-    "releaseId": "CUTOVER-1.6.10",
+    "releaseId": "CUTOVER-1.6.13",
     "enabledModules": [
       "KIModuleFoundation",
       "KIModuleRuntime",
@@ -222,7 +226,7 @@
     "searchRecursively": true,
     "sortBy": "LastWriteTimeUtc",
     "preflightSelectionMode": "EmbeddedDefault",
-    "embeddedPreflightRelativePath": "State\\Generated\\Preflight-Continuation-v1.6.10.zip",
+    "embeddedPreflightRelativePath": "State\\Generated\\Preflight-Continuation-v1.6.13.zip",
     "allowExplicitPreflightOverride": true
   },
   "cutover": {

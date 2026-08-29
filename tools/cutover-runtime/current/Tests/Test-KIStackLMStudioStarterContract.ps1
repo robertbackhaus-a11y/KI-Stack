@@ -34,7 +34,12 @@ function Stop-KILMStudioFixtureProcesses {
 # non-Windows curl/timeout earlier on PATH) would otherwise leak into this
 # test and hide the fixture-driven behavior under test -- restrict PATH to
 # just the Windows base directories for the fixture's child processes.
-$script:MinimalWindowsPath=@("$env:SystemRoot\System32","$env:SystemRoot","$env:SystemRoot\System32\WindowsPowerShell\v1.0") -join ';'
+# WindowsApps is included because on a machine where PowerShell 7 is only
+# reachable via its App Execution Alias (no %ProgramFiles%\PowerShell\7\
+# pwsh.exe), the steady-state autostart-cleanup step's own "where pwsh.exe"
+# fallback needs it to resolve at all -- this is a real dependency of the
+# cleanup step under test (Scenario C/D), not something being isolated away.
+$script:MinimalWindowsPath=@("$env:SystemRoot\System32","$env:SystemRoot","$env:SystemRoot\System32\WindowsPowerShell\v1.0","$env:LOCALAPPDATA\Microsoft\WindowsApps") -join ';'
 
 # Raw TcpListener (not HttpListener): avoids http.sys URL-ACL/namespace
 # reservation requirements a non-admin test process would otherwise hit.
@@ -155,6 +160,114 @@ Set-Content -LiteralPath $lmsPath -Encoding ascii -Value @(
     if(Test-Path -LiteralPath $rootB){Remove-Item -LiteralPath $rootB -Recurse -Force -ErrorAction SilentlyContinue}
 }
 
+# --- Scenario C: successful endpoint reachability -> steady-state autostart
+# cleanup runs both before "lms server start" AND again after the endpoint is
+# confirmed reachable, in that order, before exit /b 0. Uses a real
+# -CompleteInstallerModulePath pointing at a stub module (never the real
+# CompleteInstaller.psm1) so each Remove-KICompleteLMStudioCompetingAutostart
+# invocation is independently observable, in the order it actually happened,
+# rather than inferred indirectly. -------------------------------------------
+$rootC=New-KILMStudioFixtureRoot
+$previousUserProfileC=$env:USERPROFILE
+$previousEventsLogC=$env:KI_TEST_EVENTS_LOG
+try{
+    $eventsLogC=Join-Path $rootC 'events.log'
+    New-Item -ItemType File -Path $eventsLogC -Force|Out-Null
+    $stubModuleC=Join-Path $rootC 'CompleteInstaller.psm1'
+    Set-Content -LiteralPath $stubModuleC -Encoding utf8NoBOM -Value @'
+function Remove-KICompleteLMStudioCompetingAutostart {
+    Add-Content -LiteralPath $env:KI_TEST_EVENTS_LOG -Value 'cleanup'
+}
+Export-ModuleMember -Function Remove-KICompleteLMStudioCompetingAutostart
+'@
+    $mockServerScriptC=Join-Path $rootC 'mock-lmstudio-server.ps1'
+    Set-Content -LiteralPath $mockServerScriptC -Encoding utf8NoBOM -Value $mockServerScriptContent
+    $userProfileC=Join-Path $rootC 'profile'
+    $binDirC=Join-Path $userProfileC '.lmstudio/bin'
+    New-Item -ItemType Directory -Path $binDirC -Force|Out-Null
+    $lmsPathC=Join-Path $binDirC 'lms.cmd'
+    # Same fake CLI as Scenario A, but additionally records the moment the
+    # server is actually asked to start, so its position in events.log
+    # relative to the two cleanup invocations proves the required ordering.
+    Set-Content -LiteralPath $lmsPathC -Encoding ascii -Value @(
+        '@echo off'
+        'if "%1"=="server" if "%2"=="start" ('
+        '    echo server-start>>"%KI_TEST_EVENTS_LOG%"'
+        "    start `"`" powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$mockServerScriptC`" -Port %4"
+        '    exit /b 0'
+        ')'
+        'exit /b 1'
+    )
+    $starterC=Join-Path $rootC 'Start-KIStack-LMStudio.cmd'
+    $portC=Get-Random -Minimum 30000 -Maximum 35000
+    $content=Get-KILMStudioStarterScriptContent -LmsCli '' -LmExecutable '' -Port ([string]$portC) -BindAddress '127.0.0.1' -LmsWaitMaxAttempts 3 -LmsWaitIntervalSeconds 1 -EndpointWaitMaxAttempts 5 -EndpointWaitIntervalSeconds 1 -CompleteInstallerModulePath $stubModuleC
+    Set-Content -LiteralPath $starterC -Encoding ascii -Value $content
+    $env:USERPROFILE=$userProfileC
+    $env:KI_TEST_EVENTS_LOG=$eventsLogC
+    $previousPathC=$env:PATH
+    $env:PATH=$script:MinimalWindowsPath
+    $procC=Start-Process -FilePath 'cmd.exe' -ArgumentList @('/D','/C','call',"`"$starterC`"") -Wait -PassThru -NoNewWindow
+    $env:PATH=$previousPathC
+    $env:USERPROFILE=$previousUserProfileC
+    $eventsC=@(Get-Content -LiteralPath $eventsLogC -ErrorAction SilentlyContinue|Where-Object{$_})
+    if($procC.ExitCode-ne0){$failures.Add("Szenario C (Cleanup-Reihenfolge): erwarteter Exitcode 0, erhalten $($procC.ExitCode). events.log: $($eventsC-join',')")}
+    if(($eventsC-join',')-ne'cleanup,server-start,cleanup'){$failures.Add("Szenario C (Cleanup-Reihenfolge): erwartete Ereignisfolge 'cleanup,server-start,cleanup', erhalten '$($eventsC-join',')'.")}
+}finally{
+    if($env:PATH -ne $previousPathC -and $previousPathC){$env:PATH=$previousPathC}
+    if($env:USERPROFILE -ne $previousUserProfileC -and $previousUserProfileC){$env:USERPROFILE=$previousUserProfileC}
+    if($previousEventsLogC){$env:KI_TEST_EVENTS_LOG=$previousEventsLogC}else{Remove-Item Env:\KI_TEST_EVENTS_LOG -ErrorAction SilentlyContinue}
+    Stop-KILMStudioFixtureProcesses -FixtureRoot $rootC
+    if(Test-Path -LiteralPath $rootC){Remove-Item -LiteralPath $rootC -Recurse -Force -ErrorAction SilentlyContinue}
+}
+
+# --- Scenario D: endpoint never becomes reachable (EndpointTimeout path) --
+# the post-start cleanup must NOT run here -- it belongs exclusively to the
+# successful-endpoint exit, not the timeout/error contract. Exactly one
+# cleanup call (the pre-start one) is expected; the timeout/exit-code
+# contract itself must be unaffected by the new cleanup step. -------------
+$rootD=New-KILMStudioFixtureRoot
+$previousUserProfileD=$env:USERPROFILE
+$previousEventsLogD=$env:KI_TEST_EVENTS_LOG
+try{
+    $eventsLogD=Join-Path $rootD 'events.log'
+    New-Item -ItemType File -Path $eventsLogD -Force|Out-Null
+    $stubModuleD=Join-Path $rootD 'CompleteInstaller.psm1'
+    Set-Content -LiteralPath $stubModuleD -Encoding utf8NoBOM -Value @'
+function Remove-KICompleteLMStudioCompetingAutostart {
+    Add-Content -LiteralPath $env:KI_TEST_EVENTS_LOG -Value 'cleanup'
+}
+Export-ModuleMember -Function Remove-KICompleteLMStudioCompetingAutostart
+'@
+    $userProfileD=Join-Path $rootD 'profile'
+    $binDirD=Join-Path $userProfileD '.lmstudio/bin'
+    New-Item -ItemType Directory -Path $binDirD -Force|Out-Null
+    $lmsPathD=Join-Path $binDirD 'lms.cmd'
+    # "server start" reports success but never actually opens the port -- the
+    # endpoint wait loop must exhaust its bounded attempts and hit
+    # :EndpointTimeout (exit 1), never the success branch.
+    Set-Content -LiteralPath $lmsPathD -Encoding ascii -Value @('@echo off','if "%1"=="server" if "%2"=="start" exit /b 0','exit /b 1')
+    $starterD=Join-Path $rootD 'Start-KIStack-LMStudio.cmd'
+    $portD=Get-Random -Minimum 35001 -Maximum 39999
+    $content=Get-KILMStudioStarterScriptContent -LmsCli '' -LmExecutable '' -Port ([string]$portD) -BindAddress '127.0.0.1' -LmsWaitMaxAttempts 3 -LmsWaitIntervalSeconds 1 -EndpointWaitMaxAttempts 2 -EndpointWaitIntervalSeconds 1 -CompleteInstallerModulePath $stubModuleD
+    Set-Content -LiteralPath $starterD -Encoding ascii -Value $content
+    $env:USERPROFILE=$userProfileD
+    $env:KI_TEST_EVENTS_LOG=$eventsLogD
+    $previousPathD=$env:PATH
+    $env:PATH=$script:MinimalWindowsPath
+    $procD=Start-Process -FilePath 'cmd.exe' -ArgumentList @('/D','/C','call',"`"$starterD`"") -Wait -PassThru -NoNewWindow
+    $env:PATH=$previousPathD
+    $env:USERPROFILE=$previousUserProfileD
+    $eventsD=@(Get-Content -LiteralPath $eventsLogD -ErrorAction SilentlyContinue|Where-Object{$_})
+    if($procD.ExitCode-ne1){$failures.Add("Szenario D (EndpointTimeout): erwarteter Exitcode 1, erhalten $($procD.ExitCode) -- Timeout-Vertrag durch neuen Cleanup-Schritt verändert?")}
+    if(($eventsD-join',')-ne'cleanup'){$failures.Add("Szenario D (EndpointTimeout): Post-Start-Cleanup lief fälschlich auch im Timeout-Pfad. events.log: '$($eventsD-join',')'.")}
+}finally{
+    if($env:PATH -ne $previousPathD -and $previousPathD){$env:PATH=$previousPathD}
+    if($env:USERPROFILE -ne $previousUserProfileD -and $previousUserProfileD){$env:USERPROFILE=$previousUserProfileD}
+    if($previousEventsLogD){$env:KI_TEST_EVENTS_LOG=$previousEventsLogD}else{Remove-Item Env:\KI_TEST_EVENTS_LOG -ErrorAction SilentlyContinue}
+    Stop-KILMStudioFixtureProcesses -FixtureRoot $rootD
+    if(Test-Path -LiteralPath $rootD){Remove-Item -LiteralPath $rootD -Recurse -Force -ErrorAction SilentlyContinue}
+}
+
 # --- Static contract: bounded waits, no infinite loop ----------------------
 $modulePath=Join-Path $ProjectRoot 'Modules/06-Applications/KIModuleApplications.psm1'
 $moduleText=[IO.File]::ReadAllText($modulePath)
@@ -162,6 +275,6 @@ foreach($marker in @('LMS_WAIT_MAX_ATTEMPTS','ENDPOINT_WAIT_MAX_ATTEMPTS','goto 
     if(-not$moduleText.Contains($marker)){$failures.Add("Begrenzungsvertrag fehlt: $marker")}
 }
 
-$result=[pscustomobject]@{passed=($failures.Count-eq0);checks=7;failures=@($failures)}
+$result=[pscustomobject]@{passed=($failures.Count-eq0);checks=11;failures=@($failures)}
 $result|ConvertTo-Json -Depth 10
 if(-not$result.passed){exit 1}

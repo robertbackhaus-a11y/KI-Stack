@@ -39,6 +39,71 @@ function ConvertTo-KIComfyNormalizedRepositoryUrl {
     return $normalized
 }
 
+function ConvertTo-KIComfySemanticVersion {
+    # Normalizes a tag like 'v0.28.0' into a comparable [version]; returns $null for anything that
+    # isn't a plain vX.Y[.Z[.W]] tag instead of silently accepting an unknown format.
+    param([AllowNull()][string]$Tag)
+
+    if ([string]::IsNullOrWhiteSpace($Tag)) { return $null }
+    $normalized = $Tag.Trim()
+    if ($normalized.StartsWith('v') -or $normalized.StartsWith('V')) {
+        $normalized = $normalized.Substring(1)
+    }
+    if ($normalized -notmatch '^\d+(\.\d+){1,3}$') { return $null }
+    try { return [version]$normalized } catch { return $null }
+}
+
+function Get-KIComfyVersionSupportState {
+    # Separates "matches the reference tag exactly" (ReferenceMatch) from "is a version this
+    # release actually supports" (Supported) -- a newer, technically compatible installation must
+    # not be treated as a defect just because it isn't byte-identical to the reference tag used
+    # for reproducible Greenfield installs. A missing/non-semver tag or an unparsable bound is
+    # never silently treated as supported.
+    param(
+        [AllowNull()][string]$InstalledTag,
+        [Parameter(Mandatory)][string]$ReferenceVersion,
+        [Parameter(Mandatory)][string]$MinimumSupportedVersion,
+        [AllowNull()][string]$MaximumSupportedVersion
+    )
+
+    $installed = ConvertTo-KIComfySemanticVersion -Tag $InstalledTag
+    $reference = ConvertTo-KIComfySemanticVersion -Tag $ReferenceVersion
+    $minimum = ConvertTo-KIComfySemanticVersion -Tag $MinimumSupportedVersion
+    $maximum = if ([string]::IsNullOrWhiteSpace($MaximumSupportedVersion)) {
+        $null
+    } else {
+        ConvertTo-KIComfySemanticVersion -Tag $MaximumSupportedVersion
+    }
+
+    $referenceMatch = ($null -ne $installed -and $null -ne $reference -and $installed -eq $reference)
+    $supported = $false
+    $reason = $null
+    if ([string]::IsNullOrWhiteSpace($InstalledTag)) {
+        $reason = 'ComfyUI-Repository steht auf keinem exakten Tag (detached/unbekannter Stand).'
+    } elseif ($null -eq $installed) {
+        $reason = "ComfyUI-Tag '$InstalledTag' ist kein unterstütztes Versionsformat (erwartet vX.Y.Z)."
+    } elseif ($null -eq $minimum) {
+        $reason = "MinimumSupportedVersion '$MinimumSupportedVersion' ist kein gültiges Versionsformat."
+    } elseif ($installed -lt $minimum) {
+        $reason = "ComfyUI $InstalledTag liegt unter der unterstützten Mindestversion $MinimumSupportedVersion."
+    } elseif ($null -ne $maximum -and $installed -gt $maximum) {
+        $reason = "ComfyUI $InstalledTag liegt über der unterstützten Maximalversion $MaximumSupportedVersion."
+    } else {
+        $supported = $true
+    }
+
+    return [pscustomobject][ordered]@{
+        installedVersion = $InstalledTag
+        referenceVersion = $ReferenceVersion
+        minimumSupportedVersion = $MinimumSupportedVersion
+        maximumSupportedVersion = $MaximumSupportedVersion
+        referenceMatch = $referenceMatch
+        supported = $supported
+        mutationRequired = (-not $supported)
+        reason = $reason
+    }
+}
+
 function Get-KIComfyRollbackStatePath {
     param([Parameter(Mandatory)][object]$Context)
 
@@ -529,7 +594,7 @@ function Install-KIModuleComfyUI {
         return [pscustomobject][ordered]@{
             success = $true
             skipped = $false
-            message = 'Dry-Run: ComfyUI v0.28.0, CUDA-PyTorch und Start-/Stop-Artefakte wurden geplant.'
+            message = ('Dry-Run: ComfyUI (Referenzversion {0}), CUDA-PyTorch und Start-/Stop-Artefakte wurden geplant.' -f [string]$Context.Config.comfyUI.ref)
             data = [pscustomobject][ordered]@{
                 repository = [string]$Context.Config.comfyUI.repository
                 ref = [string]$Context.Config.comfyUI.ref
@@ -602,11 +667,15 @@ function Install-KIModuleComfyUI {
     if ([string]$repositoryState.normalizedOrigin -ne $expectedRepository) {
         throw ('ComfyUI-Origin stimmt nicht: {0}' -f [string]$repositoryState.origin)
     }
-    if ([string]$repositoryState.exactTag -ne $expectedRef) {
-        throw ('ComfyUI ist nicht exakt auf dem freigegebenen Tag {0}. Gefunden: {1}' -f
-            $expectedRef,
-            [string]$repositoryState.exactTag
-        )
+    # A newer, technically compatible ComfyUI is not a defect: only reject it when the installed
+    # tag genuinely falls outside the supported range (or isn't a real tag at all), never merely
+    # because it differs from the Greenfield reference. No downgrade is ever attempted here.
+    $versionSupport = Get-KIComfyVersionSupportState -InstalledTag $repositoryState.exactTag `
+        -ReferenceVersion $expectedRef `
+        -MinimumSupportedVersion ([string](Get-KIComfyProperty -Object $Context.Config.comfyUI -Name 'minimumSupportedVersion' -Default $expectedRef)) `
+        -MaximumSupportedVersion ([string](Get-KIComfyProperty -Object $Context.Config.comfyUI -Name 'maximumSupportedVersion' -Default $null))
+    if (-not [bool]$versionSupport.supported) {
+        throw ('ComfyUI-Version wird nicht unterstützt: {0}' -f [string]$versionSupport.reason)
     }
     if ([bool]$repositoryState.dirty) {
         throw 'Das ComfyUI-Repository enthält lokale Änderungen und wird nicht verändert.'
@@ -723,7 +792,7 @@ function Install-KIModuleComfyUI {
     return [pscustomobject][ordered]@{
         success = $true
         skipped = $false
-        message = 'ComfyUI v0.28.0 und die CUDA-fähige Pythonumgebung wurden eingerichtet.'
+        message = ('ComfyUI {0} und die CUDA-fähige Pythonumgebung wurden eingerichtet.' -f [string]$repositoryState.exactTag)
         data = [pscustomobject][ordered]@{
             rootCreatedByTransaction = [bool]$rollbackState.rootCreatedByTransaction
             venvCreatedByTransaction = [bool]$rollbackState.venvCreatedByTransaction
@@ -732,6 +801,7 @@ function Install-KIModuleComfyUI {
             rollbackStatePath = (Get-KIComfyRollbackStatePath -Context $Context)
             repositoryState = $repositoryState
             environmentState = $environmentState
+            versionSupport = $versionSupport
             installationStatePath = $installationStatePath
         }
     }
@@ -812,8 +882,12 @@ function Validate-KIModuleComfyUI {
     if ([string]$repositoryState.normalizedOrigin -ne $expectedRepository) {
         [void]$issues.Add('Repository-Origin stimmt nicht mit der Freigabe überein.')
     }
-    if ([string]$repositoryState.exactTag -ne [string]$Context.Config.comfyUI.ref) {
-        [void]$issues.Add('Repository ist nicht auf dem freigegebenen Tag.')
+    $versionSupport = Get-KIComfyVersionSupportState -InstalledTag $repositoryState.exactTag `
+        -ReferenceVersion ([string]$Context.Config.comfyUI.ref) `
+        -MinimumSupportedVersion ([string](Get-KIComfyProperty -Object $Context.Config.comfyUI -Name 'minimumSupportedVersion' -Default ([string]$Context.Config.comfyUI.ref))) `
+        -MaximumSupportedVersion ([string](Get-KIComfyProperty -Object $Context.Config.comfyUI -Name 'maximumSupportedVersion' -Default $null))
+    if (-not [bool]$versionSupport.supported) {
+        [void]$issues.Add('ComfyUI-Version wird nicht unterstützt: {0}' -f [string]$versionSupport.reason)
     }
     if ([bool]$repositoryState.dirty) {
         [void]$issues.Add('Repository enthält lokale Änderungen.')
@@ -865,9 +939,10 @@ function Validate-KIModuleComfyUI {
         if ([string]$installationState.managedBy -ne 'KI-STACK-COMFYUI-MANAGED') {
             [void]$issues.Add('installation.json besitzt keine gültige KI-Stack-Verwaltungskennung.')
         }
-        if ([string]$installationState.tag -ne [string]$Context.Config.comfyUI.ref) {
-            [void]$issues.Add('installation.json enthält nicht den freigegebenen ComfyUI-Tag.')
-        }
+        # The marker's own recorded tag is a historical installation record, not the compliance
+        # authority -- $versionSupport above (from a real, live git read) already decides
+        # supported/unsupported, so a marker that predates a later, still-supported real-world
+        # ComfyUI update (e.g. via ComfyUI Manager) must not fail validation on that basis alone.
         if (-not [bool]$installationState.cudaAvailable) {
             [void]$gpuIssues.Add('installation.json bestätigt keine CUDA-Verfügbarkeit.')
         }
@@ -881,7 +956,8 @@ function Validate-KIModuleComfyUI {
         message = if ($issues.Count -gt 0) {
             'Der ComfyUI-Zielzustand ist unvollständig.'
         } elseif ($gpuReady) {
-            'ComfyUI, v0.28.0, PyTorch CUDA und RTX 5090 wurden vollständig validiert.'
+            ('ComfyUI {0} (unterstützt: {1}), PyTorch CUDA und RTX 5090 wurden vollständig validiert.' -f
+                [string]$repositoryState.exactTag, [bool]$versionSupport.supported)
         } else {
             'Die ComfyUI-Installation ist technisch konsistent; die GPU-Produktionsfreigabe ist nicht erfüllt.'
         }
@@ -892,6 +968,8 @@ function Validate-KIModuleComfyUI {
             missingPaths = $missingPaths
             repositoryState = $repositoryState
             environmentState = $environmentState
+            versionSupport = $versionSupport
+            compatibilityProbePassed = [bool]$environmentState.valid
             url = ('http://{0}:{1}' -f
                 [string]$Context.Config.comfyUI.listenAddress,
                 [int]$Context.Config.comfyUI.port
