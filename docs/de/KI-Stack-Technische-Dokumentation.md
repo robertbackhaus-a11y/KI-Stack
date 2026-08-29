@@ -1,6 +1,6 @@
-# KI-Stack 2.4.0 – Technische Dokumentation
+# KI-Stack 2.10.0 – Technische Dokumentation
 
-KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Installer 2.4.0 wurde mit einer vollständigen, erfolgreichen, realen Greenfield-Installation auf einem leeren Zielsystem verifiziert.
+KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Installer 2.10.0 ist regressions- und zielsystemvalidiert (siehe `docs/releases/complete-installer-v2.10.0.md`); die letzte vollständige, physische Greenfield-Installation auf einem leeren Zielsystem wurde in einem früheren Zyklus durchgeführt und verifiziert.
 
 ## Aktive Komponenten
 
@@ -12,15 +12,17 @@ KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Inst
 | Models / Workflows | 2.0.3 |
 | Applications | 1.4.11 |
 | Integration | 1.5.11 |
-| Cutover Runtime | 1.6.10 |
-| Codex Local | 0.1.3 |
-| RAG | 0.2.0 |
+| Cutover Runtime | 1.6.13 |
+| Codex Local | 0.1.4 |
+| RAG | 0.3.1 |
 | Production Recovery | 1.7.0-r7 |
 | Validation Gate | 1.0.3 |
 | Target Acceptance | 1.0.10 |
 | OpenWebUI Visual Pack | 2.0.5 |
 | OpenWebUI Agent Pack | 1.8.9 |
-| Complete Installer | 2.4.0 |
+| Complete Installer | 2.10.0 |
+
+Referenzversion von ComfyUI für reproduzierbare Neuinstallationen ist `v0.28.0`; eine bestehende, unterstützte neuere Installation (z. B. `v0.34.0`) bleibt erhalten und wird nie automatisch zurückgestuft. Referenzversion von Open WebUI ist `0.11.0` (`MinimumSupportedVersion` `0.11.0`); eine bestehende, unterstützte neuere Installation (z. B. `0.11.1`) bleibt ebenso erhalten.
 
 Heretic ist das einzige auswählbare Chat-LLM. Nomic dient ausschließlich Embeddings. Z-Image verwendet nur `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf`. Die visuelle Ausführung ist auf Z-Image Turbo und WAN2.2 T2V 14B mit beiden High-/Low-LightX2V-4-Step-LoRAs begrenzt.
 
@@ -55,4 +57,4 @@ MP4 bleibt genau ein persistenter Dateianhang über das native `files`-Event und
 
 ## Validierungsumfang
 
-Der 2.4.0-Release wurde mit einer vollständigen, erfolgreichen, realen Greenfield-Installation auf einem leeren Zielsystem verifiziert: alle Transaktionsschritte wurden abgeschlossen, der Installer beendete sich mit Exitcode 0 — einschließlich WSL2/Debian-Foundation-Einrichtung, ComfyUI, LM Studio mit automatischem Serverstart, SearXNG-Dienstübernahme, Codex Local und RAG.
+Der 2.10.0-Release wurde regressionsgetestet und anschließend auf einem realen, bestehenden (nicht Greenfield-)Zielsystem validiert: die Complete-Installer-/Cutover-Runtime-Transaktion wurde erfolgreich abgeschlossen, ComfyUIs bestehende, unterstützte Installation `v0.34.0` blieb erhalten statt auf die Referenzversion `v0.28.0` zurückgesetzt zu werden, Open WebUIs bestehende Installation `0.11.1` blieb ebenso erhalten, und LM Studios lokaler API-Server war nach dem Lauf weiterhin unter `http://127.0.0.1:1234/v1/models` erreichbar, ohne den konkurrierenden Windows-Autostart-Eintrag. Der vollständige Real-Target-Nachweis steht in `docs/releases/complete-installer-v2.10.0.md`. Die letzte vollständige, physische Greenfield-Installation auf einem leeren Zielsystem — WSL2/Debian-Foundation-Einrichtung, ComfyUI, LM Studio mit automatischem Serverstart, SearXNG-Dienstübernahme, Codex Local und RAG — wurde in einem früheren Zyklus (2.4.0) durchgeführt und verifiziert; keine funktionale Änderung seitdem entwertet diesen Installationspfad.

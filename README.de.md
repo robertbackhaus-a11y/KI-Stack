@@ -10,18 +10,20 @@ Der KI-Stack ist ein modularer und transaktionsgesicherter Windows-Installer fü
 |---|---:|---|
 | Foundation / Runtime | 1.0.9 | Stabiler Referenzstand, auf Zielsystem validiert |
 | Python / Git | 1.1.5 | Stabil, auf Zielsystem validiert |
-| ComfyUI | 1.2.4 | Stabile Komponente; transaktionaler Marker/Readback |
+| ComfyUI | 1.2.4 | Stabile Komponente; transaktionaler Marker/Readback. Referenzversion `v0.28.0` für reproduzierbare Neuinstallationen; eine bestehende, unterstützte neuere Installation (z. B. `v0.34.0`) bleibt erhalten und wird nie automatisch zurückgestuft |
 | Modelle / Workflows | 2.0.3 | Automatischer revisionsgebundener Modelldownload einschließlich Nomic Q4_K_M mit optionalem geprüftem Cache/Preload |
-| Applications | 1.4.10 | Stabil; LM Studio und Open WebUI 0.10.2 auf dem Zielsystem akzeptiert |
+| Applications | 1.4.11 | Stabil; LM Studio (konkurrierender Electron-Autostart wird vor *und* nach dem Serverstart entfernt) und Open WebUI (Referenzversion `0.11.0`, `MinimumSupportedVersion` `0.11.0`; eine neuere unterstützte Installation wie `0.11.1` bleibt erhalten und wird nie automatisch zurückgestuft) |
 | Integration | 1.5.11 | Stabile Komponente; feste SearXNG-Revision plus getracktes Overlay |
-| Cutover Runtime | 1.6.5 | Stabile Komponente; transaktionslokaler Fortsetzungszustand |
+| Cutover Runtime | 1.6.13 | Stabile Komponente; transaktionslokaler Fortsetzungszustand; zielsystemvalidierter ComfyUI-Supported-Version-Vertrag, Schutz gegen v0.28.0-Payload-Overlay und die Applications-Korrekturen oben (siehe `docs/releases/complete-installer-v2.10.0.md`) |
 | Production Recovery | 1.7.0-r7 | Auf dem Zielsystem akzeptiert; SearXNG-Kaltstart repariert |
 | Universeller Paket-Validation-Gate | 1.0.3 | Auf dem Zielsystem aktiviert |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` am 21.07.2026 |
 | OpenWebUI Agent Pack | 1.8.9 | Stabil; Heretic-Profile mit Visual-Pack-2.0.5-Bindung |
 | OpenWebUI Visual Pack | 2.0.5 | Stabil; Z-Image- und WAN2.2-Tools mit persistenten MP4-Anhängen |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stabil; `18Bravo` und Solver zielsystemvalidiert |
-| Complete Installer | 2.4.0 | Stabil; verifiziert mit vollständiger, erfolgreicher, realer Greenfield-Installation auf leerem Zielsystem |
+| Codex Local | 0.1.4 | Stabile Komponente |
+| RAG | 0.3.1 | Stabile Komponente; Ingestion zurückgestellt, Remote-Rollback validiert |
+| Complete Installer | 2.10.0 | Ergänzt `Update-KIStack-All.cmd`, einen zentralen Update-Checker mit `InstalledVersion`/`PinnedVersion`/`AvailableVersion` je verwalteter Komponente; Upstream-Erkennung ist rein informativ, automatische Ausführung erfolgt ausschließlich bei echter `InstalledVersion`/`PinnedVersion`-Abweichung. Dieselbe Zielsystemvalidierung schloss drei Cutover-Runtime-Korrekturen ab (Anhebung auf 1.6.13): ComfyUI und Open WebUI stufen eine bestehende, unterstützte, neuere Installation nicht mehr automatisch auf ihre Referenzversion (`v0.28.0`/`0.11.0`) zurück, nur weil sie nicht exakt übereinstimmt; der LM-Studio-Steady-State-Autostart-Schutz wirkt jetzt zusätzlich nach dem Serverstart. Regressions- und zielsystemvalidiert (siehe `docs/releases/complete-installer-v2.10.0.md`). |
 | System Cleanup Audit | 1.0.0 | Audit abgeschlossen; Bereinigungsplan wartet auf ausdrückliche Freigabe |
 
 Vollständige Paketquellen liegen im Verzeichnis `package`. Fertige ZIP-Pakete werden als GitHub-Release-Artefakte veröffentlicht und nicht dauerhaft in die normale Git-Historie aufgenommen.
@@ -44,7 +46,7 @@ Jedes Paket enthält Selbsttest, Dry-Run, Execute, Transaktionsprotokollierung, 
 `tools/system-cleanup/current` inventarisiert ausschließlich lesend und klassifiziert konservativ. Der erzeugte Bereinigungsplan ist per SHA256 gebunden und ohne getrennte ausdrückliche Freigabe nicht ausführbar; Version 1.0.0 löscht nichts.
 
 
-Die Repository-Runtime bleibt Cutover `1.6.3`. Production Recovery `1.7.0-r7` ist eine Wiederherstellungslinie und keine neue Runtime-Version; r5 bleibt als veröffentlichter Vorgänger dokumentiert.
+Production Recovery `1.7.0-r7` ist eine Wiederherstellungslinie und keine neue Runtime-Version; r5 bleibt als veröffentlichter Vorgänger dokumentiert. Die aktuelle Cutover-Runtime-Version ist `1.6.13` (siehe Tabelle oben und `docs/releases/complete-installer-v2.10.0.md`).
 
 
 ## Applications v1.4.0-rc1
@@ -69,7 +71,7 @@ Gesamtstatus: `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
 
 ## OpenWebUI Agent Pack
 
-Das OpenWebUI Agent Pack `1.8.3` verwaltet ausschließlich die Workspace-Modelle `KI & IT-Technik` und `Allgemein` über die unterstützte HTTP-API von OpenWebUI 0.10.2. Es aktiviert nur den eingebauten browserlokalen Pyodide-Code-Interpreter und erhält ausschließlich die registrierte Image-Pack-Toolbindung. `execute_code` ist keine Workspace-Tool-ID.
+Das OpenWebUI Agent Pack `1.8.9` verwaltet ausschließlich die Workspace-Modelle `KI & IT-Technik` und `Allgemein` über die unterstützte HTTP-API von OpenWebUI (Referenzversion `0.11.0`; eine neuere unterstützte Installation wie `0.11.1` bleibt erhalten). Es aktiviert nur den eingebauten browserlokalen Pyodide-Code-Interpreter und erhält ausschließlich die registrierte Image-Pack-Toolbindung. `execute_code` ist keine Workspace-Tool-ID.
 
 Das OpenWebUI Image Pack `1.10.0` verwaltet weiterhin genau das kanonische Tool `ki-stack-generate-image` über die lokale ComfyUI 1.2.2. Die bestehende FLUX2-Methode `generate_image` bleibt erhalten; `generate_pony_image` ergänzt Pony SDXL mit 1024 × 1024, CLIP Skip 2, 40 Schritten, CFG 3.1, `euler` und `normal`. Beide Wege speichern Bilder direkt im OpenWebUI-Chat. Das Pack lädt keine Modelle; der Pony-Checkpoint muss bereits installiert sein. Pony-Workflow und Chat-Ausgabe wurden auf dem Zielsystem praktisch geprüft, ohne damit eine vollständige Zielsystemvalidierung von 1.10.0 zu behaupten.
 

@@ -1,6 +1,6 @@
-# KI-Stack 2.4.0 technical documentation
+# KI-Stack 2.10.0 technical documentation
 
-KI-Stack is a transactional Windows local-AI stack. Complete Installer 2.4.0 has been verified with a complete, successful, physical Greenfield installation on an empty target.
+KI-Stack is a transactional Windows local-AI stack. Complete Installer 2.10.0 has been regression- and real-target-validated (see `docs/releases/complete-installer-v2.10.0.md`); the last complete, physical Greenfield installation on an empty target was performed and verified in an earlier cycle.
 
 ## Active components
 
@@ -12,15 +12,17 @@ KI-Stack is a transactional Windows local-AI stack. Complete Installer 2.4.0 has
 | Models / Workflows | 2.0.3 |
 | Applications | 1.4.11 |
 | Integration | 1.5.11 |
-| Cutover Runtime | 1.6.10 |
-| Codex Local | 0.1.3 |
-| RAG | 0.2.0 |
+| Cutover Runtime | 1.6.13 |
+| Codex Local | 0.1.4 |
+| RAG | 0.3.1 |
 | Production Recovery | 1.7.0-r7 |
 | Validation Gate | 1.0.3 |
 | Target Acceptance | 1.0.10 |
 | OpenWebUI Visual Pack | 2.0.5 |
 | OpenWebUI Agent Pack | 1.8.9 |
-| Complete Installer | 2.4.0 |
+| Complete Installer | 2.10.0 |
+
+ComfyUI's reference version for reproducible Greenfield installs is `v0.28.0`; an existing, supported newer installation (e.g. `v0.34.0`) is preserved and never auto-downgraded. Open WebUI's reference version is `0.11.0` (`MinimumSupportedVersion` `0.11.0`); an existing, supported newer installation (e.g. `0.11.1`) is preserved the same way.
 
 Heretic is the only selectable chat LLM. Nomic is embedding-only. Z-Image uses only `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf`. Visual execution is limited to Z-Image Turbo and WAN2.2 T2V 14B with the high/low LightX2V four-step LoRAs.
 
@@ -55,4 +57,4 @@ MP4 output remains exactly one persistent file attachment through the native `fi
 
 ## Validation scope
 
-The 2.4.0 release has been verified with a complete, successful, physical Greenfield installation on an empty target: every transaction step completed and the installer exited with code 0, including WSL2/Debian foundation setup, ComfyUI, LM Studio with automatic local-server startup, SearXNG service adoption, Codex Local, and RAG.
+The 2.10.0 release was regression-tested and then validated on a real, existing (non-Greenfield) target: the Complete Installer/Cutover Runtime transaction completed successfully, ComfyUI's existing, supported `v0.34.0` installation was preserved instead of being reset to the `v0.28.0` reference, Open WebUI's existing `0.11.1` installation was preserved the same way, and LM Studio's local API server remained reachable at `http://127.0.0.1:1234/v1/models` with the competing Windows autostart entry absent after the run. See `docs/releases/complete-installer-v2.10.0.md` for the full real-target record. The last complete, physical Greenfield installation on an empty target -- WSL2/Debian foundation setup, ComfyUI, LM Studio with automatic local-server startup, SearXNG service adoption, Codex Local, and RAG -- was performed and verified in an earlier cycle (2.4.0); no functional change since then invalidates that installation path.

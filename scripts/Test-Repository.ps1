@@ -274,13 +274,22 @@ try {
     $referencesOk = $obsoleteReferences.Count -eq 0 -and $packageReadme.Contains('nicht Bestandteil dieses Runtime-Pakets')
     Add-Result 'Live file references' $referencesOk $(if($referencesOk){'obsolete GitHub package references removed and component absence documented'}else{$obsoleteReferences -join '; '})
 
-    $runtimeVersion = (Get-Content -LiteralPath (Join-Path $RootPath 'VERSION') -Raw).Trim()
+    # Authoritative sources for "does the documentation reflect reality": the active tools/*/current
+    # source trees Complete Installer 2.10.0 actually builds from and pins (see
+    # tools/complete-installer/current/Contracts/COMPONENTS.json and
+    # tools/complete-installer/current/New-KIStackCompleteInstallerArchive.ps1), not the separate,
+    # long-frozen package/ + root VERSION snapshot (last touched 2026-07-21, still checked on its
+    # own terms above for its own internal consistency, but no longer the current release contract
+    # -- it is built by the separate, dormant scripts/New-ReleaseArchive.ps1 Cutover-only release
+    # track, unrelated to Complete Installer 2.10.0's tools/-based build).
+    $runtimeVersion = (Get-Content -LiteralPath (Join-Path $RootPath 'tools/cutover-runtime/current/VERSION') -Raw).Trim()
     $modelsVersion = (Get-Content -LiteralPath (Join-Path $RootPath 'tools/models-workflows/current/VERSION') -Raw).Trim()
-    $applicationsVersion = [string](Get-Content -LiteralPath (Join-Path $RootPath 'package/Modules/06-Applications/module.json') -Raw | ConvertFrom-Json).version
+    $completeComponentsForDocs = Get-Content -LiteralPath (Join-Path $RootPath 'tools/complete-installer/current/Contracts/COMPONENTS.json') -Raw | ConvertFrom-Json -Depth 30
+    $applicationsVersion = [string]($completeComponentsForDocs.components | Where-Object id -eq 'applications').version
     $integrationVersion = (Get-Content -LiteralPath (Join-Path $RootPath 'tools/integration/current/VERSION') -Raw).Trim()
     $readmeEn = Get-Content -LiteralPath (Join-Path $RootPath 'README.md') -Raw
     $readmeDe = Get-Content -LiteralPath (Join-Path $RootPath 'README.de.md') -Raw
-    $buildReport = Get-Content -LiteralPath (Join-Path $RootPath 'package/BUILD-REPORT.md') -Raw
+    $cutoverBuildReport = Get-Content -LiteralPath (Join-Path $RootPath 'tools/cutover-runtime/current/BUILD-REPORT.md') -Raw
     $documentationVersionsOk = (
         $readmeEn.Contains("| Models / Workflows | $modelsVersion |") -and
         $readmeEn.Contains("| Applications | $applicationsVersion |") -and
@@ -288,7 +297,7 @@ try {
         $readmeDe.Contains("| Modelle / Workflows | $modelsVersion |") -and
         $readmeDe.Contains("| Applications | $applicationsVersion |") -and
         $readmeDe.Contains("| Integration | $integrationVersion |") -and
-        $buildReport.Contains("Ausgelieferter Stand: Cutover v$runtimeVersion")
+        $cutoverBuildReport.Contains("KI-Stack Cutover v$runtimeVersion")
     )
     Add-Result 'Documentation version consistency' $documentationVersionsOk "runtime=$runtimeVersion; models=$modelsVersion; applications=$applicationsVersion; integration=$integrationVersion"
 
