@@ -1,9 +1,9 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.10.0",
-  "baseVersion": "2.9.0",
-  "status": "CentralUpdateChecker_TargetValidated",
+  "version": "2.10.1",
+  "baseVersion": "2.10.0",
+  "status": "SbomPipelineRestored_MaintenanceRelease",
   "previousCandidateRejected": "2.4.0-rc8",
   "previousCandidateRejectReason": "StrictMode rejected normal module results whose data object did not expose the optional reboot control status property.",
   "deterministicArchive": true,

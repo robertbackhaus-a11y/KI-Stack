@@ -1,8 +1,8 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.10.0",
-  "status": "CentralUpdateChecker_TargetValidated",
+  "version": "2.10.1",
+  "status": "SbomPipelineRestored_MaintenanceRelease",
   "results": {
     "rcBuildValidation": {
       "status": "WindowsArtifactValidated_TargetExecutionLocked",

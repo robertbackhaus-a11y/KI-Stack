@@ -68,6 +68,6 @@ try{
     }
 
     $passed=(@($checkNoApiKey.Values)-notcontains$false)-and(@($checkOpenWebUIDown.Values)-notcontains$false)-and(@($checkComfyDown.Values)-notcontains$false)-and(@($checkSuccess.Values)-notcontains$false)
-    [pscustomobject]@{passed=$passed;version='2.10.0';checks=[ordered]@{noApiKeyPath=$checkNoApiKey;openWebUIUnreachablePath=$checkOpenWebUIDown;comfyUnreachablePath=$checkComfyDown;successPath=$checkSuccess};targetSystemAccessed=$false}|ConvertTo-Json -Depth 10
+    [pscustomobject]@{passed=$passed;version='2.10.1';checks=[ordered]@{noApiKeyPath=$checkNoApiKey;openWebUIUnreachablePath=$checkOpenWebUIDown;comfyUnreachablePath=$checkComfyDown;successPath=$checkSuccess};targetSystemAccessed=$false}|ConvertTo-Json -Depth 10
     if(-not$passed){throw 'OpenWebUI-Visual-Pack-Cutover-Regression fehlgeschlagen.'}
 }finally{if(Test-Path $temp){Remove-Item $temp -Recurse -Force}}
