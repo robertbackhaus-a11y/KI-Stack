@@ -1,12 +1,13 @@
 {
   "schemaVersion": "1.0",
-  "version": "1.8.9",
+  "version": "1.9.0",
   "openWebUIVersion": "0.11.0",
   "endpoint": "http://127.0.0.1:8080",
   "baseModelId": null,
   "managedModelIds": [
     "ki-stack-it-technik",
-    "ki-stack-allgemein"
+    "ki-stack-allgemein",
+    "ki-stack-research"
   ],
   "registeredExtensionToolIds": ["ki_stack_generate_image"],
   "webSearch": {
@@ -15,5 +16,15 @@
     "globalDependency": "SearXNG configured in OpenWebUI",
     "integrationMinimumVersion": "1.5.8",
     "requiredEndpoint": "http://localhost/searxng/search?q=ki-stack&format=json"
+  },
+  "knowledgeIntegration": {
+    "profile": "ki-stack-research",
+    "source": "rag-global",
+    "resolvedBy": "Get-AgentPackRAGKnowledgeReference",
+    "ragConfigPath": "C:\\KI-Stack\\modules\\rag\\Config\\rag.config.json",
+    "matchedBy": "OpenWebUI Knowledge collection name (rag.config.json knowledgeName)",
+    "gracefulWhenUnresolved": true,
+    "unresolvedBehavior": "skip -- the whole ki-stack-research definition is neither created nor updated (never a dummy/empty knowledge binding); every other definition still completes normally in the same run",
+    "note": "Bound only once RAG's own Execute has actually created the global Knowledge collection on this target; never a hardcoded id."
   }
 }

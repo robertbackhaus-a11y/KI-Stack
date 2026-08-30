@@ -42,6 +42,29 @@ $r6=Get-KIOpenWebUIVersionSupportState -InstalledVersion '0.12.0' -ReferenceVers
 $checks.aboveMaximumBlockedWhenSet.supportedFalse=(-not[bool]$r6.supported)
 if($r6.supported){$fail.Add('Unit AboveMaximumBlockedWhenSet failed: '+($r6|ConvertTo-Json -Compress))}
 
+# The live kernel-config.json ReferenceVersion moved 0.11.0 -> 0.11.1 (real-target validated: see
+# docs/releases -- 0.11.1 has been the actual, functioning, preserved installation for multiple
+# cycles, and a fresh isolated pip install of exactly 0.11.1 was verified to bootstrap cleanly).
+# MinimumSupportedVersion intentionally stays at 0.11.0 so an existing, older reference installation
+# is never silently pushed forward -- ReferenceVersion is the new Greenfield target, not a floor.
+$checks.newReferenceVersionExactMatch=[ordered]@{}
+$r7=Get-KIOpenWebUIVersionSupportState -InstalledVersion '0.11.1' -ReferenceVersion '0.11.1' -MinimumSupportedVersion '0.11.0' -MaximumSupportedVersion $null
+$checks.newReferenceVersionExactMatch.referenceMatch=[bool]$r7.referenceMatch
+$checks.newReferenceVersionExactMatch.supported=[bool]$r7.supported
+if(-not($r7.referenceMatch-and$r7.supported)){$fail.Add('Unit NewReferenceVersionExactMatch failed: '+($r7|ConvertTo-Json -Compress))}
+
+$checks.oldReferenceStillPreservedUnderNewReference=[ordered]@{}
+$r8=Get-KIOpenWebUIVersionSupportState -InstalledVersion '0.11.0' -ReferenceVersion '0.11.1' -MinimumSupportedVersion '0.11.0' -MaximumSupportedVersion $null
+$checks.oldReferenceStillPreservedUnderNewReference.referenceMatchFalse=(-not[bool]$r8.referenceMatch)
+$checks.oldReferenceStillPreservedUnderNewReference.supported=[bool]$r8.supported
+if(-not((-not$r8.referenceMatch)-and$r8.supported)){$fail.Add('Unit OldReferenceStillPreservedUnderNewReference failed: '+($r8|ConvertTo-Json -Compress))}
+
+$checks.futureNewerVersionStillPreservableUnderNewReference=[ordered]@{}
+$r9=Get-KIOpenWebUIVersionSupportState -InstalledVersion '0.11.2' -ReferenceVersion '0.11.1' -MinimumSupportedVersion '0.11.0' -MaximumSupportedVersion $null
+$checks.futureNewerVersionStillPreservableUnderNewReference.referenceMatchFalse=(-not[bool]$r9.referenceMatch)
+$checks.futureNewerVersionStillPreservableUnderNewReference.supported=[bool]$r9.supported
+if(-not((-not$r9.referenceMatch)-and$r9.supported)){$fail.Add('Unit FutureNewerVersionStillPreservableUnderNewReference failed: '+($r9|ConvertTo-Json -Compress))}
+
 # --- Part 2: Install-KIModuleApplications's real OpenWebUI-install gate -- exercised end-to-end
 # (real Python 3.11/3.12 discovery, real file writes) with only the shared external-process runner
 # (Invoke-KIApplicationCommand) replaced by a recording stub, so every command KIModuleApplications
@@ -206,6 +229,29 @@ try{
         installCommandIssued=($scenarioE.installCommandCount-gt0)
     }
     if($checks.probeFailureNotSilentlyCompliant.Values-contains$false){$fail.Add('Scenario E (ProbeFailure) failed: '+$scenarioE.error+' | '+($scenarioE.raw-join ' | '))}
+
+    # F. New live ReferenceVersion (0.11.1, kernel-config.json) -- Greenfield must install exactly
+    #    the new reference, not the old one, once the contract value itself has moved.
+    $scenarioF=Invoke-KIOpenWebUIInstallScenario -ScenarioRoot (Join-Path $fixtureRootBase 'newreference-greenfield') -InstalledVersion $null -TargetVersion '0.11.1' -MinimumSupportedVersion '0.11.0'
+    $checks.newReferenceGreenfieldInstallsNewReference=[ordered]@{
+        ranWithoutThrow=(-not$scenarioF.threw)
+        installCommandIssued=($scenarioF.installCommandCount-gt0)
+        finalVersionIsNewReference=($null-ne$scenarioF.parsed-and[string]$scenarioF.parsed.openWebUIVersion-eq'0.11.1')
+    }
+    if($checks.newReferenceGreenfieldInstallsNewReference.Values-contains$false){$fail.Add('Scenario F (NewReferenceGreenfield) failed: '+$scenarioF.error+' | '+($scenarioF.raw-join ' | '))}
+
+    # G. Old reference (0.11.0) already installed, contract now points to 0.11.1 -- must remain
+    #    preserved (MinimumSupportedVersion intentionally still 0.11.0), never pushed forward just
+    #    because the Greenfield target moved. This is the same "no automatic version raising for an
+    #    existing installation" guarantee scenario C already proves for 0.11.1, now proven again
+    #    across an actual ReferenceVersion change.
+    $scenarioG=Invoke-KIOpenWebUIInstallScenario -ScenarioRoot (Join-Path $fixtureRootBase 'oldreference-preserved') -InstalledVersion '0.11.0' -TargetVersion '0.11.1' -MinimumSupportedVersion '0.11.0'
+    $checks.oldReferencePreservedUnderNewReference=[ordered]@{
+        ranWithoutThrow=(-not$scenarioG.threw)
+        noInstallCommandIssued=($scenarioG.installCommandCount-eq0)
+        versionRemains0110=($null-ne$scenarioG.parsed-and[string]$scenarioG.parsed.openWebUIVersion-eq'0.11.0')
+    }
+    if($checks.oldReferencePreservedUnderNewReference.Values-contains$false){$fail.Add('Scenario G (OldReferencePreserved) failed: '+$scenarioG.error+' | '+($scenarioG.raw-join ' | '))}
 }
 finally{
     Remove-Module KIModuleApplications -Force -ErrorAction SilentlyContinue

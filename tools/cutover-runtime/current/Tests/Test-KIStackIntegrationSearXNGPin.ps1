@@ -60,10 +60,27 @@ try {
     if (-not $validationMatch.Success) { throw 'SearXNG ref validation block not found in installer.' }
     # bash.exe on PATH can resolve to the WSL launcher stub, which requires
     # /mnt/c-style paths rather than Windows paths. Derive Git for Windows'
-    # own bash.exe (which accepts Windows paths directly) from git.exe.
-    $gitRoot = Split-Path -Parent (Split-Path -Parent (Get-Command git.exe -ErrorAction Stop).Source)
-    $bashExe = Join-Path $gitRoot 'usr\bin\bash.exe'
-    if (-not (Test-Path -LiteralPath $bashExe -PathType Leaf)) { throw "Git for Windows bash.exe not found at expected path: $bashExe" }
+    # own bash.exe (which accepts Windows paths directly) from git.exe --
+    # by walking upward from wherever git.exe actually resolved to, not by
+    # assuming a fixed number of parent directories. Git for Windows ships
+    # more than one real, PATH-resolvable git.exe (cmd\git.exe and
+    # mingw64\bin\git.exe live at different depths under the same install
+    # root), and which one Get-Command returns depends on the calling
+    # process's own PATH order -- e.g. a shell launched from within Git
+    # Bash itself puts mingw64\bin ahead of cmd, so a "go up exactly two
+    # levels" assumption silently computes mingw64\usr\bin\bash.exe (which
+    # does not exist) instead of the real <GitRoot>\usr\bin\bash.exe.
+    $gitExeDirectory = Split-Path -Parent (Get-Command git.exe -ErrorAction Stop).Source
+    $bashExe = $null
+    $candidateDirectory = $gitExeDirectory
+    for ($depth = 0; $depth -lt 5 -and -not $bashExe; $depth++) {
+        $probe = Join-Path $candidateDirectory 'usr\bin\bash.exe'
+        if (Test-Path -LiteralPath $probe -PathType Leaf) { $bashExe = $probe }
+        $parentDirectory = Split-Path -Parent $candidateDirectory
+        if ([string]::IsNullOrEmpty($parentDirectory) -or $parentDirectory -eq $candidateDirectory) { break }
+        $candidateDirectory = $parentDirectory
+    }
+    if (-not $bashExe) { throw "Git for Windows bash.exe could not be located by walking up from git.exe's resolved path: $gitExeDirectory" }
     $harnessPath = Join-Path $fixtureRoot 'validate-ref.sh'
     $harnessBody = "#!/usr/bin/env bash`nset -Eeuo pipefail`nREF=`"`$1`"`n" + $validationMatch.Value + "`necho VALIDATION_PASSED`n"
     [IO.File]::WriteAllText($harnessPath,$harnessBody,[Text.UTF8Encoding]::new($false))

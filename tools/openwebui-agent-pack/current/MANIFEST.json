@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "packageId": "KI-STACK-OPENWEBUI-AGENT-PACK",
-  "version": "1.8.9",
+  "version": "1.9.0",
   "status": "StaticPendingValidation_TargetPending",
   "targetApplication": {
     "name": "OpenWebUI",
@@ -9,13 +9,22 @@
   },
   "managedModelIds": [
     "ki-stack-it-technik",
-    "ki-stack-allgemein"
+    "ki-stack-allgemein",
+    "ki-stack-research"
   ],
-  "codeInterpreter": {"engine":"pyodide","profiles":["ki-stack-allgemein","ki-stack-it-technik"],"workspaceToolId":false,"filePersistence":false},
+  "codeInterpreter": {"engine":"pyodide","profiles":["ki-stack-allgemein","ki-stack-it-technik","ki-stack-research"],"workspaceToolId":false,"filePersistence":false},
   "registeredExtensions": [
     {"canonicalToolId":"ki-stack-generate-image","openWebUIToolId":"ki_stack_generate_image","managedBy":"KI-STACK-OPENWEBUI-VISUAL-PACK","version":"2.0.5","optional":true},
     {"canonicalToolId":"ki-stack-generate-video","openWebUIToolId":"ki_stack_generate_video","managedBy":"KI-STACK-OPENWEBUI-VISUAL-PACK","version":"2.0.5","optional":true}
   ],
+  "referenceAgent": {
+    "id": "ki-stack-research",
+    "purpose": "Safe research agent: combines local KI-Stack RAG knowledge and web search into a sourced answer; no OS/repository write access.",
+    "extensionTools": false,
+    "knowledgeSource": "rag-global",
+    "builtinToolsAllowed": ["knowledge", "web_search", "code_interpreter"],
+    "builtinToolsDenied": ["time", "user_input", "files", "chats", "subagents", "memory", "image_generation", "notes"]
+  },
   "deployment": {
     "kind": "OpenWebUI HTTP API",
     "chatModelAllowList": {

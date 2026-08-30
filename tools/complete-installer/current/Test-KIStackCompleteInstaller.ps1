@@ -15,19 +15,19 @@ foreach($marker in @('KI-Stack-Installer-output.txt','Start-KIStackCompleteInsta
     if(-not$executeStarter.Contains($marker)){$fail.Add("Execute starter contract: $marker")}
 }
 
-if ($manifest.version -ne '2.10.1' -or $manifest.baseVersion -ne '2.10.0') { $fail.Add('Version contract') }
+if ($manifest.version -ne '2.12.0' -or $manifest.baseVersion -ne '2.10.1') { $fail.Add('Version contract') }
 if ($payloads.modelPolicy.chatModels.Count -ne 1 -or $payloads.modelPolicy.chatModels[0] -ne 'qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved') { $fail.Add('Heretic chat-only contract') }
 if ($payloads.modelPolicy.nomicRole -ne 'embedding-only' -or $payloads.modelPolicy.embeddingModels.Count -ne 1) { $fail.Add('Nomic embedding-only contract') }
 if ([string]$payloads.modelContractAuthority.packagedArchive -ne 'Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.3.zip') { $fail.Add('Authoritative model contract') }
 if ($payloads.PSObject.Properties.Name -contains 'external' -or $payloads.PSObject.Properties.Name -contains 'lmStudioModel') { $fail.Add('Duplicate model contract') }
 if (@($components.components | Where-Object id -eq 'openwebui-visual-pack').version -ne '2.0.5') { $fail.Add('Visual Pack component') }
-if (@($components.components | Where-Object id -eq 'openwebui-agent-pack').version -ne '1.8.9') { $fail.Add('Agent Pack component') }
+if (@($components.components | Where-Object id -eq 'openwebui-agent-pack').version -ne '1.9.0') { $fail.Add('Agent Pack component') }
 if ([int]@($components.components | Where-Object id -eq 'openwebui-visual-pack').order -ge [int]@($components.components | Where-Object id -eq 'openwebui-agent-pack').order) { $fail.Add('Visual Pack must deploy before Agent Pack') }
 if (@($components.components | Where-Object id -eq 'models-workflows').version -ne '2.0.3') { $fail.Add('Visual Models component') }
 $codexComponent=@($components.components|Where-Object id -eq 'codex-local')
 $ragComponent=@($components.components|Where-Object id -eq 'rag')
 if($codexComponent.Count-ne1-or$codexComponent.version-ne'0.1.4'-or-not[bool]$codexComponent.installable){$fail.Add('Codex Local component')}
-if($ragComponent.Count-ne1-or$ragComponent.version-ne'0.3.1'-or-not[bool]$ragComponent.installable){$fail.Add('RAG component')}
+if($ragComponent.Count-ne1-or$ragComponent.version-ne'0.4.0'-or-not[bool]$ragComponent.installable){$fail.Add('RAG component')}
 if([int]$codexComponent.order-ge[int]$ragComponent.order){$fail.Add('Codex Local must deploy before RAG')}
 $validationComponent = @($components.components | Where-Object id -eq 'validation-gate')
 if ($validationComponent.version -ne '1.0.3' -or -not [bool]$validationComponent.installable) { $fail.Add('Validation Gate installable component') }
@@ -277,7 +277,7 @@ if ($syntaxErrors.Count) { $fail.Add('PowerShell syntax') }
 
 [pscustomobject]@{
     passed = ($fail.Count -eq 0)
-    version = '2.10.1'
+    version = '2.12.0'
     checks = 28
     failures = $fail
 } | ConvertTo-Json -Depth 10

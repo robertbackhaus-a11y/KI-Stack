@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "package": "KI-Stack OpenWebUI Agent Pack",
-  "version": "1.8.9",
+  "version": "1.9.0",
   "status": "StaticPendingValidation_TargetPending",
   "currentReleaseResults": null,
   "previousValidatedRelease": {

@@ -80,7 +80,7 @@ set "KI_STACK_LAUNCHED_FROM_CMD=1"
 call :Log "PowerShell-Starter wird aufgerufen."
 echo.
 echo ============================================================
-echo KI-Stack Cutover v1.6.13 - %ACTION%
+echo KI-Stack Cutover v1.6.14 - %ACTION%
 echo ============================================================
 echo Paket: %PACKAGE_ROOT%
 echo PowerShell: %PWSH%

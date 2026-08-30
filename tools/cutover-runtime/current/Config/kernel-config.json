@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0",
-  "kernelVersion": "1.6.13",
+  "kernelVersion": "1.6.14",
   "stackRoot": "C:\\KI-Stack",
   "stateRoot": "C:\\KI-Stack\\state",
   "logRoot": "C:\\KI-Stack\\logs",
@@ -160,7 +160,7 @@
     "openWebUI": {
       "enabled": true,
       "packageName": "open-webui",
-      "version": "0.11.0",
+      "version": "0.11.1",
       "minimumSupportedVersion": "0.11.0",
       "maximumSupportedVersion": null,
       "venv": "C:\\KI-Stack\\python\\venvs\\openwebui",
@@ -200,7 +200,7 @@
     "webLoaderConcurrentRequests": 5
   },
   "executeRelease": {
-    "releaseId": "CUTOVER-1.6.13",
+    "releaseId": "CUTOVER-1.6.14",
     "enabledModules": [
       "KIModuleFoundation",
       "KIModuleRuntime",
@@ -226,7 +226,7 @@
     "searchRecursively": true,
     "sortBy": "LastWriteTimeUtc",
     "preflightSelectionMode": "EmbeddedDefault",
-    "embeddedPreflightRelativePath": "State\\Generated\\Preflight-Continuation-v1.6.13.zip",
+    "embeddedPreflightRelativePath": "State\\Generated\\Preflight-Continuation-v1.6.14.zip",
     "allowExplicitPreflightOverride": true
   },
   "cutover": {

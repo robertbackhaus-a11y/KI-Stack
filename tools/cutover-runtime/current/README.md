@@ -1,4 +1,4 @@
-# KI-Stack Cutover Execute v1.6.13
+# KI-Stack Cutover Execute v1.6.14
 
 Finaler Cutover- und Gesamtvalidierungsbaustein des modularen KI-Stacks.
 

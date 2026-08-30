@@ -184,6 +184,51 @@ function Test-KIModuleIntegration {
     }
 }
 
+function Get-KIIntegrationOpenWebUIWithSearchStarterContent {
+    # Extracted from Install-KIModuleIntegration so the generated starter's
+    # RAG-preservation contract is directly testable without running a full
+    # WSL/SearXNG-based install. Integration owns and unconditionally
+    # regenerates this starter on every Install/Upgrade/Repair pass, but RAG
+    # (a separately-versioned, later-ordered component) patches this exact
+    # same file to source its own OpenWebUI-RAG.env.cmd (search_document:/
+    # search_query: embedding prefixes) once RAG is installed. A blind
+    # regeneration here silently erased that patch on every subsequent
+    # Integration-only reconciliation (confirmed as a live regression on the
+    # real target: the RAG env file predates the starter's last rewrite by a
+    # full day). Preserve an already-applied RAG env-call line the same way
+    # RAG's own installer preserves sources.json across its own redeploy --
+    # read what is currently on disk (ExistingContent, or $null if the file
+    # does not exist yet), then fold the existing customization back into
+    # the freshly generated template, rather than silently discarding it.
+    param(
+        [Parameter(Mandatory)][string]$ResultCount,
+        [Parameter(Mandatory)][string]$SearchConcurrency,
+        [Parameter(Mandatory)][string]$LoaderConcurrency,
+        [Parameter(Mandatory)][string]$QueryUrl,
+        [AllowNull()][string]$ExistingContent
+    )
+    $webCmd=@'
+@echo off
+setlocal EnableExtensions DisableDelayedExpansion
+set "ENABLE_WEB_SEARCH=True"
+set "WEB_SEARCH_ENGINE=searxng"
+set "WEB_SEARCH_RESULT_COUNT=__RESULT_COUNT__"
+set "WEB_SEARCH_CONCURRENT_REQUESTS=__SEARCH_CONCURRENCY__"
+set "WEB_LOADER_CONCURRENT_REQUESTS=__LOADER_CONCURRENCY__"
+set "SEARXNG_QUERY_URL=__QUERY_URL__"
+call "C:\KI-Stack\modules\applications\Start-KIStack-OpenWebUI.cmd"
+exit /b %ERRORLEVEL%
+'@
+    $webCmd=$webCmd.Replace('__RESULT_COUNT__',$ResultCount).Replace('__SEARCH_CONCURRENCY__',$SearchConcurrency).Replace('__LOADER_CONCURRENCY__',$LoaderConcurrency).Replace('__QUERY_URL__',$QueryUrl)
+    if($ExistingContent){
+        $ragEnvCallMatch=[regex]::Match($ExistingContent,'(?im)^call\s+"[^"]*OpenWebUI-RAG\.env\.cmd"\s*$')
+        if($ragEnvCallMatch.Success){
+            $webCmd=[regex]::Replace($webCmd,'(?im)^@echo off\s*',("@echo off`r`n"+$ragEnvCallMatch.Value.Trim()+"`r`n"),1)
+        }
+    }
+    $webCmd
+}
+
 function Install-KIModuleIntegration {
     param([Parameter(Mandatory)][object]$Context)
     $config=$Context.Config.integration
@@ -315,19 +360,10 @@ if not defined PWSH exit /b 1
 "%PWSH%" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0__SCRIPT__"
 exit /b %ERRORLEVEL%
 '@
-    $webCmd=@'
-@echo off
-setlocal EnableExtensions DisableDelayedExpansion
-set "ENABLE_WEB_SEARCH=True"
-set "WEB_SEARCH_ENGINE=searxng"
-set "WEB_SEARCH_RESULT_COUNT=__RESULT_COUNT__"
-set "WEB_SEARCH_CONCURRENT_REQUESTS=__SEARCH_CONCURRENCY__"
-set "WEB_LOADER_CONCURRENT_REQUESTS=__LOADER_CONCURRENCY__"
-set "SEARXNG_QUERY_URL=__QUERY_URL__"
-call "C:\KI-Stack\modules\applications\Start-KIStack-OpenWebUI.cmd"
-exit /b %ERRORLEVEL%
-'@
-    $webCmd=$webCmd.Replace('__RESULT_COUNT__',[string]$config.webSearchResultCount).Replace('__SEARCH_CONCURRENCY__',[string]$config.webSearchConcurrentRequests).Replace('__LOADER_CONCURRENCY__',[string]$config.webLoaderConcurrentRequests).Replace('__QUERY_URL__',[string]$config.searxngQueryUrl)
+    $existingWebCmdPath=Join-Path $moduleRoot 'Start-KIStack-OpenWebUI-WithSearch.cmd'
+    $existingWebCmdContent=$null
+    if(Test-Path -LiteralPath $existingWebCmdPath -PathType Leaf){$existingWebCmdContent=Get-Content -LiteralPath $existingWebCmdPath -Raw}
+    $webCmd=Get-KIIntegrationOpenWebUIWithSearchStarterContent -ResultCount ([string]$config.webSearchResultCount) -SearchConcurrency ([string]$config.webSearchConcurrentRequests) -LoaderConcurrency ([string]$config.webLoaderConcurrentRequests) -QueryUrl ([string]$config.searxngQueryUrl) -ExistingContent $existingWebCmdContent
     $allCmd=@'
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion

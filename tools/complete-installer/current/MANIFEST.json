@@ -2,16 +2,16 @@
   "schemaVersion": "2.0",
   "packageId": "KI-STACK-COMPLETE-INSTALLER",
   "name": "KI-Stack Complete Installer",
-  "version": "2.10.1",
-  "status": "SbomPipelineRestored_MaintenanceRelease",
-  "baseVersion": "2.10.0",
+  "version": "2.12.0",
+  "status": "ReconcilePreserveContract_ResearchAgent_RAGProjectScope_SourceOnlyBuild",
+  "baseVersion": "2.10.1",
   "components": {
     "comfyUI": "1.2.4",
     "visualModelsWorkflows": "2.0.3",
-    "openWebUIAgentPack": "1.8.9",
+    "openWebUIAgentPack": "1.9.0",
     "openWebUIVisualPack": "2.0.5",
     "codexLocal": "0.1.4",
-    "rag": "0.3.1"
+    "rag": "0.4.0"
   },
   "modelPolicy": {
     "chatLlm": "Heretic only",

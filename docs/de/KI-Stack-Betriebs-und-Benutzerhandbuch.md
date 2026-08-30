@@ -1,4 +1,4 @@
-# KI-Stack 2.4.0 – Betriebs- und Benutzerhandbuch
+# KI-Stack 2.12.0 – Betriebs- und Benutzerhandbuch
 
 ## Normalbetrieb
 
@@ -31,13 +31,13 @@ SearXNG ist über nginx unter `/searxng` erreichbar, das auf eine lokale, per `u
 
 ## OpenWebUI
 
-Der Agent Pack ist 1.8.9, der Visual Pack 2.0.5. Bei einer Visual-/Agent-Aktualisierung kann ein temporärer OpenWebUI-Administrator-API-Key abgefragt werden. Er wird verdeckt eingegeben, nur im Arbeitsspeicher gehalten, nie gespeichert und soll anschließend widerrufen werden.
+Der Agent Pack ist 1.9.0, der Visual Pack 2.0.5. Der Agent Pack verwaltet drei Workspace-Modelle: `KI & IT-Technik`, `Allgemein` und den Referenz-Research-Agenten `ki-stack-research` (dynamisch gebundenes lokales RAG-Wissen plus Websuche, isolierter Pyodide-Code-Interpreter, keine Extension-Tools, kein Shell-/Host-/Administrationszugriff -- siehe „RAG / Knowledge-Ingestion" unten sowie das eigene README des Agent Packs für den vollständigen Vertrag). Bei einer Visual-/Agent-Aktualisierung kann ein temporärer OpenWebUI-Administrator-API-Key abgefragt werden. Er wird verdeckt eingegeben, nur im Arbeitsspeicher gehalten, nie gespeichert und soll anschließend widerrufen werden.
 
 Bilder bleiben sichtbarer Chatinhalt. MP4 bleibt nach Reload genau ein persistenter herunterladbarer FileItem über `/api/v1/files/{id}/content`.
 
 ## RAG / Knowledge-Ingestion
 
-Das RAG-Modul (0.2.0) wird bei einer normalen Installation automatisch unter `C:\KI-Stack\modules\rag` installiert; seine OpenWebUI-Suchpräfix-Umgebung wird dabei in den bestehenden OpenWebUI-Starter eingebunden. Die Installation prüft nur den eigenen Quellenvertrag des Moduls und legt dessen Dateien ab — sie **ingestiert keine Dokumente**, und standardmäßig sind keine Quellen konfiguriert (`Config/sources.json` liefert eine leere Allow-List aus).
+Das RAG-Modul (0.4.0) wird bei einer normalen Installation automatisch unter `C:\KI-Stack\modules\rag` installiert; seine OpenWebUI-Suchpräfix-Umgebung wird dabei in den bestehenden OpenWebUI-Starter eingebunden. Die Installation prüft nur den eigenen Quellenvertrag des Moduls und legt dessen Dateien ab — sie **ingestiert keine Dokumente**, und standardmäßig sind keine Quellen konfiguriert (`Config/sources.json` liefert eine leere Allow-List aus).
 
 Um tatsächlich Inhalte zu ingestieren, müssen zunächst selbst Einträge in `Config/sources.json` hinzugefügt werden (Schema: `Contracts/source.schema.json`), danach der eigene Einstiegspunkt des Moduls aus `C:\KI-Stack\modules\rag` ausgeführt werden:
 
@@ -45,9 +45,13 @@ Um tatsächlich Inhalte zu ingestieren, müssen zunächst selbst Einträge in `C
 .\Invoke-KIStackRAG.ps1 -Mode Execute -ApiToken (Read-Host -AsSecureString)
 ```
 
-Verfügbare Modi sind `Audit`, `DryRun`, `Execute`, `Status` und `Rollback`; nur `Audit`, `DryRun` und `Status` sind garantiert ohne Änderung an OpenWebUI. Der API-Token wird ausschließlich als `SecureString` entgegengenommen und nie gespeichert.
+Verfügbare Modi sind `Audit`, `DryRun`, `Execute`, `Status` und `Rollback`; nur `Audit`, `DryRun` und `Status` sind garantiert ohne Änderung an OpenWebUI. Der API-Token wird ausschließlich als `SecureString` entgegengenommen und nie gespeichert. `Invoke-KIStackRAG.ps1` ist ein schedulierbarer Einstiegspunkt: ein abbrechender Fehler propagiert als von Null verschiedener Prozess-Exitcode, sodass er sich ohne Wrapper in einen externen Scheduler (z. B. die Windows-Aufgabenplanung) für unbeaufsichtigten, periodischen Re-Import einbinden lässt.
 
-Dieser Ingestionspfad (die Modi `Execute`/`Rollback` gegen eine echte OpenWebUI-Knowledge-Collection) wurde **nicht** gesondert zielsystemvalidiert, über die reine Installation des Moduls im erfolgreichen Greenfield-Lauf hinaus — laut eigenem README des Moduls als funktional, aber nicht vollständig zielsystemvalidiert zu betrachten.
+`Execute` importiert Quellen idempotent per SHA-256 erneut: eine unveränderte Quelle bleibt unangetastet (`Skip`), eine geänderte Quelle wird remote gelöscht und neu angelegt (`Replace`), eine neue Quelle wird hinzugefügt (`Add`), und eine aus `Config/sources.json` entfernte Quelle wird remote entfernt (`Remove`) -- ein Teilfehlschlag lässt bereits committete Quellen unangetastet, ein Retry verarbeitet nur das noch nicht Abgeschlossene erneut. `Execute`/`Rollback` (Add, Replace, Remove) sind real gegen eine echte OpenWebUI-Instanz zielsystemvalidiert, jeweils einschließlich eines wiederholten `Rollback`-Aufrufs, der als sauberer, idempotenter No-op bestätigt wurde, und zusätzlich durch eine umfangreiche gemockte Regressionssuite abgedeckt.
+
+Standardmäßig gehören alle Quellen zu einer globalen Knowledge-Collection. `New-KIStackRAGProjectScope.ps1 -ProjectName <name>` legt einen zusätzlichen, vollständig isolierten Projekt-Scope an (eigenes Config-/Sources-Dateipaar, abgebildet auf eine eigene, getrennte OpenWebUI-Knowledge-Collection), sodass die Dokumente eines Projekts nie in einer fremden globalen Antwort auftauchen und umgekehrt.
+
+Der Referenz-Research-Agent `ki-stack-research` (OpenWebUI Agent Pack, siehe „OpenWebUI" oben) löst die globale RAG-Knowledge-Collection zur Installations-/Reconcile-Zeit dynamisch anhand des Namens auf -- nie eine hartcodierte Collection-ID. Existiert diese Collection noch nicht (RAG hat auf diesem Ziel noch nie `Execute` ausgeführt), wird `ki-stack-research` bei diesem Lauf vollständig übersprungen statt mit leerer Knowledge-Bindung angelegt zu werden; alle anderen verwalteten Profile werden im selben Lauf normal fertiggestellt.
 
 ## Knowledge-Bootstrap und Code-Interpreter-Nacharbeit
 
@@ -57,6 +61,15 @@ Ohne angegebenen OpenWebUI-Administrator-API-Key bleiben zwei Abschlussschritte 
 - Konfiguration der OpenWebUI-Code-Interpreter-Verbindung.
 
 Bei einem späteren Lauf mit angegebenem temporärem Administrator-API-Key erledigt der Installer diese Schritte automatisch, andernfalls müssen sie manuell in OpenWebUI nachgeholt werden.
+
+## Wartung: Reconcile- und Wiederholungslauf-Verhalten
+
+Ein erneuter Upgrade-/Repair-/Audit-Lauf auf einem bereits installierten Ziel ist ein normaler, unterstützter Vorgang. Stand Cutover Runtime 1.6.14 und OpenWebUI Agent Pack 1.9.0:
+
+- **Die Neuerzeugung von Integrations OpenWebUI-mit-Suche-Starter löscht RAGs Embedding-Präfix-Zeile nicht mehr.** Integration erzeugt `Start-KIStack-OpenWebUI-WithSearch.cmd` bei jedem Install-/Upgrade-/Repair-Lauf bedingungslos neu; eine reale Regression löschte zuvor eine bereits eingebundene RAG-Zeile (`call "...\OpenWebUI-RAG.env.cmd"`) still, sobald Integration ohne RAG in derselben Transaktion reconciled wurde. Diese Zeile bleibt jetzt bei jeder Neuerzeugung erhalten.
+- **Agent-Pack-Reconcile ersetzt `meta` eines verwalteten Profils nicht mehr pauschal.** OpenWebUIs eigener Modell-Update-Endpunkt ersetzt `meta` statt sie zu mergen; das Agent Pack merged jetzt selbst vor jedem Create/Update, sodass ein live/über die UI ergänzter Wert bei `capabilities`, `builtinTools`, `access_grants` oder `profile_image_url` eines bereits verwalteten Profils einen Reconcile unangetastet übersteht, während nur die tatsächlich paketverwalteten Felder (Name, Basismodell, Systemprompt, Tool-/Knowledge-Bindungen usw.) erneut erzwungen werden.
+- **RAG-Re-Import ist idempotent.** Ein erneuter `Execute`-Lauf gegen unveränderte Quellen erzeugt keine Remote-Mutation (`Skip`); nur tatsächlich hinzugefügte, geänderte oder entfernte Quellen werden angefasst.
+- **Eine fehlende `ki-stack-research`-Knowledge-Collection führt zu einem kontrollierten Skip, keiner defekten Installation.** Existiert RAGs globale Knowledge-Collection noch nicht, überspringt das Agent Pack die Anlage/Aktualisierung von `ki-stack-research` bei diesem Lauf (nie mit leerer Knowledge-Bindung) und schließt jedes andere verwaltete Profil normal ab; ein anschließender Lauf von RAGs eigenem `Execute` gefolgt von einem erneuten Agent-Pack-Reconcile löst dies auf.
 
 ## Transaktionen
 

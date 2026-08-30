@@ -1,6 +1,7 @@
 {
   "schemaVersion": "1.0",
-  "version": "0.3.1",
+  "version": "0.4.0",
+  "project": "global",
   "targetRoot": "C:\\KI-Stack",
   "moduleRoot": "C:\\KI-Stack\\modules\\rag",
   "stateRoot": "C:\\KI-Stack\\state\\rag",
@@ -19,5 +20,5 @@
   "parserVersion": "ki-stack-rag-parser-1",
   "allowedExtensions": [".md", ".txt", ".json", ".yaml", ".yml", ".ps1", ".psm1", ".csv"],
   "excludedDirectoryNames": [".git", "node_modules", "__pycache__", "State", "cache", "backups"],
-  "metadataFields": ["source_id", "source_type", "project", "relative_path", "file_name", "file_sha256", "document_version", "section", "chunk_index", "imported_at", "modified_at", "content_language", "visibility", "parser_version"]
+  "metadataFields": ["source_id", "source_type", "project", "source_file", "relative_path", "file_name", "file_sha256", "document_version", "section", "chunk_index", "imported_at", "modified_at", "content_language", "visibility", "parser_version"]
 }
