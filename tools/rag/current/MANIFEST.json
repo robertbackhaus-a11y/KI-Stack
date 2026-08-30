@@ -2,7 +2,7 @@
   "schemaVersion": "1.0",
   "packageId": "KI-STACK-RAG",
   "name": "KI-Stack RAG",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "status": "IngestionTargetValidated_RollbackTargetValidated",
   "embeddingModel": "nomic-embed-text-v1.5",
   "chatModelCoupled": false,

@@ -65,6 +65,77 @@ function Test-CmdCrLf {
     return $true
 }
 
+function Test-CompleteInstallerSbomReleaseContract {
+    # Runs one real, local, source-only Complete Installer build into a disposable scratch
+    # directory (never the repository's own tree, never the real target) and proves the
+    # SBOM/release-pipeline contract end to end, so a future regression that drops the SBOM
+    # generator call (as previously happened during the tools/-reorganization, fixed via
+    # PR #49/#50) is caught here instead of only being discovered after publishing a release.
+    param([Parameter(Mandatory)][string]$RepositoryRoot)
+    $completeRoot = Join-Path $RepositoryRoot 'tools/complete-installer/current'
+    $builder = Join-Path $completeRoot 'New-KIStackCompleteInstallerArchive.ps1'
+    $version = (Get-Content -LiteralPath (Join-Path $completeRoot 'VERSION') -Raw).Trim()
+    $scratchRoot = Join-Path ([IO.Path]::GetTempPath()) ('ki-stack-sbom-contract-' + [guid]::NewGuid().ToString('N'))
+    $failures = [Collections.Generic.List[string]]::new()
+    try {
+        if (-not (Test-Path -LiteralPath $builder -PathType Leaf)) { throw "Builder script missing: $builder" }
+        New-Item -ItemType Directory -Path $scratchRoot -Force | Out-Null
+        $result = & $builder -OutputDirectory $scratchRoot
+        $zipPath = [string]$result.zip
+        $sidecarPath = [string]$result.sidecar
+        $sbomPath = [string]$result.sbom
+        $expectedSbomName = "KI-Stack-Complete-Installer-v$version.spdx.json"
+        if ([string]::IsNullOrWhiteSpace($zipPath) -or -not (Test-Path -LiteralPath $zipPath -PathType Leaf)) { $failures.Add("Build did not produce a ZIP: '$zipPath'") }
+        if ([string]::IsNullOrWhiteSpace($sidecarPath) -or -not (Test-Path -LiteralPath $sidecarPath -PathType Leaf)) { $failures.Add("Build did not produce a SHA256 sidecar: '$sidecarPath'") }
+        if ([string]::IsNullOrWhiteSpace($sbomPath) -or -not (Test-Path -LiteralPath $sbomPath -PathType Leaf)) {
+            $failures.Add("Build did not produce an SBOM (SBOM generator call is missing or failed): '$sbomPath'")
+        }
+        elseif ([IO.Path]::GetFileName($sbomPath) -ne $expectedSbomName) {
+            $failures.Add("SBOM filename contract violated: expected '$expectedSbomName', got '$([IO.Path]::GetFileName($sbomPath))'")
+        }
+        if ($failures.Count -eq 0) {
+            $actualZipSha256 = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            $sidecarContent = (Get-Content -LiteralPath $sidecarPath -Raw).Trim()
+            $sidecarSha256 = $null
+            if ($sidecarContent -notmatch '^([0-9a-fA-F]{64})\s+\*?(.+)$') {
+                $failures.Add("Sidecar has an unexpected format: '$sidecarContent'")
+            }
+            else {
+                $sidecarSha256 = $Matches[1].ToLowerInvariant()
+                if ($sidecarSha256 -ne $actualZipSha256) { $failures.Add("Sidecar SHA256 ($sidecarSha256) does not match the actual ZIP SHA256 ($actualZipSha256).") }
+            }
+            $sbomJson = $null
+            try { $sbomJson = Get-Content -LiteralPath $sbomPath -Raw | ConvertFrom-Json -Depth 30 }
+            catch { $failures.Add("SBOM is not valid JSON: $($_.Exception.Message)") }
+            if ($null -ne $sbomJson) {
+                if ([string]$sbomJson.spdxVersion -ne 'SPDX-2.3') { $failures.Add("spdxVersion is '$([string]$sbomJson.spdxVersion)', expected 'SPDX-2.3'.") }
+                $rootPackages = @($sbomJson.packages | Where-Object { $_.SPDXID -eq 'SPDXRef-Package' })
+                if ($rootPackages.Count -ne 1) {
+                    $failures.Add("SBOM does not contain exactly one root package (SPDXRef-Package); found $($rootPackages.Count).")
+                }
+                else {
+                    $rootChecksums = @($rootPackages[0].checksums | Where-Object { $_.algorithm -eq 'SHA256' })
+                    if ($rootChecksums.Count -ne 1) {
+                        $failures.Add('SBOM root package does not carry exactly one SHA256 checksum entry.')
+                    }
+                    else {
+                        $rootSha256 = ([string]$rootChecksums[0].checksumValue).ToLowerInvariant()
+                        if ($rootSha256 -ne $actualZipSha256) { $failures.Add("SBOM root package SHA256 ($rootSha256) does not match the actual ZIP SHA256 ($actualZipSha256).") }
+                        if ($null -ne $sidecarSha256 -and $rootSha256 -ne $sidecarSha256) { $failures.Add("SBOM root package SHA256 ($rootSha256) does not match the sidecar SHA256 ($sidecarSha256).") }
+                    }
+                }
+            }
+        }
+    }
+    catch {
+        $failures.Add("Build/validation threw: $($_.Exception.Message)")
+    }
+    finally {
+        if (Test-Path -LiteralPath $scratchRoot) { Remove-Item -LiteralPath $scratchRoot -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+    [pscustomobject][ordered]@{ success = ($failures.Count -eq 0); failures = @($failures); version = $version }
+}
+
 $RootPath = [IO.Path]::GetFullPath($RootPath)
 $Results = [Collections.Generic.List[object]]::new()
 $excludedRelativePattern = '^(?:\.git|_import|dist)/|^tools/production-recovery/current/04-Evidence/'
@@ -335,8 +406,8 @@ try {
     $agentDefinitions = @(Get-ChildItem -LiteralPath (Join-Path $agentRoot 'Definitions') -File -Filter '*.json' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -Depth 30 })
     $agentIds = @($agentDefinitions.id | Sort-Object)
     $agentSchemaOk = (
-        $agentVersion -eq '1.8.9' -and $agentManifest.version -eq $agentVersion -and $agentConfig.version -eq $agentVersion -and $agentManifest.status -eq 'StaticPendingValidation_TargetPending' -and
-        ($agentIds -join '|') -eq 'ki-stack-allgemein|ki-stack-it-technik' -and
+        $agentVersion -eq '1.9.0' -and $agentManifest.version -eq $agentVersion -and $agentConfig.version -eq $agentVersion -and $agentManifest.status -eq 'StaticPendingValidation_TargetPending' -and
+        ($agentIds -join '|') -eq 'ki-stack-allgemein|ki-stack-it-technik|ki-stack-research' -and
         @($agentDefinitions | Where-Object { $_.schemaVersion -ne '1.0' -or [string]::IsNullOrWhiteSpace([string]$_.systemPrompt) }).Count -eq 0 -and
         @($agentDefinitions | Where-Object { @($_.knowledge).Count -or @($_.toolIds).Count -or @($_.skillIds).Count -or @($_.functionIds).Count }).Count -eq 0
     )
@@ -404,8 +475,8 @@ try {
     $gitFreePackages=@(
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.4'},
         @{name='Integration';root='tools/integration/current';version='1.5.11'},
-        @{name='Cutover Runtime';root='tools/cutover-runtime/current';version='1.6.13'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.10.1'}
+        @{name='Cutover Runtime';root='tools/cutover-runtime/current';version='1.6.14'},
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.12.0'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root
@@ -420,13 +491,16 @@ try {
     $completeMissing=@($completeRequired|Where-Object{-not(Test-Path (Join-Path $completeRoot $_))})
     Add-Result 'Complete Installer source completeness' ($completeMissing.Count-eq0) $(if($completeMissing){$completeMissing-join', '}else{'complete'})
     $completeComponents=Get-Content (Join-Path $completeRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json
-    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.4' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '2.0.3' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.11'-and[string]($completeComponents.components|Where-Object id -eq 'cutover-runtime').version-eq'1.6.13'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-visual-pack').version-eq'2.0.5'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0')
-    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.4; Visual Models/Workflows=2.0.3; Integration=1.5.11; Cutover=1.6.13; Visual Pack=2.0.5; optional Ballistics=1.0.0'
+    $completeVersionsOk=([string]($completeComponents.components|Where-Object id -eq 'comfyui').version -eq '1.2.4' -and [string]($completeComponents.components|Where-Object id -eq 'models-workflows').version -eq '2.0.3' -and [string]($completeComponents.components|Where-Object id -eq 'integration').version -eq '1.5.11'-and[string]($completeComponents.components|Where-Object id -eq 'cutover-runtime').version-eq'1.6.14'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-visual-pack').version-eq'2.0.5'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-ballistics-pack').version-eq'1.0.0'-and[string]($completeComponents.components|Where-Object id -eq 'openwebui-agent-pack').version-eq'1.9.0'-and[string]($completeComponents.components|Where-Object id -eq 'rag').version-eq'0.4.0')
+    Add-Result 'Complete Installer component versions' $completeVersionsOk 'ComfyUI=1.2.4; Visual Models/Workflows=2.0.3; Integration=1.5.11; Cutover=1.6.14; Visual Pack=2.0.5; optional Ballistics=1.0.0; Agent Pack=1.9.0; RAG=0.4.0'
     $completeExecutable=Get-ChildItem $completeRoot -Recurse -File|Where-Object{$_.Extension-in'.ps1','.psm1','.cmd'-and$_.Name-ne'Test-KIStackCompleteInstaller.ps1'}|ForEach-Object{Get-Content $_.FullName -Raw}
     $forbiddenRuntime=('(?im)\b'+'git'+'\s+(?:cl'+'one|check'+'out|pu'+'ll|fetch|rev-parse|describe)\b|\.'+'git'+'(?:[/\\]|\b)|\bor'+'igin\b|comm'+'it[- ]hash|tr'+'ee[- ]hash')
     Add-Result 'Complete Installer Git-free runtime' (-not(($completeExecutable-join"`n")-match$forbiddenRuntime)) 'no Git acquisition or metadata dependency in executable sources'
     $forbiddenCompleteArtifacts=@($trackedFiles|Where-Object{$_-match'^(?:_import/|tools/(?:comfyui|integration|complete-installer)/.+\.(?:zip|pyc)$)'-or$_-match'/__pycache__/'})
     Add-Result 'Git-free package repository artifacts' ($forbiddenCompleteArtifacts.Count-eq0) $(if($forbiddenCompleteArtifacts){$forbiddenCompleteArtifacts-join', '}else{'no private imports, ZIPs or bytecode tracked'})
+
+    $sbomContract = Test-CompleteInstallerSbomReleaseContract -RepositoryRoot $RootPath
+    Add-Result 'Complete Installer SBOM/release pipeline contract' ([bool]$sbomContract.success) $(if($sbomContract.success){"version=$($sbomContract.version); ZIP/sidecar/SBOM root SHA256 consistent; spdxVersion=SPDX-2.3"}else{$sbomContract.failures -join '; '})
 
     $sumsPath = Join-Path $RootPath 'package/SHA256SUMS.txt'
     $sumErrors=@()

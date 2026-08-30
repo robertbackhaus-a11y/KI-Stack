@@ -155,6 +155,50 @@ function Test-RAGSourcesAgainstSchema {
     }
 }
 
+function Test-RAGSourcesMatchConfiguredProject {
+    # Global vs. project-scoped RAG are two separate rag.config.json/
+    # sources.json pairs (separate stateRoot, sourceRoot and knowledgeName --
+    # see New-KIStackRAGProjectScope.ps1), each mapping to its own, distinct
+    # OpenWebUI Knowledge collection via Get-RAGKnowledgeName below. That
+    # separation only actually holds if every source enabled in one scope's
+    # sources.json genuinely belongs to that scope's own project -- a
+    # source_id whose project field silently disagrees with the config it is
+    # listed under would otherwise be uploaded into the wrong scope's
+    # collection without anyone noticing (a global sources.json accidentally
+    # carrying a customer-project source, or vice versa). Every enabled
+    # source's project must match exactly; a disabled source is not checked
+    # (it will never be uploaded, so a stale/foreign project value on it is
+    # harmless bookkeeping, not a live mixing risk).
+    param(
+        [Parameter(Mandatory)][object]$Sources,
+        [Parameter(Mandatory)][string]$ConfiguredProject
+    )
+    if ([string]::IsNullOrWhiteSpace($ConfiguredProject)) {
+        throw "rag.config.json ist ungültig: das Pflichtfeld 'project' fehlt oder ist leer."
+    }
+    $mismatched = @(
+        @($Sources.sources) | Where-Object {
+            $null -ne $_ -and [bool]$_.enabled -and [string]$_.project -ne $ConfiguredProject
+        } | ForEach-Object { [string]$_.source_id }
+    )
+    if ($mismatched.Count -gt 0) {
+        throw "sources.json enthält aktivierte Quellen, deren project nicht zum konfigurierten Scope '$ConfiguredProject' passt: $($mismatched -join ', ')"
+    }
+}
+
+function Get-RAGKnowledgeName {
+    # Derives the actual OpenWebUI Knowledge collection name for the
+    # configured scope. The 'global' project uses Config.knowledgeName
+    # unchanged (backward compatible with every existing global deployment);
+    # any other project gets its own, clearly-labelled, dedicated collection
+    # name so it never shares a collection -- and therefore never shares
+    # retrieval results -- with the global one or with any other project.
+    param([Parameter(Mandatory)][object]$Config)
+    $project = [string](Get-RAGProperty -Object $Config -Name 'project' -Default 'global')
+    if ($project -eq 'global') { return [string]$Config.knowledgeName }
+    "$([string]$Config.knowledgeName) -- $project"
+}
+
 function Resolve-RAGLMStudioCli {
     # Mirrors the resolution order already used by the Applications
     # module's Start-KIStack-LMStudio.cmd starter (PATH, then the
@@ -262,6 +306,7 @@ function Get-RAGPlan {
 
 function Get-RAGKnowledge {
     param([object]$Config,[Security.SecureString]$ApiToken,[switch]$Create)
+    $knowledgeName=Get-RAGKnowledgeName -Config $Config
     $response=Invoke-RAGApi $Config.openWebUIEndpoint $ApiToken '/api/v1/knowledge/'
     # Get-RAGProperty's plain-value return collapses an empty-array
     # property value to $null (PowerShell's pipeline output unwraps a
@@ -271,12 +316,12 @@ function Get-RAGKnowledge {
     # Checked directly here instead, so existence (not value) decides.
     $itemsProperty=$response.PSObject.Properties['items']
     $items=@(if($null-ne$itemsProperty){$itemsProperty.Value}elseif($response-is[array]){$response}else{@($response)})
-    $matches=@($items|Where-Object{[string]$_.name-eq[string]$Config.knowledgeName})
-    if($matches.Count -gt 1){throw "Knowledge-Name ist nicht eindeutig: $($Config.knowledgeName)"}
+    $matches=@($items|Where-Object{[string]$_.name-eq$knowledgeName})
+    if($matches.Count -gt 1){throw "Knowledge-Name ist nicht eindeutig: $knowledgeName"}
     if($matches.Count -eq 1){return $matches[0]}
     if(-not$Create){return $null}
     Invoke-RAGApi $Config.openWebUIEndpoint $ApiToken '/api/v1/knowledge/create' POST ([ordered]@{
-        name=[string]$Config.knowledgeName;description=[string]$Config.knowledgeDescription;access_grants=@()
+        name=$knowledgeName;description=[string]$Config.knowledgeDescription;access_grants=@()
     })
 }
 
@@ -423,7 +468,10 @@ function New-RAGChunks {
     foreach($part in $parts){
         $metadata=[ordered]@{
             source_id=$Entry.source_id;source_type=$Entry.source_type;project=$Entry.project
-            relative_path=$Entry.relative_path;file_name=$Entry.file_name;file_sha256=$Entry.file_sha256
+            # source_file is the literal, minimal-contract field name a retrieval answer must be
+            # traceable back to (alongside chunk_index below); relative_path is the same value,
+            # kept for backward compatibility with existing chunk headers/state.
+            source_file=$Entry.relative_path;relative_path=$Entry.relative_path;file_name=$Entry.file_name;file_sha256=$Entry.file_sha256
             document_version='sha256:'+$Entry.file_sha256;section=Get-RAGSection $part;chunk_index=$index
             imported_at=$ImportedAt;modified_at=$Entry.modified_at;content_language='und'
             visibility=$Entry.visibility;parser_version=[string]$Config.parserVersion
@@ -629,6 +677,7 @@ function Invoke-KIStackRAG {
     )
     $config=Read-RAGJson $ConfigPath;$sources=Read-RAGJson $SourcesPath
     Test-RAGSourcesAgainstSchema -Sources $sources -SchemaPath $SourceSchemaPath
+    Test-RAGSourcesMatchConfiguredProject -Sources $sources -ConfiguredProject ([string](Get-RAGProperty -Object $config -Name 'project' -Default 'global'))
     $stateRoot=[string]$config.stateRoot;$statePath=Join-Path $stateRoot 'state.json'
     $state=if(Test-Path -LiteralPath $statePath){Read-RAGJson $statePath}else{$null}
     if($Mode-eq'Audit'){
@@ -909,4 +958,4 @@ function Invoke-KIStackRAG {
     }
 }
 
-Export-ModuleMember -Function Invoke-KIStackRAG,Get-RAGInventory,Get-RAGPlan,Split-RAGContent,Test-RAGSourcesAgainstSchema,Resolve-RAGLMStudioCli,Test-RAGEmbeddingModelAvailable,Assert-RAGEmbeddingModelReady,Save-RAGStateCheckpoint
+Export-ModuleMember -Function Invoke-KIStackRAG,Get-RAGInventory,Get-RAGPlan,Split-RAGContent,Test-RAGSourcesAgainstSchema,Test-RAGSourcesMatchConfiguredProject,Get-RAGKnowledgeName,Get-RAGKnowledge,Resolve-RAGLMStudioCli,Test-RAGEmbeddingModelAvailable,Assert-RAGEmbeddingModelReady,Save-RAGStateCheckpoint

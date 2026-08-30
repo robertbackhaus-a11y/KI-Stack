@@ -1,4 +1,4 @@
-# KI-Stack 2.4.0 operations and user guide
+# KI-Stack 2.12.0 operations and user guide
 
 ## Normal operation
 
@@ -31,13 +31,13 @@ SearXNG is reachable through nginx at `/searxng`, proxying to a local `uwsgi`-ho
 
 ## OpenWebUI
 
-The Agent Pack is 1.8.9 and the Visual Pack is 2.0.5. A temporary OpenWebUI administrator API key may be requested during a Visual/Agent update. It is hidden, held only in memory, never saved, and should be revoked after use.
+The Agent Pack is 1.9.0 and the Visual Pack is 2.0.5. The Agent Pack manages three workspace models: `KI & IT-Technik`, `Allgemein`, and the reference research agent `ki-stack-research` (dynamically-bound local RAG knowledge plus web search, isolated Pyodide code interpreter, no Extension Tools, no shell/host/administrative access -- see "RAG / Knowledge ingestion" below and the Agent Pack's own README for the full contract). A temporary OpenWebUI administrator API key may be requested during a Visual/Agent update. It is hidden, held only in memory, never saved, and should be revoked after use.
 
 Images remain visible chat content. MP4 output remains exactly one persistent downloadable FileItem after reload through `/api/v1/files/{id}/content`.
 
 ## RAG / Knowledge ingestion
 
-The RAG module (0.2.0) is installed automatically under `C:\KI-Stack\modules\rag` as part of a normal installation, and its OpenWebUI search-prefix environment is wired into the existing OpenWebUI starter. Installation only validates the module's own source contract and places its files — it does **not** ingest any documents, and no sources are configured by default (`Config/sources.json` ships as an empty allow-list).
+The RAG module (0.4.0) is installed automatically under `C:\KI-Stack\modules\rag` as part of a normal installation, and its OpenWebUI search-prefix environment is wired into the existing OpenWebUI starter. Installation only validates the module's own source contract and places its files — it does **not** ingest any documents, and no sources are configured by default (`Config/sources.json` ships as an empty allow-list).
 
 To actually ingest content, add entries to `Config/sources.json` (schema: `Contracts/source.schema.json`) yourself, then run the module's own entry point from `C:\KI-Stack\modules\rag`:
 
@@ -45,9 +45,13 @@ To actually ingest content, add entries to `Config/sources.json` (schema: `Contr
 .\Invoke-KIStackRAG.ps1 -Mode Execute -ApiToken (Read-Host -AsSecureString)
 ```
 
-Available modes are `Audit`, `DryRun`, `Execute`, `Status`, and `Rollback`; only `Audit`, `DryRun`, and `Status` are guaranteed never to mutate OpenWebUI. The API token is accepted only as a `SecureString` and is never stored.
+Available modes are `Audit`, `DryRun`, `Execute`, `Status`, and `Rollback`; only `Audit`, `DryRun`, and `Status` are guaranteed never to mutate OpenWebUI. The API token is accepted only as a `SecureString` and is never stored. `Invoke-KIStackRAG.ps1` is a schedulable entry point: a terminating error propagates as a non-zero process exit code, so it composes into an external scheduler (e.g. Windows Task Scheduler) without a wrapper for unattended, periodic re-import.
 
-This ingestion path (the `Execute`/`Rollback` modes against a live OpenWebUI Knowledge collection) has **not** been separately target-system verified beyond the module's own installation being exercised during a successful Greenfield run — treat it as functional but not fully target-validated, per the module's own README.
+`Execute` re-imports sources idempotently by SHA-256: an unchanged source is left alone (`Skip`), a changed source is deleted-then-recreated remotely (`Replace`), a new source is added (`Add`), and a source removed from `Config/sources.json` is removed remotely (`Remove`) -- a partial failure leaves already-committed sources untouched, so a retry only reprocesses what did not finish. `Execute`/`Rollback` (Add, Replace, Remove) have passed real target-system validation against a live OpenWebUI instance, each including a repeated `Rollback` call confirmed as a clean, idempotent no-op, and are additionally covered by an extensive mocked regression suite.
+
+By default, all sources belong to one global Knowledge collection. `New-KIStackRAGProjectScope.ps1 -ProjectName <name>` creates an additional, fully isolated project scope (its own config/sources file pair, mapped to its own, separate OpenWebUI Knowledge collection) so a project's documents never surface in an unrelated global answer, and vice versa.
+
+The reference research agent `ki-stack-research` (OpenWebUI Agent Pack, see "OpenWebUI" above) resolves the global RAG Knowledge collection dynamically by name at install/reconcile time -- never a hardcoded collection id. If that collection does not exist yet (RAG has never run `Execute` on this target), `ki-stack-research` is skipped entirely on that run rather than created with an empty knowledge binding; every other managed profile still completes normally in the same run.
 
 ## Knowledge bootstrap and Code Interpreter follow-up
 
@@ -57,6 +61,15 @@ Without a supplied OpenWebUI administrator API key, two finalization steps are l
 - Configuring the OpenWebUI Code Interpreter connection.
 
 Supply a temporary administrator API key on a later run to have the installer complete these automatically, or complete them by hand in OpenWebUI.
+
+## Maintenance: reconcile and repeated-run behavior
+
+Running Upgrade/Repair/Audit again on an already-installed target is a normal, supported operation. As of Cutover Runtime 1.6.14 and OpenWebUI Agent Pack 1.9.0:
+
+- **Integration's OpenWebUI-with-search starter regeneration no longer erases RAG's embedding-prefix line.** Integration unconditionally regenerates `Start-KIStack-OpenWebUI-WithSearch.cmd` on every Install/Upgrade/Repair pass; a real regression previously caused an already-applied RAG `call "...\OpenWebUI-RAG.env.cmd"` line to be silently dropped whenever Integration reconciled without RAG also running in the same transaction. That line is now preserved across every regeneration.
+- **Agent Pack reconcile no longer replaces a managed profile's `meta` wholesale.** OpenWebUI's own model-update endpoint replaces `meta` rather than merging it; the Agent Pack now merges on the package's own side before every Create/Update, so a live/UI-added value on an already-managed profile's `capabilities`, `builtinTools`, `access_grants`, or `profile_image_url` survives a reconcile untouched, while only the fields the package actually owns (name, base model, system prompt, tool/knowledge bindings, etc.) are reasserted.
+- **RAG re-import is idempotent.** Re-running `Execute` against unchanged sources produces no remote mutation (`Skip`); only genuinely added, changed, or removed sources are touched.
+- **A missing `ki-stack-research` Knowledge collection is a controlled skip, not a broken installation.** If RAG's global Knowledge collection does not exist yet, the Agent Pack skips creating/updating `ki-stack-research` on that run (never with an empty knowledge binding) and completes every other managed profile normally; running RAG's own `Execute` first and then reconciling the Agent Pack again resolves it.
 
 ## Transactions
 

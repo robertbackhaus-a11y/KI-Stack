@@ -17,7 +17,7 @@ foreach($contract in @('/api/v1/knowledge/','/api/v1/knowledge/create','/api/v1/
     if(-not$moduleText.Contains($contract)){$failures.Add("OpenWebUI-Vertrag fehlt: $contract")}
 }
 if($moduleText-match'(?i)api[_-]?key\s*=.*ConvertFrom-RAGSecureString'){$failures.Add('API-Key darf nicht persistiert werden.')}
-$required=@('source_id','source_type','project','relative_path','file_name','file_sha256','document_version','section','chunk_index','imported_at','modified_at','content_language','visibility','parser_version')
+$required=@('source_id','source_type','project','source_file','relative_path','file_name','file_sha256','document_version','section','chunk_index','imported_at','modified_at','content_language','visibility','parser_version')
 foreach($field in $required){if(@($config.metadataFields)-notcontains$field){$failures.Add("Metadatenfeld fehlt: $field")}}
 
 # --- Execute-preflight regressions (KI-Stack Complete Installer 2.5.0) -----

@@ -294,14 +294,14 @@ function New-RAGExecuteFixture {
     Set-Content -LiteralPath $mockScript -Encoding utf8NoBOM -Value $mockServerScriptContent
     $configPath=Join-Path $root 'rag.config.json'
     $config=[ordered]@{
-        schemaVersion='1.0';version='0.2.0';targetRoot=$root;moduleRoot=$root
+        schemaVersion='1.0';version='0.2.0';project='fixture';targetRoot=$root;moduleRoot=$root
         stateRoot=$stateRoot;sourceRoot=$sourceRoot
         embeddingProvider='lmstudio';embeddingBaseUrl="http://127.0.0.1:$port/v1";embeddingModel=$embeddingModel
         documentPrefix='search_document: ';queryPrefix='search_query: ';vectorStore='openwebui-managed'
         openWebUIEndpoint="http://127.0.0.1:$port";knowledgeName='Fixture Knowledge';knowledgeDescription='fixture'
         chunkCharacters=1000;chunkOverlapCharacters=100;parserVersion='fixture-1'
         allowedExtensions=@('.md');excludedDirectoryNames=@('node_modules')
-        metadataFields=@('source_id','source_type','project','relative_path','file_name','file_sha256','document_version','section','chunk_index','imported_at','modified_at','content_language','visibility','parser_version')
+        metadataFields=@('source_id','source_type','project','source_file','relative_path','file_name','file_sha256','document_version','section','chunk_index','imported_at','modified_at','content_language','visibility','parser_version')
     }
     ($config|ConvertTo-Json -Depth 10)|Set-Content -LiteralPath $configPath -Encoding utf8NoBOM
     $sourcesPath=Join-Path $root 'sources.json'
