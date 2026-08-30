@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.10.1
+
+- Complete Installer maintenance release.
+- Restored automatic SPDX 2.3 SBOM generation.
+- SBOM generator is compatible with the current models/workflows manifest schema.
+- No runtime component version changes.
+- No product runtime logic changes.
+
 ## 2.10.0
 
 - Adds `Update-KIStack-All.cmd`/`.ps1`, a new central update-checking and safe-update entry point for every KI-Stack-managed component.
