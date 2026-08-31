@@ -7,7 +7,7 @@ $fail = [Collections.Generic.List[string]]::new()
 $manifest = Get-Content -LiteralPath (Join-Path $PackageRoot 'MANIFEST.json') -Raw | ConvertFrom-Json
 $components = Get-Content -LiteralPath (Join-Path $PackageRoot 'Contracts\COMPONENTS.json') -Raw | ConvertFrom-Json
 $payloads = Get-Content -LiteralPath (Join-Path $PackageRoot 'Contracts\PAYLOADS.json') -Raw | ConvertFrom-Json
-foreach($requiredTest in @('Test-KIStackInstallationContracts.ps1','Test-KIStackCompleteInstallerTarget.ps1','Test-KIStackExitCodePropagation.ps1','Test-KIStackBootstrapLogging.ps1','Test-KIStackRequiredPayloads.ps1','Test-RC12PendingComfyRollback.ps1','Test-RC13FailedStateRecovery.ps1','Test-KIStackOpenWebUIVisualPackCutover.ps1','Test-KIStackInstallerHeartbeat.ps1','Test-KIStackOpenWebUIManagedUpdate.ps1','Test-KIStackPayloadDeploymentHygiene.ps1','Test-KIStackReplayComponent.ps1','Test-KIStackUpdateAll.ps1','Test-KIStackPinnedReferenceReconciliation.ps1','Test-KIStackComfyUICompliance.ps1','Test-KIStackComfyUIOverlayProtection.ps1','Test-KIStackFailedTransactionComfyUIRecovery.ps1','Start-KIStack-Installer.cmd','Bootstrap-KIStackPowerShell7.ps1','Start-KIStack-Audit.cmd','Start-KIStack-DryRun.cmd')){
+foreach($requiredTest in @('Test-KIStackInstallationContracts.ps1','Test-KIStackCompleteInstallerTarget.ps1','Test-KIStackExitCodePropagation.ps1','Test-KIStackBootstrapLogging.ps1','Test-KIStackRequiredPayloads.ps1','Test-RC12PendingComfyRollback.ps1','Test-RC13FailedStateRecovery.ps1','Test-KIStackOpenWebUIVisualPackCutover.ps1','Test-KIStackInstallerHeartbeat.ps1','Test-KIStackOpenWebUIManagedUpdate.ps1','Test-KIStackPayloadDeploymentHygiene.ps1','Test-KIStackReplayComponent.ps1','Test-KIStackUpdateAll.ps1','Test-KIStackUpdateIsolation.ps1','Test-KIStackPinnedReferenceReconciliation.ps1','Test-KIStackComfyUICompliance.ps1','Test-KIStackComfyUIOverlayProtection.ps1','Test-KIStackFailedTransactionComfyUIRecovery.ps1','Start-KIStack-Installer.cmd','Bootstrap-KIStackPowerShell7.ps1','Start-KIStack-Audit.cmd','Start-KIStack-DryRun.cmd')){
     if(-not(Test-Path -LiteralPath (Join-Path $PackageRoot $requiredTest) -PathType Leaf)){$fail.Add("Required test missing: $requiredTest")}
 }
 $executeStarter=Get-Content -LiteralPath (Join-Path $PackageRoot 'Start-KIStack-Installer.cmd') -Raw
@@ -15,7 +15,7 @@ foreach($marker in @('KI-Stack-Installer-output.txt','Start-KIStackCompleteInsta
     if(-not$executeStarter.Contains($marker)){$fail.Add("Execute starter contract: $marker")}
 }
 
-if ($manifest.version -ne '2.12.0' -or $manifest.baseVersion -ne '2.10.1') { $fail.Add('Version contract') }
+if ($manifest.version -ne '2.13.0' -or $manifest.baseVersion -ne '2.12.0') { $fail.Add('Version contract') }
 if ($payloads.modelPolicy.chatModels.Count -ne 1 -or $payloads.modelPolicy.chatModels[0] -ne 'qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved') { $fail.Add('Heretic chat-only contract') }
 if ($payloads.modelPolicy.nomicRole -ne 'embedding-only' -or $payloads.modelPolicy.embeddingModels.Count -ne 1) { $fail.Add('Nomic embedding-only contract') }
 if ([string]$payloads.modelContractAuthority.packagedArchive -ne 'Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.3.zip') { $fail.Add('Authoritative model contract') }
@@ -26,7 +26,7 @@ if ([int]@($components.components | Where-Object id -eq 'openwebui-visual-pack')
 if (@($components.components | Where-Object id -eq 'models-workflows').version -ne '2.0.3') { $fail.Add('Visual Models component') }
 $codexComponent=@($components.components|Where-Object id -eq 'codex-local')
 $ragComponent=@($components.components|Where-Object id -eq 'rag')
-if($codexComponent.Count-ne1-or$codexComponent.version-ne'0.1.4'-or-not[bool]$codexComponent.installable){$fail.Add('Codex Local component')}
+if($codexComponent.Count-ne1-or$codexComponent.version-ne'0.2.1'-or-not[bool]$codexComponent.installable){$fail.Add('Codex Local component')}
 if($ragComponent.Count-ne1-or$ragComponent.version-ne'0.4.0'-or-not[bool]$ragComponent.installable){$fail.Add('RAG component')}
 if([int]$codexComponent.order-ge[int]$ragComponent.order){$fail.Add('Codex Local must deploy before RAG')}
 $validationComponent = @($components.components | Where-Object id -eq 'validation-gate')
@@ -109,10 +109,10 @@ if (@($codexZip).Count -eq 1) {
         else{
             $reader=[IO.StreamReader]::new($entry.Open())
             try{$text=$reader.ReadToEnd()}finally{$reader.Dispose()}
-            foreach($marker in @('node_modules/npm/bin/npm-cli.js','node_modules/@openai/codex/bin/codex.js','Restore-KICodexBackup','secondRunReused')){
+            foreach($marker in @('node_modules/npm/bin/npm-cli.js','node_modules/@openai/codex/bin/codex.js','Restore-KICodexBackup','secondRunReused',"psi.Environment['CODEX_HOME']",'Get-KICodexStarterScriptContent')){
                 if(-not$text.Contains($marker)){$fail.Add("Managed Codex runtime contract: $marker")}
             }
-            foreach($forbidden in @('npm-global/codex.cmd','runtime/npm.cmd','PathSeparator+$originalPath')){
+            foreach($forbidden in @('npm-global/codex.cmd','runtime/npm.cmd','PathSeparator+$originalPath',"if([string]::IsNullOrWhiteSpace(`$env:CODEX_HOME)){Join-Path `$env:USERPROFILE '.codex'}")){
                 if($text.Contains($forbidden)){$fail.Add("Global Codex runtime fallback: $forbidden")}
             }
         }
@@ -277,7 +277,7 @@ if ($syntaxErrors.Count) { $fail.Add('PowerShell syntax') }
 
 [pscustomobject]@{
     passed = ($fail.Count -eq 0)
-    version = '2.12.0'
+    version = '2.13.0'
     checks = 28
     failures = $fail
 } | ConvertTo-Json -Depth 10

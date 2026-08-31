@@ -476,7 +476,7 @@ try {
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.4'},
         @{name='Integration';root='tools/integration/current';version='1.5.11'},
         @{name='Cutover Runtime';root='tools/cutover-runtime/current';version='1.6.14'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.12.0'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.13.0'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root
@@ -559,6 +559,18 @@ try {
         Add-Result 'PowerShell 7 starter contract' ([bool]$powerShell7Report.passed) ("edition={0}; version={1}; cmdFiles={2}; WindowsPowerShellRejected={3}" -f $powerShell7Report.actualPSEdition,$powerShell7Report.actualPSVersion,$powerShell7Report.cmdFiles,$powerShell7Report.windowsPowerShellRejected)
     }
     catch { Add-Result 'PowerShell 7 starter contract' $false $_.Exception.Message }
+
+    try {
+        $releaseAttestationReport = (& (Join-Path $RootPath 'scripts/Test-KIStackReleaseAttestationChaining.ps1') -RootPath $RootPath | ConvertFrom-Json)
+        Add-Result 'Release attestation chaining contract' ([bool]$releaseAttestationReport.passed) $(if($releaseAttestationReport.passed){'automatic trigger, manual recovery, minimal permissions, fail-closed asset contract all verified'}else{($releaseAttestationReport.failures) -join '; '})
+    }
+    catch { Add-Result 'Release attestation chaining contract' $false $_.Exception.Message }
+
+    try {
+        $componentVersionRegistryReport = (& (Join-Path $RootPath 'tools/complete-installer/current/Test-KIStackComponentVersionRegistry.ps1') -PackageRoot (Join-Path $RootPath 'tools/complete-installer/current') | ConvertFrom-Json)
+        Add-Result 'Component version registry contract' ([bool]$componentVersionRegistryReport.passed) $(if($componentVersionRegistryReport.passed){'SemVer comparison, resolver status coverage, published-version resolution and drift detection all verified'}else{($componentVersionRegistryReport.failures) -join '; '})
+    }
+    catch { Add-Result 'Component version registry contract' $false $_.Exception.Message }
 
     $invalidResults = @(
         $Results | Where-Object {

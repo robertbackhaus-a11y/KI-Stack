@@ -17,13 +17,27 @@ $defaultUpstreamFixture=@{
     comfyui=@{availableVersion='Unknown';upstreamStatus='Unknown';upstreamSource='test-stub'}
     integration=@{availableVersion='Unknown';upstreamStatus='Unknown';upstreamSource='test-stub'}
 }
+# Same hermeticity intent as $defaultUpstreamFixture, for the separate KI-Stack-own package
+# version registry (Lifecycle/KIStackComponentVersionRegistry.psm1): "no release found" makes
+# every own-* component resolve to VersionUnavailable without ever calling gh/GitHub.
+$defaultPackageVersionRegistryFixture=@{latestRelease=@{found=$false;reason='test-stub'}}
 
 function New-KIUpdateAllTargetFixture {
     param([Parameter(Mandatory)][string]$FixtureRoot)
     $installerRoot=Join-Path $FixtureRoot 'installer/complete'
     New-Item -ItemType Directory -Path (Join-Path $installerRoot 'Contracts') -Force|Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $installerRoot 'Lifecycle') -Force|Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $installerRoot 'Config') -Force|Out-Null
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Destination $installerRoot -Force
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'Contracts/COMPONENTS.json') -Destination (Join-Path $installerRoot 'Contracts') -Force
+    # KIStackUpdateIsolation.psm1 and the runtime config are required by Update-KIStack-All.ps1
+    # since the component-isolation workstream (2.13.0) -- every fixture target needs both,
+    # exactly like the two files above.
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Lifecycle/KIStackUpdateIsolation.psm1') -Destination (Join-Path $installerRoot 'Lifecycle') -Force
+    # KIStackComponentVersionRegistry.psm1 is required by Update-KIStack-All.ps1 since the
+    # version-/registry-contract workstream -- every fixture target needs it too, same as above.
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Lifecycle/KIStackComponentVersionRegistry.psm1') -Destination (Join-Path $installerRoot 'Lifecycle') -Force
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Config/complete-installer.config.json') -Destination (Join-Path $installerRoot 'Config') -Force
     $FixtureRoot
 }
 
@@ -44,15 +58,31 @@ function Get-KIJsonFromMixedOutput {
 # reimplemented here -- only JSON<->hashtable plumbing for the test harness.
 $wrapperSource=@'
 [CmdletBinding()]
-param([string]$TargetScript,[string]$TargetRoot,[switch]$CheckOnly,[string]$ComponentJson,[switch]$NonInteractive,[string]$FixtureState,[string]$OpenWebUIFixture,[string]$UpstreamFixture)
+param([string]$TargetScript,[string]$TargetRoot,[switch]$CheckOnly,[string]$ComponentJson,[switch]$NonInteractive,[string]$FixtureState,[string]$OpenWebUIFixture,[string]$UpstreamFixture,[string]$PackageVersionRegistryFixture)
+function ConvertTo-KIFixtureHashtable{
+    param([Parameter(Mandatory)][object]$Value)
+    $h=@{}
+    foreach($p in $Value.PSObject.Properties){
+        $h[$p.Name]=if($p.Value-is[Management.Automation.PSCustomObject]){ConvertTo-KIFixtureHashtable -Value $p.Value}else{$p.Value}
+    }
+    $h
+}
 $fs=$null;if($FixtureState){$obj=$FixtureState|ConvertFrom-Json;$fs=@{};$obj.PSObject.Properties|ForEach-Object{$fs[$_.Name]=$_.Value}}
 $owf=$null;if($OpenWebUIFixture){$obj2=$OpenWebUIFixture|ConvertFrom-Json;$owf=@{};$obj2.PSObject.Properties|ForEach-Object{$owf[$_.Name]=$_.Value}}
 $uf=$null;if($UpstreamFixture){$obj3=$UpstreamFixture|ConvertFrom-Json;$uf=@{};$obj3.PSObject.Properties|ForEach-Object{$uf[$_.Name]=$_.Value}}
+# PackageVersionRegistryFixture is nested (latestRelease / componentVersions.<id> are each their
+# own sub-object) -- a flat one-level Properties-to-hashtable pass (as used for the other three
+# fixtures above, which are always flat) would leave those as PSCustomObjects instead of
+# hashtables, which Get-KIPackageVersionInfo's -Fixture/-ComponentVersionFixtures parameters
+# (typed [hashtable]) would then reject; ConvertTo-KIFixtureHashtable recurses so every nesting
+# level round-trips back into a real hashtable.
+$pvf=$null;if($PackageVersionRegistryFixture){$obj4=$PackageVersionRegistryFixture|ConvertFrom-Json;$pvf=ConvertTo-KIFixtureHashtable -Value $obj4}
 $componentArray=@();if($ComponentJson){$componentArray=@($ComponentJson|ConvertFrom-Json)}
 $scriptArgs=@{TargetRoot=$TargetRoot;CheckOnly=$CheckOnly;Component=$componentArray;NonInteractive=$NonInteractive}
 if($fs){$scriptArgs.FixtureState=$fs}
 if($owf){$scriptArgs.OpenWebUIFixture=$owf}
 if($uf){$scriptArgs.UpstreamFixture=$uf}
+if($pvf){$scriptArgs.PackageVersionRegistryFixture=$pvf}
 & $TargetScript @scriptArgs
 exit $LASTEXITCODE
 '@
@@ -68,6 +98,7 @@ function Invoke-KIUpdateAll {
         [hashtable]$FixtureState,
         [hashtable]$OpenWebUIFixture,
         [hashtable]$UpstreamFixture,
+        [hashtable]$PackageVersionRegistryFixture,
         [string]$StdIn
     )
     $fixtureStateJson=($FixtureState|ConvertTo-Json -Compress)
@@ -78,6 +109,12 @@ function Invoke-KIUpdateAll {
     # never depends on live, drifting upstream content.
     $upstreamFixtureToUse=if($UpstreamFixture){$UpstreamFixture}else{$defaultUpstreamFixture}
     $scriptArgs+=@('-UpstreamFixture',($upstreamFixtureToUse|ConvertTo-Json -Compress))
+    # Same hermeticity guarantee for the KI-Stack-own package version registry (Section:
+    # Versions-/Registry-Vertrag) -- default to "no release found" so this pre-existing suite
+    # never makes a real gh/GitHub-raw-content call either; it predates that registry and does
+    # not assert on its fields.
+    $packageVersionFixtureToUse=if($PackageVersionRegistryFixture){$PackageVersionRegistryFixture}else{$defaultPackageVersionRegistryFixture}
+    $scriptArgs+=@('-PackageVersionRegistryFixture',($packageVersionFixtureToUse|ConvertTo-Json -Compress -Depth 10))
     if($CheckOnly){$scriptArgs+='-CheckOnly'}
     if($NonInteractive){$scriptArgs+='-NonInteractive'}
     # pwsh -File does not run its trailing arguments through the PowerShell parser, so a bare
@@ -196,14 +233,19 @@ try{
     $execScriptPath=Join-Path $fixtureRootBase 'Update-KIStack-All.exec.ps1'
     [IO.File]::WriteAllText($execScriptPath,$execSource,[Text.UTF8Encoding]::new($false))
 
-    # 5. Successful sequential execution: openwebui first, then the batch for the remaining component.
+    # 5. Successful sequential execution: openwebui first, then the batch for the remaining
+    #    component. cutover-runtime (Category C -- shared BuilderKernel execution, no isolated
+    #    executor) is used here deliberately: comfyui/models-workflows/integration/
+    #    validation-gate are now genuinely isolated themselves, so using any of them here would
+    #    exercise the isolated-executor code path (which needs a real Payload/, not present in
+    #    this fixture) instead of the batch stub this scenario is actually testing.
     $seqRoot=Join-Path $fixtureRootBase 'sequential'
-    $seqOrderLog=New-KIUpdateAllExecFixture -FixtureRoot $seqRoot -OwuiStatus 'Completed' -OwuiExitCode 0 -UpgradeResultJson '{"status":"Completed","steps":[{"id":"comfyui","status":"Completed"}]}'
-    $seqFixture=$allCompliantFixture.Clone();$seqFixture['comfyui']='0.0.1'
+    $seqOrderLog=New-KIUpdateAllExecFixture -FixtureRoot $seqRoot -OwuiStatus 'Completed' -OwuiExitCode 0 -UpgradeResultJson '{"status":"Completed","steps":[{"id":"cutover-runtime","status":"Completed"}]}'
+    $seqFixture=$allCompliantFixture.Clone();$seqFixture['cutover-runtime']='0.0.1'
     $seqOwuiFixture=@{installedVersion='0.10.2';targetVersion='0.11.0'}
     $r5=Invoke-KIUpdateAll -WrapperPath $wrapperPath -TargetScript $execScriptPath -TargetRoot $seqRoot -NonInteractive -FixtureState $seqFixture -OpenWebUIFixture $seqOwuiFixture
     $seqOrder=if(Test-Path $seqOrderLog){(Get-Content -LiteralPath $seqOrderLog)-join ','}else{$null}
-    $comfyExec=$r5.json.executed|Where-Object id -eq 'comfyui'|Select-Object -First 1
+    $comfyExec=$r5.json.executed|Where-Object id -eq 'cutover-runtime'|Select-Object -First 1
     $checks.sequentialExecution=[ordered]@{
         exitZero=$r5.exit-eq0
         modeExecuted=$null-ne$r5.json-and$r5.json.mode-eq'Executed'
@@ -214,18 +256,22 @@ try{
 
     # 6. OpenWebUI adapter fails -> batch call must never run (no cascading damage); rollback detail surfaced.
     $failRoot=Join-Path $fixtureRootBase 'failure'
-    $failOrderLog=New-KIUpdateAllExecFixture -FixtureRoot $failRoot -OwuiStatus 'Failed' -OwuiExitCode 1 -UpgradeResultJson '{"status":"Completed","steps":[{"id":"comfyui","status":"Completed"}]}'
-    $failFixture=$allCompliantFixture.Clone();$failFixture['comfyui']='0.0.1'
+    $failOrderLog=New-KIUpdateAllExecFixture -FixtureRoot $failRoot -OwuiStatus 'Failed' -OwuiExitCode 1 -UpgradeResultJson '{"status":"Completed","steps":[{"id":"cutover-runtime","status":"Completed"}]}'
+    $failFixture=$allCompliantFixture.Clone();$failFixture['cutover-runtime']='0.0.1'
     $failOwuiFixture=@{installedVersion='0.10.2';targetVersion='0.11.0'}
     $r6=Invoke-KIUpdateAll -WrapperPath $wrapperPath -TargetScript $execScriptPath -TargetRoot $failRoot -NonInteractive -FixtureState $failFixture -OpenWebUIFixture $failOwuiFixture
     $failOrder=if(Test-Path $failOrderLog){(Get-Content -LiteralPath $failOrderLog)-join ','}else{$null}
     $owuiExecFail=$r6.json.executed|Where-Object id -eq 'openwebui'|Select-Object -First 1
-    $comfyExecFail=@($r6.json.executed|Where-Object id -eq 'comfyui')
+    $comfyExecFail=@($r6.json.executed|Where-Object id -eq 'cutover-runtime')
+    # cutover-runtime is explicitly reported as NotRun (never silently omitted, per the
+    # component-isolation workstream's failure-isolation contract) rather than genuinely
+    # started -- batchNeverRan (order.log only ever contains 'openwebui') is what actually
+    # proves no mutation was attempted for it.
     $checks.failureStopsCascade=[ordered]@{
         exitNonZero=$r6.exit-ne0
         modeFailed=$null-ne$r6.json-and$r6.json.mode-eq'Failed'
         batchNeverRan=$failOrder-eq'openwebui'
-        comfyNotTouched=$comfyExecFail.Count-eq0
+        comfyReportedNotRun=$comfyExecFail.Count-eq1-and[string]$comfyExecFail[0].outcome-eq'NotRun'
         rollbackDetailSurfaced=$null-ne$owuiExecFail-and$null-ne$owuiExecFail.detail.rollback-and[bool]$owuiExecFail.detail.rollback.success
     }
     if($checks.failureStopsCascade.Values-contains$false){$fail.Add('Scenario FailureStopsCascade failed: order='+$failOrder+' output='+($r6.raw-join ' | '))}
@@ -247,28 +293,32 @@ try{
     #     of them. The batch contract has no per-component isolation, so executing would silently
     #     touch the unnamed one too -- this must be refused up front, before any confirmation
     #     prompt and before any mutation, with a clear reason naming the omitted component(s).
+    #     foundation-runtime and cutover-runtime are Category C (shared BuilderKernel execution,
+    #     no isolated executor -- see Contracts/COMPONENTS.json) and genuinely route through the
+    #     batch today; comfyui/models-workflows/integration/validation-gate (all now isolated as
+    #     of this workstream) would no longer exercise this scenario, which is exactly the point.
     $partialRoot=Join-Path $fixtureRootBase 'partialselect'
-    $partialOrderLog=New-KIUpdateAllExecFixture -FixtureRoot $partialRoot -OwuiStatus 'Completed' -OwuiExitCode 0 -UpgradeResultJson '{"status":"Completed","steps":[{"id":"comfyui","status":"Completed"},{"id":"rag","status":"Completed"}]}'
-    $partialFixture=$allCompliantFixture.Clone();$partialFixture['comfyui']='0.0.1';$partialFixture['rag']='0.0.1'
+    $partialOrderLog=New-KIUpdateAllExecFixture -FixtureRoot $partialRoot -OwuiStatus 'Completed' -OwuiExitCode 0 -UpgradeResultJson '{"status":"Completed","steps":[{"id":"foundation-runtime","status":"Completed"},{"id":"cutover-runtime","status":"Completed"}]}'
+    $partialFixture=$allCompliantFixture.Clone();$partialFixture['foundation-runtime']='0.0.1';$partialFixture['cutover-runtime']='0.0.1'
     $partialOwuiFixture=@{installedVersion='0.11.0';targetVersion='0.11.0'}
-    $r7b=Invoke-KIUpdateAll -WrapperPath $wrapperPath -TargetScript $execScriptPath -TargetRoot $partialRoot -NonInteractive -FixtureState $partialFixture -OpenWebUIFixture $partialOwuiFixture -Component @('comfyui')
+    $r7b=Invoke-KIUpdateAll -WrapperPath $wrapperPath -TargetScript $execScriptPath -TargetRoot $partialRoot -NonInteractive -FixtureState $partialFixture -OpenWebUIFixture $partialOwuiFixture -Component @('foundation-runtime')
     $partialOrderWritten=Test-Path $partialOrderLog
     $checks.batchPartialSelectionBlocked=[ordered]@{
         exitNonZero=$r7b.exit-ne0
         modeBlocked=$null-ne$r7b.json-and$r7b.json.mode-eq'Blocked'
-        reasonNamesOmittedComponent=$null-ne$r7b.json-and[string]$r7b.json.batchExecutionBlocked-match'rag'
+        reasonNamesOmittedComponent=$null-ne$r7b.json-and[string]$r7b.json.batchExecutionBlocked-match'cutover-runtime'
         noMutationAttempted=-not$partialOrderWritten
     }
     if($checks.batchPartialSelectionBlocked.Values-contains$false){$fail.Add('Scenario BatchPartialSelectionBlocked failed: '+($r7b.raw-join ' | '))}
 
     # 7c. Same situation, but -Component names EVERY batch component that currently needs action
-    #     (comfyui AND rag) -- the selection no longer understates the batch's real scope, so
-    #     execution proceeds normally.
+    #     (foundation-runtime AND cutover-runtime) -- the selection no longer understates the
+    #     batch's real scope, so execution proceeds normally.
     $fullRoot=Join-Path $fixtureRootBase 'fullselect'
-    $fullOrderLog=New-KIUpdateAllExecFixture -FixtureRoot $fullRoot -OwuiStatus 'Completed' -OwuiExitCode 0 -UpgradeResultJson '{"status":"Completed","steps":[{"id":"comfyui","status":"Completed"},{"id":"rag","status":"Completed"}]}'
-    $fullFixture=$allCompliantFixture.Clone();$fullFixture['comfyui']='0.0.1';$fullFixture['rag']='0.0.1'
+    $fullOrderLog=New-KIUpdateAllExecFixture -FixtureRoot $fullRoot -OwuiStatus 'Completed' -OwuiExitCode 0 -UpgradeResultJson '{"status":"Completed","steps":[{"id":"foundation-runtime","status":"Completed"},{"id":"cutover-runtime","status":"Completed"}]}'
+    $fullFixture=$allCompliantFixture.Clone();$fullFixture['foundation-runtime']='0.0.1';$fullFixture['cutover-runtime']='0.0.1'
     $fullOwuiFixture=@{installedVersion='0.11.0';targetVersion='0.11.0'}
-    $r7c=Invoke-KIUpdateAll -WrapperPath $wrapperPath -TargetScript $execScriptPath -TargetRoot $fullRoot -NonInteractive -FixtureState $fullFixture -OpenWebUIFixture $fullOwuiFixture -Component @('comfyui','rag')
+    $r7c=Invoke-KIUpdateAll -WrapperPath $wrapperPath -TargetScript $execScriptPath -TargetRoot $fullRoot -NonInteractive -FixtureState $fullFixture -OpenWebUIFixture $fullOwuiFixture -Component @('foundation-runtime','cutover-runtime')
     $fullOrder=if(Test-Path $fullOrderLog){(Get-Content -LiteralPath $fullOrderLog)-join ','}else{$null}
     $checks.batchFullSelectionProceeds=[ordered]@{
         exitZero=$r7c.exit-eq0
@@ -280,8 +330,8 @@ try{
     # 7d. -Component openwebui alone must never be affected by an unrelated batch ambiguity --
     #     it always has real single-component isolation of its own.
     $owuiOnlyRoot=Join-Path $fixtureRootBase 'owuionlyselect'
-    $owuiOnlyOrderLog=New-KIUpdateAllExecFixture -FixtureRoot $owuiOnlyRoot -OwuiStatus 'Completed' -OwuiExitCode 0 -UpgradeResultJson '{"status":"Completed","steps":[{"id":"comfyui","status":"Completed"},{"id":"rag","status":"Completed"}]}'
-    $owuiOnlyFixture=$allCompliantFixture.Clone();$owuiOnlyFixture['comfyui']='0.0.1';$owuiOnlyFixture['rag']='0.0.1'
+    $owuiOnlyOrderLog=New-KIUpdateAllExecFixture -FixtureRoot $owuiOnlyRoot -OwuiStatus 'Completed' -OwuiExitCode 0 -UpgradeResultJson '{"status":"Completed","steps":[{"id":"foundation-runtime","status":"Completed"},{"id":"cutover-runtime","status":"Completed"}]}'
+    $owuiOnlyFixture=$allCompliantFixture.Clone();$owuiOnlyFixture['foundation-runtime']='0.0.1';$owuiOnlyFixture['cutover-runtime']='0.0.1'
     $owuiOnlyOwuiFixture=@{installedVersion='0.10.2';targetVersion='0.11.0'}
     $r7d=Invoke-KIUpdateAll -WrapperPath $wrapperPath -TargetScript $execScriptPath -TargetRoot $owuiOnlyRoot -NonInteractive -FixtureState $owuiOnlyFixture -OpenWebUIFixture $owuiOnlyOwuiFixture -Component @('openwebui')
     $owuiOnlyOrder=if(Test-Path $owuiOnlyOrderLog){(Get-Content -LiteralPath $owuiOnlyOrderLog)-join ','}else{$null}

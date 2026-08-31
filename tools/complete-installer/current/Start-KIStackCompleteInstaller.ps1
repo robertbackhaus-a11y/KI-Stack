@@ -73,6 +73,20 @@ try{
     $needsOpenWebUI=@($plan.steps|Where-Object{$_.id-in@('openwebui-agent-pack','openwebui-visual-pack')-and$_.plannedMode-ne'Skip'})
     $needsVisualPackCutover=@($needsOpenWebUI|Where-Object{$_.id-eq'openwebui-visual-pack'}).Count-gt0
     $apiToken=$null
+    # OpenWebUI-Credential-Bootstrap-Workstream (Section 24): a normal Upgrade run must reuse an
+    # already-bootstrapped, valid credential silently -- never prompt interactively just because
+    # one already exists. Purely additive: on a target with no stored credential at all (the
+    # existing, already-tested Greenfield/no-bootstrap-yet case), Test-KIStackOpenWebUICredential
+    # returns NotConfigured and every line below this falls through to the original, unchanged
+    # wait-for-OpenWebUI + one-time interactive-prompt path exactly as before.
+    try{
+        Import-Module (Join-Path $PSScriptRoot 'Lifecycle/KIStackOpenWebUICredential.psm1') -Force -DisableNameChecking -ErrorAction Stop
+        $storedCredentialStatus=Test-KIStackOpenWebUICredential -TargetRoot 'C:\KI-Stack'
+        if([string]$storedCredentialStatus.status-eq'Valid'){
+            $storedCredential=Get-KIStackOpenWebUICredential -TargetRoot 'C:\KI-Stack'
+            if($null-ne$storedCredential-and-not[bool]$storedCredential.decryptionFailed){$apiToken=$storedCredential.apiKey}
+        }
+    }catch{}
     try{
         if($needsOpenWebUI.Count){
             $config=$null
@@ -108,22 +122,28 @@ try{
                     throw 'ComfyUI ist unter http://127.0.0.1:8188 nicht erreichbar; der Visual-Pack-Cutover benötigt einen laufenden ComfyUI-Dienst.'
                 }
             }
-            if($needsVisualPackCutover){
-                Write-Host ''
-                Write-Host '=== OpenWebUI Visual-Pack-Cutover: einmaliger Erstanmelde-/API-Key-Schritt ===' -ForegroundColor Cyan
-                Write-Host '1. OpenWebUI oeffnet sich jetzt im Standardbrowser (http://127.0.0.1:8080).' -ForegroundColor Cyan
-                Write-Host '2. Ersten Benutzer als Administrator anlegen, falls noch keiner existiert - sonst anmelden.' -ForegroundColor Cyan
-                Write-Host '3. Zu Einstellungen -> Konto -> API-Keys wechseln und einen neuen API-Key erzeugen.' -ForegroundColor Cyan
-                Write-Host '4. Zu diesem Fenster zurueckkehren.' -ForegroundColor Cyan
-                Write-Host ''
-                try{Start-Process 'http://127.0.0.1:8080'}catch{Write-Host "OpenWebUI konnte nicht automatisch im Browser geoeffnet werden: $($_.Exception.Message)" -ForegroundColor Yellow}
-                Read-Host 'Enter druecken, sobald der API-Key erzeugt wurde und bereitsteht'
-            }
-            $enteredApiToken=Read-Host 'Temporären OpenWebUI-Administrator-API-Key eingeben' -AsSecureString
-            if($enteredApiToken.Length-gt0){
-                $apiToken=$enteredApiToken
+            if($null-eq$apiToken){
+                # Reached only when no already-bootstrapped, valid credential resolved above --
+                # the original, unchanged one-time manual/interactive path.
+                if($needsVisualPackCutover){
+                    Write-Host ''
+                    Write-Host '=== OpenWebUI Visual-Pack-Cutover: einmaliger Erstanmelde-/API-Key-Schritt ===' -ForegroundColor Cyan
+                    Write-Host '1. OpenWebUI oeffnet sich jetzt im Standardbrowser (http://127.0.0.1:8080).' -ForegroundColor Cyan
+                    Write-Host '2. Ersten Benutzer als Administrator anlegen, falls noch keiner existiert - sonst anmelden.' -ForegroundColor Cyan
+                    Write-Host '3. Zu Einstellungen -> Konto -> API-Keys wechseln und einen neuen API-Key erzeugen.' -ForegroundColor Cyan
+                    Write-Host '4. Zu diesem Fenster zurueckkehren.' -ForegroundColor Cyan
+                    Write-Host ''
+                    try{Start-Process 'http://127.0.0.1:8080'}catch{Write-Host "OpenWebUI konnte nicht automatisch im Browser geoeffnet werden: $($_.Exception.Message)" -ForegroundColor Yellow}
+                    Read-Host 'Enter druecken, sobald der API-Key erzeugt wurde und bereitsteht'
+                }
+                $enteredApiToken=Read-Host 'Temporären OpenWebUI-Administrator-API-Key eingeben' -AsSecureString
+                if($enteredApiToken.Length-gt0){
+                    $apiToken=$enteredApiToken
+                }else{
+                    Write-Host 'Kein API-Key eingegeben; Transaktion wird ohne API-Schlüssel als WaitingForUserAction fortgesetzt.' -ForegroundColor Yellow
+                }
             }else{
-                Write-Host 'Kein API-Key eingegeben; Transaktion wird ohne API-Schlüssel als WaitingForUserAction fortgesetzt.' -ForegroundColor Yellow
+                Write-Host 'Bereits bootstrapptes, gültiges OpenWebUI-Credential gefunden -- kein interaktiver Prompt nötig (siehe Initialize-KIStackOpenWebUICredential.ps1 für Rotation/Re-Bootstrap).' -ForegroundColor DarkGray
             }
         }
         $result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot 'C:\KI-Stack' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken -ReplayComponent $ReplayComponent

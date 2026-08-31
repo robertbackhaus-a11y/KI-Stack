@@ -212,7 +212,7 @@ function Test-KICompleteVisualPackCompliant {
 }
 
 function Test-KICompleteCodexLocalCompliant {
-    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.1.4',[string]$ExpectedCodexVersion='0.145.0',[string]$ExpectedNodeVersion='24.14.0')
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.2.1',[string]$ExpectedCodexVersion='0.145.0',[string]$ExpectedNodeVersion='24.14.0')
     $root=Join-Path $TargetRoot 'modules/codex-local'
     $markerPath=Join-Path $root 'installation.json'
     $node=Join-Path $root 'runtime/node.exe'
@@ -223,7 +223,19 @@ function Test-KICompleteCodexLocalCompliant {
         $marker=Read-KICompleteJson $markerPath
         if([string]$marker.version-ne$ExpectedComponentVersion-or[string]$marker.codexVersion-ne$ExpectedCodexVersion-or[string]$marker.nodeRuntimeVersion-ne$ExpectedNodeVersion){return $false}
         $nodeOutput=@(& $node --version 2>&1);if($LASTEXITCODE-ne0-or($nodeOutput-join' ').Trim()-ne('v'+$ExpectedNodeVersion)){return $false}
-        $codexOutput=@(& $node $codexCli --version 2>&1);if($LASTEXITCODE-ne0){return $false}
+        # CODEX_HOME-Isolation-Workstream: this package (Complete Installer) is deployed and
+        # executed as its own isolated payload, never alongside tools/codex-local/current's own
+        # CodexLocal.psm1 (see Get-KICodexPaths there) -- so the same isolated home is computed
+        # inline here, purely from TargetRoot, and set for this ONE child process only, exactly
+        # like CodexLocal.psm1's own Invoke-KICodexProcess does. Without this, `& $node $codexCli`
+        # would inherit whatever ambient CODEX_HOME this orchestrator process happens to have (or
+        # fall back to the shared %USERPROFILE%\.codex) -- the real, reproduced Architekturfund
+        # this fix closes off for every real codex.js invocation site, not just CodexLocal.psm1's.
+        $isolatedCodexHome=Join-Path $TargetRoot 'state/codex-local/codex-home'
+        $originalCodexHomeForThisCall=$env:CODEX_HOME
+        $env:CODEX_HOME=$isolatedCodexHome
+        try{$codexOutput=@(& $node $codexCli --version 2>&1)}finally{$env:CODEX_HOME=$originalCodexHomeForThisCall}
+        if($LASTEXITCODE-ne0){return $false}
         return ($codexOutput-join' ') -match ('(?<!\d)'+[regex]::Escape($ExpectedCodexVersion)+'(?!\d)')
     }catch{return $false}
 }
@@ -646,7 +658,15 @@ function Remove-KICompleteLMStudioCompetingAutostart {
 }
 
 function Install-KICompleteOperations {
-    param([string]$TargetRoot,[string]$BackupRoot)
+    # DesktopPath: real production callers never pass this (empty -> the real, single Windows
+    # Desktop folder for the current user, exactly as before). Real, reproduced Architekturfund
+    # (2.13.0 consolidation workstream): a fixture/Greenfield test driving the full
+    # Invoke-KIStackCompleteInstaller orchestrator against an isolated, disposable -TargetRoot
+    # had NO way to avoid this function writing real .lnk files onto the REAL Desktop (only
+    # pointing their TARGET at the disposable fixture path) -- [Environment]::GetFolderPath
+    # ('Desktop') was never parameterized at all. This optional override exists solely so an
+    # isolated test can redirect desktop-link creation into its own fixture directory instead.
+    param([string]$TargetRoot,[string]$BackupRoot,[string]$DesktopPath='')
     $state=[ordered]@{schemaVersion='1.0';createdAtUtc=[DateTime]::UtcNow.ToString('o');runValues=@();desktopLinks=@();systemdUnits=@();dockerContainers=@();changes=@()}
     New-Item -ItemType Directory -Path $BackupRoot -Force|Out-Null
     $backupPath=Join-Path $BackupRoot 'operations.backup.json';Write-KICompleteJson $backupPath $state
@@ -656,7 +676,9 @@ function Install-KICompleteOperations {
     }
     foreach($removedEntry in $autostartResult.removed){$state.changes+=@("Run:$($removedEntry.name)")}
     if($autostartResult.removed.Count){Write-KICompleteJson $backupPath $state}
-    $desktop=[Environment]::GetFolderPath('Desktop');$shell=New-Object -ComObject WScript.Shell;$pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source
+    $desktop=if([string]::IsNullOrWhiteSpace($DesktopPath)){[Environment]::GetFolderPath('Desktop')}else{$DesktopPath}
+    if($desktop-ne[Environment]::GetFolderPath('Desktop')){New-Item -ItemType Directory -Path $desktop -Force|Out-Null}
+    $shell=New-Object -ComObject WScript.Shell;$pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source
     foreach($link in @(@{name='KI-Stack starten.lnk';target='Start-KIStack.cmd'},@{name='KI-Stack stoppen.lnk';target='Stop-KIStack.cmd'},@{name='KI-Stack Status.lnk';target='Show-KIStackStatus.ps1';executable=$pwsh;arguments=('-NoLogo -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $TargetRoot 'Show-KIStackStatus.ps1')+'"')})){
         $path=Join-Path $desktop $link.name
         if(Test-Path $path){$old=$shell.CreateShortcut($path);$state.desktopLinks+=@([ordered]@{path=$path;existed=$true;target=$old.TargetPath;workingDirectory=$old.WorkingDirectory;arguments=$old.Arguments})}else{$state.desktopLinks+=@([ordered]@{path=$path;existed=$false})};Write-KICompleteJson $backupPath $state
@@ -689,9 +711,12 @@ function Restore-KICompleteOperations {
 }
 
 function Test-KICompleteOperations {
-    param([string]$TargetRoot)
+    # DesktopPath: see the identical parameter on Install-KICompleteOperations -- must resolve
+    # to the SAME location that function used, so this readback check never inspects the real
+    # Desktop when Install ran against an isolated fixture path instead.
+    param([string]$TargetRoot,[string]$DesktopPath='')
     $issues=@();$runProperties=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'electron.app.LM Studio' -ErrorAction SilentlyContinue;$runProperty=if($null-ne$runProperties){$runProperties.PSObject.Properties['electron.app.LM Studio']}else{$null};if($null-ne$runProperty-and$runProperty.Value){$issues+='LM Studio Run-Autostart vorhanden.'}
-    $shell=New-Object -ComObject WScript.Shell;$desktop=[Environment]::GetFolderPath('Desktop');$pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source;foreach($link in @(@{name='KI-Stack starten.lnk';target=(Join-Path $TargetRoot 'Start-KIStack.cmd');arguments=''},@{name='KI-Stack stoppen.lnk';target=(Join-Path $TargetRoot 'Stop-KIStack.cmd');arguments=''},@{name='KI-Stack Status.lnk';target=$pwsh;arguments=('-NoLogo -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $TargetRoot 'Show-KIStackStatus.ps1')+'"')})){$path=Join-Path $desktop $link.name;if(-not(Test-Path $path)){$issues+="Desktop-Link fehlt: $($link.name)";continue};$s=$shell.CreateShortcut($path);if($s.TargetPath-ne$link.target-or$s.WorkingDirectory-ne$TargetRoot-or$s.Arguments-ne$link.arguments){$issues+="Desktop-Link falsch: $($link.name)"}}
+    $shell=New-Object -ComObject WScript.Shell;$desktop=if([string]::IsNullOrWhiteSpace($DesktopPath)){[Environment]::GetFolderPath('Desktop')}else{$DesktopPath};$pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source;foreach($link in @(@{name='KI-Stack starten.lnk';target=(Join-Path $TargetRoot 'Start-KIStack.cmd');arguments=''},@{name='KI-Stack stoppen.lnk';target=(Join-Path $TargetRoot 'Stop-KIStack.cmd');arguments=''},@{name='KI-Stack Status.lnk';target=$pwsh;arguments=('-NoLogo -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $TargetRoot 'Show-KIStackStatus.ps1')+'"')})){$path=Join-Path $desktop $link.name;if(-not(Test-Path $path)){$issues+="Desktop-Link fehlt: $($link.name)";continue};$s=$shell.CreateShortcut($path);if($s.TargetPath-ne$link.target-or$s.WorkingDirectory-ne$TargetRoot-or$s.Arguments-ne$link.arguments){$issues+="Desktop-Link falsch: $($link.name)"}}
     # Either uwsgi.service or ki-stack-searxng.service (the sibling Cutover-
     # Runtime Integration module's unit) providing the SearXNG endpoint is a
     # valid, compliant state; valkey-server and nginx remain required either way.
@@ -812,7 +837,11 @@ function Invoke-KICompleteLifecycle {
 }
 
 function Invoke-KIStackCompleteInstaller {
-    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate','Rollback','Start','Stop')][string]$Mode='Audit',[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[string]$TransactionId,[switch]$Resume,[switch]$DryRun,[switch]$EnableOpenWebUIBallistics,[Security.SecureString]$OpenWebUIApiToken,[string[]]$ReplayComponent=@())
+    # DesktopPath: see Install-KICompleteOperations/Test-KICompleteOperations -- real production
+    # callers never pass this (empty string keeps the real, single Windows Desktop folder).
+    # Exists solely so an isolated fixture/Greenfield test can redirect desktop-link creation
+    # into its own disposable directory instead of the real, current user's real Desktop.
+    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate','Rollback','Start','Stop')][string]$Mode='Audit',[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[string]$TransactionId,[switch]$Resume,[switch]$DryRun,[switch]$EnableOpenWebUIBallistics,[Security.SecureString]$OpenWebUIApiToken,[string[]]$ReplayComponent=@(),[string]$DesktopPath='')
     $PackageRoot = Get-KICompletePackageRoot $PackageRoot
     $config = Read-KICompleteJson (Join-Path $PackageRoot 'Config/complete-installer.config.json')
     $componentContract=Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
@@ -826,13 +855,13 @@ function Invoke-KIStackCompleteInstaller {
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
     $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics -ReplayComponent $ReplayComponent
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.12.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.12.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if(-not$Resume -and $plan.alreadyCompliant -and -not[bool]$plan.hasReplay -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.13.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.13.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if(-not$Resume -and $plan.alreadyCompliant -and -not[bool]$plan.hasReplay -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.12.0'}
-        return [pscustomobject]@{version='2.12.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.13.0'}
+        return [pscustomobject]@{version='2.13.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
     $state = [string]$config.stateDirectory
     if ($Resume) {
@@ -1151,7 +1180,7 @@ function Invoke-KIStackCompleteInstaller {
         $starterChanges=Install-KICompleteCentralStarters $PackageRoot $TargetRoot $backup
         $finalizationPhase = 'InstallOperations'
         $operationsStarted = $true
-        $operations=Install-KICompleteOperations $TargetRoot (Join-Path $backup 'operations')
+        $operations=Install-KICompleteOperations $TargetRoot (Join-Path $backup 'operations') -DesktopPath $DesktopPath
         $finalizationPhase = 'RemoveKnowledgeExperiment'
         $knowledgeRollback=if($null-ne$OpenWebUIApiToken){& (Join-Path $PackageRoot 'Operations/Remove-KIStackKnowledgeExperiment.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BackupDirectory (Join-Path $backup 'knowledge-rollback')}else{[pscustomobject]@{status='CredentialRequiredForApiReadback';apiKeyStored=$false}}
         $finalizationPhase = 'SetCodeInterpreter'
@@ -1162,7 +1191,7 @@ function Invoke-KIStackCompleteInstaller {
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
         $componentStatePath=Join-Path $state 'components.json';$componentVersions=[ordered]@{}
         foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
-        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.12.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
+        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.13.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
         Write-KICompleteJson $txPath $tx; return $tx
     }
     catch {

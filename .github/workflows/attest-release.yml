@@ -1,7 +1,33 @@
 name: Attest published release asset
 
+# Single source of truth for attesting a published KI-Stack Complete Installer release. Two
+# entry points share this exact job/steps, never two separate implementations:
+#   - workflow_dispatch: manual trigger / recovery (unchanged from the existing contract).
+#   - workflow_call: automatic trigger, invoked by .github/workflows/release-attestation.yml
+#     right after a Complete Installer release is confirmed published with all required
+#     assets present (see that workflow for the trigger/asset-resolution logic). This file
+#     itself never reacts to raw release/tag events -- it only ever attests the exact,
+#     already-named assets it is told about, by either caller.
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag
+        required: true
+        type: string
+      zip_name:
+        description: Exact published ZIP asset name
+        required: true
+        type: string
+      sidecar_name:
+        description: Exact published ZIP SHA256 sidecar name
+        required: true
+        type: string
+      sbom_name:
+        description: Exact published SPDX SBOM asset name
+        required: true
+        type: string
+  workflow_call:
     inputs:
       tag:
         description: Published release tag
@@ -25,6 +51,14 @@ permissions:
   id-token: write
   attestations: write
 
+concurrency:
+  # Serializes an automatic trigger against a concurrent/duplicate manual workflow_dispatch
+  # (or a second automatic redelivery) for the same tag, so the existing-attestation check
+  # below always sees a consistent, already-settled state rather than racing another run's
+  # in-flight attest steps.
+  group: attest-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
 jobs:
   attest:
     name: Attest final published ZIP and SBOM
@@ -38,11 +72,62 @@ jobs:
           gh release download "${{ inputs.tag }}" --repo "$GITHUB_REPOSITORY" --dir release --pattern "${{ inputs.zip_name }}" --pattern "${{ inputs.sidecar_name }}" --pattern "${{ inputs.sbom_name }}"
           cd release
           sha256sum --check "${{ inputs.sidecar_name }}"
+
+      - name: Verify SHA256 contract (ZIP == Sidecar == SBOM root package)
+        shell: pwsh
+        run: |
+          # Mirrors the exact comparison already validated locally by
+          # Test-CompleteInstallerSbomReleaseContract in scripts/Test-Repository.ps1 (root
+          # package SPDXRef-Package, its single SHA256 checksum entry) -- applied here to the
+          # actually-published, downloaded release assets instead of a fresh local build. Same
+          # validated contract, checked at a different point in the pipeline; not a second,
+          # independently-maintained SBOM parser.
+          $ErrorActionPreference = 'Stop'
+          $zipPath = Join-Path 'release' '${{ inputs.zip_name }}'
+          $sbomPath = Join-Path 'release' '${{ inputs.sbom_name }}'
+          $actualZipSha256 = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          $sbom = Get-Content -LiteralPath $sbomPath -Raw | ConvertFrom-Json -Depth 30
+          $rootPackages = @($sbom.packages | Where-Object { $_.SPDXID -eq 'SPDXRef-Package' })
+          if ($rootPackages.Count -ne 1) { throw "SBOM does not contain exactly one root package (SPDXRef-Package); found $($rootPackages.Count)." }
+          $rootChecksums = @($rootPackages[0].checksums | Where-Object { $_.algorithm -eq 'SHA256' })
+          if ($rootChecksums.Count -ne 1) { throw 'SBOM root package does not carry exactly one SHA256 checksum entry.' }
+          $rootSha256 = ([string]$rootChecksums[0].checksumValue).ToLowerInvariant()
+          if ($rootSha256 -ne $actualZipSha256) { throw "SBOM root package SHA256 ($rootSha256) does not match the published ZIP SHA256 ($actualZipSha256)." }
+          Write-Host "SHA256 contract verified: ZIP == Sidecar == SBOM root package ($actualZipSha256)"
+
+      - name: Check for an already-existing attestation on this exact digest
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          DIGEST=$(sha256sum "release/${{ inputs.zip_name }}" | cut -d' ' -f1)
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          COUNT=$(gh api "repos/$GITHUB_REPOSITORY/attestations/sha256:$DIGEST" --jq '.attestations | length' 2>/dev/null || echo 0)
+          echo "Existing attestation count for sha256:$DIGEST -> $COUNT"
+          # actions/attest publishes one attestation record per call (build provenance and SBOM
+          # are two separate records for the same digest); a fully-attested digest therefore
+          # has >= 2. Only skip both steps once both are already present -- a retry after a
+          # genuine partial failure (count 0 or 1) always re-runs both, so recovery can never be
+          # blocked by this guard. GitHub allows more than one valid attestation for the same
+          # digest; a redundant, harmless duplicate in the count==1 case (the still-missing type
+          # gets created, the already-present type gets a second valid record) is accepted and
+          # documented rather than risking a false skip of genuinely missing work.
+          if [ "$COUNT" -ge 2 ]; then
+            echo "Both attestation types already exist for this digest -- duplicate trigger, skipping both attest steps."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Attest GitHub build provenance for exact ZIP bytes
+        if: steps.existing.outputs.skip != 'true'
         uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4
         with:
           subject-path: release/${{ inputs.zip_name }}
+
       - name: Attest SPDX SBOM for exact ZIP bytes
+        if: steps.existing.outputs.skip != 'true'
         uses: actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6 # v4
         with:
           subject-path: release/${{ inputs.zip_name }}

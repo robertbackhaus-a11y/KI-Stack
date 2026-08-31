@@ -9,10 +9,34 @@ foreach($path in $required){
 }
 $config=Get-Content -LiteralPath (Join-Path $PackageRoot 'Config/codex-local.config.json') -Raw|ConvertFrom-Json
 $version=(Get-Content -LiteralPath (Join-Path $PackageRoot 'VERSION') -Raw).Trim()
-if($version-ne'0.1.4'-or$config.version-ne$version){$failures.Add('Versionsvertrag inkonsistent.')}
+if($version-ne'0.2.1'-or$config.version-ne$version){$failures.Add('Versionsvertrag inkonsistent.')}
 if($config.codexPackage-ne'@openai/codex'-or$config.codexVersion-ne'0.145.0'){$failures.Add('Codex-Paketvertrag inkonsistent.')}
 if($config.localProvider-ne'lmstudio'){$failures.Add('LM-Studio-Providervertrag fehlt.')}
 if($config.sandboxMode-ne'workspace-write'){$failures.Add('Workspace-write-Vertrag fehlt.')}
+# Real Greenfield finding (Codex-Local-Greenfield-Workstream): --oss mode with no explicit
+# model resolves to Codex's own built-in default OSS model, not whatever LM Studio happens to
+# have loaded -- reproduced live as an unwanted ~12GB download of an unrelated model. chatModel
+# must match Contracts/PAYLOADS.json's modelPolicy.chatModels[0] exactly -- never a second,
+# independently-chosen model name.
+if([string]::IsNullOrWhiteSpace([string]$config.chatModel)){$failures.Add('Chat-Modell-Vertrag fehlt (verhindert ungewollten Auto-Download eines falschen Modells).')}
+$payloadsContractPath=Join-Path $PackageRoot '../../complete-installer/current/Contracts/PAYLOADS.json'
+if(Test-Path -LiteralPath $payloadsContractPath -PathType Leaf){
+    $payloadsContract=Get-Content -LiteralPath $payloadsContractPath -Raw|ConvertFrom-Json -Depth 20
+    $authoritativeChatModel=[string]@($payloadsContract.modelPolicy.chatModels)[0]
+    if([string]$config.chatModel-ne$authoritativeChatModel){$failures.Add("Chat-Modell weicht vom Complete-Installer-Vertrag ab: '$($config.chatModel)' <> '$authoritativeChatModel'.")}
+}
+# The configured workspace (a deployed KI-Stack target) is deliberately never a git repository,
+# so codex's default "not inside a trusted directory" refusal would otherwise block every real
+# invocation -- reproduced live, fixed via an explicit --skip-git-repo-check.
+if(-not[bool]$config.skipGitRepoCheck){$failures.Add('skipGitRepoCheck-Vertrag fehlt (Zielarbeitsbereich ist absichtlich kein Git-Repository).')}
+# Real Architekturfund (CODEX_HOME-Isolation-Workstream): Codex Local darf standardmäßig nicht
+# mehr das mit jeder anderen realen Codex-CLI-Nutzung geteilte %USERPROFILE%\.codex verwenden --
+# reproduziert live als eigentliche Ursache eines wiederkehrenden Fehl-Downloads, den die -m-
+# Korrektur allein nicht zuverlässig verhinderte. codexHome muss innerhalb des bestehenden
+# Codex-Local-State-Bereichs liegen (keine neue globale User-Hierarchie).
+$expectedCodexHome=Join-Path ([string]$config.stateRoot) 'codex-home'
+if([string]::IsNullOrWhiteSpace([string]$config.codexHome)){$failures.Add('codexHome-Vertrag fehlt (verhindert Rückfall auf das geteilte %USERPROFILE%\.codex).')}
+elseif([string]$config.codexHome-ne$expectedCodexHome){$failures.Add("codexHome liegt nicht im bestehenden Codex-Local-State-Bereich: '$([string]$config.codexHome)' <> '$expectedCodexHome'.")}
 if($config.nodeRuntime.version-ne'24.14.0'){$failures.Add('Node.js-Versionsvertrag fehlt.')}
 if($config.nodeRuntime.url-ne'https://nodejs.org/dist/v24.14.0/node-v24.14.0-win-x64.zip'){$failures.Add('Offizielle Node.js-Quelle fehlt.')}
 if([long]$config.nodeRuntime.sizeBytes-ne36217529){$failures.Add('Node.js-Größenvertrag fehlt.')}
@@ -30,11 +54,18 @@ foreach($marker in @(
     "KIStackRollbackStatus",
     "secondRunReused",
     'Ensure-KILMStudioEndpointReachable',
-    'modules/applications/Start-KIStack-LMStudio.cmd'
+    'modules/applications/Start-KIStack-LMStudio.cmd',
+    '--skip-git-repo-check',
+    'RedirectStandardInput',
+    'StandardInput.Close()',
+    'codexHome=Join-Path $stateRoot ''codex-home''',
+    'Get-KICodexStarterScriptContent',
+    "psi.Environment['CODEX_HOME']",
+    '-CodexHome $paths.codexHome'
 )){
     if(-not$module.Contains($marker)){$failures.Add("Codex-Ausführungsvertrag fehlt: $marker")}
 }
-foreach($forbidden in @('npm-global/codex.cmd','runtime/npm.cmd','PathSeparator+$originalPath','Get-Command node','Get-Command npm','Get-Command codex')){
+foreach($forbidden in @('npm-global/codex.cmd','runtime/npm.cmd','PathSeparator+$originalPath','Get-Command node','Get-Command npm','Get-Command codex',"if([string]::IsNullOrWhiteSpace(`$env:CODEX_HOME)){Join-Path `$env:USERPROFILE '.codex'}")){
     if($module.Contains($forbidden)){$failures.Add("Globaler Runtime-Fallback gefunden: $forbidden")}
 }
 

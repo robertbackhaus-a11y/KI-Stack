@@ -1,0 +1,117 @@
+name: Trigger release attestation
+
+# Chains a successfully published KI-Stack release to the existing, validated
+# attest-release.yml workflow -- automatically, without duplicating its attestation logic and
+# without assuming every published release in this repository is a Complete Installer release
+# (this repository also publishes per-component releases -- ComfyUI, Integration, Models/
+# Workflows, OpenWebUI packs, Production Recovery, etc. -- that never carried Complete
+# Installer attestation before and must not be forced through this contract now).
+#
+# Trigger: `release` / `published`. This fires exactly once GitHub considers the release
+# itself successfully published -- unlike reacting to a git tag, the release's assets are
+# already attached by then for the one-shot `gh release create <tag> <files...>` flow this
+# repository's Complete Installer releases are actually published with (see
+# docs/*/KI-Stack-*-Betriebs-*.md / *-Operations-*.md for the release procedure). The job below
+# still independently re-verifies the exact required assets are present before ever calling
+# the attestation workflow -- it does not merely trust the trigger's timing.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: attest-release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve Complete Installer assets for this release
+    runs-on: ubuntu-latest
+    # Defense in depth: `release` only ever fires in the repository where the release was
+    # actually published (a fork's own releases fire in the fork, never upstream, and
+    # publishing a release already requires repository write access -- this can never be
+    # triggered by an ordinary pull_request from a fork). This guard makes that intent explicit
+    # rather than relying on the trigger's own scoping alone.
+    if: github.repository == 'robertbackhaus-a11y/KI-Stack'
+    outputs:
+      applicable: ${{ steps.resolve.outputs.applicable }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      zip_name: ${{ steps.resolve.outputs.zip_name }}
+      sidecar_name: ${{ steps.resolve.outputs.sidecar_name }}
+      sbom_name: ${{ steps.resolve.outputs.sbom_name }}
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Resolve and validate the exact published Complete Installer asset names
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = '${{ github.event.release.tag_name }}'
+          $assetNames = @(gh release view $tag --repo $env:GITHUB_REPOSITORY --json assets --jq '.assets[].name')
+
+          # Scope check: only a release that actually carries a Complete-Installer-named ZIP is
+          # in scope for this contract. Every other release kind (ComfyUI, Integration, Models/
+          # Workflows, OpenWebUI packs, Production Recovery, ...) is left exactly as before --
+          # skipped cleanly, not failed, since attest-release.yml was never used for them.
+          $zipCandidates = @($assetNames | Where-Object { $_ -match '^KI-Stack-Complete-Installer-.+\.zip$' })
+          if ($zipCandidates.Count -eq 0) {
+            Write-Host "No KI-Stack-Complete-Installer-*.zip asset on release '$tag' -- not a Complete Installer release; nothing to attest here."
+            echo "applicable=false" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+          if ($zipCandidates.Count -gt 1) {
+            throw "FAIL-CLOSED: release '$tag' carries more than one KI-Stack-Complete-Installer-*.zip asset: $($zipCandidates -join ', ')"
+          }
+          $zipName = $zipCandidates[0]
+          $baseName = $zipName.Substring(0, $zipName.Length - '.zip'.Length)
+          $sidecarName = "$zipName.sha256"
+          $sbomName = "$baseName.spdx.json"
+
+          # Fail-closed asset contract: a Complete Installer ZIP without its sidecar or SBOM is
+          # a real contract violation, not a "different release kind" -- never silently pass.
+          if ($assetNames -notcontains $sidecarName) { throw "FAIL-CLOSED: release '$tag' has $zipName but is missing the required SHA256 sidecar '$sidecarName'." }
+          if ($assetNames -notcontains $sbomName) { throw "FAIL-CLOSED: release '$tag' has $zipName but is missing the required SPDX SBOM '$sbomName'." }
+
+          # Tag / package-version contract: the asset name's version must match the actual
+          # Complete Installer VERSION file at this exact release commit -- never a hardcoded
+          # version, and never trusted from the tag string alone (this repository's own release
+          # history uses inconsistent tag naming across components and over time).
+          $versionMatch = [regex]::Match($baseName, '^KI-Stack-Complete-Installer-v(?<version>.+)$')
+          if (-not $versionMatch.Success) { throw "FAIL-CLOSED: could not derive a package version from asset name '$zipName'." }
+          $assetVersion = $versionMatch.Groups['version'].Value
+          $versionFile = 'tools/complete-installer/current/VERSION'
+          if (-not (Test-Path -LiteralPath $versionFile)) { throw "FAIL-CLOSED: $versionFile not found at release tag '$tag'; cannot verify the tag/package-version contract." }
+          $repoVersion = (Get-Content -LiteralPath $versionFile -Raw).Trim()
+          if ($assetVersion -ne $repoVersion) { throw "FAIL-CLOSED: published asset version ('$assetVersion') does not match tools/complete-installer/current/VERSION at tag '$tag' ('$repoVersion')." }
+
+          Write-Host "Complete Installer release confirmed: zip=$zipName sidecar=$sidecarName sbom=$sbomName version=$repoVersion"
+          echo "applicable=true" >> $env:GITHUB_OUTPUT
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+          echo "zip_name=$zipName" >> $env:GITHUB_OUTPUT
+          echo "sidecar_name=$sidecarName" >> $env:GITHUB_OUTPUT
+          echo "sbom_name=$sbomName" >> $env:GITHUB_OUTPUT
+
+  attest:
+    name: Attest (reuses attest-release.yml)
+    needs: resolve
+    if: needs.resolve.outputs.applicable == 'true'
+    uses: ./.github/workflows/attest-release.yml
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    with:
+      tag: ${{ needs.resolve.outputs.tag }}
+      zip_name: ${{ needs.resolve.outputs.zip_name }}
+      sidecar_name: ${{ needs.resolve.outputs.sidecar_name }}
+      sbom_name: ${{ needs.resolve.outputs.sbom_name }}

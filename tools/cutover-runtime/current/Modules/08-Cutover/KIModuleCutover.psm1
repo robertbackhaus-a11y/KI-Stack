@@ -142,28 +142,51 @@ function Get-KICutoverGeneratedContent {
     $configJson = $Context.Config.cutover | ConvertTo-Json -Depth 50 -Compress
     $healthScript = @'
 [CmdletBinding()]
-param([int]$TimeoutSeconds=10)
+param([int]$TimeoutSeconds=10,[int]$MaxWaitSeconds=0,[int]$RetryIntervalSeconds=3)
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $config = '__CONFIG_JSON__' | ConvertFrom-Json -Depth 50
-$results = [System.Collections.Generic.List[object]]::new()
-foreach($endpoint in @($config.endpoints)){
- $sw=[Diagnostics.Stopwatch]::StartNew();$ok=$false;$detail=''
+# 2.13.0-Consolidation-Workstream, Nebenfund B (real, reproduced): a single, immediate,
+# no-retry attempt right after a bare 5s global startup grace period reported allReachable:false
+# for ComfyUI/OpenWebUI, which legitimately take longer than that to finish starting up (Python
+# runtime init, model loading) -- a false negative, not a real failure. Each endpoint now gets
+# its own bounded poll budget (MaxWaitSeconds, defaulting to the config's own healthTimeoutSeconds
+# -- previously declared but never actually read anywhere) with a short retry interval, so a
+# slow-but-genuinely-starting component is not mistaken for a down one, while a component that
+# never comes up still fails, with a clear, per-endpoint attempt/elapsed diagnosis, after that
+# bounded budget -- never blocking indefinitely.
+if($MaxWaitSeconds-le0){$MaxWaitSeconds=if([int]$config.healthTimeoutSeconds-gt0){[int]$config.healthTimeoutSeconds}else{45}}
+function Test-KICutoverEndpointOnce([object]$Endpoint,[int]$RequestTimeoutSeconds){
+ $ok=$false;$detail=''
  try{
-  if([string]$endpoint.kind -in @('searxng','openai','json')){
-   $response=Invoke-RestMethod -Uri ([string]$endpoint.url) -Method Get -TimeoutSec $TimeoutSeconds -ErrorAction Stop
-   if([string]$endpoint.kind -eq 'searxng'){$ok=($null-ne $response.PSObject.Properties['results'])}
-   elseif([string]$endpoint.kind -eq 'openai'){$ok=($null-ne $response.PSObject.Properties['data'])}
+  if([string]$Endpoint.kind -in @('searxng','openai','json')){
+   $response=Invoke-RestMethod -Uri ([string]$Endpoint.url) -Method Get -TimeoutSec $RequestTimeoutSeconds -ErrorAction Stop
+   if([string]$Endpoint.kind -eq 'searxng'){$ok=($null-ne $response.PSObject.Properties['results'])}
+   elseif([string]$Endpoint.kind -eq 'openai'){$ok=($null-ne $response.PSObject.Properties['data'])}
    else{$ok=($null-ne $response)}
   }else{
-   $response=Invoke-WebRequest -Uri ([string]$endpoint.url) -Method Get -TimeoutSec $TimeoutSeconds -SkipHttpErrorCheck -ErrorAction Stop
+   $response=Invoke-WebRequest -Uri ([string]$Endpoint.url) -Method Get -TimeoutSec $RequestTimeoutSeconds -SkipHttpErrorCheck -ErrorAction Stop
    $ok=([int]$response.StatusCode-ge 200 -and [int]$response.StatusCode-lt 500)
   }
   $detail=if($ok){'Endpoint erreichbar.'}else{'Antwortvertrag nicht erfüllt.'}
- }catch{$detail=$_.Exception.Message}finally{$sw.Stop()}
- [void]$results.Add([pscustomobject][ordered]@{name=[string]$endpoint.name;kind=[string]$endpoint.kind;url=[string]$endpoint.url;reachable=$ok;durationMs=[int64]$sw.ElapsedMilliseconds;detail=$detail})
+ }catch{$detail=$_.Exception.Message}
+ [pscustomobject]@{ok=$ok;detail=$detail}
 }
-$report=[pscustomobject][ordered]@{generatedAt=(Get-Date).ToString('o');allReachable=(@($results|Where-Object{-not [bool]$_.reachable}).Count-eq 0);endpoints=@($results)}
+$results = [System.Collections.Generic.List[object]]::new()
+foreach($endpoint in @($config.endpoints)){
+ $sw=[Diagnostics.Stopwatch]::StartNew();$attempts=0;$attemptResult=$null
+ while($true){
+  $attempts++
+  $attemptResult=Test-KICutoverEndpointOnce -Endpoint $endpoint -RequestTimeoutSeconds $TimeoutSeconds
+  if([bool]$attemptResult.ok){break}
+  if($sw.Elapsed.TotalSeconds-ge$MaxWaitSeconds){break}
+  Start-Sleep -Seconds $RetryIntervalSeconds
+ }
+ $sw.Stop()
+ $pending=(-not [bool]$attemptResult.ok)-and($sw.Elapsed.TotalSeconds-lt$MaxWaitSeconds+$RetryIntervalSeconds)
+ [void]$results.Add([pscustomobject][ordered]@{name=[string]$endpoint.name;kind=[string]$endpoint.kind;url=[string]$endpoint.url;reachable=[bool]$attemptResult.ok;attempts=$attempts;durationMs=[int64]$sw.ElapsedMilliseconds;detail=$attemptResult.detail})
+}
+$report=[pscustomobject][ordered]@{generatedAt=(Get-Date).ToString('o');allReachable=(@($results|Where-Object{-not [bool]$_.reachable}).Count-eq 0);maxWaitSecondsPerEndpoint=$MaxWaitSeconds;endpoints=@($results)}
 $reportRoot=[string]$config.reportRoot
 if(-not(Test-Path -LiteralPath $reportRoot -PathType Container)){New-Item -ItemType Directory -Path $reportRoot -Force|Out-Null}
 $json=$report|ConvertTo-Json -Depth 50

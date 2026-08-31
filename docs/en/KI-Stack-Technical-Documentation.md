@@ -1,6 +1,6 @@
-# KI-Stack 2.12.0 technical documentation
+# KI-Stack 2.13.0 technical documentation
 
-KI-Stack is a transactional Windows local-AI stack. Complete Installer `2.12.0` is the current repository/development state (not yet published as a GitHub Release); Complete Installer 2.10.0 remains the last state that was both regression- and real-target-validated end to end (see `docs/releases/complete-installer-v2.10.0.md`), and the last complete, physical Greenfield installation on an empty target was performed and verified in an earlier cycle (2.4.0). 2.12.0's own validation is source-only plus mocked-HTTP regression coverage and a deterministic dual-build/PackageSelfTest proof -- see "Validation scope" below.
+KI-Stack is a transactional Windows local-AI stack. Complete Installer `2.13.0` is the current repository/development state (not yet published as a GitHub Release); `2.12.0` is the latest actually published GitHub Release. Complete Installer 2.10.0 remains the last state that was both regression- and real-target-validated end to end as a whole (see `docs/releases/complete-installer-v2.10.0.md`), and the last complete, physical Greenfield installation on an empty target was performed and verified in an earlier cycle (2.4.0). 2.13.0 itself adds several real, new real-target proofs over 2.12.0, though: a real Codex Local login-to-upgrade-to-starter-to-`codex exec` end-to-end run, a real OpenWebUI credential bootstrap validation (admin login, API key, DPAPI store), and a real web-search proof for `ki-stack-research` -- not a full Windows Greenfield proof (deliberately deferred to `2.15`), but substantially more real target coverage than 2.12.0. See "Validation scope" below.
 
 ## Active components
 
@@ -13,14 +13,14 @@ KI-Stack is a transactional Windows local-AI stack. Complete Installer `2.12.0` 
 | Applications | 1.4.11 |
 | Integration | 1.5.11 |
 | Cutover Runtime | 1.6.14 |
-| Codex Local | 0.1.4 |
+| Codex Local | 0.2.1 |
 | RAG | 0.4.0 |
 | Production Recovery | 1.7.0-r7 |
 | Validation Gate | 1.0.3 |
 | Target Acceptance | 1.0.10 |
 | OpenWebUI Visual Pack | 2.0.5 |
 | OpenWebUI Agent Pack | 1.9.0 |
-| Complete Installer | 2.12.0 |
+| Complete Installer | 2.13.0 |
 
 ComfyUI's reference version for reproducible Greenfield installs is `v0.28.0`; an existing, supported newer installation (e.g. `v0.34.0`) is preserved and never auto-downgraded. Open WebUI's `ReferenceVersion` is `0.11.1` and `MinimumSupportedVersion` is `0.11.0` -- any installed version from `0.11.0` up is supported, and an existing, supported newer installation is preserved the same way, never auto-downgraded to the exact reference.
 
@@ -61,4 +61,4 @@ MP4 output remains exactly one persistent file attachment through the native `fi
 
 The 2.10.0 release was regression-tested and then validated on a real, existing (non-Greenfield) target: the Complete Installer/Cutover Runtime transaction completed successfully, ComfyUI's existing, supported `v0.34.0` installation was preserved instead of being reset to the `v0.28.0` reference, Open WebUI's existing `0.11.1` installation was preserved the same way, and LM Studio's local API server remained reachable at `http://127.0.0.1:1234/v1/models` with the competing Windows autostart entry absent after the run. See `docs/releases/complete-installer-v2.10.0.md` for the full real-target record. The last complete, physical Greenfield installation on an empty target -- WSL2/Debian foundation setup, ComfyUI, LM Studio with automatic local-server startup, SearXNG service adoption, Codex Local, and RAG -- was performed and verified in an earlier cycle (2.4.0); no functional change since then invalidates that installation path.
 
-2.12.0's own validation is a source-only build: deterministic dual-build (byte-identical ZIP/sidecar/SBOM-root SHA256, SPDX 2.3) and a freshly-extracted PackageSelfTest (28/28), plus mocked-HTTP regression suites for the new/changed contracts (`ki-stack-research` provisioning and knowledge binding, the Agent-Pack reconcile field-ownership/preserve contract with a negative control, RAG project-scope separation, the Integration RAG-starter-preservation fix). No new real-target run was performed for 2.12.0; a real, authenticated multi-step chat end-to-end proof for `ki-stack-research` specifically requires an externally-supplied OpenWebUI administrator API key -- a known automation/bootstrap boundary, not a defect (no credential is ever extracted from the database or stored in this repository).
+2.13.0's validation combines a source-only build (deterministic dual-build, byte-identical ZIP/sidecar/SBOM-root SHA256, SPDX 2.3, a freshly-extracted PackageSelfTest) with several real real-target runs that 2.12.0 did not yet have: (1) a real OpenWebUI credential bootstrap (one-time admin login, a real API key, a DPAPI store, real status validation); (2) a real Codex Local `0.2.1` upgrade with an isolated `CODEX_HOME` and a real login-to-starter-to-`codex exec` end-to-end run; (3) a real web-search proof for `ki-stack-research` (the model correctly requests `search_web`/`fetch_url`, real SearXNG sources, a real final answer) -- with a precisely documented boundary at OpenWebUI's own automatic background execution for non-browser callers, not an Agent Pack or model defect. No credential is ever extracted from a database or stored in this repository. A full fresh Windows Greenfield proof remains deliberately deferred to `2.15`.

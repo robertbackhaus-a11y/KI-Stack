@@ -121,13 +121,23 @@ function New-KIOverlayFixtureRepository {
 function Invoke-KIOverlayFixtureScenario {
     # Runs the real Invoke-KIStackCompleteInstaller -Mode Upgrade in an isolated child process
     # against the given package/target roots, returning the parsed result JSON.
+    #
+    # -DesktopPath is REQUIRED here, always pointing inside the disposable fixture tree (never
+    # the real Windows Desktop) -- real, reproduced Architekturfund (2.13.0 consolidation
+    # workstream): before this fix, this exact test (its own fixture root is named
+    # KIStack-ComfyUIOverlay-<guid>, matching the real, observed symptom precisely) had no way
+    # to avoid Invoke-KIStackCompleteInstaller's Install-KICompleteOperations writing real .lnk
+    # files onto the operator's REAL Desktop -- only their TARGET path pointed at this fixture's
+    # disposable directories. See Test-KIStackDesktopLinkIsolation.ps1 for the dedicated
+    # regression coverage of the underlying fix.
     param([Parameter(Mandatory)][string]$PackageStageRoot,[Parameter(Mandatory)][string]$TargetRoot,[Parameter(Mandatory)][string]$RunnerScriptPath)
+    $fixtureDesktopPath=Join-Path $TargetRoot '__fixture-desktop'
     Set-Content -LiteralPath $RunnerScriptPath -Encoding UTF8 -Value @"
 Set-StrictMode -Version Latest
 `$ErrorActionPreference='Stop'
 Import-Module '$($PackageStageRoot.Replace("'","''"))/CompleteInstaller.psm1' -Force
 try {
-    `$result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot '$($PackageStageRoot.Replace("'","''"))' -TargetRoot '$($TargetRoot.Replace("'","''"))'
+    `$result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot '$($PackageStageRoot.Replace("'","''"))' -TargetRoot '$($TargetRoot.Replace("'","''"))' -DesktopPath '$($fixtureDesktopPath.Replace("'","''"))'
     [pscustomobject]@{threw=`$false;result=`$result}|ConvertTo-Json -Depth 20 -Compress
 } catch {
     [pscustomobject]@{threw=`$true;message=`$_.Exception.Message}|ConvertTo-Json -Depth 10 -Compress

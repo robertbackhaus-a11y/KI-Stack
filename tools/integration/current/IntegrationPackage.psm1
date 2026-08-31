@@ -153,6 +153,25 @@ function Write-IntegrationMarker {
     Set-Content -LiteralPath $temp -Value $Content -Encoding UTF8
     Move-Item -LiteralPath $temp -Destination $Path -Force
 }
+function Merge-IntegrationOpenWebUIWithSearchStarterContent {
+    # Start-KIStack-OpenWebUI-WithSearch.cmd is unconditionally overwritten by
+    # Install-IntegrationRuntime below on every Install/Upgrade/Repair pass, but RAG (a
+    # separately-versioned, later-ordered component) patches this exact same file to source
+    # its own OpenWebUI-RAG.env.cmd (search_document:/search_query: embedding prefixes) once
+    # RAG is installed. A blind overwrite here silently erases that patch -- the identical
+    # class of regression already found and fixed in the BuilderKernel's own copy of this
+    # starter (tools/cutover-runtime/current/Modules/07-Integration/KIModuleIntegration.psm1
+    # Get-KIIntegrationOpenWebUIWithSearchStarterContent), just via this package's own
+    # static-file-copy deployment path rather than dynamic template generation. Fixed the
+    # same way: fold an already-applied RAG env-call line found on the live target forward
+    # into the freshly copied content, rather than silently discarding it.
+    param([Parameter(Mandatory)][string]$SourceContent,[AllowNull()][string]$ExistingContent)
+    if(-not$ExistingContent){return $SourceContent}
+    $ragEnvCallMatch=[regex]::Match($ExistingContent,'(?im)^call\s+"[^"]*OpenWebUI-RAG\.env\.cmd"\s*$')
+    if(-not$ragEnvCallMatch.Success){return $SourceContent}
+    if($SourceContent.Contains($ragEnvCallMatch.Value.Trim())){return $SourceContent}
+    [regex]::Replace($SourceContent,'(?im)^@echo off\s*',("@echo off`r`n"+$ragEnvCallMatch.Value.Trim()+"`r`n"),1)
+}
 function Install-IntegrationRuntime {
     param([string]$PackageRoot,[string]$TargetRoot='C:\KI-Stack\modules\integration',[Parameter(Mandatory)][object]$Marker)
     $contract=Get-IntegrationRuntimeContract $PackageRoot;$sourceRoot=Join-Path $PackageRoot 'Runtime'
@@ -160,7 +179,15 @@ function Install-IntegrationRuntime {
     foreach($name in @($contract.files)){
         $source=Join-Path $sourceRoot $name;if(-not(Test-Path -LiteralPath $source -PathType Leaf)){throw "Integration runtime source missing: $name"}
         $destination=Join-Path $TargetRoot $name;$temporary=$destination+'.tmp-'+[guid]::NewGuid().ToString('N')
-        Copy-Item -LiteralPath $source -Destination $temporary -Force;Move-Item -LiteralPath $temporary -Destination $destination -Force
+        if($name-eq'Start-KIStack-OpenWebUI-WithSearch.cmd'){
+            $sourceContent=[IO.File]::ReadAllText($source)
+            $existingContent=if(Test-Path -LiteralPath $destination -PathType Leaf){[IO.File]::ReadAllText($destination)}else{$null}
+            $mergedContent=Merge-IntegrationOpenWebUIWithSearchStarterContent -SourceContent $sourceContent -ExistingContent $existingContent
+            [IO.File]::WriteAllText($temporary,$mergedContent,[Text.Encoding]::ASCII)
+        } else {
+            Copy-Item -LiteralPath $source -Destination $temporary -Force
+        }
+        Move-Item -LiteralPath $temporary -Destination $destination -Force
     }
     $markerPath=Join-Path $TargetRoot ([string]$contract.generatedMarker)
     Write-IntegrationMarker -Path $markerPath -Content ($Marker|ConvertTo-Json -Depth 20)
