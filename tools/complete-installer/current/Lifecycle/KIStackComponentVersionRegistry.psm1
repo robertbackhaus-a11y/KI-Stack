@@ -99,14 +99,27 @@ function Get-KIStackLatestPublishedCompleteInstallerRelease {
         # date, then gh release view <tag> --json assets to confirm the Complete Installer
         # shape) rather than assuming a combined query that this gh version cannot answer.
         $json = & gh release list --repo $script:KIStackVersionRegistryRepository --limit 100 --json tagName,isDraft,isPrerelease,publishedAt 2>$null
-        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($json)) { return [pscustomobject]@{ found = $false; tag = $null; reason = 'gh release list fehlgeschlagen (kein Netzwerk/keine Authentifizierung).' } }
+        # gh's own exit code is consumed by the check on the very next line and must never
+        # survive past this function -- an expected, gracefully-handled failure here (no
+        # network/no auth, exactly the shape a CI validation job without a GH_TOKEN produces)
+        # would otherwise leave a stale non-zero $LASTEXITCODE sitting in the shared session-
+        # global scope for every caller further up the stack (this is a real, reproduced defect:
+        # scripts/Test-Repository.ps1 reported passed=true/37/37 while the pwsh.exe process still
+        # exited 1, entirely due to this exact leak). Reset immediately after reading it, on both
+        # the success and the failure branch, so a handled gh failure is never distinguishable
+        # from a handled gh success by anything outside this function.
+        $ghListFailed = ($LASTEXITCODE -ne 0)
+        $global:LASTEXITCODE = 0
+        if ($ghListFailed -or [string]::IsNullOrWhiteSpace($json)) { return [pscustomobject]@{ found = $false; tag = $null; reason = 'gh release list fehlgeschlagen (kein Netzwerk/keine Authentifizierung).' } }
         $releases = $json | ConvertFrom-Json -Depth 20
         $candidates = @($releases | Where-Object { (-not [bool]$_.isDraft) -and ($IncludePrerelease -or -not [bool]$_.isPrerelease) } |
             Sort-Object { [DateTime]$_.publishedAt } -Descending | Select-Object -First $MaxReleasesToScan)
         foreach ($candidate in $candidates) {
             $tag = [string]$candidate.tagName
             $assetJson = & gh release view $tag --repo $script:KIStackVersionRegistryRepository --json assets 2>$null
-            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($assetJson)) { continue }
+            $ghViewFailed = ($LASTEXITCODE -ne 0)
+            $global:LASTEXITCODE = 0
+            if ($ghViewFailed -or [string]::IsNullOrWhiteSpace($assetJson)) { continue }
             $assetNames = @(($assetJson | ConvertFrom-Json -Depth 20).assets | ForEach-Object name)
             if (@($assetNames -match '^KI-Stack-Complete-Installer-.+\.zip$').Count -gt 0) {
                 return [pscustomobject]@{ found = $true; tag = $tag; reason = $null }

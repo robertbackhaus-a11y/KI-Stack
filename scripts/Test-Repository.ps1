@@ -603,6 +603,25 @@ try {
     if ($failedResults.Count -gt 0) {
         throw ('Repository validation failed: ' + ($failedNames -join ', '))
     }
+    # This script is invoked two different ways: as the actual top-level process entry point
+    # (GitHub Actions' "run: ./scripts/Test-Repository.ps1" step, and any direct
+    # "pwsh -File" call), where pwsh propagates a still-set $LASTEXITCODE as the process's own
+    # final exit code if nothing later overrides it -- and, in-process, via the call operator
+    # (&) from scripts/Test-TestRepositoryHarness.ps1, where an "exit" statement here would
+    # terminate that harness's entire host process outright instead of just returning control.
+    # A real, reproduced defect on the first path: a validator earlier in this run
+    # (Test-KIStackComponentVersionRegistry.ps1 -> Get-KIStackLatestPublishedCompleteInstallerRelease)
+    # calls the native "gh" CLI and gracefully handles its failure (no GH_TOKEN in the plain
+    # "Validate repository" CI job is the exact, real, reproduced case) -- but that native
+    # command's own non-zero exit code was never required to be cleared by that caller, so it
+    # can still be sitting in this shared, session-global $LASTEXITCODE right here even though
+    # every one of this script's own checks passed. Resetting it explicitly, right before
+    # falling off the end of this successful run (never via "exit", which is unsafe for the
+    # second, in-process invocation path above), is what makes this script's own reported
+    # "passed" result and the ACTUAL process exit code agree in every real invocation context --
+    # never leaving that agreement to chance from whatever any native call anywhere in the
+    # dependency tree happened to leave behind.
+    $global:LASTEXITCODE = 0
     return
 }
 catch {
