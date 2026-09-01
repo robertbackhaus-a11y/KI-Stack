@@ -146,6 +146,29 @@ try{
     $starterSource=Get-Content -LiteralPath (Join-Path $cutoverRoot 'Start-KIStack-Cutover.ps1') -Raw
     Add-Check 'KernelRuntimeCompleteFailClosed' ($source.Contains("'-RuntimeConfigPath'")-and$source.Contains("'-ExpectedTargetRoot'")-and$source.Contains("'-ExpectedRuntimeConfigSha256'")-and$kernelSource.Contains('RuntimeConfigPath und ExpectedTargetRoot müssen')) 'CompleteInstaller runtime binding missing'
     Add-Check 'KernelRuntimeStandaloneCompatibility' ($kernelSource.Contains('[string]$ConfigPath =')-and$starterSource.Contains("'Config\kernel-config.json'")) 'standalone ConfigPath contract missing'
+
+    $lifecycleRootA=Join-Path $suiteRoot 'Lifecycle Root A'
+    $lifecycleRootB=Join-Path $suiteRoot 'Local AI/KI Stack'
+    New-Item -ItemType Directory -Path $lifecycleRootA,$lifecycleRootB -Force|Out-Null
+    Install-KICompleteCentralStarters -PackageRoot $PackageRoot -TargetRoot $lifecycleRootA -BackupRoot (Join-Path $suiteRoot 'lifecycle-backup-a')|Out-Null
+    Install-KICompleteCentralStarters -PackageRoot $PackageRoot -TargetRoot $lifecycleRootB -BackupRoot (Join-Path $suiteRoot 'lifecycle-backup-b')|Out-Null
+    $deployedNames=@('Start-KIStack.cmd','Stop-KIStack.cmd','Stop-KIStack-Managed.ps1','Validate-KIStack.cmd','Get-KIStackStatus.ps1','Show-KIStackStatus.ps1','Status-KIStack-Interactive.cmd','Repair-KIStack.cmd','Update-KIStack-OpenWebUI.cmd','Update-KIStack-OpenWebUI.ps1','Update-KIStack-All.cmd','Update-KIStack-All.ps1')
+    $lifecycleContentA=($deployedNames|ForEach-Object{Get-Content -LiteralPath (Join-Path $lifecycleRootA $_) -Raw})-join"`n"
+    $lifecycleContentB=($deployedNames|ForEach-Object{Get-Content -LiteralPath (Join-Path $lifecycleRootB $_) -Raw})-join"`n"
+    Add-Check 'LifecycleNoDefaultRootFallback' (-not$lifecycleContentA.Contains('C:\KI-Stack')-and-not$lifecycleContentB.Contains('C:\KI-Stack')) 'deployed lifecycle content contains C:\KI-Stack'
+    Add-Check 'LifecycleTwoRootsSelfRelative' ($lifecycleContentA-eq$lifecycleContentB-and-not$lifecycleContentA.Contains($lifecycleRootB)-and-not$lifecycleContentB.Contains($lifecycleRootA)) 'lifecycle starter content embeds a fixture root'
+    Add-Check 'LifecycleStartStopRootRelative' ($lifecycleContentA.Contains('set "TARGET=%~dp0modules\cutover\Start-KIStack.cmd"')-and$lifecycleContentA.Contains('set "TARGET=%~dp0modules\cutover\Stop-KIStack.cmd"')) 'central start/stop target is not relative to %~dp0'
+    Add-Check 'LifecycleRepairRootPropagation' ($lifecycleContentA.Contains('-File "%~dp0installer\complete\Invoke-KIStackCompleteInstaller.ps1" -Mode Repair -TargetRoot "%~dp0."')) 'repair starter does not propagate its own root'
+    Add-Check 'LifecyclePowerShellRootPropagation' ($lifecycleContentA.Contains('[string]$TargetRoot=$PSScriptRoot')-and$lifecycleContentA.Contains("`$targetRoot=`$PSScriptRoot")-and$lifecycleContentA.Contains('Test-KIStackOpenWebUICredential -TargetRoot $targetRoot')) 'PowerShell lifecycle root propagation missing'
+    $updateIsolationSource=Get-Content -LiteralPath (Join-Path $PackageRoot 'Lifecycle/KIStackUpdateIsolation.psm1') -Raw
+    Add-Check 'IntegrationCompletePathPropagation' ($source.Contains("@{Action=`$action;TargetRoot=`$TargetRoot}")-and$source.Contains("@{Action='Validate';TargetRoot=`$TargetRoot}")) 'CompleteInstaller integration call omits TargetRoot'
+    Add-Check 'IntegrationUpdatePathPropagation' ($updateIsolationSource.Contains("@{Action=`$action;TargetRoot=`$TargetRoot}")-and$updateIsolationSource.Contains("@{Action='Validate';TargetRoot=`$TargetRoot}")) 'isolated integration update omits TargetRoot'
+    $cutoverFixture=Join-Path $lifecycleRootB 'modules/cutover';New-Item -ItemType Directory -Path $cutoverFixture -Force|Out-Null
+    [IO.File]::WriteAllText((Join-Path $cutoverFixture 'Start-KIStack.cmd'),"@echo off`r`nexit /b 0`r`n",[Text.Encoding]::ASCII)
+    $spaceStartOutput=@(& $env:ComSpec /D /C "`"$(Join-Path $lifecycleRootB 'Start-KIStack.cmd')`"" 2>&1)
+    Add-Check 'LifecycleSpacesStartResolution' ($LASTEXITCODE-eq0) ($spaceStartOutput-join' | ')
+    $defaultStart=(Get-Content -LiteralPath (Join-Path $lifecycleRootA 'Start-KIStack.cmd') -Raw).Replace('%~dp0','C:\KI-Stack\')
+    Add-Check 'LifecycleDefaultRootCompatibility' ($defaultStart.Contains('C:\KI-Stack\modules\cutover\Start-KIStack.cmd')) $defaultStart
 }
 finally{
     if(Test-Path -LiteralPath $suiteRoot){Remove-Item -LiteralPath $suiteRoot -Recurse -Force}

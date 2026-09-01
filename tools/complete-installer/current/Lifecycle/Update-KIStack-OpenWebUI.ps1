@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$TargetRoot='C:\KI-Stack',
+    [string]$TargetRoot=$PSScriptRoot,
     [string]$LogPath
 )
 

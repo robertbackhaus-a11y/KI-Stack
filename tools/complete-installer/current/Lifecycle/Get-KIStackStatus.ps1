@@ -33,8 +33,9 @@ $results.Add((Test-HttpStatus 'OpenWebUI' 'http://127.0.0.1:8080/api/config' {pa
 $results.Add((Test-HttpStatus 'SearXNG HTML' 'http://localhost/searxng/' $null))
 $results.Add((Test-HttpStatus 'SearXNG JSON-Suche' 'http://localhost/searxng/search?q=ki-stack&format=json' {param($c);try{$j=$c|ConvertFrom-Json;return $null-ne$j.results}catch{return $false}}))
 $results.Add((Test-HttpStatus 'ComfyUI Health' 'http://127.0.0.1:8188/system_stats' {param($c);try{$null=$c|ConvertFrom-Json;return $true}catch{return $false}}))
-$codexMarker='C:\KI-Stack\modules\codex-local\installation.json'
-$ragMarker='C:\KI-Stack\modules\rag\installation.json'
+$targetRoot=$PSScriptRoot
+$codexMarker=Join-Path $targetRoot 'modules/codex-local/installation.json'
+$ragMarker=Join-Path $targetRoot 'modules/rag/installation.json'
 # 2.13.0-Consolidation-Workstream, Nebenfund C (real, already-flagged, now fixed): Codex Local
 # deliberately never registers a global codex.exe/codex.cmd/codex on PATH (CodexLocal.psm1's
 # own managed-runtime contract explicitly forbids that global-fallback pattern) -- a PATH-based
@@ -43,13 +44,13 @@ $ragMarker='C:\KI-Stack\modules\rag\installation.json'
 # node.exe + codex.js paths CodexLocal.psm1's own Get-KICodexPaths resolves, plus the same
 # isolated CODEX_HOME override already applied to CompleteInstaller.psm1's
 # Test-KICompleteCodexLocalCompliant (never the real, shared %USERPROFILE%\.codex).
-$codexNode='C:\KI-Stack\modules\codex-local\runtime\node.exe'
-$codexCli='C:\KI-Stack\modules\codex-local\npm-global\node_modules\@openai\codex\bin\codex.js'
+$codexNode=Join-Path $targetRoot 'modules/codex-local/runtime/node.exe'
+$codexCli=Join-Path $targetRoot 'modules/codex-local/npm-global/node_modules/@openai/codex/bin/codex.js'
 $codexInstalled=(Test-Path -LiteralPath $codexMarker -PathType Leaf)-and(Test-Path -LiteralPath $codexNode -PathType Leaf)-and(Test-Path -LiteralPath $codexCli -PathType Leaf)
 $codexVersionDetail='CLI nicht gefunden'
 if($codexInstalled){
     $originalCodexHomeForThisCheck=$env:CODEX_HOME
-    $env:CODEX_HOME='C:\KI-Stack\state\codex-local\codex-home'
+    $env:CODEX_HOME=Join-Path $targetRoot 'state/codex-local/codex-home'
     try{$codexVersionOutput=& $codexNode $codexCli --version 2>$null;if($LASTEXITCODE-eq0-and$codexVersionOutput){$codexVersionDetail="CLI $codexVersionOutput"}}
     catch{}
     finally{$env:CODEX_HOME=$originalCodexHomeForThisCheck}
@@ -61,8 +62,8 @@ $results.Add((New-StatusResult 'RAG-Modul' $(if(Test-Path $ragMarker){'Läuft'}e
 # Test-KIStackOpenWebUICredential's own status enum is mapped to the simpler, non-secret
 # five-value vocabulary this report uses (Missing/Configured/Valid/Invalid/Unchecked).
 try{
-    Import-Module (Join-Path $PSScriptRoot 'KIStackOpenWebUICredential.psm1') -Force -DisableNameChecking -ErrorAction Stop
-    $credentialStatus=Test-KIStackOpenWebUICredential -TimeoutSec ([Math]::Min($TimeoutSeconds,5))
+    Import-Module (Join-Path $targetRoot 'installer/complete/Lifecycle/KIStackOpenWebUICredential.psm1') -Force -DisableNameChecking -ErrorAction Stop
+    $credentialStatus=Test-KIStackOpenWebUICredential -TargetRoot $targetRoot -TimeoutSec ([Math]::Min($TimeoutSeconds,5))
     $mapped=switch([string]$credentialStatus.status){
         'NotConfigured'{'Missing'}
         'Valid'{'Valid'}

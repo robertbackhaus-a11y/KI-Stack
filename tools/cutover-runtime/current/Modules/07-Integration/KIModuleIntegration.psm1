@@ -224,7 +224,8 @@ exit /b %ERRORLEVEL%
     if($ExistingContent){
         $ragEnvCallMatch=[regex]::Match($ExistingContent,'(?im)^call\s+"[^"]*OpenWebUI-RAG\.env\.cmd"\s*$')
         if($ragEnvCallMatch.Success){
-            $webCmd=[regex]::Replace($webCmd,'(?im)^@echo off\s*',("@echo off`r`n"+$ragEnvCallMatch.Value.Trim()+"`r`n"),1)
+            $rootRelativeRagCall='call "%~dp0..\rag\OpenWebUI-RAG.env.cmd"'
+            $webCmd=[regex]::Replace($webCmd,'(?im)^@echo off\s*',("@echo off`r`n"+$rootRelativeRagCall+"`r`n"),1)
         }
     }
     $webCmd

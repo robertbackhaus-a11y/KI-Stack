@@ -1167,8 +1167,8 @@ function Invoke-KIStackCompleteInstaller {
                 $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'Integration' -Destination $extract
                 $entry = Join-Path $componentRoot 'Invoke-KIStackIntegration.ps1'
                 $action = if ($step.plannedMode -eq 'Repair') { 'Repair' } elseif ($step.plannedMode -eq 'Upgrade') { 'Upgrade' } else { 'Install' }
-                $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action}
-                $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate'}
+                $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot}
+                $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
                 if (-not [bool]$validation.passed) { throw 'Integration-Validierung fehlgeschlagen.' }
                 $step.result=@{install=$result;validation=$validation}
             }

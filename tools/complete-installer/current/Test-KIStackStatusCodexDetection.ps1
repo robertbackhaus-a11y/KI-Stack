@@ -17,9 +17,11 @@ $scriptPath=Join-Path $PackageRoot 'Lifecycle/Get-KIStackStatus.ps1'
 $source=[IO.File]::ReadAllText($scriptPath)
 
 $checks=[ordered]@{
-    usesRealManagedNodePath=$source.Contains('modules\codex-local\runtime\node.exe')
-    usesRealManagedCodexCliPath=$source.Contains('npm-global\node_modules\@openai\codex\bin\codex.js')
-    usesIsolatedCodexHome=$source.Contains("`$env:CODEX_HOME='C:\KI-Stack\state\codex-local\codex-home'")
+    usesRealManagedNodePath=$source.Contains("Join-Path `$targetRoot 'modules/codex-local/runtime/node.exe'")
+    usesRealManagedCodexCliPath=$source.Contains("Join-Path `$targetRoot 'modules/codex-local/npm-global/node_modules/@openai/codex/bin/codex.js'")
+    usesIsolatedCodexHome=$source.Contains("`$env:CODEX_HOME=Join-Path `$targetRoot 'state/codex-local/codex-home'")
+    passesTargetRootToCredential=$source.Contains('Test-KIStackOpenWebUICredential -TargetRoot $targetRoot')
+    containsNoDefaultRoot=(-not$source.Contains('C:\KI-Stack'))
     neverUsesGlobalPathLookup=(-not $source.Contains('Get-Command codex.exe,codex.cmd,codex'))
 }
 foreach($name in $checks.Keys){if(-not $checks[$name]){$fail.Add("$name failed")}}

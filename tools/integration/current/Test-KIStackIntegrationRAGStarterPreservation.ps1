@@ -23,6 +23,7 @@ $checks=[ordered]@{}
 $module=Import-Module (Join-Path $PackageRoot 'IntegrationPackage.psm1') -Force -PassThru -DisableNameChecking
 try{
     $ragCallLine='call "C:\KI-Stack\modules\rag\OpenWebUI-RAG.env.cmd"'
+    $rootRelativeRagCallLine='call "%~dp0..\rag\OpenWebUI-RAG.env.cmd"'
     $sourceContent=(Get-Content -LiteralPath (Join-Path $PackageRoot 'Runtime/Start-KIStack-OpenWebUI-WithSearch.cmd') -Raw)
     $existingWithRag=@"
 @echo off
@@ -43,10 +44,11 @@ exit /b %ERRORLEVEL%
     #    after @echo off, while still deploying the package's own current template content.
     $mergedWithRag=Merge-IntegrationOpenWebUIWithSearchStarterContent -SourceContent $sourceContent -ExistingContent $existingWithRag
     $checks.ragLinePreservedAcrossDeployment=[ordered]@{
-        containsRagCall=$mergedWithRag.Contains($ragCallLine)
-        ragCallImmediatelyAfterEchoOff=([regex]::IsMatch($mergedWithRag,'(?im)^@echo off\r?\n'+[regex]::Escape($ragCallLine)+'\r?\n'))
-        onlyOneRagCall=(@([regex]::Matches($mergedWithRag,[regex]::Escape($ragCallLine))).Count-eq1)
-        stillContainsPackageTemplate=$mergedWithRag.Contains('call "C:\KI-Stack\modules\applications\Start-KIStack-OpenWebUI.cmd"')
+        containsRagCall=$mergedWithRag.Contains($rootRelativeRagCallLine)
+        dropsLegacyAbsolutePath=(-not$mergedWithRag.Contains($ragCallLine))
+        ragCallImmediatelyAfterEchoOff=([regex]::IsMatch($mergedWithRag,'(?im)^@echo off\r?\n'+[regex]::Escape($rootRelativeRagCallLine)+'\r?\n'))
+        onlyOneRagCall=(@([regex]::Matches($mergedWithRag,[regex]::Escape($rootRelativeRagCallLine))).Count-eq1)
+        stillContainsPackageTemplate=$mergedWithRag.Contains('call "%MODULE_ROOT%\applications\Start-KIStack-OpenWebUI.cmd"')
     }
     if($checks.ragLinePreservedAcrossDeployment.Values-contains$false){$fail.Add('Check A (RagLinePreservedAcrossDeployment) failed: '+($checks.ragLinePreservedAcrossDeployment|ConvertTo-Json -Compress)+' | content: '+$mergedWithRag)}
 
@@ -63,18 +65,18 @@ exit /b %ERRORLEVEL%
     #    duplicate/doubled call line across repeated Integration reconciliations).
     $mergedTwice=Merge-IntegrationOpenWebUIWithSearchStarterContent -SourceContent $sourceContent -ExistingContent $mergedWithRag
     $checks.idempotentAcrossRepeatedDeployment=[ordered]@{
-        onlyOneRagCall=(@([regex]::Matches($mergedTwice,[regex]::Escape($ragCallLine))).Count-eq1)
+        onlyOneRagCall=(@([regex]::Matches($mergedTwice,[regex]::Escape($rootRelativeRagCallLine))).Count-eq1)
         identicalToFirstMerge=($mergedTwice-eq$mergedWithRag)
     }
     if($checks.idempotentAcrossRepeatedDeployment.Values-contains$false){$fail.Add('Check C (IdempotentAcrossRepeatedDeployment) failed: '+($checks.idempotentAcrossRepeatedDeployment|ConvertTo-Json -Compress)+' | content: '+$mergedTwice)}
 
-    # D. A differently-pathed/quoted RAG call line already present (e.g. an older or
-    #    manually-adjusted install path) is still recognized and preserved, not an exact
-    #    hardcoded string match.
+    # D. A differently-pathed RAG call line is recognized, but its foreign absolute path is
+    #    not propagated into this target; it is normalized to the same self-relative call.
     $existingWithDifferentPath=$existingWithRag.Replace($ragCallLine,'call "D:\Custom\Path\OpenWebUI-RAG.env.cmd"')
     $mergedDifferentPath=Merge-IntegrationOpenWebUIWithSearchStarterContent -SourceContent $sourceContent -ExistingContent $existingWithDifferentPath
     $checks.differentRagPathStillPreserved=[ordered]@{
-        containsCustomPathCall=$mergedDifferentPath.Contains('call "D:\Custom\Path\OpenWebUI-RAG.env.cmd"')
+        containsRootRelativeCall=$mergedDifferentPath.Contains($rootRelativeRagCallLine)
+        dropsForeignAbsolutePath=(-not$mergedDifferentPath.Contains('D:\Custom\Path'))
     }
     if($checks.differentRagPathStillPreserved.Values-contains$false){$fail.Add('Check D (DifferentRagPathStillPreserved) failed: '+($checks.differentRagPathStillPreserved|ConvertTo-Json -Compress)+' | content: '+$mergedDifferentPath)}
 
@@ -103,7 +105,7 @@ exit /b %ERRORLEVEL%
         Remove-Module IntegrationPackage -Force -ErrorAction SilentlyContinue
         Import-Module $negativeModulePath -Force -DisableNameChecking
         $marker=[ordered]@{schemaVersion='1.0';managedBy='TEST';version='0.0.0'}
-        [void](Install-IntegrationRuntime -PackageRoot $negativeControlDir -TargetRoot $negativeTargetRoot -Marker $marker)
+        [void](Install-IntegrationRuntime -PackageRoot $negativeControlDir -RuntimeRoot $negativeTargetRoot -Marker $marker)
         $negativeResultContent=Get-Content -LiteralPath (Join-Path $negativeTargetRoot 'Start-KIStack-OpenWebUI-WithSearch.cmd') -Raw
         $negativeControlDetectsRegression=(-not$negativeResultContent.Contains('OpenWebUI-RAG.env.cmd'))
         $checks.negativeControl=[ordered]@{ oldBlindCopyBehaviorWouldHaveErasedRagLine=$negativeControlDetectsRegression }

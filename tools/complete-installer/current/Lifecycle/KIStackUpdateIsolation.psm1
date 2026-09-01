@@ -465,8 +465,8 @@ function Invoke-KIStackIsolatedComponentUpdate {
                 $action = Get-KIStackIsolatedActionMode -Component $Component -TargetRoot $TargetRoot
                 $payloadRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'Integration' -Destination $WorkDirectory
                 $entry = Join-Path $payloadRoot 'Invoke-KIStackIntegration.ps1'
-                $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action}
-                $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate'}
+                $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot}
+                $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
                 if (-not [bool]$validation.passed) { throw 'Integration-Validierung fehlgeschlagen.' }
                 Write-KICompleteComponentMarker -Component $Component -TargetRoot $TargetRoot
                 return [pscustomobject][ordered]@{id=$ComponentId;outcome='Completed';backupPath=[string]$result.backupPath;detail=[ordered]@{install=$result;validation=$validation}}

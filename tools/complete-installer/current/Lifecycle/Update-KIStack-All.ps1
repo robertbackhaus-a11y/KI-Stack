@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$TargetRoot='C:\KI-Stack',
+    [string]$TargetRoot=$PSScriptRoot,
     [switch]$CheckOnly,
     [string[]]$Component=@(),
     [switch]$NonInteractive,
