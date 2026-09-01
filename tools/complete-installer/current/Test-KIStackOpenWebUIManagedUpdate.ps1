@@ -65,6 +65,8 @@ function New-KIOpenWebUIUpdateFixture {
     $installerRoot=Join-Path $targetRoot 'installer/complete'
     New-Item -ItemType Directory -Path $installerRoot -Force|Out-Null
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Destination $installerRoot -Force
+    New-Item -ItemType Directory -Path (Join-Path $installerRoot 'Runtime') -Force|Out-Null
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Runtime/KIStackPathContext.psm1') -Destination (Join-Path $installerRoot 'Runtime') -Force
 
     $cutoverRuntimeSource=[IO.Path]::GetFullPath((Join-Path $PackageRoot '../../cutover-runtime/current'))
     if(-not(Test-Path -LiteralPath $cutoverRuntimeSource -PathType Container)){throw "cutover-runtime-Quelle nicht gefunden: $cutoverRuntimeSource"}

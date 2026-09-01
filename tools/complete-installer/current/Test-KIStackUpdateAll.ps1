@@ -29,6 +29,8 @@ function New-KIUpdateAllTargetFixture {
     New-Item -ItemType Directory -Path (Join-Path $installerRoot 'Lifecycle') -Force|Out-Null
     New-Item -ItemType Directory -Path (Join-Path $installerRoot 'Config') -Force|Out-Null
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Destination $installerRoot -Force
+    New-Item -ItemType Directory -Path (Join-Path $installerRoot 'Runtime') -Force|Out-Null
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Runtime/KIStackPathContext.psm1') -Destination (Join-Path $installerRoot 'Runtime') -Force
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'Contracts/COMPONENTS.json') -Destination (Join-Path $installerRoot 'Contracts') -Force
     # KIStackUpdateIsolation.psm1 and the runtime config are required by Update-KIStack-All.ps1
     # since the component-isolation workstream (2.13.0) -- every fixture target needs both,

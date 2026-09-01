@@ -98,6 +98,8 @@ $fixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('KIStack-ReplayCutover-'+[gui
 try{
     New-Item -ItemType Directory -Path $fixtureRoot -Force|Out-Null
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Destination $fixtureRoot
+    New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'Runtime') -Force|Out-Null
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Runtime/KIStackPathContext.psm1') -Destination (Join-Path $fixtureRoot 'Runtime')
     $replayScript=Join-Path $fixtureRoot 'replay.ps1';[IO.File]::WriteAllText($replayScript,$source,[Text.UTF8Encoding]::new($false))
     $replayLog=Join-Path $fixtureRoot 'replay.log'
     $replayOutput=& pwsh.exe -NoLogo -NoProfile -File $replayScript -ReplayComponent 'openwebui-visual-pack' -LogPath $replayLog 2>&1

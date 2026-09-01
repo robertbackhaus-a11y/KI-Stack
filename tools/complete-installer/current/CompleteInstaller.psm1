@@ -1,6 +1,8 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+Import-Module (Join-Path $PSScriptRoot 'Runtime/KIStackPathContext.psm1') -Force -DisableNameChecking
+
 function Read-KICompleteJson {
     param([Parameter(Mandatory)][string]$Path)
     Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -Depth 100
@@ -95,9 +97,15 @@ function Test-KICompleteShaContract {
     [pscustomobject]@{ passed=($errors.Count -eq 0); errors=$errors }
 }
 
+function Get-KICompleteComponentStatePath {
+    param([Parameter(Mandatory)][object]$PathContext)
+    [IO.Path]::Combine([string]$PathContext.StateRoot,'components.json')
+}
+
 function Get-KICompleteStoredVersion {
-    param([Parameter(Mandatory)][object]$Component,[Parameter(Mandatory)][string]$TargetRoot)
-    $completeMarker=Join-Path $TargetRoot 'state/complete-installer/components.json'
+    param([Parameter(Mandatory)][object]$Component,[string]$TargetRoot,[object]$PathContext)
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PSScriptRoot}
+    $completeMarker=Get-KICompleteComponentStatePath -PathContext $PathContext
     if(Test-Path $completeMarker){$state=Read-KICompleteJson $completeMarker;$entry=$state.components.PSObject.Properties[[string]$Component.id];if($null-ne$entry){return [string]$entry.Value}}
     return $null
 }
@@ -341,7 +349,9 @@ function Get-KICompleteOptionalConfigValue {
 $script:KICompleteReplayableComponentIds=@('openwebui-visual-pack','openwebui-agent-pack')
 
 function New-KICompletePlan {
-    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate')][string]$Mode,[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[hashtable]$FixtureState,[switch]$EnableOpenWebUIBallistics,[string[]]$ReplayComponent=@())
+    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate')][string]$Mode,[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[object]$PathContext,[hashtable]$FixtureState,[switch]$EnableOpenWebUIBallistics,[string[]]$ReplayComponent=@())
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PackageRoot}
+    $TargetRoot=[string]$PathContext.TargetRoot
     $contract = Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
     $knownComponentIds=@($contract.components|ForEach-Object{[string]$_.id})
     foreach($replayId in @($ReplayComponent|Select-Object -Unique)){
@@ -351,7 +361,7 @@ function New-KICompletePlan {
     $steps = foreach ($component in @($contract.components | Sort-Object order)) {
         if($component.psobject.Properties.Name-contains'optional'-and[bool]$component.optional-and-not$EnableOpenWebUIBallistics){continue}
         $installed = Get-KICompleteInstalledVersion $component $TargetRoot $FixtureState
-        $stored = if($null-eq$FixtureState){Get-KICompleteStoredVersion $component $TargetRoot}else{$null}
+        $stored = if($null-eq$FixtureState){Get-KICompleteStoredVersion -Component $component -PathContext $PathContext}else{$null}
         $compliant = $installed -eq [string]$component.version
         if([string]$component.id-eq'models-workflows'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteModelsWorkflowsCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         if([string]$component.id-eq'openwebui-visual-pack'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteVisualPackCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
@@ -380,7 +390,7 @@ function New-KICompletePlan {
     }
     $stateHasOrphans=$false
     if($null-eq$FixtureState){
-        $statePath=Join-Path $TargetRoot 'state/complete-installer/components.json'
+        $statePath=Get-KICompleteComponentStatePath -PathContext $PathContext
         if(Test-Path -LiteralPath $statePath){
             $storedState=Read-KICompleteJson $statePath
             $plannedIds=@($steps|ForEach-Object{[string]$_.id})
@@ -420,13 +430,14 @@ function Invoke-KICompleteVerifiedDeployment {
 }
 
 function Update-KICompleteComponentState {
-    param([Parameter(Mandatory)][object]$Plan,[Parameter(Mandatory)][string]$TargetRoot,[Parameter(Mandatory)][string]$CompleteVersion)
+    param([Parameter(Mandatory)][object]$Plan,[string]$TargetRoot,[object]$PathContext,[Parameter(Mandatory)][string]$CompleteVersion)
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PSScriptRoot -Mutating}
     $versions=[ordered]@{}
     foreach($step in @($Plan.steps)){
         if(-not[bool]$step.initialState.compliant){throw "State-Reconciliation nur für real konforme Komponente erlaubt: $($step.id)"}
         $versions[[string]$step.id]=[string]$step.version
     }
-    $path=Join-Path $TargetRoot 'state/complete-installer/components.json'
+    $path=Get-KICompleteComponentStatePath -PathContext $PathContext
     Write-KICompleteJson $path ([ordered]@{schemaVersion='1.0';status='ValidatedExistingInstallation';completeInstallerVersion=$CompleteVersion;validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$versions;evidence=[ordered]@{stateReconciledFromRealProbes=$true;containsSecrets=$false}})
     $path
 }
@@ -445,11 +456,45 @@ function Test-KICompletePreflight {
 }
 
 function New-KICompleteTransaction {
-    param([Parameter(Mandatory)][object]$Plan,[Parameter(Mandatory)][string]$StateDirectory,[string]$TransactionId=('KI-COMPLETE-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')))
-    $tx=[ordered]@{schemaVersion='1.0';transactionId=$TransactionId;status='Planned';mode=$Plan.mode;createdAtUtc=[DateTime]::UtcNow.ToString('o');steps=@($Plan.steps|ForEach-Object{[ordered]@{name=$_.name;id=$_.id;version=$_.version;plannedMode=$_.plannedMode;startTime=$null;endTime=$null;initialState=$_.initialState;result=$null;backup=$null;rollbackStatus=$null;error=$null;exitCode=0;status=$_.status}})}
-    $path=Join-Path $StateDirectory "$TransactionId/transaction.json";Write-KICompleteJson $path $tx
-    Write-KICompleteJson (Join-Path $StateDirectory "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=0;completedSteps=@();containsSecrets=$false})
-    [pscustomobject]@{transaction=$tx;path=$path;resumePath=(Join-Path $StateDirectory "$TransactionId/resume.json")}
+    param([Parameter(Mandatory)][object]$Plan,[Parameter(Mandatory)][object]$PathContext)
+    $TransactionId=[string]$PathContext.TransactionId
+    if([string]::IsNullOrWhiteSpace($TransactionId)-or[string]::IsNullOrWhiteSpace([string]$PathContext.TransactionRoot)){throw 'PathContext muss eine gültige TransactionId enthalten.'}
+    $tx=[ordered]@{
+        schemaVersion='1.1';transactionId=$TransactionId;status='Planned';mode=$Plan.mode;createdAtUtc=[DateTime]::UtcNow.ToString('o')
+        targetRoot=[string]$PathContext.TargetRoot;stateRoot=[string]$PathContext.StateRoot;transactionRoot=[string]$PathContext.TransactionRoot
+        backupRoot=[string]$PathContext.BackupRoot;logRoot=[string]$PathContext.LogRoot;pathContractVersion=[string]$PathContext.PathContractVersion
+        steps=@($Plan.steps|ForEach-Object{[ordered]@{name=$_.name;id=$_.id;version=$_.version;plannedMode=$_.plannedMode;startTime=$null;endTime=$null;initialState=$_.initialState;result=$null;backup=$null;rollbackStatus=$null;error=$null;exitCode=0;status=$_.status}})
+    }
+    $path=[IO.Path]::Combine([string]$PathContext.TransactionRoot,'transaction.json');Write-KICompleteJson $path $tx
+    $resumePath=[IO.Path]::Combine([string]$PathContext.TransactionRoot,'resume.json')
+    Write-KICompleteJson $resumePath ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=0;completedSteps=@();containsSecrets=$false})
+    [pscustomobject]@{transaction=$tx;path=$path;resumePath=$resumePath}
+}
+
+function Read-KICompleteTransactionForResume {
+    param([Parameter(Mandatory)][object]$PathContext)
+    $transactionId=[string]$PathContext.TransactionId
+    if([string]::IsNullOrWhiteSpace($transactionId)){throw 'Resume erfordert TransactionId.'}
+    $path=[IO.Path]::Combine([string]$PathContext.TransactionRoot,'transaction.json')
+    if(-not(Test-Path -LiteralPath $path -PathType Leaf)){
+        if(-not(Test-KICompleteSameRoot -First ([string]$PathContext.TargetRoot) -Second 'C:\KI-Stack')){throw 'Resume-Datei fehlt; Cross-Root-Legacy-Fallback ist nicht zulässig.'}
+        $legacyPath=[IO.Path]::Combine([string]$PathContext.StateRoot,$transactionId,'transaction.json')
+        if(-not(Test-Path -LiteralPath $legacyPath -PathType Leaf)){throw 'Resume-Datei fehlt.'}
+        $path=$legacyPath
+    }
+    $transaction=Read-KICompleteJson $path
+    if([string]$transaction.schemaVersion-eq'1.0'){
+        if(-not(Test-KICompleteSameRoot -First ([string]$PathContext.TargetRoot) -Second 'C:\KI-Stack')){throw 'Schema-1.0-Resume ist nur am Legacy-Default-Root zulässig.'}
+        return [pscustomobject]@{transaction=$transaction;path=$path;resumePath=[IO.Path]::Combine((Split-Path -Parent $path),'resume.json');legacy=$true}
+    }
+    if([string]$transaction.schemaVersion-ne'1.1'){throw "Nicht unterstützte Transaction-Schemaversion: $($transaction.schemaVersion)"}
+    $expected=[ordered]@{targetRoot=$PathContext.TargetRoot;stateRoot=$PathContext.StateRoot;transactionRoot=$PathContext.TransactionRoot;backupRoot=$PathContext.BackupRoot;logRoot=$PathContext.LogRoot;pathContractVersion=$PathContext.PathContractVersion}
+    foreach($name in $expected.Keys){
+        $property=$transaction.PSObject.Properties[$name]
+        if($null-eq$property-or-not[string]::Equals([string]$property.Value,[string]$expected[$name],[StringComparison]::OrdinalIgnoreCase)){throw "Transaction-Pfadmetadaten stimmen nicht mit dem aktuellen PathContext überein: $name"}
+    }
+    if(-not[string]::Equals([string]$transaction.transactionId,$transactionId,[StringComparison]::Ordinal)){throw 'TransactionId stimmt nicht mit dem aktuellen PathContext überein.'}
+    [pscustomobject]@{transaction=$transaction;path=$path;resumePath=[IO.Path]::Combine((Split-Path -Parent $path),'resume.json');legacy=$false}
 }
 
 function Expand-KICompletePayload {
@@ -483,10 +528,13 @@ function Invoke-KICompletePendingComponentRollback {
     param(
         [Parameter(Mandatory)][string]$PackageRoot,
         [Parameter(Mandatory)][string]$TargetRoot,
-        [Parameter(Mandatory)][string]$StateDirectory
+        [string]$StateDirectory,
+        [object]$PathContext
     )
+    $transactionDirectory=if($null-ne$PathContext){[string]$PathContext.TransactionBaseRoot}else{$StateDirectory}
+    if([string]::IsNullOrWhiteSpace($transactionDirectory)){throw 'TransactionBaseRoot fehlt.'}
     $recovered = @()
-    $transactionDirectories = @(Get-ChildItem -LiteralPath $StateDirectory -Directory -ErrorAction SilentlyContinue | Sort-Object Name)
+    $transactionDirectories = @(Get-ChildItem -LiteralPath $transactionDirectory -Directory -ErrorAction SilentlyContinue | Sort-Object Name)
     foreach ($directory in $transactionDirectories) {
         $transactionPath = Join-Path $directory.FullName 'transaction.json'
         if (-not (Test-Path -LiteralPath $transactionPath -PathType Leaf)) { continue }
@@ -518,7 +566,7 @@ function Invoke-KICompletePendingComponentRollback {
             }
         }
 
-        $extract = Join-Path $StateDirectory ('pending-rollback-' + [guid]::NewGuid().ToString('N'))
+        $extract = Join-Path $transactionDirectory ('pending-rollback-' + [guid]::NewGuid().ToString('N'))
         try {
             $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'ComfyUI' -Destination $extract
             $entry = Join-Path $componentRoot 'Invoke-KIStackComfyUI.ps1'
@@ -528,7 +576,7 @@ function Invoke-KICompletePendingComponentRollback {
                 BackupPath=$backup
             }
             if (-not [bool]$result.passed -or [string]$result.status -ne 'RolledBack') { throw 'Ausstehender ComfyUI-Rollback meldete keinen Erfolg.' }
-            $stored = Get-KICompleteStoredVersion -Component ([pscustomobject]@{id='comfyui'}) -TargetRoot $TargetRoot
+            $stored = Get-KICompleteStoredVersion -Component ([pscustomobject]@{id='comfyui'}) -TargetRoot $TargetRoot -PathContext $PathContext
             $markerPath = Join-Path $TargetRoot 'modules/comfyui/installation.json'
             $markerVersion = if (Test-Path -LiteralPath $markerPath) { [string](Read-KICompleteJson $markerPath).version } else { $null }
             if ($stored -ne $markerVersion) { throw "Rollback-Readback inkonsistent: components.json=$stored; Marker=$markerVersion" }
@@ -556,18 +604,21 @@ function Resolve-KICompleteFailedTransactionState {
     param(
         [Parameter(Mandatory)][string]$PackageRoot,
         [Parameter(Mandatory)][string]$TargetRoot,
-        [Parameter(Mandatory)][string]$StateDirectory,
+        [string]$StateDirectory,
+        [object]$PathContext,
         [Parameter(Mandatory)][object]$ComponentContract,
         [hashtable]$FixtureState
     )
+    $transactionDirectory=if($null-ne$PathContext){[string]$PathContext.TransactionBaseRoot}else{$StateDirectory}
+    if([string]::IsNullOrWhiteSpace($transactionDirectory)){throw 'TransactionBaseRoot fehlt.'}
     $reconciled=@()
-    $componentStatePath=Join-Path $StateDirectory 'components.json'
+    $componentStatePath=if($null-ne$PathContext){Get-KICompleteComponentStatePath -PathContext $PathContext}else{Join-Path $StateDirectory 'components.json'}
     $componentState=if(Test-Path -LiteralPath $componentStatePath -PathType Leaf){Read-KICompleteJson $componentStatePath}else{$null}
     $validatedAtUtc=[DateTimeOffset]::MinValue
     if($null-ne$componentState-and$componentState.PSObject.Properties.Name-contains'validatedAtUtc'){
         try{$validatedAtUtc=([DateTimeOffset]$componentState.validatedAtUtc).ToUniversalTime()}catch{}
     }
-    foreach($directory in @(Get-ChildItem -LiteralPath $StateDirectory -Directory -ErrorAction SilentlyContinue|Sort-Object Name)){
+    foreach($directory in @(Get-ChildItem -LiteralPath $transactionDirectory -Directory -ErrorAction SilentlyContinue|Sort-Object Name)){
         $path=Join-Path $directory.FullName 'transaction.json'
         if(-not(Test-Path -LiteralPath $path -PathType Leaf)){continue}
         $transaction=Read-KICompleteJson $path
@@ -666,7 +717,8 @@ function Install-KICompleteOperations {
     # pointing their TARGET at the disposable fixture path) -- [Environment]::GetFolderPath
     # ('Desktop') was never parameterized at all. This optional override exists solely so an
     # isolated test can redirect desktop-link creation into its own fixture directory instead.
-    param([string]$TargetRoot,[string]$BackupRoot,[string]$DesktopPath='')
+    param([string]$TargetRoot,[string]$BackupRoot,[string]$DesktopPath='',[object]$PathContext)
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PSScriptRoot -DesktopPath $DesktopPath -Mutating}
     $state=[ordered]@{schemaVersion='1.0';createdAtUtc=[DateTime]::UtcNow.ToString('o');runValues=@();desktopLinks=@();systemdUnits=@();dockerContainers=@();changes=@()}
     New-Item -ItemType Directory -Path $BackupRoot -Force|Out-Null
     $backupPath=Join-Path $BackupRoot 'operations.backup.json';Write-KICompleteJson $backupPath $state
@@ -692,14 +744,15 @@ function Install-KICompleteOperations {
         foreach($id in @(& docker.exe ps -aq)){$inspect=& docker.exe inspect $id|ConvertFrom-Json -Depth 50;$c=$inspect[0];$owned=([string]$c.Name-match'(?i)ki.?stack|openwebui|searxng')-or([string]$c.Config.Image-match'(?i)ki.?stack|openwebui|searxng');if(-not$owned){continue};$policy=[string]$c.HostConfig.RestartPolicy.Name;$state.dockerContainers+=@([ordered]@{id=[string]$c.Id;name=[string]$c.Name;restartPolicy=$policy});if($policy-and$policy-ne'no'){$null=& docker.exe update --restart=no $c.Id;$state.changes+=@("Docker:$($c.Name)")}}
     }
     Write-KICompleteJson $backupPath $state
-    Write-KICompleteJson (Join-Path $TargetRoot 'state/complete-installer/operations-latest.json') ([ordered]@{schemaVersion='1.0';backupPath=$backupPath;appliedAtUtc=[DateTime]::UtcNow.ToString('o')})
+    Write-KICompleteJson (Join-Path ([string]$PathContext.StateRoot) 'operations-latest.json') ([ordered]@{schemaVersion='1.0';backupPath=$backupPath;appliedAtUtc=[DateTime]::UtcNow.ToString('o')})
     [pscustomobject]@{backupPath=$backupPath;desktop=$desktop;changes=@($state.changes)}
 }
 
 function Restore-KICompleteOperations {
-    param([string]$TargetRoot,[string]$BackupPath)
+    param([string]$TargetRoot,[string]$BackupPath,[object]$PathContext)
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PSScriptRoot -Mutating}
     if ([string]::IsNullOrWhiteSpace($BackupPath)) {
-        $pointer=Join-Path $TargetRoot 'state/complete-installer/operations-latest.json';if(-not(Test-Path $pointer)){return [pscustomobject]@{status='NoOperationsBackup';restored=$false}}
+        $pointer=Join-Path ([string]$PathContext.StateRoot) 'operations-latest.json';if(-not(Test-Path $pointer)){return [pscustomobject]@{status='NoOperationsBackup';restored=$false}}
         $BackupPath=[string](Read-KICompleteJson $pointer).backupPath
     }
     $backupPath=$BackupPath;$state=Read-KICompleteJson $backupPath;$shell=New-Object -ComObject WScript.Shell
@@ -843,41 +896,45 @@ function Invoke-KIStackCompleteInstaller {
     # into its own disposable directory instead of the real, current user's real Desktop.
     param([ValidateSet('Audit','Install','Upgrade','Repair','Validate','Rollback','Start','Stop')][string]$Mode='Audit',[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[string]$TransactionId,[switch]$Resume,[switch]$DryRun,[switch]$EnableOpenWebUIBallistics,[Security.SecureString]$OpenWebUIApiToken,[string[]]$ReplayComponent=@(),[string]$DesktopPath='')
     $PackageRoot = Get-KICompletePackageRoot $PackageRoot
+    $transactionalMode=$Mode-in@('Install','Upgrade','Repair')-and-not$DryRun
+    if($Resume-and[string]::IsNullOrWhiteSpace($TransactionId)){throw 'Resume erfordert TransactionId.'}
+    if($transactionalMode-and[string]::IsNullOrWhiteSpace($TransactionId)){$TransactionId='KI-COMPLETE-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')}
+    $pathContextArguments=@{TargetRoot=$TargetRoot;PackageRoot=$PackageRoot;DesktopPath=$DesktopPath;Mutating=($transactionalMode-or$Mode-eq'Rollback')}
+    if(-not[string]::IsNullOrWhiteSpace($TransactionId)){$pathContextArguments.TransactionId=$TransactionId}
+    $pathContext=New-KICompletePathContext @pathContextArguments
+    $TargetRoot=[string]$pathContext.TargetRoot
+    # Config.stateDirectory/backupDirectory/logDirectory remain package-format legacy fields.
+    # New runs derive every CompleteInstaller-owned path exclusively from $pathContext.
     $config = Read-KICompleteJson (Join-Path $PackageRoot 'Config/complete-installer.config.json')
     $componentContract=Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
     if ($Mode -in @('Start','Stop')) { return Invoke-KICompleteLifecycle $Mode $TargetRoot }
-    if ($Mode -eq 'Rollback') { return Restore-KICompleteOperations -TargetRoot $TargetRoot }
+    if ($Mode -eq 'Rollback') { return Restore-KICompleteOperations -TargetRoot $TargetRoot -PathContext $pathContext }
     $preflight = Test-KICompletePreflight -PackageRoot $PackageRoot -TargetRoot $TargetRoot -ReadOnly:($Mode -in @('Audit','Validate') -or $DryRun)
     if (-not $preflight.passed) { throw ('Preflight fehlgeschlagen: ' + ($preflight.issues -join '; ')) }
     $pendingRollback = if ($Mode -notin @('Audit','Validate') -and -not $DryRun -and -not $Resume) {
-        $rollbackRecovery=Invoke-KICompletePendingComponentRollback -PackageRoot $PackageRoot -TargetRoot $TargetRoot -StateDirectory ([string]$config.stateDirectory)
-        $failedStateRecovery=Resolve-KICompleteFailedTransactionState -PackageRoot $PackageRoot -TargetRoot $TargetRoot -StateDirectory ([string]$config.stateDirectory) -ComponentContract $componentContract
+        $rollbackRecovery=Invoke-KICompletePendingComponentRollback -PackageRoot $PackageRoot -TargetRoot $TargetRoot -PathContext $pathContext
+        $failedStateRecovery=Resolve-KICompleteFailedTransactionState -PackageRoot $PackageRoot -TargetRoot $TargetRoot -PathContext $pathContext -ComponentContract $componentContract
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
-    $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics -ReplayComponent $ReplayComponent
+    $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics -ReplayComponent $ReplayComponent -PathContext $pathContext
     if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.13.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
     if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.13.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
     if(-not$Resume -and $plan.alreadyCompliant -and -not[bool]$plan.hasReplay -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.13.0'}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -PathContext $pathContext -CompleteVersion '2.13.0'}
         return [pscustomobject]@{version='2.13.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
-    $state = [string]$config.stateDirectory
+    $state = [string]$pathContext.StateRoot
     if ($Resume) {
-        if (-not $TransactionId) { throw 'Resume erfordert TransactionId.' }
-        $txPath = Join-Path $state "$TransactionId/transaction.json"
-        if (-not (Test-Path $txPath)) { throw 'Resume-Datei fehlt.' }
-        $tx = Read-KICompleteJson $txPath
+        $loaded=Read-KICompleteTransactionForResume -PathContext $pathContext
+        $txPath=$loaded.path
+        $resumePath=$loaded.resumePath
+        $tx=$loaded.transaction
     }
     else {
-        if ([string]::IsNullOrWhiteSpace($TransactionId)) {
-            $created = New-KICompleteTransaction -Plan $plan -StateDirectory $state
-        }
-        else {
-            $created = New-KICompleteTransaction -Plan $plan -StateDirectory $state -TransactionId $TransactionId
-        }
-        $tx=$created.transaction; $txPath=$created.path; $TransactionId=$tx.transactionId
+        $created = New-KICompleteTransaction -Plan $plan -PathContext $pathContext
+        $tx=$created.transaction; $txPath=$created.path; $resumePath=$created.resumePath; $TransactionId=$tx.transactionId
     }
     $tx.status='Running'; Write-KICompleteJson $txPath $tx
     $finalizationPhase = $null
@@ -907,11 +964,11 @@ function Invoke-KIStackCompleteInstaller {
             Write-KICompleteStepStatus -Heartbeat $currentStepHeartbeat -Status Running -Message ("Schritt {0} von {1} wird ausgeführt" -f ($index+1),$tx.steps.Count)
             if ($step.id -in @('foundation-runtime','python-git','applications','cutover-runtime')) {
                 if (-not $cutoverExecuted) {
-                    $extract = Join-Path $state "$TransactionId/CutoverRuntime"
+                    $extract = Join-Path ([string]$pathContext.PayloadRoot) 'CutoverRuntime'
                     $cutoverRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'CutoverRuntime' -Destination $extract
                     $kernel = Join-Path $cutoverRoot 'Invoke-KIStackBuilderKernel.ps1'
                     $preflightGenerator = Join-Path $cutoverRoot 'New-KIStackEmbeddedPreflight.ps1'
-                    $preflight = Join-Path $state "$TransactionId/generated/Preflight-Continuation-v1.6.14.zip"
+                    $preflight = Join-Path ([string]$pathContext.TempRoot) 'generated/Preflight-Continuation-v1.6.14.zip'
                     if (-not (Test-Path -LiteralPath $kernel -PathType Leaf) -or -not (Test-Path -LiteralPath $preflightGenerator -PathType Leaf)) {
                         throw 'Cutover-Kernel oder Preflight-Generator fehlt.'
                     }
@@ -920,7 +977,7 @@ function Invoke-KIStackCompleteInstaller {
                         throw 'Der transaktionslokale Cutover-Preflight wurde nicht erzeugt.'
                     }
                     $pwsh = (Get-Command pwsh.exe -ErrorAction Stop).Source
-                    $cutoverState = Join-Path $state "$TransactionId/cutover-state"
+                    $cutoverState = Join-Path ([string]$pathContext.TempRoot) 'cutover-state'
                     $arguments = @(
                         '-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$kernel,
                         '-PreflightPath',$preflight,'-Mode','Execute','-StateDirectory',$cutoverState,
@@ -940,7 +997,7 @@ function Invoke-KIStackCompleteInstaller {
                         $step.exitCode=31
                         $step.result=@{orchestratedBy='CutoverRuntime public kernel';transactionId=($TransactionId + '-cutover');status='RebootRequired';resumeRequired=$true;kernelResultPath=$kernelResultPath;containsSecrets=$false}
                         $tx.status='WaitingForRestart'
-                        Write-KICompleteJson (Join-Path $state "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;status='WaitingForRestart';cutoverTransactionId=($TransactionId + '-cutover');completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')}|ForEach-Object id);containsSecrets=$false})
+                        Write-KICompleteJson $resumePath ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;status='WaitingForRestart';cutoverTransactionId=($TransactionId + '-cutover');completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')}|ForEach-Object id);containsSecrets=$false})
                         Write-KICompleteJson $txPath $tx
                         return $tx
                     }
@@ -968,7 +1025,7 @@ function Invoke-KIStackCompleteInstaller {
                     $step.status='SkippedSupportedInstallation'
                 }
                 else {
-                    $extract = Join-Path $state "$TransactionId/ComfyUI"
+                    $extract = Join-Path ([string]$pathContext.PayloadRoot) 'ComfyUI'
                     $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'ComfyUI' -Destination $extract
                     $entry = Join-Path $componentRoot 'Invoke-KIStackComfyUI.ps1'
                     $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=(Join-Path $TargetRoot 'ComfyUI')}
@@ -995,7 +1052,7 @@ function Invoke-KIStackCompleteInstaller {
                 }
             }
             elseif ($step.id -eq 'integration') {
-                $extract = Join-Path $state "$TransactionId/Integration"
+                $extract = Join-Path ([string]$pathContext.PayloadRoot) 'Integration'
                 $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'Integration' -Destination $extract
                 $entry = Join-Path $componentRoot 'Invoke-KIStackIntegration.ps1'
                 $action = if ($step.plannedMode -eq 'Repair') { 'Repair' } elseif ($step.plannedMode -eq 'Upgrade') { 'Upgrade' } else { 'Install' }
@@ -1005,11 +1062,11 @@ function Invoke-KIStackCompleteInstaller {
                 $step.result=@{install=$result;validation=$validation}
             }
             elseif ($step.id -eq 'models-workflows') {
-                $extract = Join-Path $state "$TransactionId/ModelsWorkflows"
+                $extract = Join-Path ([string]$pathContext.PayloadRoot) 'ModelsWorkflows'
                 $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'ModelsWorkflows' -Destination $extract
                 $entry = Join-Path $componentRoot 'Import-KIStackExternalModels.ps1'
                 $result = & $entry -Mode Install -SourcePath (Join-Path $PackageRoot 'ExternalModels') -TargetRoot $TargetRoot `
-                    -StateRoot (Join-Path $state "$TransactionId/model-import") -TransactionId ($TransactionId + '-models')
+                    -StateRoot (Join-Path ([string]$pathContext.TempRoot) 'model-import') -TransactionId ($TransactionId + '-models')
                 if (-not [bool]$result.passed) {
                     $step.status='WaitingForUserAction'
                     $waiting=@($result.results|Where-Object status -eq 'WaitingForNetwork'|ForEach-Object id)
@@ -1035,7 +1092,7 @@ function Invoke-KIStackCompleteInstaller {
                     $payloadName=if($step.id-eq'openwebui-agent-pack'){'OpenWebUIAgentPack'}else{'OpenWebUIVisualPack'}
                     $payload=Get-ChildItem -LiteralPath (Join-Path $PackageRoot ('Payload/'+$payloadName)) -File -Filter '*.zip'|Select-Object -First 1
                     if(-not$payload){throw "Payload fehlt: $payloadName"}
-                    $extract=Join-Path ([string]$config.stateDirectory) "$TransactionId/$payloadName"
+                    $extract=Join-Path ([string]$pathContext.PayloadRoot) $payloadName
                     if(Test-Path -LiteralPath $extract){Remove-Item -LiteralPath $extract -Recurse -Force}
                     Expand-Archive -LiteralPath $payload.FullName -DestinationPath $extract
                     if($step.id-eq'openwebui-agent-pack'){
@@ -1043,7 +1100,7 @@ function Invoke-KIStackCompleteInstaller {
                         if(-not$module){throw 'Agent-Pack-Modul fehlt.'}
                         Import-Module $module.FullName -Force
                         $agentPackageRoot=Split-Path -Parent $module.FullName
-                        $agentBackupDirectory=Join-Path ([string]$config.backupDirectory) "$TransactionId/agent-pack"
+                        $agentBackupDirectory=Join-Path ([string]$pathContext.TransactionBackupRoot) 'agent-pack'
                         New-Item -ItemType Directory -Path $agentBackupDirectory -Force|Out-Null
                         $agentMarkerPath=Join-Path $TargetRoot 'modules/openwebui-agent-pack/installation.json'
                         $agentMarkerBackup=Join-Path $agentBackupDirectory 'component-marker.backup.json'
@@ -1077,13 +1134,13 @@ function Invoke-KIStackCompleteInstaller {
             elseif ($step.id -eq 'openwebui-ballistics-pack') {
                 if($null-eq$OpenWebUIApiToken){$OpenWebUIApiToken=Read-Host 'Temporären OpenWebUI-Administrator-API-Key eingeben' -AsSecureString}
                 $payload=Get-ChildItem (Join-Path $PackageRoot 'Payload/OpenWebUIBallisticsPack') -Filter '*.zip' -File|Select-Object -First 1;if(-not$payload){throw'Ballistics-Pack-Payload fehlt.'}
-                $extract=Join-Path ([string]$config.stateDirectory) "$TransactionId/ballistics-package";if(Test-Path $extract){Remove-Item $extract -Recurse -Force};Expand-Archive $payload.FullName $extract
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'ballistics-package';if(Test-Path $extract){Remove-Item $extract -Recurse -Force};Expand-Archive $payload.FullName $extract
                 $module=Get-ChildItem $extract -Filter 'OpenWebUIBallisticsPack.psm1' -Recurse -File|Select-Object -First 1;if(-not$module){throw'Ballistics-Pack-Modul fehlt.'};Import-Module $module.FullName -Force
-                $packageRoot=Split-Path $module.FullName -Parent;$result=Install-OpenWebUIBallisticsPack $packageRoot ([string]$config.openWebUIEndpoint) $OpenWebUIApiToken '' (Join-Path ([string]$config.backupDirectory) "$TransactionId/ballistics") $TargetRoot
+                $packageRoot=Split-Path $module.FullName -Parent;$result=Install-OpenWebUIBallisticsPack $packageRoot ([string]$config.openWebUIEndpoint) $OpenWebUIApiToken '' (Join-Path ([string]$pathContext.TransactionBackupRoot) 'ballistics') $TargetRoot
                 $step.result=$result;$step.backup=$result.backupPath
             }
             elseif ($step.id -eq 'codex-local') {
-                $extract=Join-Path $state "$TransactionId/CodexLocal"
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'CodexLocal'
                 $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'CodexLocal' -Destination $extract
                 $entry=Join-Path $componentRoot 'Invoke-KIStackCodexLocal.ps1'
                 if(-not(Test-Path -LiteralPath $entry -PathType Leaf)){throw 'Codex-Local-Einstieg fehlt.'}
@@ -1105,13 +1162,13 @@ function Invoke-KIStackCompleteInstaller {
                 }
             }
             elseif ($step.id -eq 'rag') {
-                $extract=Join-Path $state "$TransactionId/RAG"
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'RAG'
                 $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'RAG' -Destination $extract
                 $test=Join-Path $componentRoot 'Test-KIStackRAG.ps1'
                 if(-not(Test-Path -LiteralPath $test -PathType Leaf)){throw 'RAG-Selbsttest fehlt.'}
                 $validation=Invoke-KICompleteJsonScript -Script $test -Arguments @{PackageRoot=$componentRoot}
                 if(-not[bool]$validation.passed){throw ('RAG-Quellvalidierung fehlgeschlagen: '+(@($validation.failures)-join'; '))}
-                $backupRoot=Join-Path ([string]$config.backupDirectory) "$TransactionId/rag"
+                $backupRoot=Join-Path ([string]$pathContext.TransactionBackupRoot) 'rag'
                 $result=Install-KICompleteRAGModule -ComponentRoot $componentRoot -TargetRoot $TargetRoot -BackupRoot $backupRoot
                 $step.backup=$backupRoot
                 $step.result=@{install=$result;validation=$validation;ingestionDeferred=$true;validated=$true}
@@ -1119,13 +1176,13 @@ function Invoke-KIStackCompleteInstaller {
             elseif ($step.id -eq 'validation-gate') {
                 $payload=Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload/ValidationGate') -File -Filter '*.zip'|Select-Object -First 1
                 if(-not$payload){throw 'Validation-Gate-Payload fehlt.'}
-                $extract=Join-Path ([string]$config.stateDirectory) "$TransactionId/ValidationGate"
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'ValidationGate'
                 if(Test-Path -LiteralPath $extract){Remove-Item -LiteralPath $extract -Recurse -Force}
                 Expand-Archive -LiteralPath $payload.FullName -DestinationPath $extract
                 $installer=Get-ChildItem -LiteralPath $extract -Recurse -File -Filter 'Install-KIStack-ValidationGate.ps1'|Select-Object -First 1
                 if(-not$installer){throw 'Öffentlicher Validation-Gate-Installer fehlt.'}
                 $installRoot=Join-Path $TargetRoot 'Tools/PackageValidationGate'
-                $backupRoot=Join-Path ([string]$config.backupDirectory) "$TransactionId/validation-gate"
+                $backupRoot=Join-Path ([string]$pathContext.TransactionBackupRoot) 'validation-gate'
                 $currentRoot=Join-Path $installRoot 'current'
                 if(Test-Path -LiteralPath $currentRoot){
                     New-Item -ItemType Directory -Path $backupRoot -Force|Out-Null
@@ -1170,17 +1227,17 @@ function Invoke-KIStackCompleteInstaller {
             }else{
                 Write-KICompleteStepStatus -Heartbeat $currentStepHeartbeat -Status Completed -Message ("{0} abgeschlossen" -f $step.name)
             }
-            Write-KICompleteJson (Join-Path $state "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')}|ForEach-Object id);containsSecrets=$false})
+            Write-KICompleteJson $resumePath ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')}|ForEach-Object id);containsSecrets=$false})
             Write-KICompleteJson $txPath $tx
         }
-        $backup=Join-Path ([string]$config.backupDirectory) $TransactionId
+        $backup=[string]$pathContext.TransactionBackupRoot
         $finalizationPhase = 'InstallOrchestrator'
         $orchestratorChanges=Install-KICompleteOrchestrator $PackageRoot $TargetRoot $backup
         $finalizationPhase = 'InstallCentralStarters'
         $starterChanges=Install-KICompleteCentralStarters $PackageRoot $TargetRoot $backup
         $finalizationPhase = 'InstallOperations'
         $operationsStarted = $true
-        $operations=Install-KICompleteOperations $TargetRoot (Join-Path $backup 'operations') -DesktopPath $DesktopPath
+        $operations=Install-KICompleteOperations $TargetRoot (Join-Path $backup 'operations') -DesktopPath $DesktopPath -PathContext $pathContext
         $finalizationPhase = 'RemoveKnowledgeExperiment'
         $knowledgeRollback=if($null-ne$OpenWebUIApiToken){& (Join-Path $PackageRoot 'Operations/Remove-KIStackKnowledgeExperiment.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BackupDirectory (Join-Path $backup 'knowledge-rollback')}else{[pscustomobject]@{status='CredentialRequiredForApiReadback';apiKeyStored=$false}}
         $finalizationPhase = 'SetCodeInterpreter'
@@ -1189,7 +1246,7 @@ function Invoke-KIStackCompleteInstaller {
         $tx|Add-Member -NotePropertyName finalization -NotePropertyValue ([ordered]@{orchestratorFiles=$orchestratorChanges;centralStarters=$starterChanges;operations=$operations;knowledgeRollback=$knowledgeRollback;codeInterpreter=$codeInterpreter}) -Force
         $tx = Clear-KICompleteStaleTransactionError -Transaction $tx
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
-        $componentStatePath=Join-Path $state 'components.json';$componentVersions=[ordered]@{}
+        $componentStatePath=Get-KICompleteComponentStatePath -PathContext $pathContext;$componentVersions=[ordered]@{}
         foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
         Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.13.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
         Write-KICompleteJson $txPath $tx; return $tx
@@ -1217,7 +1274,7 @@ function Invoke-KIStackCompleteInstaller {
         }
         if ($operationsStarted -and $finalizationPhase -eq 'InstallOperations') {
             try {
-                $operationsRollback = Restore-KICompleteOperations -TargetRoot $TargetRoot -BackupPath (Join-Path $backup 'operations/operations.backup.json')
+                $operationsRollback = Restore-KICompleteOperations -TargetRoot $TargetRoot -BackupPath (Join-Path $backup 'operations/operations.backup.json') -PathContext $pathContext
                 $tx | Add-Member -NotePropertyName finalizationRollback -NotePropertyValue $operationsRollback -Force
             }
             catch {
