@@ -97,6 +97,107 @@ function Test-KICompleteShaContract {
     [pscustomobject]@{ passed=($errors.Count -eq 0); errors=$errors }
 }
 
+function New-KICompleteKernelRuntimeConfig {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$PathContext,
+        [Parameter(Mandatory)][string]$BaseConfigPath,
+        [Parameter(Mandatory)][string]$KernelTransactionId,
+        [Parameter(Mandatory)][string]$KernelStateRoot
+    )
+    if ([string]::IsNullOrWhiteSpace([string]$PathContext.TransactionRoot)) { throw 'RuntimeConfig erfordert einen transaktionsgebundenen PathContext.' }
+    $config = Read-KICompleteJson -Path $BaseConfigPath
+    $target = [string]$PathContext.TargetRoot
+    $modules = [string]$PathContext.ModuleRoot
+    $python = [string]$PathContext.PythonRoot
+    $data = [string]$PathContext.DataRoot
+    $models = [IO.Path]::Combine($target,'models')
+    $reports = [IO.Path]::Combine($target,'reports','cutover')
+    $comfy = [IO.Path]::Combine($target,'ComfyUI')
+
+    # Explicit Category-A mapping. System-, user-, WSL- and endpoint values remain
+    # untouched from the product baseline.
+    $config.stackRoot = $target
+    $config.stateRoot = [string]$PathContext.StateRoot
+    $config.logRoot = [string]$PathContext.LogRoot
+    $config.cacheRoot = [IO.Path]::Combine($target,'cache')
+    $config.backupRoot = [string]$PathContext.BackupRoot
+    $config.moduleRoot = $modules
+    $config.pythonEnvironment.root = $python
+    $config.pythonEnvironment.venvRoot = [IO.Path]::Combine($python,'venvs')
+    $config.pythonEnvironment.packageCache = [IO.Path]::Combine($target,'cache','python')
+    $config.gitEnvironment.repositoryRoot = [IO.Path]::Combine($target,'repos')
+    $config.gitEnvironment.safeDirectoryRoot = $target
+    $config.comfyUI.root = $comfy
+    $config.comfyUI.venv = [IO.Path]::Combine($python,'venvs','comfyui')
+    $config.comfyUI.customNodesRoot = [IO.Path]::Combine($comfy,'custom_nodes')
+    $config.comfyUI.modelsRoot = $models
+    $config.comfyUI.moduleRoot = [IO.Path]::Combine($modules,'comfyui')
+    $config.comfyUI.extraModelPathsConfig = [IO.Path]::Combine($modules,'comfyui','extra_model_paths.yaml')
+    $config.comfyUI.inputDirectory = [IO.Path]::Combine($data,'comfyui','input')
+    $config.comfyUI.outputDirectory = [IO.Path]::Combine($data,'comfyui','output')
+    $config.comfyUI.userDirectory = [IO.Path]::Combine($data,'comfyui','user')
+    $config.models.root = $models
+    $config.models.workflowTargetRoot = [IO.Path]::Combine($data,'comfyui','user','default','workflows','KI-Stack')
+    $config.models.integrationRoot = [IO.Path]::Combine($modules,'models-workflows')
+    $config.models.installationMarker = [IO.Path]::Combine($modules,'models-workflows','installation.json')
+    $importRoots = @($config.models.importSearchRoots)
+    if ($importRoots.Count -lt 1) { throw 'Basiskonfiguration enthält keinen models.importSearchRoots-Eintrag.' }
+    $importRoots[0] = $models
+    $config.models.importSearchRoots = $importRoots
+    $config.applications.moduleRoot = [IO.Path]::Combine($modules,'applications')
+    $config.applications.installationMarker = [IO.Path]::Combine($modules,'applications','installation.json')
+    $config.applications.openWebUI.venv = [IO.Path]::Combine($python,'venvs','openwebui')
+    $config.applications.openWebUI.dataRoot = [IO.Path]::Combine($target,'OpenWebUI','data')
+    $config.integration.moduleRoot = [IO.Path]::Combine($modules,'integration')
+    $config.integration.installationMarker = [IO.Path]::Combine($modules,'integration','installation.json')
+    $config.integration.keeperPidFile = [IO.Path]::Combine($modules,'integration','wsl-keeper.pid')
+    $config.cutover.moduleRoot = [IO.Path]::Combine($modules,'cutover')
+    $config.cutover.installationMarker = [IO.Path]::Combine($modules,'cutover','installation.json')
+    $config.cutover.reportRoot = $reports
+    $config.cutover.healthReportPath = [IO.Path]::Combine($reports,'Health-latest.json')
+    $config.cutover.acceptanceReportPath = [IO.Path]::Combine($reports,'Acceptance-latest.json')
+    $config.cutover.startScripts.searxng = [IO.Path]::Combine($modules,'integration','Start-KIStack-SearXNG.cmd')
+    $config.cutover.startScripts.lmStudio = [IO.Path]::Combine($modules,'applications','Start-KIStack-LMStudio.cmd')
+    $config.cutover.startScripts.openWebUI = [IO.Path]::Combine($modules,'integration','Start-KIStack-OpenWebUI-WithSearch.cmd')
+    $config.cutover.startScripts.comfyUI = [IO.Path]::Combine($modules,'comfyui','Start-KIStack-ComfyUI.cmd')
+    $config.cutover.stopScripts.applications = [IO.Path]::Combine($modules,'applications','Stop-KIStack-Applications.cmd')
+    $config.cutover.stopScripts.searxng = [IO.Path]::Combine($modules,'integration','Stop-KIStack-SearXNG.cmd')
+    $config.cutover.stopScripts.comfyUI = [IO.Path]::Combine($modules,'comfyui','Stop-KIStack-ComfyUI.cmd')
+    $config.validation.acceptanceRoot = $reports
+    $config.validation.latestReportPath = [IO.Path]::Combine($reports,'Acceptance-latest.json')
+    $config | Add-Member -NotePropertyName targetRoot -NotePropertyValue $target -Force
+    $config | Add-Member -NotePropertyName transactionId -NotePropertyValue $KernelTransactionId -Force
+    $config | Add-Member -NotePropertyName pathContractVersion -NotePropertyValue ([string]$PathContext.PathContractVersion) -Force
+    $config | Add-Member -NotePropertyName transactionRoot -NotePropertyValue ([string]$PathContext.TransactionRoot) -Force
+    $config | Add-Member -NotePropertyName kernelStateRoot -NotePropertyValue $KernelStateRoot -Force
+    $config
+}
+
+function Write-KICompleteKernelRuntimeConfig {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$PathContext,
+        [Parameter(Mandatory)][string]$BaseConfigPath,
+        [Parameter(Mandatory)][string]$KernelTransactionId,
+        [Parameter(Mandatory)][string]$KernelStateRoot
+    )
+    $config = New-KICompleteKernelRuntimeConfig -PathContext $PathContext -BaseConfigPath $BaseConfigPath -KernelTransactionId $KernelTransactionId -KernelStateRoot $KernelStateRoot
+    $path = [IO.Path]::Combine([string]$PathContext.TransactionRoot,'kernel-runtime-config.json')
+    $json = $config | ConvertTo-Json -Depth 100
+    $temporaryPath = $path + '.tmp'
+    [IO.File]::WriteAllText($temporaryPath,$json + [Environment]::NewLine,[Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $temporaryPath -Destination $path -Force
+    [pscustomobject][ordered]@{ path=$path; sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash; config=$config }
+}
+
+function ConvertTo-KICompleteProcessArgument {
+    param([Parameter(Mandatory)][string]$Value)
+    if ($Value.Contains('"')) { throw 'Prozessargumente mit Anführungszeichen werden nicht unterstützt.' }
+    if ($Value -match '\s') { return '"' + $Value + '"' }
+    $Value
+}
+
 function Get-KICompleteComponentStatePath {
     param([Parameter(Mandatory)][object]$PathContext)
     [IO.Path]::Combine([string]$PathContext.StateRoot,'components.json')
@@ -978,10 +1079,20 @@ function Invoke-KIStackCompleteInstaller {
                     }
                     $pwsh = (Get-Command pwsh.exe -ErrorAction Stop).Source
                     $cutoverState = Join-Path ([string]$pathContext.TempRoot) 'cutover-state'
+                    $kernelTransactionId = $TransactionId + '-cutover'
+                    $runtimeConfig = Write-KICompleteKernelRuntimeConfig -PathContext $pathContext -BaseConfigPath (Join-Path $cutoverRoot 'Config/kernel-config.json') -KernelTransactionId $kernelTransactionId -KernelStateRoot $cutoverState
+                    if ($tx.PSObject.Properties['kernelRuntimeConfigSha256'] -and -not [string]::Equals([string]$tx.kernelRuntimeConfigSha256,[string]$runtimeConfig.sha256,[StringComparison]::OrdinalIgnoreCase)) {
+                        throw 'Die deterministisch neu erzeugte Kernel-RuntimeConfig stimmt nicht mit der gespeicherten Transaktions-SHA256 überein.'
+                    }
+                    $tx | Add-Member -NotePropertyName kernelRuntimeConfigPath -NotePropertyValue ([string]$runtimeConfig.path) -Force
+                    $tx | Add-Member -NotePropertyName kernelRuntimeConfigSha256 -NotePropertyValue ([string]$runtimeConfig.sha256) -Force
+                    $tx | Add-Member -NotePropertyName kernelRuntimeConfigTransactionId -NotePropertyValue $kernelTransactionId -Force
+                    Write-KICompleteJson $txPath $tx
                     $arguments = @(
-                        '-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$kernel,
-                        '-PreflightPath',$preflight,'-Mode','Execute','-StateDirectory',$cutoverState,
-                        '-TransactionId',($TransactionId + '-cutover'),'-RollbackOnFailure',
+                        '-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',(ConvertTo-KICompleteProcessArgument $kernel),
+                        '-PreflightPath',(ConvertTo-KICompleteProcessArgument $preflight),'-Mode','Execute','-StateDirectory',(ConvertTo-KICompleteProcessArgument $cutoverState),
+                        '-TransactionId',$kernelTransactionId,'-RuntimeConfigPath',(ConvertTo-KICompleteProcessArgument ([string]$runtimeConfig.path)),
+                        '-ExpectedTargetRoot',(ConvertTo-KICompleteProcessArgument ([string]$pathContext.TargetRoot)),'-ExpectedRuntimeConfigSha256',([string]$runtimeConfig.sha256),'-RollbackOnFailure',
                         '-ExecutionConfirmation','EXECUTE'
                     )
                     $cutoverTransactionPath=Join-Path $cutoverState (($TransactionId + '-cutover') + '/transaction.json')

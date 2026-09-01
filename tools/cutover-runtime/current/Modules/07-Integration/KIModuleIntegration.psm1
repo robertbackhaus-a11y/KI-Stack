@@ -205,6 +205,7 @@ function Get-KIIntegrationOpenWebUIWithSearchStarterContent {
         [Parameter(Mandatory)][string]$SearchConcurrency,
         [Parameter(Mandatory)][string]$LoaderConcurrency,
         [Parameter(Mandatory)][string]$QueryUrl,
+        [Parameter(Mandatory)][string]$ApplicationStarterPath,
         [AllowNull()][string]$ExistingContent
     )
     $webCmd=@'
@@ -216,10 +217,10 @@ set "WEB_SEARCH_RESULT_COUNT=__RESULT_COUNT__"
 set "WEB_SEARCH_CONCURRENT_REQUESTS=__SEARCH_CONCURRENCY__"
 set "WEB_LOADER_CONCURRENT_REQUESTS=__LOADER_CONCURRENCY__"
 set "SEARXNG_QUERY_URL=__QUERY_URL__"
-call "C:\KI-Stack\modules\applications\Start-KIStack-OpenWebUI.cmd"
+call "__APPLICATION_STARTER__"
 exit /b %ERRORLEVEL%
 '@
-    $webCmd=$webCmd.Replace('__RESULT_COUNT__',$ResultCount).Replace('__SEARCH_CONCURRENCY__',$SearchConcurrency).Replace('__LOADER_CONCURRENCY__',$LoaderConcurrency).Replace('__QUERY_URL__',$QueryUrl)
+    $webCmd=$webCmd.Replace('__RESULT_COUNT__',$ResultCount).Replace('__SEARCH_CONCURRENCY__',$SearchConcurrency).Replace('__LOADER_CONCURRENCY__',$LoaderConcurrency).Replace('__QUERY_URL__',$QueryUrl).Replace('__APPLICATION_STARTER__',$ApplicationStarterPath)
     if($ExistingContent){
         $ragEnvCallMatch=[regex]::Match($ExistingContent,'(?im)^call\s+"[^"]*OpenWebUI-RAG\.env\.cmd"\s*$')
         if($ragEnvCallMatch.Success){
@@ -363,13 +364,14 @@ exit /b %ERRORLEVEL%
     $existingWebCmdPath=Join-Path $moduleRoot 'Start-KIStack-OpenWebUI-WithSearch.cmd'
     $existingWebCmdContent=$null
     if(Test-Path -LiteralPath $existingWebCmdPath -PathType Leaf){$existingWebCmdContent=Get-Content -LiteralPath $existingWebCmdPath -Raw}
-    $webCmd=Get-KIIntegrationOpenWebUIWithSearchStarterContent -ResultCount ([string]$config.webSearchResultCount) -SearchConcurrency ([string]$config.webSearchConcurrentRequests) -LoaderConcurrency ([string]$config.webLoaderConcurrentRequests) -QueryUrl ([string]$config.searxngQueryUrl) -ExistingContent $existingWebCmdContent
+    $applicationModuleRoot=[string]$Context.Config.applications.moduleRoot
+    $webCmd=Get-KIIntegrationOpenWebUIWithSearchStarterContent -ResultCount ([string]$config.webSearchResultCount) -SearchConcurrency ([string]$config.webSearchConcurrentRequests) -LoaderConcurrency ([string]$config.webLoaderConcurrentRequests) -QueryUrl ([string]$config.searxngQueryUrl) -ApplicationStarterPath (Join-Path $applicationModuleRoot 'Start-KIStack-OpenWebUI.cmd') -ExistingContent $existingWebCmdContent
     $allCmd=@'
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 call "%~dp0Start-KIStack-SearXNG.cmd"
 if errorlevel 1 exit /b %ERRORLEVEL%
-start "KI-Stack LM Studio" cmd.exe /D /C call "C:\KI-Stack\modules\applications\Start-KIStack-LMStudio.cmd"
+start "KI-Stack LM Studio" cmd.exe /D /C call "__LM_STUDIO_STARTER__"
 timeout /t 3 /nobreak >nul
 start "KI-Stack Open WebUI + SearXNG" cmd.exe /D /K call "%~dp0Start-KIStack-OpenWebUI-WithSearch.cmd"
 exit /b 0
@@ -377,10 +379,12 @@ exit /b 0
     $stopAllCmd=@'
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
-call "C:\KI-Stack\modules\applications\Stop-KIStack-Applications.cmd"
+call "__APPLICATION_STOPPER__"
 call "%~dp0Stop-KIStack-SearXNG.cmd"
 exit /b %ERRORLEVEL%
 '@
+    $allCmd=$allCmd.Replace('__LM_STUDIO_STARTER__',(Join-Path $applicationModuleRoot 'Start-KIStack-LMStudio.cmd'))
+    $stopAllCmd=$stopAllCmd.Replace('__APPLICATION_STOPPER__',(Join-Path $applicationModuleRoot 'Stop-KIStack-Applications.cmd'))
     $files=@{
       (Join-Path $moduleRoot 'Start-KIStack-SearXNG.ps1')=$startPs;
       (Join-Path $moduleRoot 'Stop-KIStack-SearXNG.ps1')=$stopPs;

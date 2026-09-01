@@ -42,7 +42,10 @@
         "transactionRoot": {"type": "string", "minLength": 1},
         "backupRoot": {"type": "string", "minLength": 1},
         "logRoot": {"type": "string", "minLength": 1},
-        "pathContractVersion": {"type": "string", "minLength": 1}
+        "pathContractVersion": {"type": "string", "minLength": 1},
+        "kernelRuntimeConfigPath": {"type": "string", "minLength": 1},
+        "kernelRuntimeConfigSha256": {"type": "string", "pattern": "^[0-9A-Fa-f]{64}$"},
+        "kernelRuntimeConfigTransactionId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
       }
     }
   },

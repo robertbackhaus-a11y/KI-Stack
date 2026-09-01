@@ -21,6 +21,7 @@ $checks=[ordered]@{}
 # now preserves an already-applied RAG env-call line across every regeneration.
 $module=Import-Module (Join-Path $ProjectRoot 'Modules/07-Integration/KIModuleIntegration.psm1') -Force -PassThru -DisableNameChecking
 try{
+    $applicationStarter='D:\Local AI\KI Stack\modules\applications\Start-KIStack-OpenWebUI.cmd'
     $ragCallLine='call "C:\KI-Stack\modules\rag\OpenWebUI-RAG.env.cmd"'
     $existingWithRag=@"
 @echo off
@@ -40,7 +41,7 @@ exit /b %ERRORLEVEL%
     #    at least once) -- a fresh Integration regeneration must preserve
     #    the exact RAG env-call line, immediately after @echo off, while
     #    still applying the current Integration config values.
-    $regeneratedWithRag=Get-KIIntegrationOpenWebUIWithSearchStarterContent -ResultCount '7' -SearchConcurrency '4' -LoaderConcurrency '6' -QueryUrl 'http://localhost/searxng/search?q=<query>' -ExistingContent $existingWithRag
+    $regeneratedWithRag=Get-KIIntegrationOpenWebUIWithSearchStarterContent -ResultCount '7' -SearchConcurrency '4' -LoaderConcurrency '6' -QueryUrl 'http://localhost/searxng/search?q=<query>' -ApplicationStarterPath $applicationStarter -ExistingContent $existingWithRag
     $checks.ragLinePreservedAcrossRegeneration=[ordered]@{
         containsRagCall=$regeneratedWithRag.Contains($ragCallLine)
         ragCallImmediatelyAfterEchoOff=([regex]::IsMatch($regeneratedWithRag,'(?im)^@echo off\r?\n'+[regex]::Escape($ragCallLine)+'\r?\n'))
@@ -52,7 +53,7 @@ exit /b %ERRORLEVEL%
     # B. Fresh install / RAG never installed -- no RAG line exists yet, so
     #    none must be fabricated; the plain Integration-owned template is
     #    produced unchanged (no regression on the greenfield path).
-    $regeneratedWithoutRag=Get-KIIntegrationOpenWebUIWithSearchStarterContent -ResultCount '5' -SearchConcurrency '3' -LoaderConcurrency '5' -QueryUrl 'http://localhost/searxng/search?q=<query>' -ExistingContent $null
+    $regeneratedWithoutRag=Get-KIIntegrationOpenWebUIWithSearchStarterContent -ResultCount '5' -SearchConcurrency '3' -LoaderConcurrency '5' -QueryUrl 'http://localhost/searxng/search?q=<query>' -ApplicationStarterPath $applicationStarter -ExistingContent $null
     $checks.noRagLineFabricatedOnFreshInstall=[ordered]@{
         noRagCall=(-not$regeneratedWithoutRag.Contains('OpenWebUI-RAG.env.cmd'))
         startsWithEchoOff=$regeneratedWithoutRag.StartsWith('@echo off')
@@ -62,7 +63,7 @@ exit /b %ERRORLEVEL%
     # C. Re-running regeneration a second time against its own prior output
     #    (idempotency: no duplicate/doubled call line across repeated
     #    Integration reconciliations).
-    $regeneratedTwice=Get-KIIntegrationOpenWebUIWithSearchStarterContent -ResultCount '7' -SearchConcurrency '4' -LoaderConcurrency '6' -QueryUrl 'http://localhost/searxng/search?q=<query>' -ExistingContent $regeneratedWithRag
+    $regeneratedTwice=Get-KIIntegrationOpenWebUIWithSearchStarterContent -ResultCount '7' -SearchConcurrency '4' -LoaderConcurrency '6' -QueryUrl 'http://localhost/searxng/search?q=<query>' -ApplicationStarterPath $applicationStarter -ExistingContent $regeneratedWithRag
     $checks.idempotentAcrossRepeatedRegeneration=[ordered]@{
         onlyOneRagCall=(@([regex]::Matches($regeneratedTwice,[regex]::Escape($ragCallLine))).Count-eq1)
         identicalToFirstRegeneration=($regeneratedTwice-eq$regeneratedWithRag)
@@ -73,7 +74,7 @@ exit /b %ERRORLEVEL%
     #    older or manually-adjusted install path) is still recognized and
     #    preserved by path suffix, not an exact hardcoded string match.
     $existingWithDifferentPath=$existingWithRag.Replace($ragCallLine,'call "D:\Custom\Path\OpenWebUI-RAG.env.cmd"')
-    $regeneratedDifferentPath=Get-KIIntegrationOpenWebUIWithSearchStarterContent -ResultCount '5' -SearchConcurrency '3' -LoaderConcurrency '5' -QueryUrl 'http://localhost/searxng/search?q=<query>' -ExistingContent $existingWithDifferentPath
+    $regeneratedDifferentPath=Get-KIIntegrationOpenWebUIWithSearchStarterContent -ResultCount '5' -SearchConcurrency '3' -LoaderConcurrency '5' -QueryUrl 'http://localhost/searxng/search?q=<query>' -ApplicationStarterPath $applicationStarter -ExistingContent $existingWithDifferentPath
     $checks.differentRagPathStillPreserved=[ordered]@{
         containsCustomPathCall=$regeneratedDifferentPath.Contains('call "D:\Custom\Path\OpenWebUI-RAG.env.cmd"')
     }

@@ -6,6 +6,9 @@ $ErrorActionPreference='Stop'
 
 Import-Module (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $PackageRoot 'Runtime/KIStackPathContext.psm1') -Force -DisableNameChecking
+$repositoryRoot=(Resolve-Path (Join-Path $PackageRoot '../../..')).Path
+$cutoverRoot=Join-Path $repositoryRoot 'tools/cutover-runtime/current'
+Import-Module (Join-Path $cutoverRoot 'Core/KIStack.BuilderKernel.Core.psm1') -Force -DisableNameChecking
 
 $failures=[Collections.Generic.List[string]]::new()
 $checks=[ordered]@{}
@@ -98,6 +101,51 @@ try{
     $source=Get-Content -LiteralPath (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Raw
     Add-Check 'ConfigPathsNotRuntimeSources' ($source-notmatch '\$config\.(stateDirectory|backupDirectory|logDirectory)') 'active config path reference found'
     Add-Check 'NoCompetingComponentsLiteral' ($source-notmatch 'Join-Path \$TargetRoot ''state/complete-installer/components\.json''') 'hard-coded components.json path found'
+
+    $baseConfig=Join-Path $cutoverRoot 'Config/kernel-config.json'
+    $driveContext=New-KICompletePathContext -TargetRoot 'D:\KI-Stack-Test' -PackageRoot $PackageRoot -TransactionId 'TX-ALT'
+    $driveConfig=New-KICompleteKernelRuntimeConfig -PathContext $driveContext -BaseConfigPath $baseConfig -KernelTransactionId 'TX-ALT-cutover' -KernelStateRoot ([IO.Path]::Combine([string]$driveContext.TempRoot,'cutover-state'))
+    $drivePaths=Get-KIKernelTargetRelativeConfigPaths -Config $driveConfig
+    Add-Check 'KernelRuntimeAlternateRoot' (@($drivePaths.Values|Where-Object{-not(Test-KIPathUnderRoot -Path ([string]$_) -Root 'D:\KI-Stack-Test')}).Count-eq0) ($drivePaths.Values-join'; ')
+
+    $defaultConfig=New-KICompleteKernelRuntimeConfig -PathContext $default -BaseConfigPath $baseConfig -KernelTransactionId 'COMMIT2-DEFAULT-cutover' -KernelStateRoot ([IO.Path]::Combine([string]$default.TempRoot,'cutover-state'))
+    Add-Check 'KernelRuntimeDefaultRoot' ([string]$defaultConfig.stackRoot-eq'C:\KI-Stack'-and[string]$defaultConfig.comfyUI.root-eq'C:\KI-Stack\ComfyUI') ([string]$defaultConfig.comfyUI.root)
+
+    $spacesContext=New-KICompletePathContext -TargetRoot 'D:\Local AI\KI Stack' -PackageRoot $PackageRoot -TransactionId 'TX-SPACES'
+    $spacesConfig=New-KICompleteKernelRuntimeConfig -PathContext $spacesContext -BaseConfigPath $baseConfig -KernelTransactionId 'TX-SPACES-cutover' -KernelStateRoot ([IO.Path]::Combine([string]$spacesContext.TempRoot,'cutover-state'))
+    Add-Check 'KernelRuntimeSpaces' (
+        [string]$spacesConfig.applications.openWebUI.dataRoot-eq'D:\Local AI\KI Stack\OpenWebUI\data'-and
+        (ConvertTo-KICompleteProcessArgument ([string]$spacesContext.TargetRoot))-eq'"D:\Local AI\KI Stack"'
+    ) ([string]$spacesConfig.applications.openWebUI.dataRoot)
+
+    $kernelStateA=[IO.Path]::Combine([string]$contextA.TempRoot,'cutover-state')
+    $kernelStateB=[IO.Path]::Combine([string]$contextB.TempRoot,'cutover-state')
+    $runtimeA=Write-KICompleteKernelRuntimeConfig -PathContext $contextA -BaseConfigPath $baseConfig -KernelTransactionId ($transactionId+'-cutover') -KernelStateRoot $kernelStateA
+    $runtimeARepeat=Write-KICompleteKernelRuntimeConfig -PathContext $contextA -BaseConfigPath $baseConfig -KernelTransactionId ($transactionId+'-cutover') -KernelStateRoot $kernelStateA
+    $runtimeB=Write-KICompleteKernelRuntimeConfig -PathContext $contextB -BaseConfigPath $baseConfig -KernelTransactionId ($transactionId+'-cutover') -KernelStateRoot $kernelStateB
+    Add-Check 'KernelRuntimeDeterministic' ($runtimeA.sha256-eq$runtimeARepeat.sha256) ([string]$runtimeA.sha256)
+    Add-Check 'KernelRuntimeTwoRoots' ($runtimeA.path-ne$runtimeB.path-and$runtimeA.sha256-ne$runtimeB.sha256) "A=$($runtimeA.path); B=$($runtimeB.path)"
+
+    $parsedA=Read-KICompleteJson -Path $runtimeA.path
+    Assert-KIKernelRuntimeConfig -Config $parsedA -RuntimeConfigPath $runtimeA.path -ExpectedTargetRoot $rootA -ExpectedTransactionId ($transactionId+'-cutover') -StateDirectory $kernelStateA -ExpectedSha256 $runtimeA.sha256
+    Add-Check 'KernelRuntimeValidContract' $true ([string]$runtimeA.path)
+    Add-Check 'KernelRuntimeTamperedTarget' (Test-Throws -Action {Assert-KIKernelRuntimeConfig -Config $parsedA -RuntimeConfigPath $runtimeA.path -ExpectedTargetRoot $rootB -ExpectedTransactionId ($transactionId+'-cutover') -StateDirectory $kernelStateA -ExpectedSha256 $runtimeA.sha256} -Pattern 'TargetRoot') 'mismatched ExpectedTargetRoot accepted'
+    Add-Check 'KernelRuntimeTamperedTransaction' (Test-Throws -Action {Assert-KIKernelRuntimeConfig -Config $parsedA -RuntimeConfigPath $runtimeA.path -ExpectedTargetRoot $rootA -ExpectedTransactionId 'FOREIGN-cutover' -StateDirectory $kernelStateA -ExpectedSha256 $runtimeA.sha256} -Pattern 'TransactionId') 'mismatched TransactionId accepted'
+    Add-Check 'KernelRuntimeMissingFile' (Test-Throws -Action {Assert-KIKernelRuntimeConfig -Config $parsedA -RuntimeConfigPath (Join-Path $contextA.TransactionRoot 'missing.json') -ExpectedTargetRoot $rootA -ExpectedTransactionId ($transactionId+'-cutover') -StateDirectory $kernelStateA -ExpectedSha256 $runtimeA.sha256} -Pattern 'nicht gefunden') 'missing RuntimeConfig accepted'
+    Add-Content -LiteralPath $runtimeA.path -Value ' ' -Encoding UTF8
+    Add-Check 'KernelRuntimeTamperedSha' (Test-Throws -Action {Assert-KIKernelRuntimeConfig -Config $parsedA -RuntimeConfigPath $runtimeA.path -ExpectedTargetRoot $rootA -ExpectedTransactionId ($transactionId+'-cutover') -StateDirectory $kernelStateA -ExpectedSha256 $runtimeA.sha256} -Pattern 'SHA256') 'tampered RuntimeConfig SHA accepted'
+
+    $runtimeA=Write-KICompleteKernelRuntimeConfig -PathContext $contextA -BaseConfigPath $baseConfig -KernelTransactionId ($transactionId+'-cutover') -KernelStateRoot $kernelStateA
+    $injected=Read-KICompleteJson -Path $runtimeA.path
+    $injected.pythonEnvironment.root=[IO.Path]::Combine($rootB,'python')
+    $injected|ConvertTo-Json -Depth 100|Set-Content -LiteralPath $runtimeA.path -Encoding UTF8
+    $injectedSha=(Get-FileHash -LiteralPath $runtimeA.path -Algorithm SHA256).Hash
+    Add-Check 'KernelRuntimeForeignPath' (Test-Throws -Action {Assert-KIKernelRuntimeConfig -Config $injected -RuntimeConfigPath $runtimeA.path -ExpectedTargetRoot $rootA -ExpectedTransactionId ($transactionId+'-cutover') -StateDirectory $kernelStateA -ExpectedSha256 $injectedSha} -Pattern 'Target-relativer') 'foreign python root accepted'
+
+    $kernelSource=Get-Content -LiteralPath (Join-Path $cutoverRoot 'Invoke-KIStackBuilderKernel.ps1') -Raw
+    $starterSource=Get-Content -LiteralPath (Join-Path $cutoverRoot 'Start-KIStack-Cutover.ps1') -Raw
+    Add-Check 'KernelRuntimeCompleteFailClosed' ($source.Contains("'-RuntimeConfigPath'")-and$source.Contains("'-ExpectedTargetRoot'")-and$source.Contains("'-ExpectedRuntimeConfigSha256'")-and$kernelSource.Contains('RuntimeConfigPath und ExpectedTargetRoot müssen')) 'CompleteInstaller runtime binding missing'
+    Add-Check 'KernelRuntimeStandaloneCompatibility' ($kernelSource.Contains('[string]$ConfigPath =')-and$starterSource.Contains("'Config\kernel-config.json'")) 'standalone ConfigPath contract missing'
 }
 finally{
     if(Test-Path -LiteralPath $suiteRoot){Remove-Item -LiteralPath $suiteRoot -Recurse -Force}
