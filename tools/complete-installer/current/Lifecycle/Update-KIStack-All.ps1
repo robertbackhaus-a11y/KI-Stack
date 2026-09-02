@@ -48,6 +48,7 @@ $versionRegistryModulePath=Join-Path $installerRoot 'Lifecycle/KIStackComponentV
 if(-not(Test-Path -LiteralPath $versionRegistryModulePath -PathType Leaf)){throw "Versionsregistrierungsmodul fehlt unter $installerRoot; Update-Checker kann nicht laufen."}
 Import-Module $versionRegistryModulePath -Force
 $completeConfig=Read-KICompleteJson (Join-Path $installerRoot 'Config/complete-installer.config.json')
+$updatePathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $installerRoot -Mutating
 $rawComponentContract=Read-KICompleteJson (Join-Path $installerRoot 'Contracts/COMPONENTS.json')
 $isolationMetaById=@{}
 foreach($rc in $rawComponentContract.components){
@@ -455,7 +456,7 @@ if($isolatedPlanned.Count-and-not$failed){
         # OpenWebUI admin token (openwebui-agent-pack/openwebui-visual-pack/
         # openwebui-ballistics-pack) always reports WaitingForUserAction from here, exactly as
         # it already does today when routed through the Complete-Installer batch instead.
-        $isoResult=Invoke-KIStackIsolatedComponentUpdate -ComponentId ([string]$item.id) -PackageRoot $installerRoot -TargetRoot $TargetRoot -Component $componentContractEntry -Config $completeConfig
+        $isoResult=Invoke-KIStackIsolatedComponentUpdate -ComponentId ([string]$item.id) -PackageRoot $installerRoot -TargetRoot $TargetRoot -Component $componentContractEntry -Config $completeConfig -PathContext $updatePathContext
         $executed.Add([pscustomobject][ordered]@{id=$item.id;outcome=$isoResult.outcome;detail=$isoResult.detail;backupPath=$isoResult.backupPath})
         # Each isolated component is fully independent (own extraction dir, own backup, own
         # try/catch) -- a failure here stops the REST of this isolated loop (so a batch-routed

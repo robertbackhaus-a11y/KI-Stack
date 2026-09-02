@@ -1,6 +1,12 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+if (-not (Get-Command New-KICompletePathContext -ErrorAction SilentlyContinue)) {
+    $pathContextModule = Join-Path (Split-Path -Parent $PSScriptRoot) 'Runtime/KIStackPathContext.psm1'
+    if (-not (Test-Path -LiteralPath $pathContextModule -PathType Leaf)) { throw "KIStackPathContext-Modul fehlt: $pathContextModule" }
+    Import-Module $pathContextModule -Force -DisableNameChecking
+}
+
 # Component-isolation planning and execution for the central KI-Stack updater
 # (Update-KIStack-All.ps1). Root problem this closes: selecting a single component there
 # previously always fell through to a real Invoke-KIStackCompleteInstaller -Mode Upgrade
@@ -289,6 +295,37 @@ function Get-KIStackIsolatedActionMode {
     return 'Install'
 }
 
+function New-KIStackIsolatedUpdatePaths {
+    param(
+        [Parameter(Mandatory)][string]$TargetRoot,
+        [Parameter(Mandatory)][string]$PackageRoot,
+        [Parameter(Mandatory)][string]$RunId,
+        [object]$PathContext,
+        [string]$WorkDirectory
+    )
+    if ($null -eq $PathContext) {
+        $PathContext = New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PackageRoot -Mutating
+    }
+    if (-not (Test-KICompleteSameRoot -First ([string]$PathContext.TargetRoot) -Second $TargetRoot)) {
+        throw 'Lifecycle-Update-PathContext gehört zu einem fremden TargetRoot.'
+    }
+    $updateStateRoot = [IO.Path]::Combine([string]$PathContext.StateRoot,'updates',$RunId)
+    $resolvedWorkDirectory = if ([string]::IsNullOrWhiteSpace($WorkDirectory)) {
+        [IO.Path]::Combine($updateStateRoot,'staging')
+    } else {
+        Assert-KICompletePathWithinRoot -Path $WorkDirectory -Root ([string]$PathContext.StateRoot) -Name 'Lifecycle Update WorkDirectory' -RejectReparsePoint
+    }
+    $resolvedBackupRoot = [IO.Path]::Combine([string]$PathContext.BackupRoot,'updates',$RunId)
+    Assert-KICompletePathWithinRoot -Path $resolvedWorkDirectory -Root ([string]$PathContext.StateRoot) -Name 'Lifecycle Update WorkDirectory' -RejectReparsePoint | Out-Null
+    Assert-KICompletePathWithinRoot -Path $resolvedBackupRoot -Root ([string]$PathContext.BackupRoot) -Name 'Lifecycle Update BackupRoot' -RejectReparsePoint | Out-Null
+    [pscustomobject][ordered]@{
+        PathContext=$PathContext
+        RunId=$RunId
+        WorkDirectory=$resolvedWorkDirectory
+        BackupRoot=$resolvedBackupRoot
+    }
+}
+
 function Invoke-KIStackIsolatedComponentUpdate {
     # Executes exactly one component's own, already self-contained install/backup/rollback
     # entry point directly. Deliberately does NOT call Invoke-KIStackCompleteInstaller,
@@ -306,7 +343,8 @@ function Invoke-KIStackIsolatedComponentUpdate {
         [Parameter(Mandatory)][object]$Component,
         [Parameter(Mandatory)][object]$Config,
         [Security.SecureString]$OpenWebUIApiToken,
-        [string]$WorkDirectory
+        [string]$WorkDirectory,
+        [object]$PathContext
     )
     if (@(Get-KIStackIsolatedExecutionHandler) -notcontains $ComponentId) {
         throw "Keine isolierte Ausführung für '$ComponentId' implementiert (Kategorie C oder noch nicht verdrahtet)."
@@ -318,8 +356,9 @@ function Invoke-KIStackIsolatedComponentUpdate {
         }
     }
     $runId = 'KI-ISOLATED-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fffffff') + '-' + $ComponentId
-    if ([string]::IsNullOrWhiteSpace($WorkDirectory)) { $WorkDirectory = Join-Path ([string]$Config.stateDirectory) $runId }
-    $backupRoot = Join-Path ([string]$Config.backupDirectory) $runId
+    $updatePaths = New-KIStackIsolatedUpdatePaths -TargetRoot $TargetRoot -PackageRoot $PackageRoot -RunId $runId -PathContext $PathContext -WorkDirectory $WorkDirectory
+    $WorkDirectory = [string]$updatePaths.WorkDirectory
+    $backupRoot = [string]$updatePaths.BackupRoot
     try {
         switch ($ComponentId) {
             'openwebui-agent-pack' {
@@ -505,4 +544,4 @@ function Invoke-KIStackIsolatedComponentUpdate {
     }
 }
 
-Export-ModuleMember -Function Resolve-KIStackUpdatePlan,Test-KIStackDependencyCycle,Get-KIStackIsolatedExecutionHandler,Invoke-KIStackIsolatedComponentUpdate,Get-KIStackIsolatedActionMode
+Export-ModuleMember -Function Resolve-KIStackUpdatePlan,Test-KIStackDependencyCycle,Get-KIStackIsolatedExecutionHandler,Invoke-KIStackIsolatedComponentUpdate,Get-KIStackIsolatedActionMode,New-KIStackIsolatedUpdatePaths
