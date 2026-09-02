@@ -58,15 +58,19 @@ function New-KIRecoveryFixtureFailedTransaction {
     # (KI-COMPLETE-20260829-144908): comfyui step reached status=Completed (the payload overlay
     # itself "succeeded"), rollbackStatus is still null (the overall transaction failed LATER, at
     # the unrelated cutover-runtime step), and the transaction's overall status is 'Failed'.
-    param([Parameter(Mandatory)][string]$StateDirectory,[string]$ComfyUIStepVersion='1.2.4')
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ComfyUIStepVersion='1.2.4')
     $transactionId='KI-COMPLETE-20260829-144908'
-    $txDir=Join-Path $StateDirectory $transactionId
-    New-Item -ItemType Directory -Path $txDir -Force|Out-Null
+    $context=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PackageRoot -TransactionId $transactionId -Mutating
+    $txDir=[string]$context.TransactionRoot
+    $recordedBackup=Join-Path ([string]$context.TransactionBackupRoot) 'comfyui/20260829-144911'
+    New-Item -ItemType Directory -Path $txDir,$recordedBackup -Force|Out-Null
     $transaction=[ordered]@{
-        schemaVersion='1.0';transactionId=$transactionId;status='Failed';mode='Upgrade'
+        schemaVersion='1.1';transactionId=$transactionId;status='Failed';mode='Upgrade'
+        targetRoot=[string]$context.TargetRoot;stateRoot=[string]$context.StateRoot;transactionRoot=[string]$context.TransactionRoot
+        backupRoot=[string]$context.BackupRoot;logRoot=[string]$context.LogRoot;pathContractVersion=[string]$context.PathContractVersion
         createdAtUtc=[DateTime]::UtcNow.ToString('o')
         steps=@(
-            [ordered]@{name='ComfyUI';id='comfyui';version=$ComfyUIStepVersion;plannedMode='Upgrade';startTime=[DateTime]::UtcNow.ToString('o');endTime=[DateTime]::UtcNow.ToString('o');initialState=[ordered]@{storedVersion=$ComfyUIStepVersion;installedVersion=$ComfyUIStepVersion;compliant=$false;reconciliationNeeded=$false};result=[ordered]@{install=[ordered]@{passed=$true;changed=$true;status='Completed';backup='C:\KI-Stack\backups\comfyui-1.2.4\20260829-144911';files=160;markerMigrated=$false;rollbackStatus='NotRequired'}};backup=$null;rollbackStatus=$null;error=$null;exitCode=0;status='Completed'}
+            [ordered]@{name='ComfyUI';id='comfyui';version=$ComfyUIStepVersion;plannedMode='Upgrade';startTime=[DateTime]::UtcNow.ToString('o');endTime=[DateTime]::UtcNow.ToString('o');initialState=[ordered]@{storedVersion=$ComfyUIStepVersion;installedVersion=$ComfyUIStepVersion;compliant=$false;reconciliationNeeded=$false};result=[ordered]@{install=[ordered]@{passed=$true;changed=$true;status='Completed';backup=$recordedBackup;files=160;markerMigrated=$false;rollbackStatus='NotRequired'}};backup=$null;rollbackStatus=$null;error=$null;exitCode=0;status='Completed'}
             [ordered]@{name='Cutover Runtime';id='cutover-runtime';version='1.6.11';plannedMode='Upgrade';startTime=[DateTime]::UtcNow.ToString('o');endTime=$null;initialState=[ordered]@{storedVersion='1.6.10';installedVersion='1.6.10';compliant=$false;reconciliationNeeded=$true};result=$null;backup=$null;rollbackStatus=$null;error='Cutover-Kernel fehlgeschlagen: Exitcode 30';exitCode=30;status='Failed'}
         )
     }
@@ -91,18 +95,19 @@ try{
     $realStateDirectory=Join-Path $realTargetRoot 'state/complete-installer'
     New-KIRecoveryFixtureRepository -TargetRoot $realTargetRoot -Tag 'v0.34.0' -MarkerVersion '1.2.4' | Out-Null
     New-Item -ItemType Directory -Path $realStateDirectory -Force|Out-Null
-    $realTxId=New-KIRecoveryFixtureFailedTransaction -StateDirectory $realStateDirectory -ComfyUIStepVersion '1.2.4'
+    $realTxId=New-KIRecoveryFixtureFailedTransaction -TargetRoot $realTargetRoot -ComfyUIStepVersion '1.2.4'
     $realPackageRoot=New-KIRecoveryFixturePackageRoot -PackageStageRoot (Join-Path $realRoot 'package')
     $realResult=$null; $realThrew=$false; $realMessage=$null
-    try{ $realResult=Resolve-KICompleteFailedTransactionState -PackageRoot $realPackageRoot -TargetRoot $realTargetRoot -StateDirectory $realStateDirectory -ComponentContract $componentContract }
+    $realContext=New-KICompletePathContext -TargetRoot $realTargetRoot -PackageRoot $realPackageRoot -Mutating
+    try{ $realResult=Resolve-KICompleteFailedTransactionState -PackageRoot $realPackageRoot -TargetRoot $realTargetRoot -PathContext $realContext -ComponentContract $componentContract }
     catch{ $realThrew=$true; $realMessage=$_.Exception.Message }
-    $realTxAfter=if(-not$realThrew){Get-Content -LiteralPath (Join-Path $realStateDirectory "$realTxId/transaction.json") -Raw|ConvertFrom-Json -Depth 20}else{$null}
+    $realTxAfter=if(-not$realThrew){Get-Content -LiteralPath (Join-Path $realContext.TransactionBaseRoot "$realTxId/transaction.json") -Raw|ConvertFrom-Json -Depth 20}else{$null}
     $realComfyStepAfter=if($null-ne$realTxAfter){@($realTxAfter.steps|Where-Object id -eq 'comfyui')[0]}else{$null}
     $checks.realfallOldTransactionDoesNotBlock=[ordered]@{
         didNotThrow=(-not$realThrew)
         statusRecovered=($null-ne$realResult-and[string]$realResult.status-eq'FailedTransactionStateRecovered')
         stepRetainedVerified=($null-ne$realComfyStepAfter-and[string]$realComfyStepAfter.rollbackStatus-eq'NotRequiredRetainedVerified')
-        noNewPayloadMutation=(-not(Test-Path (Join-Path $realTargetRoot 'backups/complete-installer')))
+        recordedBackupPreserved=(Test-Path (Join-Path $realTargetRoot "backups/complete-installer/$realTxId/comfyui/20260829-144911"))
     }
     if($checks.realfallOldTransactionDoesNotBlock.Values-contains$false){$fail.Add('Scenario Realfall failed: '+$realMessage)}
 
@@ -115,10 +120,11 @@ try{
     $negativeStateDirectory=Join-Path $negativeTargetRoot 'state/complete-installer'
     New-KIRecoveryFixtureRepository -TargetRoot $negativeTargetRoot -Tag 'v0.20.0' -MarkerVersion '1.2.4' | Out-Null
     New-Item -ItemType Directory -Path $negativeStateDirectory -Force|Out-Null
-    New-KIRecoveryFixtureFailedTransaction -StateDirectory $negativeStateDirectory -ComfyUIStepVersion '1.2.4' | Out-Null
+    New-KIRecoveryFixtureFailedTransaction -TargetRoot $negativeTargetRoot -ComfyUIStepVersion '1.2.4' | Out-Null
     $negativePackageRoot=New-KIRecoveryFixturePackageRoot -PackageStageRoot (Join-Path $negativeRoot 'package') -MinimumSupportedVersion 'v0.28.0'
     $negativeThrew=$false; $negativeMessage=$null
-    try{ Resolve-KICompleteFailedTransactionState -PackageRoot $negativePackageRoot -TargetRoot $negativeTargetRoot -StateDirectory $negativeStateDirectory -ComponentContract $componentContract | Out-Null }
+    $negativeContext=New-KICompletePathContext -TargetRoot $negativeTargetRoot -PackageRoot $negativePackageRoot -Mutating
+    try{ Resolve-KICompleteFailedTransactionState -PackageRoot $negativePackageRoot -TargetRoot $negativeTargetRoot -PathContext $negativeContext -ComponentContract $componentContract | Out-Null }
     catch{ $negativeThrew=$true; $negativeMessage=$_.Exception.Message }
     $checks.negativeControlStillBlocks=[ordered]@{
         threw=$negativeThrew

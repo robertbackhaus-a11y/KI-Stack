@@ -66,6 +66,29 @@ function Test-KICompleteSameRoot {
     [string]::Equals($firstCanonical,$secondCanonical,[StringComparison]::OrdinalIgnoreCase)
 }
 
+function Assert-KICompletePathWithinRoot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Root,
+        [string]$Name = 'Path',
+        [switch]$AllowRoot,
+        [switch]$RejectReparsePoint
+    )
+
+    $canonicalPath = ConvertTo-KICompleteCanonicalPath -Path $Path -Name $Name
+    $canonicalRoot = ConvertTo-KICompleteCanonicalPath -Path $Root -Name ($Name + 'Root')
+    $isRoot = [string]::Equals($canonicalPath,$canonicalRoot,[StringComparison]::OrdinalIgnoreCase)
+    $prefix = $canonicalRoot.TrimEnd([IO.Path]::DirectorySeparatorChar,[IO.Path]::AltDirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+    if ((-not $isRoot -and -not $canonicalPath.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)) -or ($isRoot -and -not $AllowRoot)) {
+        throw "$Name liegt außerhalb des erwarteten Root: $canonicalPath"
+    }
+    if ($RejectReparsePoint -and (Test-KICompletePathContainsReparsePoint -Path $canonicalPath)) {
+        throw "$Name oder ein vorhandener Elternpfad ist ein Reparse-Punkt: $canonicalPath"
+    }
+    $canonicalPath
+}
+
 function New-KICompletePathContext {
     [CmdletBinding()]
     param(
@@ -154,4 +177,4 @@ function Initialize-KICompletePathContextDirectories {
     @($paths)
 }
 
-Export-ModuleMember -Function New-KICompletePathContext,Test-KICompleteSameRoot,Initialize-KICompletePathContextDirectories
+Export-ModuleMember -Function New-KICompletePathContext,Test-KICompleteSameRoot,Assert-KICompletePathWithinRoot,Initialize-KICompletePathContextDirectories

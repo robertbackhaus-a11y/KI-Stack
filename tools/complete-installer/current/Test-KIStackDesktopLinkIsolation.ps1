@@ -44,10 +44,24 @@ New-Item -ItemType Directory -Path $targetRootA,$targetRootB -Force|Out-Null
 try{
     # --- 1. Isolated fixture desktop A/B: shortcuts land ONLY there, never cross-contaminate,
     # never touch the real Desktop. -----------------------------------------------------------
-    $backupA=Join-Path $suiteRoot 'backup-a'
-    $opsA=Install-KICompleteOperations -TargetRoot $targetRootA -BackupRoot $backupA -DesktopPath $fixtureDesktopA
-    $backupB=Join-Path $suiteRoot 'backup-b'
-    $opsB=Install-KICompleteOperations -TargetRoot $targetRootB -BackupRoot $backupB -DesktopPath $fixtureDesktopB
+    $contextA=New-KICompletePathContext -TargetRoot $targetRootA -PackageRoot $PackageRoot -DesktopPath $fixtureDesktopA -TransactionId 'DESKTOP-A' -Mutating
+    $backupA=Join-Path $contextA.TransactionBackupRoot 'operations'
+    $opsA=Install-KICompleteOperations -TargetRoot $targetRootA -BackupRoot $backupA -DesktopPath $fixtureDesktopA -PathContext $contextA
+    $contextB=New-KICompletePathContext -TargetRoot $targetRootB -PackageRoot $PackageRoot -DesktopPath $fixtureDesktopB -TransactionId 'DESKTOP-B' -Mutating
+    $backupB=Join-Path $contextB.TransactionBackupRoot 'operations'
+    $opsB=Install-KICompleteOperations -TargetRoot $targetRootB -BackupRoot $backupB -DesktopPath $fixtureDesktopB -PathContext $contextB
+
+    $operationsStateA=Get-Content -LiteralPath $opsA.backupPath -Raw|ConvertFrom-Json -Depth 30
+    $operationsPointerA=Get-Content -LiteralPath (Join-Path $contextA.StateRoot 'operations-latest.json') -Raw|ConvertFrom-Json -Depth 30
+    $checks.operationsBackupAndPointerRootBound=[ordered]@{
+        backupSchema11=([string]$operationsStateA.schemaVersion-eq'1.1')
+        backupTransactionMatches=([string]$operationsStateA.transactionId-eq[string]$contextA.TransactionId)
+        backupTargetMatches=(Test-KICompleteSameRoot -First ([string]$operationsStateA.targetRoot) -Second ([string]$contextA.TargetRoot))
+        pointerSchema11=([string]$operationsPointerA.schemaVersion-eq'1.1')
+        pointerTransactionMatches=([string]$operationsPointerA.transactionId-eq[string]$contextA.TransactionId)
+        pointerBackupMatches=(Test-KICompleteSameRoot -First ([string]$operationsPointerA.backupPath) -Second ([string]$opsA.backupPath))
+    }
+    if($checks.operationsBackupAndPointerRootBound.Values-contains$false){$fail.Add('operationsBackupAndPointerRootBound failed: '+($checks.operationsBackupAndPointerRootBound|ConvertTo-Json -Compress))}
 
     $linksA=@(Get-ChildItem -LiteralPath $fixtureDesktopA -Filter '*.lnk' -File -ErrorAction SilentlyContinue)
     $linksB=@(Get-ChildItem -LiteralPath $fixtureDesktopB -Filter '*.lnk' -File -ErrorAction SilentlyContinue)

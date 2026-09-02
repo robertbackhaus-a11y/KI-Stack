@@ -79,6 +79,70 @@ try{
     Add-Check 'TransactionMetadata11' $metadataPass ($transactionA|ConvertTo-Json -Compress)
     $loaded=Read-KICompleteTransactionForResume -PathContext $contextA
     Add-Check 'PathAwareResumeSameRoot' (-not[bool]$loaded.legacy-and$loaded.path-eq$createdA.path) $loaded.path
+    $resumeA=Get-Content -LiteralPath $createdA.resumePath -Raw|ConvertFrom-Json -Depth 30
+    Add-Check 'ResumeMetadata11' ([string]$resumeA.schemaVersion-eq'1.1'-and(Test-KICompleteSameRoot $resumeA.targetRoot $contextA.TargetRoot)-and(Test-KICompleteSameRoot $resumeA.transactionRoot $contextA.TransactionRoot)) ($resumeA|ConvertTo-Json -Compress)
+
+    $transactionA.targetRoot=[string]$contextB.TargetRoot
+    Write-KICompleteJson -Path $createdA.path -Value $transactionA
+    Add-Check 'ResumeRejectsForeignTransactionRoot' (Test-Throws -Action {Read-KICompleteTransactionForResume -PathContext $contextA} -Pattern 'targetRoot|Pfadmetadaten') 'foreign transaction targetRoot accepted'
+    $transactionA.targetRoot=[string]$contextA.TargetRoot
+    Write-KICompleteJson -Path $createdA.path -Value $transactionA
+    $transactionA.transactionRoot=[string]$contextB.TransactionRoot
+    Write-KICompleteJson -Path $createdA.path -Value $transactionA
+    Add-Check 'ResumeRejectsForeignTransactionDirectory' (Test-Throws -Action {Read-KICompleteTransactionForResume -PathContext $contextA} -Pattern 'transactionRoot|Pfadmetadaten') 'foreign transactionRoot accepted'
+    $transactionA.transactionRoot=[string]$contextA.TransactionRoot
+    $transactionA.backupRoot=[string]$contextB.BackupRoot
+    Write-KICompleteJson -Path $createdA.path -Value $transactionA
+    Add-Check 'ResumeRejectsForeignBackupRoot' (Test-Throws -Action {Read-KICompleteTransactionForResume -PathContext $contextA} -Pattern 'backupRoot|Pfadmetadaten') 'foreign backupRoot accepted'
+    $transactionA.backupRoot=[string]$contextA.BackupRoot
+    Write-KICompleteJson -Path $createdA.path -Value $transactionA
+    $resumeA.targetRoot=[string]$contextB.TargetRoot
+    Write-KICompleteJson -Path $createdA.resumePath -Value $resumeA
+    Add-Check 'ResumeRejectsForeignResumeRoot' (Test-Throws -Action {Read-KICompleteTransactionForResume -PathContext $contextA} -Pattern 'targetRoot|Pfadmetadaten') 'foreign resume targetRoot accepted'
+    $resumeA.targetRoot=[string]$contextA.TargetRoot
+    Write-KICompleteJson -Path $createdA.resumePath -Value $resumeA
+
+    $transactionA|Add-Member -NotePropertyName kernelRuntimeConfigPath -NotePropertyValue (Join-Path $contextB.TransactionRoot 'kernel-runtime-config.json') -Force
+    Write-KICompleteJson -Path $createdA.path -Value $transactionA
+    Add-Check 'ResumeRejectsForeignKernelRuntimeConfig' (Test-Throws -Action {Read-KICompleteTransactionForResume -PathContext $contextA} -Pattern 'KernelRuntimeConfigPath|außerhalb') 'foreign kernel runtime config accepted'
+    $transactionA.PSObject.Properties.Remove('kernelRuntimeConfigPath')
+    Write-KICompleteJson -Path $createdA.path -Value $transactionA
+
+    Add-Check 'RecoveryRejectsForeignStateDirectory' (Test-Throws -Action {Invoke-KICompletePendingComponentRollback -PackageRoot $PackageRoot -TargetRoot $rootA -PathContext $contextA -StateDirectory $contextB.TransactionBaseRoot} -Pattern 'StateDirectory') 'foreign StateDirectory accepted'
+    Add-Check 'RecoveryRejectsTraversalBackup' (Test-Throws -Action {Assert-KICompleteRecoveryBackupPath -BackupPath (Join-Path $contextA.TransactionBackupRoot '../foreign') -PathContext $contextA -ComponentId 'comfyui'} -Pattern 'außerhalb') 'traversal backup accepted'
+
+    $transactionB=Read-KICompleteJson -Path $createdB.path;$transactionB.status='Failed';Write-KICompleteJson -Path $createdB.path -Value $transactionB
+    $foreignBefore=Get-Content -LiteralPath $createdB.path -Raw
+    $rootARecovery=Invoke-KICompletePendingComponentRollback -PackageRoot $PackageRoot -TargetRoot $rootA -PathContext $contextA
+    Add-Check 'PendingRecoveryTwoRootIsolation' ($rootARecovery.status-eq'NoPendingRollback'-and(Get-Content -LiteralPath $createdB.path -Raw)-ceq$foreignBefore) 'Root A touched Root B transaction'
+
+    $transactionA.status='Failed';$transactionA.targetRoot=[string]$contextB.TargetRoot;Write-KICompleteJson -Path $createdA.path -Value $transactionA
+    $tamperedBefore=Get-Content -LiteralPath $createdA.path -Raw
+    Add-Check 'PendingRejectsTamperedMetadataBeforeMutation' (Test-Throws -Action {Invoke-KICompletePendingComponentRollback -PackageRoot $PackageRoot -TargetRoot $rootA -PathContext $contextA} -Pattern 'targetRoot|Pfadmetadaten') 'pending recovery accepted tampered transaction'
+    Add-Check 'PendingTamperRemainsUnchanged' ((Get-Content -LiteralPath $createdA.path -Raw)-ceq$tamperedBefore) 'pending recovery mutated rejected transaction'
+    Add-Check 'FailedStateRejectsTamperedMetadataBeforeMutation' (Test-Throws -Action {Resolve-KICompleteFailedTransactionState -PackageRoot $PackageRoot -TargetRoot $rootA -PathContext $contextA -ComponentContract ([pscustomobject]@{components=@()}) -FixtureState @{}} -Pattern 'targetRoot|Pfadmetadaten') 'failed-state recovery accepted tampered transaction'
+    $transactionA.targetRoot=[string]$contextA.TargetRoot
+    $transactionA.steps=@([pscustomobject]@{id='comfyui';version='1.2.4';status='Failed';rollbackStatus=$null;result=$null;backup=(Join-Path $contextB.TransactionBackupRoot 'comfyui/foreign')})
+    Write-KICompleteJson -Path $createdA.path -Value $transactionA
+    $foreignBackupBefore=Get-Content -LiteralPath $createdA.path -Raw
+    Add-Check 'FailedStateRejectsCrossRootBackup' (Test-Throws -Action {Resolve-KICompleteFailedTransactionState -PackageRoot $PackageRoot -TargetRoot $rootA -PathContext $contextA -ComponentContract ([pscustomobject]@{components=@()}) -FixtureState @{}} -Pattern 'BackupPath|außerhalb') 'failed-state recovery accepted cross-root backup'
+    Add-Check 'ResumeRejectsCrossRootBackup' (Test-Throws -Action {Read-KICompleteTransactionForResume -PathContext $contextA} -Pattern 'BackupPath|außerhalb') 'resume accepted cross-root backup'
+    Add-Check 'FailedStateBackupRejectionBeforeMutation' ((Get-Content -LiteralPath $createdA.path -Raw)-ceq$foreignBackupBefore) 'failed-state recovery mutated cross-root transaction'
+    $transactionA.targetRoot=[string]$contextA.TargetRoot;$transactionA.status='Planned';$transactionA.steps=@();Write-KICompleteJson -Path $createdA.path -Value $transactionA
+
+    $defaultLegacyContext=New-KICompletePathContext -TargetRoot 'C:\KI-Stack' -PackageRoot $PackageRoot -Mutating
+    $legacyPointer='C:\KI-Stack\state\complete-installer\operations-latest.json'
+    $legacyBackup='C:\KI-Stack\backups\complete-installer\LEGACY-OPS\operations\operations.backup.json'
+    $resolvedLegacy=Resolve-KICompleteLegacyOperationsContext -PathContext $defaultLegacyContext -PointerPath $legacyPointer -BackupPath $legacyBackup
+    Add-Check 'LegacyOperationsDefaultUnambiguous' ($resolvedLegacy.TransactionId-eq'LEGACY-OPS'-and(Test-KICompleteSameRoot $resolvedLegacy.TargetRoot 'C:\KI-Stack')) ([string]$resolvedLegacy.TransactionRoot)
+    Add-Check 'LegacyOperationsAlternateRootRejected' (Test-Throws -Action {Resolve-KICompleteLegacyOperationsContext -PathContext $contextA -PointerPath (Join-Path $contextA.StateRoot 'operations-latest.json') -BackupPath (Join-Path $contextA.TransactionBackupRoot 'operations/operations.backup.json')} -Pattern 'Default Root') 'alternate-root legacy pointer accepted'
+    Add-Check 'LegacyOperationsAmbiguousRejected' (Test-Throws -Action {Resolve-KICompleteLegacyOperationsContext -PathContext $defaultLegacyContext -PointerPath $legacyPointer -BackupPath 'C:\KI-Stack\backups\complete-installer\LEGACY-OPS\extra\operations\operations.backup.json'} -Pattern 'eindeutig') 'ambiguous legacy pointer accepted'
+    Add-Check 'LegacyOperationsTraversalRejected' (Test-Throws -Action {Resolve-KICompleteLegacyOperationsContext -PathContext $defaultLegacyContext -PointerPath $legacyPointer -BackupPath 'C:\KI-Stack\backups\complete-installer\LEGACY-OPS\..\..\foreign\operations.backup.json'} -Pattern 'außerhalb|eindeutig') 'legacy traversal accepted'
+
+    New-Item -ItemType Directory -Path $contextA.StateRoot -Force|Out-Null
+    Write-KICompleteJson -Path (Join-Path $contextA.StateRoot 'operations-latest.json') -Value ([ordered]@{schemaVersion='1.1';transactionId=$transactionId;targetRoot=$contextB.TargetRoot;backupRoot=$contextB.TransactionBackupRoot;backupPath=(Join-Path $contextB.TransactionBackupRoot 'operations/operations.backup.json');componentId='operations';pathContractVersion='1.0'})
+    Add-Check 'OperationsPointerRejectsForeignRoot' (Test-Throws -Action {Restore-KICompleteOperations -TargetRoot $rootA -PathContext (New-KICompletePathContext -TargetRoot $rootA -PackageRoot $PackageRoot -Mutating)} -Pattern 'fremden TargetRoot') 'foreign operations pointer accepted'
+    Remove-Item -LiteralPath (Join-Path $contextA.StateRoot 'operations-latest.json') -Force
 
     $statePlan=[pscustomobject]@{steps=@([pscustomobject]@{id='fixture-component';version='1.0';initialState=[pscustomobject]@{compliant=$true}})}
     $stateA=Update-KICompleteComponentState -Plan $statePlan -PathContext $contextA -CompleteVersion '2.13.0'
@@ -127,6 +191,12 @@ try{
     Add-Check 'KernelRuntimeTwoRoots' ($runtimeA.path-ne$runtimeB.path-and$runtimeA.sha256-ne$runtimeB.sha256) "A=$($runtimeA.path); B=$($runtimeB.path)"
 
     $parsedA=Read-KICompleteJson -Path $runtimeA.path
+    $transactionForKernel=Read-KICompleteJson -Path $createdA.path
+    $transactionForKernel|Add-Member -NotePropertyName kernelRuntimeConfigPath -NotePropertyValue ([string]$runtimeA.path) -Force
+    $transactionForKernel|Add-Member -NotePropertyName kernelRuntimeConfigSha256 -NotePropertyValue ([string]$runtimeA.sha256) -Force
+    $transactionForKernel|Add-Member -NotePropertyName kernelRuntimeConfigTransactionId -NotePropertyValue ($transactionId+'-cutover') -Force
+    Write-KICompleteJson -Path $createdA.path -Value $transactionForKernel
+    Add-Check 'ResumeValidatesStoredRuntimeConfig' (-not[bool](Read-KICompleteTransactionForResume -PathContext $contextA).legacy) 'valid stored runtime config rejected'
     Assert-KIKernelRuntimeConfig -Config $parsedA -RuntimeConfigPath $runtimeA.path -ExpectedTargetRoot $rootA -ExpectedTransactionId ($transactionId+'-cutover') -StateDirectory $kernelStateA -ExpectedSha256 $runtimeA.sha256
     Add-Check 'KernelRuntimeValidContract' $true ([string]$runtimeA.path)
     Add-Check 'KernelRuntimeTamperedTarget' (Test-Throws -Action {Assert-KIKernelRuntimeConfig -Config $parsedA -RuntimeConfigPath $runtimeA.path -ExpectedTargetRoot $rootB -ExpectedTransactionId ($transactionId+'-cutover') -StateDirectory $kernelStateA -ExpectedSha256 $runtimeA.sha256} -Pattern 'TargetRoot') 'mismatched ExpectedTargetRoot accepted'
@@ -141,6 +211,9 @@ try{
     $injected|ConvertTo-Json -Depth 100|Set-Content -LiteralPath $runtimeA.path -Encoding UTF8
     $injectedSha=(Get-FileHash -LiteralPath $runtimeA.path -Algorithm SHA256).Hash
     Add-Check 'KernelRuntimeForeignPath' (Test-Throws -Action {Assert-KIKernelRuntimeConfig -Config $injected -RuntimeConfigPath $runtimeA.path -ExpectedTargetRoot $rootA -ExpectedTransactionId ($transactionId+'-cutover') -StateDirectory $kernelStateA -ExpectedSha256 $injectedSha} -Pattern 'Target-relativer') 'foreign python root accepted'
+    $transactionForKernel.kernelRuntimeConfigSha256=$injectedSha
+    Write-KICompleteJson -Path $createdA.path -Value $transactionForKernel
+    Add-Check 'ResumeRejectsForeignRuntimeConfigContent' (Test-Throws -Action {Read-KICompleteTransactionForResume -PathContext $contextA} -Pattern 'Target-relativer') 'foreign runtime config content accepted before resume mutation'
 
     $kernelSource=Get-Content -LiteralPath (Join-Path $cutoverRoot 'Invoke-KIStackBuilderKernel.ps1') -Raw
     $starterSource=Get-Content -LiteralPath (Join-Path $cutoverRoot 'Start-KIStack-Cutover.ps1') -Raw
