@@ -92,10 +92,36 @@ function Test-ReleaseAttestationChainingContract {
     }
 
     $c.idempotencyGuardPresent = [ordered]@{
-        concurrencyGroupPerTag = ($AttestText -match '(?m)^\s*group:\s*attest-release-\$\{\{\s*inputs\.tag\s*\}\}') -and
-                                  ($TriggerText -match '(?m)^\s*group:\s*attest-release-\$\{\{\s*github\.event\.release\.tag_name\s*\}\}')
+        # Only attest-release.yml owns a concurrency group (see
+        # noCollidingConcurrencyBetweenCallerAndReusableWorkflow below for why
+        # release-attestation.yml must NOT also declare one). This still fully protects the
+        # actual attestation work for both its entry points -- workflow_call from the trigger
+        # workflow and a direct manual workflow_dispatch -- since both resolve to this exact
+        # same group for the same tag.
+        concurrencyGroupPerTag = ($AttestText -match '(?m)^\s*group:\s*attest-release-\$\{\{\s*inputs\.tag\s*\}\}')
         existingAttestationCountChecked = ($AttestText -match 'attestations/sha256:\$DIGEST')
         skipsOnlyWhenFullyAttested = ($AttestText -match '"\$COUNT" -ge 2')
+    }
+
+    $c.noCollidingConcurrencyBetweenCallerAndReusableWorkflow = [ordered]@{
+        # release-attestation.yml's `attest` job invokes attest-release.yml via `uses:`
+        # (workflow_call), which runs as a NESTED job inside the caller's own run -- not as an
+        # independent run. If both workflows declared a top-level `concurrency:` group that
+        # resolves to the same name for the same tag, the outer run would already hold that
+        # group by the time its own nested job tried to acquire it again -- an unsatisfiable
+        # self-wait that GitHub Actions detects and fails/cancels at job-scheduling time,
+        # before the nested job is ever created (no logs). This is exactly what happened to
+        # the real automatic v2.13.0 release attestation run (33739173060): `resolve`
+        # succeeded, but `attest` was never created. Exactly ONE of the two workflows may own
+        # the concurrency lock -- and it must be the reusable workflow, since that is the only
+        # one reachable from both entry points (automatic workflow_call and manual
+        # workflow_dispatch).
+        exactlyOneWorkflowDeclaresTopLevelConcurrency = (
+            (@([regex]::Matches($TriggerText, '(?m)^concurrency:\s*$'))).Count +
+            (@([regex]::Matches($AttestText, '(?m)^concurrency:\s*$'))).Count
+        ) -eq 1
+        reusableWorkflowIsTheOneThatOwnsIt = ($AttestText -match '(?m)^concurrency:\s*$')
+        triggerWorkflowDoesNotAlsoDeclareIt = ($TriggerText -notmatch '(?m)^concurrency:\s*$')
     }
 
     $c.scopeGuardForNonCompleteInstallerReleases = [ordered]@{
@@ -141,6 +167,22 @@ $checks.negativeControlB_SbomRequirementRemovalDetected = [ordered]@{
     originalFilePassesSbomContractCheck = ($checks.sha256SbomContractReVerified.Values -notcontains $false)
 }
 if ($checks.negativeControlB_SbomRequirementRemovalDetected.Values -contains $false) { $fail.Add('negativeControlB_SbomRequirementRemovalDetected failed -- removing the SBOM contract step was not detected, or the real file does not pass to begin with.') }
+
+# --- Negative Control C: reintroduce the exact colliding concurrency block on the caller
+# workflow that caused the real automatic v2.13.0 release attestation run (33739173060) to
+# fail -- a top-level `concurrency:` group on release-attestation.yml resolving to the same
+# name attest-release.yml's own group already uses for the same tag. Prove the suite detects
+# this exact regression, then confirm the real file is green again. -------------------------
+$triggerTextReintroducedCollidingConcurrency = $triggerText -replace `
+    '(?m)^(permissions:\s*\n\s*contents:\s*read\s*\n\s*id-token:\s*write\s*\n\s*attestations:\s*write\s*\n)', `
+    "`$1`nconcurrency:`n  group: attest-release-`${{ github.event.release.tag_name }}`n  cancel-in-progress: false`n"
+if ($triggerTextReintroducedCollidingConcurrency -eq $triggerText) { throw 'Negative-Control-C-Patch griff nicht -- Testannahme verletzt (permissions-Block im Trigger-Workflow nicht gefunden).' }
+$negativeCChecks = Test-ReleaseAttestationChainingContract -AttestText $attestText -TriggerText $triggerTextReintroducedCollidingConcurrency
+$checks.negativeControlC_CollidingConcurrencyReintroductionDetected = [ordered]@{
+    patchedCopyFailsNoCollisionCheck = ($negativeCChecks.noCollidingConcurrencyBetweenCallerAndReusableWorkflow.Values -contains $false)
+    originalFilePassesNoCollisionCheck = ($checks.noCollidingConcurrencyBetweenCallerAndReusableWorkflow.Values -notcontains $false)
+}
+if ($checks.negativeControlC_CollidingConcurrencyReintroductionDetected.Values -contains $false) { $fail.Add('negativeControlC_CollidingConcurrencyReintroductionDetected failed -- reintroducing the colliding concurrency group on the caller workflow was not detected, or the real file does not pass to begin with.') }
 
 $passed = $fail.Count -eq 0
 [pscustomobject]@{ passed = $passed; checks = $checks; failures = @($fail) } | ConvertTo-Json -Depth 12
