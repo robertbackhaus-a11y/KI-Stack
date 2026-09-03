@@ -349,6 +349,30 @@ function Test-KICompleteCodexLocalCompliant {
     }catch{return $false}
 }
 
+function Test-KICompleteOpenTerminalCompliant {
+    # Mirrors Test-KICompleteCodexLocalCompliant's own shape for another self-contained
+    # ("isolation A") component: re-verified directly against the real, on-disk artifacts this
+    # package's own Install-KIOpenTerminal (tools/open-terminal/current/OpenTerminal.psm1)
+    # actually writes -- never by importing that module cross-package (this orchestrator runs
+    # from its own isolated Payload extraction, never alongside tools/open-terminal/current
+    # itself). Deliberately does NOT require the managed uv prerequisite or a running process --
+    # both are separate runtime concerns (see OpenTerminal.psm1's own Test-KIOpenTerminal /
+    # Get-KIOpenTerminalStatus split), never part of "is this package itself correctly deployed".
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.1.0')
+    $root=Join-Path $TargetRoot 'modules/open-terminal'
+    $markerPath=Join-Path $root 'installation.json'
+    $starter=Join-Path $root 'Start-KIStack-OpenTerminal.cmd'
+    $stopper=Join-Path $root 'Stop-KIStack-OpenTerminal.cmd'
+    $credentialFile=Join-Path $TargetRoot 'state/open-terminal/credential.json'
+    $workspace=Join-Path $TargetRoot 'state/open-terminal/workspace'
+    foreach($path in @($markerPath,$starter,$stopper,$credentialFile)){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){return $false}}
+    if(-not(Test-Path -LiteralPath $workspace -PathType Container)){return $false}
+    try{
+        $marker=Read-KICompleteJson $markerPath
+        return ([string]$marker.version-eq$ExpectedComponentVersion)
+    }catch{return $false}
+}
+
 function Test-KICompleteIntegrationCompliant {
     param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='1.5.11')
     $root=Join-Path $TargetRoot 'modules/integration'
@@ -467,6 +491,7 @@ function New-KICompletePlan {
         if([string]$component.id-eq'models-workflows'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteModelsWorkflowsCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         if([string]$component.id-eq'openwebui-visual-pack'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteVisualPackCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         if([string]$component.id-eq'codex-local'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
+        if([string]$component.id-eq'open-terminal'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'integration'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'comfyui'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         $reconciliationNeeded=$compliant-and$stored-ne[string]$component.version
@@ -879,6 +904,7 @@ function Resolve-KICompleteFailedTransactionState {
             $actual=Get-KICompleteInstalledVersion -Component $component[0] -TargetRoot $TargetRoot
             $actualCompliant=$actual-eq[string]$step.version
             if([string]$step.id-eq'codex-local'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+            if([string]$step.id-eq'open-terminal'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
             if([string]$step.id-eq'integration'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
             if([string]$step.id-eq'comfyui'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
             if(-not$actualCompliant){throw "Fehlgeschlagene Transaktion ist nicht recoverbar: $($step.id); erwartet=$($step.version); real=$actual"}
@@ -1192,13 +1218,35 @@ function Invoke-KICompleteHealth {
     [pscustomobject]@{passed=(@($results|Where-Object{-not $_.passed}).Count -eq 0);results=@($results)}
 }
 
+function Invoke-KICompleteOpenTerminalLifecycle {
+    # Additive, best-effort Open-Terminal-Start/Stop chained onto the core Start-KIStack.cmd/
+    # Stop-KIStack.cmd contract -- Open Terminal is an independently, separately installable
+    # component (see tools/open-terminal/current), so a target that never installed it (or any
+    # older target from before this integration existed) must behave exactly as before: this
+    # function only ever runs Open Terminal's OWN starter/stopper .cmd (the same files
+    # Install-KIOpenTerminal already writes under modules/open-terminal, invoked exactly like a
+    # real user double-clicking them) when they actually exist, and never throws -- a broken or
+    # not-yet-installed Open Terminal must never break the rest of the stack's Start/Stop.
+    param([ValidateSet('Start','Stop')][string]$Action,[string]$TargetRoot='C:\KI-Stack')
+    $scriptName = if ($Action -eq 'Start') { 'Start-KIStack-OpenTerminal.cmd' } else { 'Stop-KIStack-OpenTerminal.cmd' }
+    $script = Join-Path $TargetRoot ("modules/open-terminal/{0}" -f $scriptName)
+    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { return [pscustomobject]@{action=$Action;attempted=$false;passed=$true;reason='Open Terminal ist auf diesem Ziel nicht installiert.'} }
+    try {
+        $p = Start-Process -FilePath $script -Wait -PassThru -NoNewWindow
+        [pscustomobject]@{action=$Action;attempted=$true;passed=($p.ExitCode -eq 0);exitCode=$p.ExitCode}
+    } catch {
+        [pscustomobject]@{action=$Action;attempted=$true;passed=$false;reason=$_.Exception.Message}
+    }
+}
+
 function Invoke-KICompleteLifecycle {
     param([ValidateSet('Start','Stop')][string]$Action,[string]$TargetRoot='C:\KI-Stack')
     $script = Join-Path $TargetRoot ("modules/cutover/{0}-KIStack.cmd" -f $Action)
     if (-not (Test-Path $script)) { throw "Zentraler $Action-Einstieg fehlt: $script" }
     $p=Start-Process -FilePath $script -Wait -PassThru -NoNewWindow
     if ($p.ExitCode -ne 0) { throw "$Action fehlgeschlagen: Exitcode $($p.ExitCode)" }
-    [pscustomobject]@{action=$Action;passed=$true;exitCode=$p.ExitCode}
+    $openTerminal = Invoke-KICompleteOpenTerminalLifecycle -Action $Action -TargetRoot $TargetRoot
+    [pscustomobject]@{action=$Action;passed=$true;exitCode=$p.ExitCode;openTerminal=$openTerminal}
 }
 
 function Invoke-KIStackCompleteInstaller {
@@ -1316,6 +1364,7 @@ function Invoke-KIStackCompleteInstaller {
                 $resumeActual=Get-KICompleteInstalledVersion -Component $component -TargetRoot $TargetRoot
                 $resumeCompliant=$resumeActual-eq[string]$step.version
                 if([string]$step.id-eq'codex-local'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+                if([string]$step.id-eq'open-terminal'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'integration'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'comfyui'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
                 if($resumeCompliant){$index++;continue}
@@ -1533,6 +1582,42 @@ function Invoke-KIStackCompleteInstaller {
                         $rollback=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Rollback';BackupPath=[string]$result.marker.backupPath}
                         $_.Exception.Data['KIStackRollbackStatus']=if([bool]$rollback.passed){'Completed'}else{'Failed'}
                         $_.Exception.Data['KIStackBackupPath']=[string]$result.marker.backupPath
+                    }
+                    throw
+                }
+            }
+            elseif ($step.id -eq 'open-terminal') {
+                # Mirrors codex-local's own isolated shape exactly: Expand-KICompletePayload ->
+                # this component's own Invoke-KIStackOpenTerminal.ps1 (Install/Upgrade/Repair via
+                # plannedMode, then Validate) -> on any failure, roll back via that SAME script's
+                # own Rollback action against its own backupPath -- never a bespoke, parallel
+                # mechanism. Install-KIOpenTerminal (tools/open-terminal/current/OpenTerminal.psm1)
+                # already makes a same-version re-run ('SkippedAlreadyCompliant') a safe no-op and
+                # never rotates the persisted API key or touches the workspace/state directories
+                # on Upgrade/Repair -- both survive exactly as codex-local's own profile.
+                # config.toml/AGENTS.md customizations do.
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'OpenTerminal'
+                $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'OpenTerminal' -Destination $extract
+                $entry=Join-Path $componentRoot 'Invoke-KIStackOpenTerminal.ps1'
+                if(-not(Test-Path -LiteralPath $entry -PathType Leaf)){throw 'Open-Terminal-Einstieg fehlt.'}
+                $action=if($step.plannedMode-eq'Repair'){'Repair'}elseif($step.plannedMode-eq'Upgrade'){'Upgrade'}else{'Install'}
+                $result=$null
+                try{
+                    $result=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot}
+                    if(-not[bool]$result.passed){throw "Open-Terminal-$action fehlgeschlagen."}
+                    $validation=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
+                    if(-not[bool]$validation.passed){throw 'Open-Terminal-Validierung fehlgeschlagen.'}
+                    # SkippedAlreadyCompliant (Install-KIOpenTerminal's own, separate fast path)
+                    # carries no backupPath -- defensive, never assumed present under StrictMode,
+                    # even though plannedMode Install/Upgrade/Repair should not normally hit it.
+                    $resultBackupPath=if($result.PSObject.Properties['backupPath']){[string]$result.backupPath}else{$null}
+                    $step.backup=$resultBackupPath
+                    $step.result=@{install=$result;validation=$validation;backupPath=$resultBackupPath;validated=$true}
+                }catch{
+                    if($null -ne $result -and$result.PSObject.Properties['backupPath']-and-not [string]::IsNullOrWhiteSpace([string]$result.backupPath)){
+                        $rollback=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Rollback';BackupPath=[string]$result.backupPath}
+                        $_.Exception.Data['KIStackRollbackStatus']=if([bool]$rollback.passed){'Completed'}else{'Failed'}
+                        $_.Exception.Data['KIStackBackupPath']=[string]$result.backupPath
                     }
                     throw
                 }

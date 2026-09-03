@@ -29,6 +29,10 @@ $ragComponent=@($components.components|Where-Object id -eq 'rag')
 if($codexComponent.Count-ne1-or$codexComponent.version-ne'0.2.1'-or-not[bool]$codexComponent.installable){$fail.Add('Codex Local component')}
 if($ragComponent.Count-ne1-or$ragComponent.version-ne'0.4.0'-or-not[bool]$ragComponent.installable){$fail.Add('RAG component')}
 if([int]$codexComponent.order-ge[int]$ragComponent.order){$fail.Add('Codex Local must deploy before RAG')}
+$openTerminalComponent=@($components.components|Where-Object id -eq 'open-terminal')
+if($openTerminalComponent.Count-ne1-or$openTerminalComponent.version-ne'0.1.0'-or-not[bool]$openTerminalComponent.installable){$fail.Add('Open Terminal component')}
+if(@($openTerminalComponent.requires)-notcontains'python-git'){$fail.Add('Open Terminal must declare its real python-git/managed-uv prerequisite')}
+if([int]$ragComponent.order-ge[int]$openTerminalComponent.order){$fail.Add('RAG must deploy before Open Terminal')}
 $validationComponent = @($components.components | Where-Object id -eq 'validation-gate')
 if ($validationComponent.version -ne '1.0.3' -or -not [bool]$validationComponent.installable) { $fail.Add('Validation Gate installable component') }
 $installableWithoutProbe=@($components.components|Where-Object{$_.installable-and(-not($_.PSObject.Properties.Name-contains'probe')-or$null-eq$_.probe)})
@@ -55,7 +59,8 @@ $agentZip = Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload\OpenWebU
 $integrationZip = Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload\Integration') -File -Filter '*.zip'
 $codexZip = Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload\CodexLocal') -File -Filter '*.zip'
 $ragZip = Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload\RAG') -File -Filter '*.zip'
-if (@($visualZip).Count -ne 1 -or @($modelsZip).Count -ne 1 -or @($integrationZip).Count-ne1 -or @($codexZip).Count-ne1 -or @($ragZip).Count-ne1) { $fail.Add('Payload archive count') }
+$openTerminalZip = Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload\OpenTerminal') -File -Filter '*.zip'
+if (@($visualZip).Count -ne 1 -or @($modelsZip).Count -ne 1 -or @($integrationZip).Count-ne1 -or @($codexZip).Count-ne1 -or @($ragZip).Count-ne1 -or @($openTerminalZip).Count-ne1) { $fail.Add('Payload archive count') }
 
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 if(@($integrationZip).Count-eq1){
@@ -119,6 +124,26 @@ if (@($codexZip).Count -eq 1) {
     }finally{$archive.Dispose()}
 }
 
+if (@($openTerminalZip).Count -eq 1) {
+    $archive=[IO.Compression.ZipFile]::OpenRead($openTerminalZip[0].FullName)
+    try{
+        $entry=$archive.Entries|Where-Object FullName -match '/OpenTerminal\.psm1$'|Select-Object -First 1
+        if(-not$entry){$fail.Add('Open Terminal module missing')}
+        else{
+            $reader=[IO.StreamReader]::new($entry.Open())
+            try{$text=$reader.ReadToEnd()}finally{$reader.Dispose()}
+            foreach($marker in @('Resolve-KIOpenTerminalManagedUv','Assert-KIOpenTerminalManagedUv','Get-KIOpenTerminalStartArguments','Assert-KIOpenTerminalApiKey','ConvertFrom-SecureString','Test-KIOpenTerminalProcessIdentity','Restore-KIOpenTerminalBackup')){
+                if(-not$text.Contains($marker)){$fail.Add("Managed Open Terminal contract: $marker")}
+            }
+            # Never a bare, unmanaged 'uvx' PATH lookup -- Resolve-KIOpenTerminalManagedUv's own
+            # deterministic, TargetRoot-bound managed-uv resolution must be the only path.
+            foreach($forbidden in @("Get-Command 'uvx'","Get-Command uvx")){
+                if($text.Contains($forbidden)){$fail.Add("Unmanaged bare uvx PATH lookup: $forbidden")}
+            }
+        }
+    }finally{$archive.Dispose()}
+}
+
 if (@($modelsZip).Count -eq 1) {
     $archive = [IO.Compression.ZipFile]::OpenRead($modelsZip[0].FullName)
     try {
@@ -161,6 +186,9 @@ foreach($marker in @('Test-KICompleteCodexLocalCompliant','Resume-Readback erfor
 }
 foreach($marker in @('Test-KICompleteIntegrationCompliant')){
     if(-not$orchestrator.Contains($marker)){$fail.Add("Integration runtime compliance contract: $marker")}
+}
+foreach($marker in @("elseif (`$step.id -eq 'open-terminal')",'Invoke-KIStackOpenTerminal.ps1','Test-KICompleteOpenTerminalCompliant','Open-Terminal-Einstieg fehlt.','Open-Terminal-Validierung fehlgeschlagen.')){
+    if(-not$orchestrator.Contains($marker)){$fail.Add("Open Terminal dispatcher integration: $marker")}
 }
 Import-Module (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Force
 $planTarget = Join-Path ([IO.Path]::GetTempPath()) ('KIStack-Complete-Plan-' + [guid]::NewGuid().ToString('N'))
@@ -245,6 +273,56 @@ try {
     $integrationStep=@($integrationPlan.steps|Where-Object id -eq 'integration')
     if($integrationStep.plannedMode -ne 'Skip' -or -not [bool]$integrationStep.initialState.compliant){
         $fail.Add('Probe regression 9: integration marker and runtime files present must be compliant')
+    }
+
+    # --- Open Terminal: Greenfield / Upgrade / Skip / Repair, mirroring the Integration probe
+    # regressions above exactly, real New-KICompletePlan calls against a fresh fixture TargetRoot
+    # (no real install, no real uv/network dependency). --------------------------------------
+    $openTerminalVersion=[string]$openTerminalComponent.version
+    $openTerminalModuleRoot=Join-Path $planTarget 'modules/open-terminal'
+    $openTerminalStateRoot=Join-Path $planTarget 'state/open-terminal'
+    [IO.File]::WriteAllText((Join-Path $planTarget 'state/complete-installer/components.json'),'{"components":{}}',[Text.UTF8Encoding]::new($false))
+    $greenfieldPlan=New-KICompletePlan -Mode Install -PackageRoot $PackageRoot -TargetRoot $planTarget
+    $greenfieldStep=@($greenfieldPlan.steps|Where-Object id -eq 'open-terminal')
+    if($greenfieldStep.Count-ne1){$fail.Add('Probe regression 10: Greenfield plan must contain Open Terminal')}
+    elseif($greenfieldStep.plannedMode -ne 'Install' -or [bool]$greenfieldStep.initialState.compliant){
+        $fail.Add('Probe regression 10: Greenfield Open Terminal must plan as Install')
+    }
+
+    # Marker present with a matching version, but the credential/workspace/starter contract is
+    # incomplete -- must never be treated as compliant/Skip (mirrors Probe regression 8 above).
+    New-Item -ItemType Directory -Path $openTerminalModuleRoot,$openTerminalStateRoot -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $openTerminalModuleRoot 'installation.json'),(@{schemaVersion='1.0';version=$openTerminalVersion;host='127.0.0.1';port=8000}|ConvertTo-Json),[Text.UTF8Encoding]::new($false))
+    $brokenPlan=New-KICompletePlan -Mode Upgrade -PackageRoot $PackageRoot -TargetRoot $planTarget
+    $brokenStep=@($brokenPlan.steps|Where-Object id -eq 'open-terminal')
+    if($brokenStep.plannedMode -eq 'Skip' -or [bool]$brokenStep.initialState.compliant){
+        $fail.Add('Probe regression 11: Open Terminal marker present with matching version but starter/credential/workspace missing must not be compliant')
+    }
+
+    # Complete the real compliance contract for real (starter, stopper, credential, workspace) --
+    # must now plan as Skip/compliant, exactly like a real Install-KIOpenTerminal would leave it.
+    [IO.File]::WriteAllText((Join-Path $openTerminalModuleRoot 'Start-KIStack-OpenTerminal.cmd'),'@echo off',[Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $openTerminalModuleRoot 'Stop-KIStack-OpenTerminal.cmd'),'@echo off',[Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $openTerminalStateRoot 'credential.json'),'{"schemaVersion":"1.0"}',[Text.UTF8Encoding]::new($false))
+    New-Item -ItemType Directory -Path (Join-Path $openTerminalStateRoot 'workspace') -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $planTarget 'state/complete-installer/components.json'),('{"components":{"open-terminal":"'+$openTerminalVersion+'"}}'),[Text.UTF8Encoding]::new($false))
+    $compliantPlan=New-KICompletePlan -Mode Upgrade -PackageRoot $PackageRoot -TargetRoot $planTarget
+    $compliantStep=@($compliantPlan.steps|Where-Object id -eq 'open-terminal')
+    if($compliantStep.plannedMode -ne 'Skip' -or -not [bool]$compliantStep.initialState.compliant){
+        $fail.Add('Probe regression 12: Open Terminal with the real, complete contract must be compliant/Skip')
+    }
+    $directCompliance=Test-KICompleteOpenTerminalCompliant -TargetRoot $planTarget -ExpectedComponentVersion $openTerminalVersion
+    if(-not[bool]$directCompliance){$fail.Add('Probe regression 12b: Test-KICompleteOpenTerminalCompliant must directly confirm the complete contract')}
+
+    # Repair: the local state file believes Open Terminal is already installed, but the real
+    # on-target marker is gone entirely (Get-KICompleteInstalledVersion's probe finds nothing) --
+    # the same "stored desired, real missing" shape validation-gate's own Probe regression 3
+    # above already establishes as the real, intentional definition of 'Repair'.
+    Remove-Item -LiteralPath (Join-Path $openTerminalModuleRoot 'installation.json') -Force
+    $repairPlan=New-KICompletePlan -Mode Upgrade -PackageRoot $PackageRoot -TargetRoot $planTarget
+    $repairStep=@($repairPlan.steps|Where-Object id -eq 'open-terminal')
+    if($repairStep.plannedMode -ne 'Repair' -or $null -ne $repairStep.initialState.installedVersion){
+        $fail.Add('Probe regression 13: Open Terminal with stored state but a missing real marker must plan as Repair')
     }
 }
 finally {

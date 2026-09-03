@@ -37,3 +37,8 @@ venv/
 *.key
 *.pfx
 *.p12
+# OpenWebUI's own runtime-generated JWT signing secret (open_webui/__init__.py:
+# KEY_FILE = Path.cwd() / '.webui_secret_key', created whenever WEBUI_SECRET_KEY is not set in
+# the environment a real OpenWebUI process is started from) -- a local runtime artifact, never a
+# repository input, never referenced by any KI-Stack script.
+.webui_secret_key

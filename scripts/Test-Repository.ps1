@@ -444,6 +444,18 @@ try {
     }
     catch { Add-Result 'Component version registry contract' $false $_.Exception.Message }
 
+    try {
+        $openTerminalReport = (& (Join-Path $RootPath 'tools/open-terminal/current/Test-KIStackOpenTerminal.ps1') -PackageRoot (Join-Path $RootPath 'tools/open-terminal/current') | ConvertFrom-Json)
+        Add-Result 'Open Terminal component contract' ([bool]$openTerminalReport.passed) $(if($openTerminalReport.passed){'credential persistence, process identity, start/stop, healthcheck and status all verified'}else{($openTerminalReport.failures) -join '; '})
+    }
+    catch { Add-Result 'Open Terminal component contract' $false $_.Exception.Message }
+
+    try {
+        $openTerminalWiringReport = (& (Join-Path $RootPath 'tools/complete-installer/current/Test-KIStackOpenTerminalLifecycleWiring.ps1') -PackageRoot (Join-Path $RootPath 'tools/complete-installer/current') | ConvertFrom-Json)
+        Add-Result 'Open Terminal lifecycle wiring contract' ([bool]$openTerminalWiringReport.passed) $(if($openTerminalWiringReport.passed){'not-installed skip, installed invoke, and failure-never-throws all verified'}else{($openTerminalWiringReport.failures) -join '; '})
+    }
+    catch { Add-Result 'Open Terminal lifecycle wiring contract' $false $_.Exception.Message }
+
     $invalidResults = @(
         $Results | Where-Object {
             $null -eq $_ -or

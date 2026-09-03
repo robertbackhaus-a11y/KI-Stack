@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "version": "0.1.0",
+  "targetRoot": "C:\\KI-Stack",
+  "host": "127.0.0.1",
+  "port": 8000,
+  "packageSpec": "open-terminal",
+  "apiKeyBytes": 32,
+  "health": {
+    "path": "/openapi.json",
+    "timeoutSeconds": 30,
+    "intervalSeconds": 1,
+    "requestTimeoutSeconds": 5
+  }
+}

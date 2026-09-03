@@ -58,6 +58,48 @@ if($codexInstalled){
 $results.Add((New-StatusResult 'Codex Local' $(if($codexInstalled){'Läuft'}else{'Gestoppt'}) $codexVersionDetail))
 $results.Add((New-StatusResult 'RAG-Modul' $(if(Test-Path $ragMarker){'Läuft'}else{'Gestoppt'}) $(if(Test-Path $ragMarker){'Installiert; Import bedarfsgesteuert'}else{'Nicht installiert'})))
 
+# Open-Terminal-Integration: PID + real CommandLine-Identität (niemals eine bloße PID-Existenz
+# genügt -- PIDs werden vom Betriebssystem wiederverwendet), gefolgt von einem echten
+# /openapi.json-Healthcheck. Meldet niemals den API-Key. Dieselbe Identitätsprüfung wie
+# OpenTerminal.psm1's Test-KIOpenTerminalProcessIdentity, hier bewusst inline dupliziert (wie
+# bereits beim Codex-Local-Block oben) statt eines Cross-Package-Imports, da das isolierte
+# Open-Terminal-Paket selbst nicht neben diesem am TargetRoot bereitgestellten Skript liegt.
+$openTerminalMarker=Join-Path $targetRoot 'modules/open-terminal/installation.json'
+$openTerminalPidFile=Join-Path $targetRoot 'state/open-terminal/open-terminal.pid'
+if(-not(Test-Path -LiteralPath $openTerminalMarker -PathType Leaf)){
+    $results.Add((New-StatusResult 'Open Terminal' 'Gestoppt' 'Nicht installiert'))
+}else{
+    try{
+        $otMarker=Get-Content -LiteralPath $openTerminalMarker -Raw|ConvertFrom-Json
+        $otHostValue=[string]$otMarker.host;$otPort=[int]$otMarker.port
+        $otEndpoint="http://${otHostValue}:${otPort}"
+        $otTrackedId=$null
+        if(Test-Path -LiteralPath $openTerminalPidFile -PathType Leaf){
+            $otRaw=(Get-Content -LiteralPath $openTerminalPidFile -Raw).Trim()
+            if($otRaw-match'^\d+$'){
+                $otProc=Get-CimInstance Win32_Process -Filter "ProcessId=$otRaw" -ErrorAction SilentlyContinue
+                $otCommandLine=if($null-ne$otProc){[string]$otProc.CommandLine}else{''}
+                if($null-ne$otProc-and$otProc.Name-in@('uvx.exe','uv.exe')-and$otCommandLine-match'(?i)open-terminal'-and($otCommandLine-match[regex]::Escape("--port $otPort")-or$otCommandLine-match[regex]::Escape("--port=$otPort"))){
+                    $otTrackedId=[int]$otRaw
+                }
+            }
+        }
+        if($null-eq$otTrackedId){
+            $results.Add((New-StatusResult 'Open Terminal' 'Gestoppt' "Endpoint $otEndpoint"))
+        }else{
+            $otHealthy=$false;$otDetail="PID $otTrackedId"
+            try{
+                $otResponse=Invoke-WebRequest -Uri "$otEndpoint/openapi.json" -Method Get -TimeoutSec $TimeoutSeconds -UseBasicParsing -ErrorAction Stop
+                $otHealthy=($otResponse.StatusCode-ge200-and$otResponse.StatusCode-lt400)
+                $otDetail="PID $otTrackedId; HTTP $($otResponse.StatusCode)"
+            }catch{$otDetail="PID $otTrackedId; Healthcheck fehlgeschlagen"}
+            $results.Add((New-StatusResult 'Open Terminal' $(if($otHealthy){'Läuft'}else{'Fehler'}) $otDetail))
+        }
+    }catch{
+        $results.Add((New-StatusResult 'Open Terminal' 'Fehler' $_.Exception.Message))
+    }
+}
+
 # OpenWebUI-Credential-Bootstrap-Workstream (Section 25): never displays the credential itself --
 # Test-KIStackOpenWebUICredential's own status enum is mapped to the simpler, non-secret
 # five-value vocabulary this report uses (Missing/Configured/Valid/Invalid/Unchecked).
