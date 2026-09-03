@@ -11,51 +11,6 @@ function Add-Result {
     $script:Results.Add([pscustomobject]@{ name=$Name; passed=$Passed; detail=$Detail }) | Out-Null
 }
 
-function Get-OptionalPropertyValue {
-    param(
-        [AllowNull()][object]$InputObject,
-        [Parameter(Mandatory)][string]$Name,
-        [AllowNull()][object]$DefaultValue = $null
-    )
-    if ($null -eq $InputObject) { return $DefaultValue }
-    $property = $InputObject.PSObject.Properties[$Name]
-    if ($null -eq $property) { return $DefaultValue }
-    return $property.Value
-}
-
-function Resolve-ReleaseManifestVersion {
-    param([Parameter(Mandatory)][object]$Manifest)
-    $currentValue = [string](Get-OptionalPropertyValue -InputObject $Manifest -Name 'version' -DefaultValue '')
-    $legacyValue = [string](Get-OptionalPropertyValue -InputObject $Manifest -Name 'packageVersion' -DefaultValue '')
-    $hasCurrent = -not [string]::IsNullOrWhiteSpace($currentValue)
-    $hasLegacy = -not [string]::IsNullOrWhiteSpace($legacyValue)
-    if (-not $hasCurrent -and -not $hasLegacy) {
-        return [pscustomobject][ordered]@{ success=$false; version=''; detail='Neither version nor packageVersion is present.' }
-    }
-    if ($hasCurrent -and $hasLegacy -and $currentValue -ne $legacyValue) {
-        return [pscustomobject][ordered]@{ success=$false; version=''; detail=('Conflicting version fields: version={0}; packageVersion={1}' -f $currentValue,$legacyValue) }
-    }
-    return [pscustomobject][ordered]@{ success=$true; version=$(if($hasCurrent){$currentValue}else{$legacyValue}); detail=$(if($hasCurrent -and $hasLegacy){'current and legacy fields agree'}elseif($hasCurrent){'current version field'}else{'legacy packageVersion field'}) }
-}
-
-function Test-ReleaseManifestSchemaFixtures {
-    $fixtures = @(
-        [pscustomobject]@{ Name='CurrentVersionOnly'; Manifest=[pscustomobject]@{version='1.6.3'}; ExpectedSuccess=$true; ExpectedVersion='1.6.3' },
-        [pscustomobject]@{ Name='LegacyPackageVersionOnly'; Manifest=[pscustomobject]@{packageVersion='1.6.3'}; ExpectedSuccess=$true; ExpectedVersion='1.6.3' },
-        [pscustomobject]@{ Name='MatchingDualVersion'; Manifest=[pscustomobject]@{version='1.6.3';packageVersion='1.6.3'}; ExpectedSuccess=$true; ExpectedVersion='1.6.3' },
-        [pscustomobject]@{ Name='ConflictingDualVersion'; Manifest=[pscustomobject]@{version='1.6.3';packageVersion='1.6.2'}; ExpectedSuccess=$false; ExpectedVersion='' },
-        [pscustomobject]@{ Name='MissingVersionFields'; Manifest=[pscustomobject]@{releaseId='TEST'}; ExpectedSuccess=$false; ExpectedVersion='' }
-    )
-    $failures = [Collections.Generic.List[string]]::new()
-    foreach ($fixture in $fixtures) {
-        $resolved = Resolve-ReleaseManifestVersion -Manifest $fixture.Manifest
-        if ([bool]$resolved.success -ne [bool]$fixture.ExpectedSuccess -or [string]$resolved.version -ne [string]$fixture.ExpectedVersion) {
-            [void]$failures.Add(('{0}: success={1}, version={2}, detail={3}' -f $fixture.Name,$resolved.success,$resolved.version,$resolved.detail))
-        }
-    }
-    return [pscustomobject][ordered]@{ success=($failures.Count -eq 0); failures=@($failures); fixtureCount=$fixtures.Count }
-}
-
 function Test-CmdCrLf {
     param([string]$Path)
     $bytes = [IO.File]::ReadAllBytes($Path)
@@ -167,11 +122,10 @@ try {
         throw 'git ls-files returned no usable tracked repository inventory.'
     }
     $required = @(
-        'README.md','README.de.md','CHANGELOG.md','VERSION','release-manifest.json','production-release-manifest.json',
-        'package/Config/kernel-config.json','package/Tests/Test-KIStackBuilderKernel.ps1',
+        'README.md','README.de.md','CHANGELOG.md','VERSION','production-release-manifest.json',
         'scripts/Test-Repository.ps1','scripts/Test-TestRepositoryHarness.ps1',
         'scripts/Import-KIStackBuildPayload.ps1','scripts/Test-KIStackBuildPayloadImport.ps1',
-        'scripts/Test-PowerShell7Starters.ps1','scripts/New-ReleaseArchive.ps1',
+        'scripts/Test-PowerShell7Starters.ps1',
         'docs/error-registry/REGRESSION-MATRIX.md',
         'tools/openwebui-agent-pack/current/VERSION',
         'tools/openwebui-agent-pack/current/MANIFEST.json',
@@ -277,82 +231,15 @@ try {
         }
     )
 
-    $schemaFixtures = Test-ReleaseManifestSchemaFixtures
-    Add-Result 'Release manifest schema compatibility' ([bool]$schemaFixtures.success) $(
-        if ([bool]$schemaFixtures.success) { "$($schemaFixtures.fixtureCount) fixtures passed" }
-        else { @($schemaFixtures.failures) -join '; ' }
-    )
-
-    $manifestPath = Join-Path $RootPath 'release-manifest.json'
-    $configPath = Join-Path $RootPath 'package/Config/kernel-config.json'
-    if ((Test-Path -LiteralPath $manifestPath -PathType Leaf) -and (Test-Path -LiteralPath $configPath -PathType Leaf)) {
-        $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json -Depth 100
-        $config = Get-Content -LiteralPath $configPath -Raw | ConvertFrom-Json -Depth 100
-        $resolvedVersion = Resolve-ReleaseManifestVersion -Manifest $manifest
-        $manifestReleaseId = [string](Get-OptionalPropertyValue -InputObject $manifest -Name 'releaseId' -DefaultValue '')
-        $configRelease = Get-OptionalPropertyValue -InputObject $config -Name 'executeRelease' -DefaultValue $null
-        $configReleaseId = [string](Get-OptionalPropertyValue -InputObject $configRelease -Name 'releaseId' -DefaultValue '')
-        $versionsOk = (
-            [bool]$resolvedVersion.success -and
-            [string]$resolvedVersion.version -eq [string]$config.kernelVersion -and
-            -not [string]::IsNullOrWhiteSpace($manifestReleaseId) -and
-            $manifestReleaseId -eq $configReleaseId
-        )
-        Add-Result 'Version consistency' $versionsOk "manifest=$($resolvedVersion.version)/$manifestReleaseId ($($resolvedVersion.detail)); config=$($config.kernelVersion)/$configReleaseId"
-        $manifestModules = Get-OptionalPropertyValue -InputObject $manifest -Name 'enabledModules' -DefaultValue $null
-        if ($null -eq $manifestModules) {
-            $manifestModules = Get-OptionalPropertyValue -InputObject $configRelease -Name 'enabledModules' -DefaultValue @()
-        }
-        $enabledA=@($manifestModules | Sort-Object); $enabledB=@((Get-OptionalPropertyValue -InputObject $configRelease -Name 'enabledModules' -DefaultValue @()) | Sort-Object)
-        $modulesOk = (($enabledA -join '|') -eq ($enabledB -join '|'))
-        Add-Result 'Enabled modules' $modulesOk "manifest=$($enabledA -join ','); config=$($enabledB -join ',')"
-
-        $packageName = [string](Get-OptionalPropertyValue -InputObject $manifest -Name 'packageName' -DefaultValue '')
-        $packageDirectory = [string](Get-OptionalPropertyValue -InputObject $manifest -Name 'packageDirectory' -DefaultValue '')
-        $releaseTag = [string](Get-OptionalPropertyValue -InputObject $manifest -Name 'tag' -DefaultValue '')
-        $builderPath = Join-Path $RootPath 'scripts/New-ReleaseArchive.ps1'
-        $builderSource = Get-Content -LiteralPath $builderPath -Raw
-        $releaseContractOk = (
-            $packageName -eq ('KI-Stack-Cutover-Execute-v{0}' -f $resolvedVersion.version) -and
-            -not [string]::IsNullOrWhiteSpace($packageDirectory) -and
-            (Test-Path -LiteralPath (Join-Path $RootPath $packageDirectory) -PathType Container) -and
-            $releaseTag -eq ('cutover-v{0}-rc1' -f $resolvedVersion.version) -and
-            $builderSource.Contains("PSObject.Properties['packageName']") -and
-            $builderSource.Contains("PSObject.Properties['packageDirectory']") -and
-            $builderSource.Contains('$packageSource')
-        )
-        Add-Result 'Release build contract' $releaseContractOk "packageName=$packageName; packageDirectory=$packageDirectory; tag=$releaseTag"
-    }
-    else {
-        Add-Result 'Version consistency' $false 'release-manifest.json or package/Config/kernel-config.json is missing.'
-        Add-Result 'Enabled modules' $false 'Version inputs are incomplete.'
-        Add-Result 'Release build contract' $false 'Release inputs are incomplete.'
-    }
-
-    $liveReferenceFiles = @(
-        Join-Path $RootPath 'package/README.md'
-        Join-Path $RootPath 'package/Tests/Test-KIStackBuilderKernel.ps1'
-        Join-Path $RootPath 'package/Tests/Test-KIStackHistoricalRegressions.ps1'
-        Join-Path $RootPath 'package/Tests/Test-KIStackPathResolution.ps1'
-    )
-    $obsoleteReferencePattern = 'Start-(?:Validate|Publish)-GitHub-Update\.cmd|Invoke-IncludedGitHubUpdate\.ps1|KI-Stack-GitHub-Update-v0\.5\.3(?:\.zip)?'
-    $obsoleteReferences = @()
-    foreach ($file in $liveReferenceFiles) {
-        $matches = [regex]::Matches((Get-Content -LiteralPath $file -Raw),$obsoleteReferencePattern,[Text.RegularExpressions.RegexOptions]::IgnoreCase)
-        foreach ($match in $matches) { $obsoleteReferences += ('{0}: {1}' -f $file,$match.Value) }
-    }
-    $packageReadme = Get-Content -LiteralPath (Join-Path $RootPath 'package/README.md') -Raw
-    $referencesOk = $obsoleteReferences.Count -eq 0 -and $packageReadme.Contains('nicht Bestandteil dieses Runtime-Pakets')
-    Add-Result 'Live file references' $referencesOk $(if($referencesOk){'obsolete GitHub package references removed and component absence documented'}else{$obsoleteReferences -join '; '})
-
     # Authoritative sources for "does the documentation reflect reality": the active tools/*/current
-    # source trees Complete Installer 2.10.0 actually builds from and pins (see
+    # source trees the Complete Installer actually builds from and pins (see
     # tools/complete-installer/current/Contracts/COMPONENTS.json and
-    # tools/complete-installer/current/New-KIStackCompleteInstallerArchive.ps1), not the separate,
-    # long-frozen package/ + root VERSION snapshot (last touched 2026-07-21, still checked on its
-    # own terms above for its own internal consistency, but no longer the current release contract
-    # -- it is built by the separate, dormant scripts/New-ReleaseArchive.ps1 Cutover-only release
-    # track, unrelated to Complete Installer 2.10.0's tools/-based build).
+    # tools/complete-installer/current/New-KIStackCompleteInstallerArchive.ps1). The separate,
+    # long-frozen package/ + release-manifest.json + scripts/New-ReleaseArchive.ps1 Cutover-1.6.3
+    # release track (and the schema-compatibility/version-consistency/enabled-modules/release-build-
+    # contract/live-file-reference checks that used to validate it purely against itself) was
+    # confirmed dead -- no active CI workflow, build, or attestation path ever consumed it -- and
+    # has been removed outright rather than left to keep drifting from tools/cutover-runtime/current.
     $runtimeVersion = (Get-Content -LiteralPath (Join-Path $RootPath 'tools/cutover-runtime/current/VERSION') -Raw).Trim()
     $modelsVersion = (Get-Content -LiteralPath (Join-Path $RootPath 'tools/models-workflows/current/VERSION') -Raw).Trim()
     $completeComponentsForDocs = Get-Content -LiteralPath (Join-Path $RootPath 'tools/complete-installer/current/Contracts/COMPONENTS.json') -Raw | ConvertFrom-Json -Depth 30
@@ -501,21 +388,6 @@ try {
 
     $sbomContract = Test-CompleteInstallerSbomReleaseContract -RepositoryRoot $RootPath
     Add-Result 'Complete Installer SBOM/release pipeline contract' ([bool]$sbomContract.success) $(if($sbomContract.success){"version=$($sbomContract.version); ZIP/sidecar/SBOM root SHA256 consistent; spdxVersion=SPDX-2.3"}else{$sbomContract.failures -join '; '})
-
-    $sumsPath = Join-Path $RootPath 'package/SHA256SUMS.txt'
-    $sumErrors=@()
-    if (Test-Path $sumsPath) {
-        foreach($line in Get-Content -LiteralPath $sumsPath) {
-            if([string]::IsNullOrWhiteSpace($line)){continue}
-            if($line -notmatch '^([0-9a-fA-F]{64})\s+\*?(.+)$'){ $sumErrors += "Invalid line: $line"; continue }
-            $expected=$Matches[1].ToLowerInvariant(); $relative=$Matches[2].Replace('/',[IO.Path]::DirectorySeparatorChar)
-            $target=Join-Path (Join-Path $RootPath 'package') $relative
-            if(-not(Test-Path -LiteralPath $target)){ $sumErrors += "Missing: $relative"; continue }
-            $actual=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
-            if($actual -ne $expected){ $sumErrors += "Mismatch: $relative" }
-        }
-    } else { $sumErrors += 'SHA256SUMS.txt missing' }
-    Add-Result 'Package SHA256' ($sumErrors.Count -eq 0) ($(if($sumErrors){$sumErrors -join '; '}else{'all listed files verified'}))
 
     $secretPatterns = @('ghp_[A-Za-z0-9]{20,}','github_pat_[A-Za-z0-9_]{20,}','AKIA[0-9A-Z]{16}','-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----','sk-[A-Za-z0-9]{20,}')
     $secretHits=@()

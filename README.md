@@ -58,13 +58,11 @@ Every executable package is designed to provide:
 ## Repository layout
 
 ```text
-package/                 Current complete package source
 scripts/                 Repository validation and release tooling
 docs/                    Architecture, release records and regression registry
-.github/workflows/       GitHub Actions validation and controlled release workflow
-release-manifest.json    Machine-readable status of the checked-out package
+.github/workflows/       GitHub Actions validation and attestation workflows
 production-release-manifest.json  Production recovery and acceptance status
-tools/                  Reproducible Validation Gate, Recovery and Acceptance sources
+tools/                  Reproducible component sources, including the Complete Installer
 VERSION                  Repository/package line version
 ```
 
@@ -78,8 +76,10 @@ pwsh -NoProfile -File .\scripts\Test-Repository.ps1
 
 ## Build a release archive
 
+The Complete Installer is built from `tools/complete-installer/current`:
+
 ```powershell
-pwsh -NoProfile -File .\scripts\New-ReleaseArchive.ps1
+pwsh -NoProfile -File .\tools\complete-installer\current\New-KIStackCompleteInstallerArchive.ps1
 ```
 
 ## Safety and licensing
