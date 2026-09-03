@@ -1206,12 +1206,12 @@ function Invoke-KIStackCompleteInstaller {
     # callers never pass this (empty string keeps the real, single Windows Desktop folder).
     # Exists solely so an isolated fixture/Greenfield test can redirect desktop-link creation
     # into its own disposable directory instead of the real, current user's real Desktop.
-    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate','Rollback','Start','Stop')][string]$Mode='Audit',[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[string]$TransactionId,[switch]$Resume,[switch]$DryRun,[switch]$EnableOpenWebUIBallistics,[Security.SecureString]$OpenWebUIApiToken,[string[]]$ReplayComponent=@(),[string]$DesktopPath='')
+    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate','Rollback','RollbackOperations','Start','Stop')][string]$Mode='Audit',[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[string]$TransactionId,[switch]$Resume,[switch]$DryRun,[switch]$EnableOpenWebUIBallistics,[Security.SecureString]$OpenWebUIApiToken,[string[]]$ReplayComponent=@(),[string]$DesktopPath='')
     $PackageRoot = Get-KICompletePackageRoot $PackageRoot
     $transactionalMode=$Mode-in@('Install','Upgrade','Repair')-and-not$DryRun
     if($Resume-and[string]::IsNullOrWhiteSpace($TransactionId)){throw 'Resume erfordert TransactionId.'}
     if($transactionalMode-and[string]::IsNullOrWhiteSpace($TransactionId)){$TransactionId='KI-COMPLETE-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')}
-    $pathContextArguments=@{TargetRoot=$TargetRoot;PackageRoot=$PackageRoot;DesktopPath=$DesktopPath;Mutating=($transactionalMode-or$Mode-eq'Rollback')}
+    $pathContextArguments=@{TargetRoot=$TargetRoot;PackageRoot=$PackageRoot;DesktopPath=$DesktopPath;Mutating=($transactionalMode-or$Mode-in@('Rollback','RollbackOperations'))}
     if(-not[string]::IsNullOrWhiteSpace($TransactionId)){$pathContextArguments.TransactionId=$TransactionId}
     $pathContext=New-KICompletePathContext @pathContextArguments
     $TargetRoot=[string]$pathContext.TargetRoot
@@ -1220,7 +1220,52 @@ function Invoke-KIStackCompleteInstaller {
     $config = Read-KICompleteJson (Join-Path $PackageRoot 'Config/complete-installer.config.json')
     $componentContract=Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
     if ($Mode -in @('Start','Stop')) { return Invoke-KICompleteLifecycle $Mode $TargetRoot }
-    if ($Mode -eq 'Rollback') { return Restore-KICompleteOperations -TargetRoot $TargetRoot -PathContext $pathContext }
+    if ($Mode -in @('Rollback','RollbackOperations')) {
+        # Mode-Rollback-P1: this mode has only ever called Restore-KICompleteOperations -- see
+        # that function for the exact, real scope (LM Studio competing-autostart registry
+        # values, the three KI-Stack Desktop shortcuts, and any KI-Stack-owned Docker container
+        # restart policy, from the most recent operations-latest.json backup pointer). It has
+        # never restored, and still does not restore, any installed component
+        # (OpenWebUI/ComfyUI/Integration/RAG/the Agent-Visual-Ballistics packs/Codex Local/
+        # Foundation Runtime/Python-Git), WSL/winget state, user data, models, Knowledge, or
+        # Code-Interpreter configuration -- this was never, and is not, a full installation
+        # rollback.
+        #
+        # 'Rollback' (deprecated) vs. 'RollbackOperations' (canonical) deliberately behave
+        # DIFFERENTLY here, not just cosmetically: 'Rollback' is a real, pre-existing public CLI
+        # surface that external scripts may already call, so for 2.13 it keeps the exact
+        # historical flat return shape (whatever Restore-KICompleteOperations itself returns,
+        # unwrapped) AND the exact historical exit-code contract (a missing operations-latest
+        # state returns restored=$false and exits 0, it does not throw) -- neither is a security
+        # boundary, so there is nothing to gain from breaking either just to be consistent with
+        # the new mode. Only a deprecation warning is added. 'RollbackOperations' has no such
+        # compatibility obligation (it is brand new in this same release) and gets the fully
+        # deliberate new contract: a structured result naming operation/scope/notRestored, and
+        # fail-closed (throws) when nothing could actually be restored.
+        if ($Mode -eq 'Rollback') {
+            Write-Warning "Mode 'Rollback' ist ein veralteter Alias für 'RollbackOperations' und wird in einer künftigen Version entfernt. Er hat noch nie mehr getan als 'RollbackOperations': ausschließlich Registry/Autostart, Desktop-Verknüpfungen und Docker-Restart-Policy werden wiederhergestellt -- niemals ein vollständiger Installations-Rollback. Rückgabeform und Exitcode-Verhalten bleiben für diesen Alias unverändert; für die neue, strukturierte Rückgabe -Mode RollbackOperations verwenden."
+            return Restore-KICompleteOperations -TargetRoot $TargetRoot -PathContext $pathContext
+        }
+        $operationsRestoreResult = Restore-KICompleteOperations -TargetRoot $TargetRoot -PathContext $pathContext
+        if (-not [bool]$operationsRestoreResult.restored) {
+            # Fail closed (RollbackOperations only -- see comment above): no valid
+            # operations-latest state means nothing was, or could be, restored -- this must
+            # never be reported as a successful (or attempted) rollback of any kind, full or
+            # otherwise.
+            throw "Operations Restore fehlgeschlagen: kein gültiger operations-latest-Zustand gefunden (Status: $([string]$operationsRestoreResult.status)). Dieser Modus führt ausschließlich ein Operations Restore aus (Registry/Autostart, Desktop-Verknüpfungen, Docker-Restart-Policy) -- es wurde kein vollständiger Installations-Rollback versucht, und keiner ist über diesen Modus möglich."
+        }
+        # Only reached for Mode='RollbackOperations' -- 'Rollback' already returned above --
+        # so there is no 'deprecatedAliasUsed' field here: this shape is never produced by the
+        # deprecated alias, which keeps the historical flat shape instead (see above).
+        return [pscustomobject][ordered]@{
+            version='2.13.0'
+            mode=$Mode
+            operation='OperationsRestore'
+            scope=@('Registry/Autostart (LM Studio competing autostart)','Desktop-Verknüpfungen (KI-Stack starten/stoppen/Status)','Docker-Restart-Policy (KI-Stack-eigene Container)')
+            notRestored='Installierte Komponenten (OpenWebUI, ComfyUI, Integration, RAG, Agent-/Visual-/Ballistics-Packs, Codex Local, Foundation Runtime, Python/Git), WSL/Winget-Zustand, Nutzerdaten, Modelle, Knowledge, Code-Interpreter-Konfiguration oder sonstiger vorheriger Installer-Zustand werden von diesem Modus nicht berührt.'
+            result=$operationsRestoreResult
+        }
+    }
     $preflight = Test-KICompletePreflight -PackageRoot $PackageRoot -TargetRoot $TargetRoot -ReadOnly:($Mode -in @('Audit','Validate') -or $DryRun)
     if (-not $preflight.passed) { throw ('Preflight fehlgeschlagen: ' + ($preflight.issues -join '; ')) }
     $pendingRollback = if ($Mode -notin @('Audit','Validate') -and -not $DryRun -and -not $Resume) {

@@ -69,8 +69,8 @@ Codex Local exclusively uses the package-managed Node.js runtime under `C:\KI-St
 - Audit: `Start-KIStack-Audit.cmd`
 - Validate: `Start-KIStack-Validate.cmd`
 - Repair: `Start-KIStack-Repair.cmd`
-- Rollback: `Start-KIStack-Rollback.cmd`
+- Operations Restore (`-Mode RollbackOperations`; `-Mode Rollback` remains a deprecated alias for the exact same call): `Start-KIStack-Rollback.cmd`
 
-Recovery checks pending and failed transactions before a new plan. Rollback restores only the selected transaction. Existing compliant models and user data are retained.
+Recovery checks pending and failed transactions before a new plan. Operations Restore is **not** a full installation rollback: it restores only the operating-system-level changes `InstallOperations` itself makes -- the LM Studio competing-autostart registry state, the three KI-Stack Desktop shortcuts, and any KI-Stack-owned Docker container restart policy -- from the most recent operations backup. No installed component, no user data, and no models are ever touched or restored by it; see `Contracts/ROLLBACK.md` for the exact scope.
 
 The Greenfield contract has been verified with a complete, successful, physical installation on an empty target: every step completed and the installer exited with code 0.
