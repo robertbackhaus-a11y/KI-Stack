@@ -3,7 +3,7 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $distribution='Debian'
-$pidFile='C:\KI-Stack\modules\integration\wsl-keeper.pid'
+$pidFile=Join-Path $PSScriptRoot 'wsl-keeper.pid'
 $wsl=(Get-Command wsl.exe -ErrorAction Stop).Source
 $stopped=$false
 if(Test-Path -LiteralPath $pidFile -PathType Leaf){

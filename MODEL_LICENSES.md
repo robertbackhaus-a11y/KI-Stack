@@ -1,6 +1,6 @@
 # Model licenses and redistribution
 
-Model files are external dependencies. They are not committed to Git and are not embedded in KI-Stack release ZIPs. The importer accepts a file only when its exact filename, byte size and SHA256 match `package/Manifests/models.manifest.json` and the Complete Installer payload contract.
+Model files are external dependencies. They are not committed to Git and are not embedded in KI-Stack release ZIPs. The importer accepts a file only when its exact filename, byte size and SHA256 match `tools/models-workflows/current/Manifests/models.manifest.json` and the Complete Installer payload contract.
 
 | Model family | Contract status | License / redistribution status |
 |---|---|---|

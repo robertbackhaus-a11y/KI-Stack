@@ -86,7 +86,7 @@ $psm1Text = Get-Content (Join-Path $root 'IntegrationPackage.psm1') -Raw
 if (-not $psm1Text.Contains('function Write-IntegrationMarker')) { $fail += 'Write-IntegrationMarker helper missing' }
 $markerFnMatch = [regex]::Match($psm1Text, '(?s)function Write-IntegrationMarker \{.*?\n\}')
 if ($markerFnMatch.Success -and $markerFnMatch.Value -notmatch 'New-Item -ItemType Directory -Force') { $fail += 'REGRESSION: Write-IntegrationMarker no longer ensures its parent directory exists (diag11 reintroduced)' }
-if (-not ($psm1Text.Contains('Install-IntegrationRuntime -PackageRoot $PackageRoot -Marker $marker') -and $psm1Text.Contains('Write-IntegrationMarker -Path $markerPath -Content'))) { $fail += 'Install-IntegrationPayload runtime deployment must write its marker via Write-IntegrationMarker' }
+if (-not ($psm1Text.Contains("Install-IntegrationRuntime -PackageRoot `$PackageRoot -RuntimeRoot (Join-Path `$TargetRoot 'modules/integration') -Marker `$marker") -and $psm1Text.Contains('Write-IntegrationMarker -Path $markerPath -Content'))) { $fail += 'Install-IntegrationPayload runtime deployment must bind TargetRoot and write its marker via Write-IntegrationMarker' }
 
 $markerSelfTestRoot = Join-Path $env:TEMP ("ki-stack-marker-selftest-" + [guid]::NewGuid().ToString('N'))
 try {
@@ -116,12 +116,18 @@ $runtimeContract=Get-IntegrationRuntimeContract $root
 $expectedRuntime=@('Start-KIStack-IntegratedStack.cmd','Start-KIStack-OpenWebUI-WithSearch.cmd','Start-KIStack-SearXNG.cmd','Start-KIStack-SearXNG.ps1','Stop-KIStack-IntegratedStack.cmd','Stop-KIStack-SearXNG.cmd','Stop-KIStack-SearXNG.ps1')
 if(@(Compare-Object $expectedRuntime @($runtimeContract.files)-SyncWindow 0).Count){$fail+='integration runtime contract file set'}
 $runtimeFixtureRoot=Join-Path ([IO.Path]::GetTempPath())('ki-stack-integration-runtime-'+[guid]::NewGuid().ToString('N'))
-$runtimeTarget=Join-Path $runtimeFixtureRoot 'target';$runtimeBackup=Join-Path $runtimeFixtureRoot 'backup';New-Item -ItemType Directory $runtimeBackup -Force|Out-Null
+$kiStackTarget=Join-Path $runtimeFixtureRoot 'Local AI/KI Stack';$runtimeTarget=Join-Path $kiStackTarget 'modules/integration';$runtimeBackup=Join-Path $runtimeFixtureRoot 'backup';New-Item -ItemType Directory $runtimeBackup -Force|Out-Null
 try {
     Backup-IntegrationWindowsRuntime -RuntimeRoot $runtimeTarget -BackupPath $runtimeBackup
-    $runtimeResult=Install-IntegrationRuntime -PackageRoot $root -TargetRoot $runtimeTarget -Marker ([ordered]@{version='1.5.11';release='KI-Stack-Integration-Execute-v1.5.11'})
-    if(-not[bool]$runtimeResult.passed-or-not(Test-IntegrationRuntime -TargetRoot $runtimeTarget -Contract $runtimeContract)){$fail+='greenfield runtime deployment incomplete'}
+    $runtimeResult=Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeTarget -Marker ([ordered]@{version='1.5.11';release='KI-Stack-Integration-Execute-v1.5.11'})
+    if(-not[bool]$runtimeResult.passed-or-not(Test-IntegrationRuntime -RuntimeRoot $runtimeTarget -Contract $runtimeContract)){$fail+='greenfield runtime deployment incomplete'}
     foreach($requiredStarter in @('Start-KIStack-SearXNG.cmd','Start-KIStack-OpenWebUI-WithSearch.cmd')){if(-not(Test-Path -LiteralPath (Join-Path $runtimeTarget $requiredStarter)-PathType Leaf)){$fail+="greenfield starter missing: $requiredStarter"}}
+    $deployedWindowsContent=(Get-ChildItem -LiteralPath $runtimeTarget -File|Where-Object{$_.Extension-in@('.cmd','.ps1')}|ForEach-Object{Get-Content -LiteralPath $_.FullName -Raw})-join"`n"
+    if($deployedWindowsContent.Contains('C:\KI-Stack')){$fail+='alternate-root runtime contains default-root fallback'}
+    if(-not($deployedWindowsContent.Contains('%~dp0..')-and$deployedWindowsContent.Contains('Join-Path $PSScriptRoot'))){$fail+='runtime starters are not self-relative'}
+    $applicationsRoot=Join-Path $kiStackTarget 'modules/applications';New-Item -ItemType Directory -Path $applicationsRoot -Force|Out-Null
+    [IO.File]::WriteAllText((Join-Path $applicationsRoot 'Start-KIStack-OpenWebUI.cmd'),"@echo off`r`nexit /b 0`r`n",[Text.Encoding]::ASCII)
+    $openWebUIOutput=@(& $env:ComSpec /D /C "`"$(Join-Path $runtimeTarget 'Start-KIStack-OpenWebUI-WithSearch.cmd')`"" 2>&1);if($LASTEXITCODE-ne0){$fail+="space-safe OpenWebUI starter resolution failed: $($openWebUIOutput-join' | ')"}
     $startScript=Join-Path $runtimeTarget 'Start-KIStack-SearXNG.ps1';Set-Content -LiteralPath $startScript -Value 'exit 0' -Encoding UTF8
     $startOutput=@(& $env:ComSpec /D /C "`"$(Join-Path $runtimeTarget 'Start-KIStack-SearXNG.cmd')`"" 2>&1);if($LASTEXITCODE-ne0){$fail+="Start-KIStack-SearXNG.cmd not callable: $($startOutput-join' | ')"}
     Restore-IntegrationWindowsRuntime -BackupPath $runtimeBackup
@@ -129,9 +135,18 @@ try {
 
     New-Item -ItemType Directory $runtimeTarget -Force|Out-Null;Set-Content -LiteralPath (Join-Path $runtimeTarget 'installation.json') -Value '{"version":"old"}' -Encoding UTF8;Set-Content -LiteralPath (Join-Path $runtimeTarget 'Start-KIStack-SearXNG.cmd') -Value 'old starter' -Encoding ascii
     $upgradeBackup=Join-Path $runtimeFixtureRoot 'upgrade-backup';New-Item -ItemType Directory $upgradeBackup -Force|Out-Null;Backup-IntegrationWindowsRuntime -RuntimeRoot $runtimeTarget -BackupPath $upgradeBackup
-    Install-IntegrationRuntime -PackageRoot $root -TargetRoot $runtimeTarget -Marker ([ordered]@{version='1.5.11';release='KI-Stack-Integration-Execute-v1.5.11'})|Out-Null
+    Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeTarget -Marker ([ordered]@{version='1.5.11';release='KI-Stack-Integration-Execute-v1.5.11'})|Out-Null
     Restore-IntegrationWindowsRuntime -BackupPath $upgradeBackup
     if((Get-Content (Join-Path $runtimeTarget 'Start-KIStack-SearXNG.cmd')-Raw).Trim()-ne'old starter'-or(Get-Content (Join-Path $runtimeTarget 'installation.json')-Raw)-notmatch'old'){$fail+='upgrade runtime rollback did not restore prior state'}
+
+    $rootA=Join-Path $runtimeFixtureRoot 'Root A';$rootB=Join-Path $runtimeFixtureRoot 'Root B'
+    $runtimeA=Join-Path $rootA 'modules/integration';$runtimeB=Join-Path $rootB 'modules/integration'
+    Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeA -Marker ([ordered]@{version='1.5.11'})|Out-Null
+    Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeB -Marker ([ordered]@{version='1.5.11'})|Out-Null
+    foreach($pair in @(@{own=$rootA;foreign=$rootB;runtime=$runtimeA},@{own=$rootB;foreign=$rootA;runtime=$runtimeB})){
+        $content=(Get-ChildItem -LiteralPath $pair.runtime -File|Where-Object{$_.Extension-in@('.cmd','.ps1')}|ForEach-Object{Get-Content -LiteralPath $_.FullName -Raw})-join"`n"
+        if($content.Contains([string]$pair.foreign)-or$content.Contains('C:\KI-Stack')){$fail+='two-root runtime isolation failed'}
+    }
 } catch {$fail+="integration runtime fixture failed: $($_.Exception.Message)"}
 finally{Remove-Item -LiteralPath $runtimeFixtureRoot -Recurse -Force -ErrorAction SilentlyContinue}
 

@@ -1,1 +1,56 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","required":["schemaVersion","transactionId","status","steps"],"properties":{"schemaVersion":{"const":"1.0"},"transactionId":{"type":"string"},"status":{"enum":["Planned","Running","Completed","Failed","RolledBack","RollbackFailed","WaitingForUserAction"]},"steps":{"type":"array","items":{"type":"object","required":["name","version","plannedMode","status","exitCode"],"properties":{"name":{"type":"string"},"version":{"type":"string"},"plannedMode":{"type":"string"},"status":{"enum":["Planned","Running","Completed","Failed","RolledBack","RollbackFailed","SkippedAlreadyCompliant","WaitingForUserAction"]},"startTime":{"type":["string","null"]},"endTime":{"type":["string","null"]},"initialState":{},"result":{},"backup":{},"rollbackStatus":{},"error":{},"exitCode":{"type":"integer"}}}}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "step": {
+      "type": "object",
+      "required": ["name", "version", "plannedMode", "status", "exitCode"],
+      "properties": {
+        "name": {"type": "string"},
+        "version": {"type": "string"},
+        "plannedMode": {"type": "string"},
+        "status": {"enum": ["Planned", "Running", "Completed", "Failed", "RolledBack", "RollbackFailed", "SkippedAlreadyCompliant", "WaitingForUserAction"]},
+        "startTime": {"type": ["string", "null"]},
+        "endTime": {"type": ["string", "null"]},
+        "initialState": {},
+        "result": {},
+        "backup": {},
+        "rollbackStatus": {},
+        "error": {},
+        "exitCode": {"type": "integer"}
+      }
+    },
+    "legacyTransaction": {
+      "type": "object",
+      "required": ["schemaVersion", "transactionId", "status", "steps"],
+      "properties": {
+        "schemaVersion": {"const": "1.0"},
+        "transactionId": {"type": "string"},
+        "status": {"enum": ["Planned", "Running", "Completed", "Failed", "RolledBack", "RollbackFailed", "WaitingForUserAction"]},
+        "steps": {"type": "array", "items": {"$ref": "#/$defs/step"}}
+      }
+    },
+    "pathAwareTransaction": {
+      "type": "object",
+      "required": ["schemaVersion", "transactionId", "status", "steps", "targetRoot", "stateRoot", "transactionRoot", "backupRoot", "logRoot", "pathContractVersion"],
+      "properties": {
+        "schemaVersion": {"const": "1.1"},
+        "transactionId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+        "status": {"enum": ["Planned", "Running", "Completed", "CompletedWithWarnings", "Failed", "RolledBack", "RollbackFailed", "WaitingForUserAction"]},
+        "steps": {"type": "array", "items": {"$ref": "#/$defs/step"}},
+        "targetRoot": {"type": "string", "minLength": 1},
+        "stateRoot": {"type": "string", "minLength": 1},
+        "transactionRoot": {"type": "string", "minLength": 1},
+        "backupRoot": {"type": "string", "minLength": 1},
+        "logRoot": {"type": "string", "minLength": 1},
+        "pathContractVersion": {"type": "string", "minLength": 1},
+        "kernelRuntimeConfigPath": {"type": "string", "minLength": 1},
+        "kernelRuntimeConfigSha256": {"type": "string", "pattern": "^[0-9A-Fa-f]{64}$"},
+        "kernelRuntimeConfigTransactionId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
+      }
+    }
+  },
+  "anyOf": [
+    {"$ref": "#/$defs/legacyTransaction"},
+    {"$ref": "#/$defs/pathAwareTransaction"}
+  ]
+}

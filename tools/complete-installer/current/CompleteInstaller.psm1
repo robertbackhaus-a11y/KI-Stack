@@ -1,6 +1,8 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+Import-Module (Join-Path $PSScriptRoot 'Runtime/KIStackPathContext.psm1') -Force -DisableNameChecking
+
 function Read-KICompleteJson {
     param([Parameter(Mandatory)][string]$Path)
     Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -Depth 100
@@ -95,9 +97,116 @@ function Test-KICompleteShaContract {
     [pscustomobject]@{ passed=($errors.Count -eq 0); errors=$errors }
 }
 
+function New-KICompleteKernelRuntimeConfig {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$PathContext,
+        [Parameter(Mandatory)][string]$BaseConfigPath,
+        [Parameter(Mandatory)][string]$KernelTransactionId,
+        [Parameter(Mandatory)][string]$KernelStateRoot
+    )
+    if ([string]::IsNullOrWhiteSpace([string]$PathContext.TransactionRoot)) { throw 'RuntimeConfig erfordert einen transaktionsgebundenen PathContext.' }
+    $config = Read-KICompleteJson -Path $BaseConfigPath
+    $target = [string]$PathContext.TargetRoot
+    $modules = [string]$PathContext.ModuleRoot
+    $python = [string]$PathContext.PythonRoot
+    $data = [string]$PathContext.DataRoot
+    $models = [IO.Path]::Combine($target,'models')
+    $reports = [IO.Path]::Combine($target,'reports','cutover')
+    $comfy = [IO.Path]::Combine($target,'ComfyUI')
+
+    # Explicit Category-A mapping. System-, user-, WSL- and endpoint values remain
+    # untouched from the product baseline.
+    $config.stackRoot = $target
+    $config.stateRoot = [string]$PathContext.StateRoot
+    $config.logRoot = [string]$PathContext.LogRoot
+    $config.cacheRoot = [IO.Path]::Combine($target,'cache')
+    $config.backupRoot = [string]$PathContext.BackupRoot
+    $config.moduleRoot = $modules
+    $config.pythonEnvironment.root = $python
+    $config.pythonEnvironment.venvRoot = [IO.Path]::Combine($python,'venvs')
+    $config.pythonEnvironment.packageCache = [IO.Path]::Combine($target,'cache','python')
+    $config.gitEnvironment.repositoryRoot = [IO.Path]::Combine($target,'repos')
+    $config.gitEnvironment.safeDirectoryRoot = $target
+    $config.comfyUI.root = $comfy
+    $config.comfyUI.venv = [IO.Path]::Combine($python,'venvs','comfyui')
+    $config.comfyUI.customNodesRoot = [IO.Path]::Combine($comfy,'custom_nodes')
+    $config.comfyUI.modelsRoot = $models
+    $config.comfyUI.moduleRoot = [IO.Path]::Combine($modules,'comfyui')
+    $config.comfyUI.extraModelPathsConfig = [IO.Path]::Combine($modules,'comfyui','extra_model_paths.yaml')
+    $config.comfyUI.inputDirectory = [IO.Path]::Combine($data,'comfyui','input')
+    $config.comfyUI.outputDirectory = [IO.Path]::Combine($data,'comfyui','output')
+    $config.comfyUI.userDirectory = [IO.Path]::Combine($data,'comfyui','user')
+    $config.models.root = $models
+    $config.models.workflowTargetRoot = [IO.Path]::Combine($data,'comfyui','user','default','workflows','KI-Stack')
+    $config.models.integrationRoot = [IO.Path]::Combine($modules,'models-workflows')
+    $config.models.installationMarker = [IO.Path]::Combine($modules,'models-workflows','installation.json')
+    $importRoots = @($config.models.importSearchRoots)
+    if ($importRoots.Count -lt 1) { throw 'Basiskonfiguration enthält keinen models.importSearchRoots-Eintrag.' }
+    $importRoots[0] = $models
+    $config.models.importSearchRoots = $importRoots
+    $config.applications.moduleRoot = [IO.Path]::Combine($modules,'applications')
+    $config.applications.installationMarker = [IO.Path]::Combine($modules,'applications','installation.json')
+    $config.applications.openWebUI.venv = [IO.Path]::Combine($python,'venvs','openwebui')
+    $config.applications.openWebUI.dataRoot = [IO.Path]::Combine($target,'OpenWebUI','data')
+    $config.integration.moduleRoot = [IO.Path]::Combine($modules,'integration')
+    $config.integration.installationMarker = [IO.Path]::Combine($modules,'integration','installation.json')
+    $config.integration.keeperPidFile = [IO.Path]::Combine($modules,'integration','wsl-keeper.pid')
+    $config.cutover.moduleRoot = [IO.Path]::Combine($modules,'cutover')
+    $config.cutover.installationMarker = [IO.Path]::Combine($modules,'cutover','installation.json')
+    $config.cutover.reportRoot = $reports
+    $config.cutover.healthReportPath = [IO.Path]::Combine($reports,'Health-latest.json')
+    $config.cutover.acceptanceReportPath = [IO.Path]::Combine($reports,'Acceptance-latest.json')
+    $config.cutover.startScripts.searxng = [IO.Path]::Combine($modules,'integration','Start-KIStack-SearXNG.cmd')
+    $config.cutover.startScripts.lmStudio = [IO.Path]::Combine($modules,'applications','Start-KIStack-LMStudio.cmd')
+    $config.cutover.startScripts.openWebUI = [IO.Path]::Combine($modules,'integration','Start-KIStack-OpenWebUI-WithSearch.cmd')
+    $config.cutover.startScripts.comfyUI = [IO.Path]::Combine($modules,'comfyui','Start-KIStack-ComfyUI.cmd')
+    $config.cutover.stopScripts.applications = [IO.Path]::Combine($modules,'applications','Stop-KIStack-Applications.cmd')
+    $config.cutover.stopScripts.searxng = [IO.Path]::Combine($modules,'integration','Stop-KIStack-SearXNG.cmd')
+    $config.cutover.stopScripts.comfyUI = [IO.Path]::Combine($modules,'comfyui','Stop-KIStack-ComfyUI.cmd')
+    $config.validation.acceptanceRoot = $reports
+    $config.validation.latestReportPath = [IO.Path]::Combine($reports,'Acceptance-latest.json')
+    $config | Add-Member -NotePropertyName targetRoot -NotePropertyValue $target -Force
+    $config | Add-Member -NotePropertyName transactionId -NotePropertyValue $KernelTransactionId -Force
+    $config | Add-Member -NotePropertyName pathContractVersion -NotePropertyValue ([string]$PathContext.PathContractVersion) -Force
+    $config | Add-Member -NotePropertyName transactionRoot -NotePropertyValue ([string]$PathContext.TransactionRoot) -Force
+    $config | Add-Member -NotePropertyName kernelStateRoot -NotePropertyValue $KernelStateRoot -Force
+    $config
+}
+
+function Write-KICompleteKernelRuntimeConfig {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$PathContext,
+        [Parameter(Mandatory)][string]$BaseConfigPath,
+        [Parameter(Mandatory)][string]$KernelTransactionId,
+        [Parameter(Mandatory)][string]$KernelStateRoot
+    )
+    $config = New-KICompleteKernelRuntimeConfig -PathContext $PathContext -BaseConfigPath $BaseConfigPath -KernelTransactionId $KernelTransactionId -KernelStateRoot $KernelStateRoot
+    $path = [IO.Path]::Combine([string]$PathContext.TransactionRoot,'kernel-runtime-config.json')
+    $json = $config | ConvertTo-Json -Depth 100
+    $temporaryPath = $path + '.tmp'
+    [IO.File]::WriteAllText($temporaryPath,$json + [Environment]::NewLine,[Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $temporaryPath -Destination $path -Force
+    [pscustomobject][ordered]@{ path=$path; sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash; config=$config }
+}
+
+function ConvertTo-KICompleteProcessArgument {
+    param([Parameter(Mandatory)][string]$Value)
+    if ($Value.Contains('"')) { throw 'Prozessargumente mit Anführungszeichen werden nicht unterstützt.' }
+    if ($Value -match '\s') { return '"' + $Value + '"' }
+    $Value
+}
+
+function Get-KICompleteComponentStatePath {
+    param([Parameter(Mandatory)][object]$PathContext)
+    [IO.Path]::Combine([string]$PathContext.StateRoot,'components.json')
+}
+
 function Get-KICompleteStoredVersion {
-    param([Parameter(Mandatory)][object]$Component,[Parameter(Mandatory)][string]$TargetRoot)
-    $completeMarker=Join-Path $TargetRoot 'state/complete-installer/components.json'
+    param([Parameter(Mandatory)][object]$Component,[string]$TargetRoot,[object]$PathContext)
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PSScriptRoot}
+    $completeMarker=Get-KICompleteComponentStatePath -PathContext $PathContext
     if(Test-Path $completeMarker){$state=Read-KICompleteJson $completeMarker;$entry=$state.components.PSObject.Properties[[string]$Component.id];if($null-ne$entry){return [string]$entry.Value}}
     return $null
 }
@@ -212,7 +321,7 @@ function Test-KICompleteVisualPackCompliant {
 }
 
 function Test-KICompleteCodexLocalCompliant {
-    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.1.4',[string]$ExpectedCodexVersion='0.145.0',[string]$ExpectedNodeVersion='24.14.0')
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.2.1',[string]$ExpectedCodexVersion='0.145.0',[string]$ExpectedNodeVersion='24.14.0')
     $root=Join-Path $TargetRoot 'modules/codex-local'
     $markerPath=Join-Path $root 'installation.json'
     $node=Join-Path $root 'runtime/node.exe'
@@ -223,7 +332,19 @@ function Test-KICompleteCodexLocalCompliant {
         $marker=Read-KICompleteJson $markerPath
         if([string]$marker.version-ne$ExpectedComponentVersion-or[string]$marker.codexVersion-ne$ExpectedCodexVersion-or[string]$marker.nodeRuntimeVersion-ne$ExpectedNodeVersion){return $false}
         $nodeOutput=@(& $node --version 2>&1);if($LASTEXITCODE-ne0-or($nodeOutput-join' ').Trim()-ne('v'+$ExpectedNodeVersion)){return $false}
-        $codexOutput=@(& $node $codexCli --version 2>&1);if($LASTEXITCODE-ne0){return $false}
+        # CODEX_HOME-Isolation-Workstream: this package (Complete Installer) is deployed and
+        # executed as its own isolated payload, never alongside tools/codex-local/current's own
+        # CodexLocal.psm1 (see Get-KICodexPaths there) -- so the same isolated home is computed
+        # inline here, purely from TargetRoot, and set for this ONE child process only, exactly
+        # like CodexLocal.psm1's own Invoke-KICodexProcess does. Without this, `& $node $codexCli`
+        # would inherit whatever ambient CODEX_HOME this orchestrator process happens to have (or
+        # fall back to the shared %USERPROFILE%\.codex) -- the real, reproduced Architekturfund
+        # this fix closes off for every real codex.js invocation site, not just CodexLocal.psm1's.
+        $isolatedCodexHome=Join-Path $TargetRoot 'state/codex-local/codex-home'
+        $originalCodexHomeForThisCall=$env:CODEX_HOME
+        $env:CODEX_HOME=$isolatedCodexHome
+        try{$codexOutput=@(& $node $codexCli --version 2>&1)}finally{$env:CODEX_HOME=$originalCodexHomeForThisCall}
+        if($LASTEXITCODE-ne0){return $false}
         return ($codexOutput-join' ') -match ('(?<!\d)'+[regex]::Escape($ExpectedCodexVersion)+'(?!\d)')
     }catch{return $false}
 }
@@ -329,7 +450,9 @@ function Get-KICompleteOptionalConfigValue {
 $script:KICompleteReplayableComponentIds=@('openwebui-visual-pack','openwebui-agent-pack')
 
 function New-KICompletePlan {
-    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate')][string]$Mode,[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[hashtable]$FixtureState,[switch]$EnableOpenWebUIBallistics,[string[]]$ReplayComponent=@())
+    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate')][string]$Mode,[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[object]$PathContext,[hashtable]$FixtureState,[switch]$EnableOpenWebUIBallistics,[string[]]$ReplayComponent=@())
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PackageRoot}
+    $TargetRoot=[string]$PathContext.TargetRoot
     $contract = Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
     $knownComponentIds=@($contract.components|ForEach-Object{[string]$_.id})
     foreach($replayId in @($ReplayComponent|Select-Object -Unique)){
@@ -339,7 +462,7 @@ function New-KICompletePlan {
     $steps = foreach ($component in @($contract.components | Sort-Object order)) {
         if($component.psobject.Properties.Name-contains'optional'-and[bool]$component.optional-and-not$EnableOpenWebUIBallistics){continue}
         $installed = Get-KICompleteInstalledVersion $component $TargetRoot $FixtureState
-        $stored = if($null-eq$FixtureState){Get-KICompleteStoredVersion $component $TargetRoot}else{$null}
+        $stored = if($null-eq$FixtureState){Get-KICompleteStoredVersion -Component $component -PathContext $PathContext}else{$null}
         $compliant = $installed -eq [string]$component.version
         if([string]$component.id-eq'models-workflows'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteModelsWorkflowsCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         if([string]$component.id-eq'openwebui-visual-pack'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteVisualPackCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
@@ -368,7 +491,7 @@ function New-KICompletePlan {
     }
     $stateHasOrphans=$false
     if($null-eq$FixtureState){
-        $statePath=Join-Path $TargetRoot 'state/complete-installer/components.json'
+        $statePath=Get-KICompleteComponentStatePath -PathContext $PathContext
         if(Test-Path -LiteralPath $statePath){
             $storedState=Read-KICompleteJson $statePath
             $plannedIds=@($steps|ForEach-Object{[string]$_.id})
@@ -408,13 +531,14 @@ function Invoke-KICompleteVerifiedDeployment {
 }
 
 function Update-KICompleteComponentState {
-    param([Parameter(Mandatory)][object]$Plan,[Parameter(Mandatory)][string]$TargetRoot,[Parameter(Mandatory)][string]$CompleteVersion)
+    param([Parameter(Mandatory)][object]$Plan,[string]$TargetRoot,[object]$PathContext,[Parameter(Mandatory)][string]$CompleteVersion)
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PSScriptRoot -Mutating}
     $versions=[ordered]@{}
     foreach($step in @($Plan.steps)){
         if(-not[bool]$step.initialState.compliant){throw "State-Reconciliation nur für real konforme Komponente erlaubt: $($step.id)"}
         $versions[[string]$step.id]=[string]$step.version
     }
-    $path=Join-Path $TargetRoot 'state/complete-installer/components.json'
+    $path=Get-KICompleteComponentStatePath -PathContext $PathContext
     Write-KICompleteJson $path ([ordered]@{schemaVersion='1.0';status='ValidatedExistingInstallation';completeInstallerVersion=$CompleteVersion;validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$versions;evidence=[ordered]@{stateReconciledFromRealProbes=$true;containsSecrets=$false}})
     $path
 }
@@ -433,11 +557,172 @@ function Test-KICompletePreflight {
 }
 
 function New-KICompleteTransaction {
-    param([Parameter(Mandatory)][object]$Plan,[Parameter(Mandatory)][string]$StateDirectory,[string]$TransactionId=('KI-COMPLETE-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')))
-    $tx=[ordered]@{schemaVersion='1.0';transactionId=$TransactionId;status='Planned';mode=$Plan.mode;createdAtUtc=[DateTime]::UtcNow.ToString('o');steps=@($Plan.steps|ForEach-Object{[ordered]@{name=$_.name;id=$_.id;version=$_.version;plannedMode=$_.plannedMode;startTime=$null;endTime=$null;initialState=$_.initialState;result=$null;backup=$null;rollbackStatus=$null;error=$null;exitCode=0;status=$_.status}})}
-    $path=Join-Path $StateDirectory "$TransactionId/transaction.json";Write-KICompleteJson $path $tx
-    Write-KICompleteJson (Join-Path $StateDirectory "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=0;completedSteps=@();containsSecrets=$false})
-    [pscustomobject]@{transaction=$tx;path=$path;resumePath=(Join-Path $StateDirectory "$TransactionId/resume.json")}
+    param([Parameter(Mandatory)][object]$Plan,[Parameter(Mandatory)][object]$PathContext)
+    $TransactionId=[string]$PathContext.TransactionId
+    if([string]::IsNullOrWhiteSpace($TransactionId)-or[string]::IsNullOrWhiteSpace([string]$PathContext.TransactionRoot)){throw 'PathContext muss eine gültige TransactionId enthalten.'}
+    $tx=[ordered]@{
+        schemaVersion='1.1';transactionId=$TransactionId;status='Planned';mode=$Plan.mode;createdAtUtc=[DateTime]::UtcNow.ToString('o')
+        targetRoot=[string]$PathContext.TargetRoot;stateRoot=[string]$PathContext.StateRoot;transactionRoot=[string]$PathContext.TransactionRoot
+        backupRoot=[string]$PathContext.BackupRoot;logRoot=[string]$PathContext.LogRoot;pathContractVersion=[string]$PathContext.PathContractVersion
+        steps=@($Plan.steps|ForEach-Object{[ordered]@{name=$_.name;id=$_.id;version=$_.version;plannedMode=$_.plannedMode;startTime=$null;endTime=$null;initialState=$_.initialState;result=$null;backup=$null;rollbackStatus=$null;error=$null;exitCode=0;status=$_.status}})
+    }
+    $path=[IO.Path]::Combine([string]$PathContext.TransactionRoot,'transaction.json');Write-KICompleteJson $path $tx
+    $resumePath=[IO.Path]::Combine([string]$PathContext.TransactionRoot,'resume.json')
+    Write-KICompleteJson $resumePath (New-KICompleteResumeState -PathContext $PathContext -NextStep 0 -CompletedSteps @())
+    [pscustomobject]@{transaction=$tx;path=$path;resumePath=$resumePath}
+}
+
+function New-KICompleteResumeState {
+    param([Parameter(Mandatory)][object]$PathContext,[Parameter(Mandatory)][int]$NextStep,[string[]]$CompletedSteps=@(),[string]$Status,[string]$CutoverTransactionId)
+    $state=[ordered]@{
+        schemaVersion='1.1';transactionId=[string]$PathContext.TransactionId;nextStep=$NextStep;completedSteps=@($CompletedSteps)
+        targetRoot=[string]$PathContext.TargetRoot;stateRoot=[string]$PathContext.StateRoot;transactionRoot=[string]$PathContext.TransactionRoot
+        backupRoot=[string]$PathContext.BackupRoot;logRoot=[string]$PathContext.LogRoot;pathContractVersion=[string]$PathContext.PathContractVersion;containsSecrets=$false
+    }
+    if(-not[string]::IsNullOrWhiteSpace($Status)){$state.status=$Status}
+    if(-not[string]::IsNullOrWhiteSpace($CutoverTransactionId)){$state.cutoverTransactionId=$CutoverTransactionId}
+    $state
+}
+
+function Get-KICompleteKernelTargetRelativePaths {
+    param([Parameter(Mandatory)][object]$Config)
+    @(
+        $Config.stackRoot,$Config.stateRoot,$Config.logRoot,$Config.cacheRoot,$Config.backupRoot,$Config.moduleRoot,
+        $Config.pythonEnvironment.root,$Config.pythonEnvironment.venvRoot,$Config.pythonEnvironment.packageCache,
+        $Config.gitEnvironment.repositoryRoot,$Config.gitEnvironment.safeDirectoryRoot,
+        $Config.comfyUI.root,$Config.comfyUI.venv,$Config.comfyUI.customNodesRoot,$Config.comfyUI.modelsRoot,$Config.comfyUI.moduleRoot,$Config.comfyUI.extraModelPathsConfig,$Config.comfyUI.inputDirectory,$Config.comfyUI.outputDirectory,$Config.comfyUI.userDirectory,
+        $Config.models.root,$Config.models.workflowTargetRoot,$Config.models.integrationRoot,$Config.models.installationMarker,@($Config.models.importSearchRoots)[0],
+        $Config.applications.moduleRoot,$Config.applications.installationMarker,$Config.applications.openWebUI.venv,$Config.applications.openWebUI.dataRoot,
+        $Config.integration.moduleRoot,$Config.integration.installationMarker,$Config.integration.keeperPidFile,
+        $Config.cutover.moduleRoot,$Config.cutover.installationMarker,$Config.cutover.reportRoot,$Config.cutover.healthReportPath,$Config.cutover.acceptanceReportPath,
+        $Config.cutover.startScripts.searxng,$Config.cutover.startScripts.lmStudio,$Config.cutover.startScripts.openWebUI,$Config.cutover.startScripts.comfyUI,
+        $Config.cutover.stopScripts.applications,$Config.cutover.stopScripts.searxng,$Config.cutover.stopScripts.comfyUI,
+        $Config.validation.acceptanceRoot,$Config.validation.latestReportPath
+    )
+}
+
+function Assert-KICompletePathAwareTransaction {
+    param([Parameter(Mandatory)][object]$Transaction,[Parameter(Mandatory)][object]$PathContext,[Parameter(Mandatory)][string]$TransactionPath)
+    if([string]$Transaction.schemaVersion-ne'1.1'){throw "Recovery erfordert eine pfadgebundene Schema-1.1-Transaction: $TransactionPath"}
+    if(-not[string]::Equals([string]$Transaction.transactionId,[string]$PathContext.TransactionId,[StringComparison]::Ordinal)){throw 'TransactionId stimmt nicht mit dem aktuellen PathContext überein.'}
+    $expectedPath=[IO.Path]::Combine([string]$PathContext.TransactionRoot,'transaction.json')
+    if(-not(Test-KICompleteSameRoot -First $TransactionPath -Second $expectedPath)){throw 'Transaction-Datei liegt nicht im erwarteten TransactionRoot.'}
+    $expected=[ordered]@{targetRoot=$PathContext.TargetRoot;stateRoot=$PathContext.StateRoot;transactionRoot=$PathContext.TransactionRoot;backupRoot=$PathContext.BackupRoot;logRoot=$PathContext.LogRoot}
+    foreach($name in $expected.Keys){
+        $property=$Transaction.PSObject.Properties[$name]
+        if($null-eq$property-or-not(Test-KICompleteSameRoot -First ([string]$property.Value) -Second ([string]$expected[$name]))){throw "Transaction-Pfadmetadaten stimmen nicht mit dem aktuellen PathContext überein: $name"}
+    }
+    if(-not[string]::Equals([string]$Transaction.pathContractVersion,[string]$PathContext.PathContractVersion,[StringComparison]::Ordinal)){throw 'Transaction-PathContractVersion stimmt nicht mit dem aktuellen PathContext überein.'}
+    foreach($pair in @(@($Transaction.stateRoot,$PathContext.TargetRoot,'StateRoot'),@($Transaction.transactionRoot,$PathContext.StateRoot,'TransactionRoot'),@($Transaction.backupRoot,$PathContext.TargetRoot,'BackupRoot'),@($Transaction.logRoot,$PathContext.TargetRoot,'LogRoot'))){
+        Assert-KICompletePathWithinRoot -Path ([string]$pair[0]) -Root ([string]$pair[1]) -Name ([string]$pair[2]) -RejectReparsePoint|Out-Null
+    }
+    $transactionSteps=if($Transaction.PSObject.Properties['steps']){@($Transaction.steps)}else{@()}
+    foreach($step in $transactionSteps){
+        if([string]$step.status-ne'Failed'){continue}
+        $recordedPaths=@()
+        if($step.PSObject.Properties['backup']-and$step.backup){$recordedPaths+=[string]$step.backup}
+        if($step.PSObject.Properties['result']-and$step.result){
+            if($step.result.PSObject.Properties['backupPath']-and$step.result.backupPath){$recordedPaths+=[string]$step.result.backupPath}
+            if($step.result.PSObject.Properties['markerBackupPath']-and$step.result.markerBackupPath){$recordedPaths+=[string]$step.result.markerBackupPath}
+            if($step.result.PSObject.Properties['install']-and$step.result.install-and$step.result.install.PSObject.Properties['backup']-and$step.result.install.backup){$recordedPaths+=[string]$step.result.install.backup}
+        }
+        foreach($recordedPath in $recordedPaths){Assert-KICompleteRecoveryBackupPath -BackupPath $recordedPath -PathContext $PathContext -ComponentId ([string]$step.id)|Out-Null}
+    }
+    if($Transaction.PSObject.Properties['kernelRuntimeConfigPath']){
+        $runtimePath=Assert-KICompletePathWithinRoot -Path ([string]$Transaction.kernelRuntimeConfigPath) -Root ([string]$PathContext.TransactionRoot) -Name 'KernelRuntimeConfigPath' -RejectReparsePoint
+        $expectedRuntimePath=[IO.Path]::Combine([string]$PathContext.TransactionRoot,'kernel-runtime-config.json')
+        if(-not(Test-KICompleteSameRoot -First $runtimePath -Second $expectedRuntimePath)-or-not(Test-Path -LiteralPath $runtimePath -PathType Leaf)){throw 'KernelRuntimeConfigPath ist nicht der vorhandene transaktionslokale Vertragspfad.'}
+        if(-not$Transaction.PSObject.Properties['kernelRuntimeConfigSha256']-or[string]$Transaction.kernelRuntimeConfigSha256-notmatch'^[0-9A-Fa-f]{64}$'){throw 'KernelRuntimeConfig-SHA256 ist ungültig oder fehlt.'}
+        if(-not[string]::Equals((Get-FileHash -LiteralPath $runtimePath -Algorithm SHA256).Hash,[string]$Transaction.kernelRuntimeConfigSha256,[StringComparison]::OrdinalIgnoreCase)){throw 'KernelRuntimeConfig-SHA256 stimmt nicht mit der gespeicherten Datei überein.'}
+        if(-not$Transaction.PSObject.Properties['kernelRuntimeConfigTransactionId']-or-not[string]::Equals([string]$Transaction.kernelRuntimeConfigTransactionId,([string]$PathContext.TransactionId+'-cutover'),[StringComparison]::Ordinal)){throw 'KernelRuntimeConfig-TransactionId ist fremd oder fehlt.'}
+        $runtime=Read-KICompleteJson $runtimePath
+        if(-not(Test-KICompleteSameRoot -First ([string]$runtime.targetRoot) -Second ([string]$PathContext.TargetRoot))-or-not[string]::Equals([string]$runtime.transactionId,[string]$Transaction.kernelRuntimeConfigTransactionId,[StringComparison]::Ordinal)-or-not(Test-KICompleteSameRoot -First ([string]$runtime.transactionRoot) -Second ([string]$PathContext.TransactionRoot))){throw 'KernelRuntimeConfig-Identität stimmt nicht mit der Complete-Transaction überein.'}
+        Assert-KICompletePathWithinRoot -Path ([string]$runtime.kernelStateRoot) -Root ([string]$PathContext.TransactionRoot) -Name 'KernelStateRoot' -RejectReparsePoint|Out-Null
+        foreach($runtimeTargetPath in @(Get-KICompleteKernelTargetRelativePaths -Config $runtime)){Assert-KICompletePathWithinRoot -Path ([string]$runtimeTargetPath) -Root ([string]$PathContext.TargetRoot) -Name 'Target-relativer RuntimeConfig-Pfad' -AllowRoot -RejectReparsePoint|Out-Null}
+    }
+}
+
+function Assert-KICompleteResumeState {
+    param([Parameter(Mandatory)][object]$Resume,[Parameter(Mandatory)][object]$PathContext,[switch]$Legacy)
+    if($Legacy){if([string]$Resume.schemaVersion-ne'1.0'-or-not[string]::Equals([string]$Resume.transactionId,[string]$PathContext.TransactionId,[StringComparison]::Ordinal)){throw 'Legacy-Resume-State ist nicht eindeutig an die Transaction gebunden.'};return}
+    if([string]$Resume.schemaVersion-ne'1.1'){throw 'Resume-State erfordert Schema 1.1.'}
+    $resumePath=[IO.Path]::Combine([string]$PathContext.TransactionRoot,'resume.json')
+    Assert-KICompletePathAwareTransaction -Transaction $Resume -PathContext $PathContext -TransactionPath ([IO.Path]::Combine([string]$PathContext.TransactionRoot,'transaction.json')
+    )
+}
+
+function Assert-KICompleteLegacyTransactionPaths {
+    param([Parameter(Mandatory)][object]$Transaction,[Parameter(Mandatory)][object]$PathContext)
+    foreach($name in @('targetRoot','stateRoot','transactionRoot','backupRoot','logRoot','kernelRuntimeConfigPath')){
+        $property=$Transaction.PSObject.Properties[$name]
+        if($null-eq$property-or[string]::IsNullOrWhiteSpace([string]$property.Value)){continue}
+        if($name-eq'targetRoot'){
+            if(-not(Test-KICompleteSameRoot -First ([string]$property.Value) -Second 'C:\KI-Stack')){throw 'Legacy-Transaction enthält ein fremdes TargetRoot.'}
+        }else{Assert-KICompletePathWithinRoot -Path ([string]$property.Value) -Root 'C:\KI-Stack' -Name "Legacy $name" -RejectReparsePoint|Out-Null}
+    }
+    foreach($step in @($Transaction.steps)){
+        $paths=@()
+        if($step.PSObject.Properties['backup']-and$step.backup){$paths+=[string]$step.backup}
+        if($step.PSObject.Properties['result']-and$step.result){
+            if($step.result.PSObject.Properties['backupPath']-and$step.result.backupPath){$paths+=[string]$step.result.backupPath}
+            if($step.result.PSObject.Properties['markerBackupPath']-and$step.result.markerBackupPath){$paths+=[string]$step.result.markerBackupPath}
+            if($step.result.PSObject.Properties['install']-and$step.result.install-and$step.result.install.PSObject.Properties['backup']-and$step.result.install.backup){$paths+=[string]$step.result.install.backup}
+        }
+        foreach($candidate in $paths){Assert-KICompletePathWithinRoot -Path $candidate -Root 'C:\KI-Stack' -Name 'Legacy Recovery-Pfad' -RejectReparsePoint|Out-Null}
+    }
+}
+
+function Resolve-KICompleteLegacyOperationsContext {
+    param([Parameter(Mandatory)][object]$PathContext,[Parameter(Mandatory)][string]$PointerPath,[Parameter(Mandatory)][string]$BackupPath)
+    if(-not(Test-KICompleteSameRoot -First ([string]$PathContext.TargetRoot) -Second 'C:\KI-Stack')){throw 'Legacy-Operations-Pointer ist nur am Default Root zulässig.'}
+    $expectedPointer=[IO.Path]::Combine([string]$PathContext.StateRoot,'operations-latest.json')
+    if(-not(Test-KICompleteSameRoot -First $PointerPath -Second $expectedPointer)){throw 'Legacy-Operations-Pointer liegt nicht im historischen Default-State.'}
+    $canonicalLegacy=Assert-KICompletePathWithinRoot -Path $BackupPath -Root ([string]$PathContext.BackupRoot) -Name 'Legacy Operations BackupPath' -RejectReparsePoint
+    $relative=[IO.Path]::GetRelativePath([string]$PathContext.BackupRoot,$canonicalLegacy)
+    $segments=@($relative -split '[\\/]')
+    if($segments.Count-ne3-or$segments[1]-ne'operations'-or$segments[2]-ne'operations.backup.json'){throw 'Legacy-Operations-Pointer ist nicht eindeutig transaktionsgebunden.'}
+    New-KICompletePathContext -TargetRoot ([string]$PathContext.TargetRoot) -PackageRoot ([string]$PathContext.PackageRoot) -TransactionId $segments[0] -Mutating
+}
+
+function Assert-KICompleteRecoveryBackupPath {
+    param([Parameter(Mandatory)][string]$BackupPath,[Parameter(Mandatory)][object]$PathContext,[Parameter(Mandatory)][string]$ComponentId,[switch]$EnsureMetadata)
+    $componentRoot=[IO.Path]::Combine([string]$PathContext.TransactionBackupRoot,$ComponentId)
+    $canonical=Assert-KICompletePathWithinRoot -Path $BackupPath -Root $componentRoot -Name "$ComponentId BackupPath" -AllowRoot -RejectReparsePoint
+    $ownerPath=Join-Path $canonical 'recovery-owner.json'
+    if(Test-Path -LiteralPath $ownerPath -PathType Leaf){
+        $owner=Read-KICompleteJson $ownerPath
+        if([string]$owner.schemaVersion-ne'1.0'-or-not[string]::Equals([string]$owner.transactionId,[string]$PathContext.TransactionId,[StringComparison]::Ordinal)-or-not(Test-KICompleteSameRoot -First ([string]$owner.targetRoot) -Second ([string]$PathContext.TargetRoot))-or-not[string]::Equals([string]$owner.componentId,$ComponentId,[StringComparison]::Ordinal)-or-not(Test-KICompleteSameRoot -First ([string]$owner.backupPath) -Second $canonical)){throw 'Recovery-Backup-Metadaten stimmen nicht mit Root, Transaction und Component überein.'}
+    }
+    elseif($EnsureMetadata){Write-KICompleteJson $ownerPath ([ordered]@{schemaVersion='1.0';transactionId=[string]$PathContext.TransactionId;targetRoot=[string]$PathContext.TargetRoot;componentId=$ComponentId;backupPath=$canonical;containsSecrets=$false})}
+    $canonical
+}
+
+function Read-KICompleteTransactionForResume {
+    param([Parameter(Mandatory)][object]$PathContext)
+    $transactionId=[string]$PathContext.TransactionId
+    if([string]::IsNullOrWhiteSpace($transactionId)){throw 'Resume erfordert TransactionId.'}
+    $path=[IO.Path]::Combine([string]$PathContext.TransactionRoot,'transaction.json')
+    $legacy=$false
+    if(-not(Test-Path -LiteralPath $path -PathType Leaf)){
+        if(-not(Test-KICompleteSameRoot -First ([string]$PathContext.TargetRoot) -Second 'C:\KI-Stack')){throw 'Resume-Datei fehlt; Cross-Root-Legacy-Fallback ist nicht zulässig.'}
+        $legacyPath=[IO.Path]::Combine([string]$PathContext.StateRoot,$transactionId,'transaction.json')
+        if(-not(Test-Path -LiteralPath $legacyPath -PathType Leaf)){throw 'Resume-Datei fehlt.'}
+        $path=$legacyPath;$legacy=$true
+    }
+    $transaction=Read-KICompleteJson $path
+    if([string]$transaction.schemaVersion-eq'1.0'){
+        if(-not$legacy-or-not(Test-KICompleteSameRoot -First ([string]$PathContext.TargetRoot) -Second 'C:\KI-Stack')){throw 'Schema-1.0-Resume ist nur am eindeutig historischen Legacy-Default-Pfad zulässig.'}
+        if(-not[string]::Equals([string]$transaction.transactionId,$transactionId,[StringComparison]::Ordinal)){throw 'Legacy-TransactionId stimmt nicht überein.'}
+        Assert-KICompleteLegacyTransactionPaths -Transaction $transaction -PathContext $PathContext
+        $resumePath=[IO.Path]::Combine((Split-Path -Parent $path),'resume.json');if(-not(Test-Path -LiteralPath $resumePath -PathType Leaf)){throw 'Legacy-Resume-State fehlt.'}
+        Assert-KICompleteResumeState -Resume (Read-KICompleteJson $resumePath) -PathContext $PathContext -Legacy
+        return [pscustomobject]@{transaction=$transaction;path=$path;resumePath=$resumePath;legacy=$true}
+    }
+    if([string]$transaction.schemaVersion-ne'1.1'){throw "Nicht unterstützte Transaction-Schemaversion: $($transaction.schemaVersion)"}
+    Assert-KICompletePathAwareTransaction -Transaction $transaction -PathContext $PathContext -TransactionPath $path
+    $resumePath=[IO.Path]::Combine((Split-Path -Parent $path),'resume.json');if(-not(Test-Path -LiteralPath $resumePath -PathType Leaf)){throw 'Resume-State fehlt.'}
+    Assert-KICompleteResumeState -Resume (Read-KICompleteJson $resumePath) -PathContext $PathContext
+    [pscustomobject]@{transaction=$transaction;path=$path;resumePath=$resumePath;legacy=$false}
 }
 
 function Expand-KICompletePayload {
@@ -471,15 +756,22 @@ function Invoke-KICompletePendingComponentRollback {
     param(
         [Parameter(Mandatory)][string]$PackageRoot,
         [Parameter(Mandatory)][string]$TargetRoot,
-        [Parameter(Mandatory)][string]$StateDirectory
+        [string]$StateDirectory,
+        [object]$PathContext
     )
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PackageRoot -Mutating}
+    $transactionDirectory=[string]$PathContext.TransactionBaseRoot
+    if(-not[string]::IsNullOrWhiteSpace($StateDirectory)-and-not(Test-KICompleteSameRoot -First $StateDirectory -Second $transactionDirectory)){throw 'StateDirectory stimmt nicht mit dem aktuellen TransactionBaseRoot überein.'}
     $recovered = @()
-    $transactionDirectories = @(Get-ChildItem -LiteralPath $StateDirectory -Directory -ErrorAction SilentlyContinue | Sort-Object Name)
+    $transactionDirectories = @(Get-ChildItem -LiteralPath $transactionDirectory -Directory -ErrorAction SilentlyContinue | Sort-Object Name)
     foreach ($directory in $transactionDirectories) {
+        if(($directory.Attributes-band[IO.FileAttributes]::ReparsePoint)-ne0){throw "Transaction-Verzeichnis ist ein Reparse-Punkt: $($directory.FullName)"}
         $transactionPath = Join-Path $directory.FullName 'transaction.json'
         if (-not (Test-Path -LiteralPath $transactionPath -PathType Leaf)) { continue }
         $transaction = Read-KICompleteJson $transactionPath
         if ([string]$transaction.status -ne 'Failed') { continue }
+        $transactionContext=New-KICompletePathContext -TargetRoot ([string]$PathContext.TargetRoot) -PackageRoot $PackageRoot -TransactionId $directory.Name -Mutating
+        Assert-KICompletePathAwareTransaction -Transaction $transaction -PathContext $transactionContext -TransactionPath $transactionPath
         $step = @($transaction.steps | Where-Object {
             [string]$_.id -eq 'comfyui' -and [string]$_.status -eq 'Failed' -and
             [string]$_.rollbackStatus -notin @('Completed','NotRequired')
@@ -491,7 +783,10 @@ function Invoke-KICompletePendingComponentRollback {
             $backup = [string]$step[0].result.install.backup
         }
         elseif ($step[0].backup) { $backup = [string]$step[0].backup }
-        if ([string]::IsNullOrWhiteSpace($backup) -or -not (Test-Path -LiteralPath $backup -PathType Container)) { continue }
+        if ([string]::IsNullOrWhiteSpace($backup)) { continue }
+        $backup=Assert-KICompleteRecoveryBackupPath -BackupPath $backup -PathContext $transactionContext -ComponentId 'comfyui'
+        if(-not(Test-Path -LiteralPath $backup -PathType Container)){continue}
+        $backup=Assert-KICompleteRecoveryBackupPath -BackupPath $backup -PathContext $transactionContext -ComponentId 'comfyui' -EnsureMetadata
 
         $rollbackContract = Join-Path $backup 'rollback.json'
         if (Test-Path -LiteralPath $rollbackContract) {
@@ -506,7 +801,7 @@ function Invoke-KICompletePendingComponentRollback {
             }
         }
 
-        $extract = Join-Path $StateDirectory ('pending-rollback-' + [guid]::NewGuid().ToString('N'))
+        $extract = Join-Path $transactionDirectory ('pending-rollback-' + [guid]::NewGuid().ToString('N'))
         try {
             $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'ComfyUI' -Destination $extract
             $entry = Join-Path $componentRoot 'Invoke-KIStackComfyUI.ps1'
@@ -516,7 +811,7 @@ function Invoke-KICompletePendingComponentRollback {
                 BackupPath=$backup
             }
             if (-not [bool]$result.passed -or [string]$result.status -ne 'RolledBack') { throw 'Ausstehender ComfyUI-Rollback meldete keinen Erfolg.' }
-            $stored = Get-KICompleteStoredVersion -Component ([pscustomobject]@{id='comfyui'}) -TargetRoot $TargetRoot
+            $stored = Get-KICompleteStoredVersion -Component ([pscustomobject]@{id='comfyui'}) -TargetRoot $TargetRoot -PathContext $PathContext
             $markerPath = Join-Path $TargetRoot 'modules/comfyui/installation.json'
             $markerVersion = if (Test-Path -LiteralPath $markerPath) { [string](Read-KICompleteJson $markerPath).version } else { $null }
             if ($stored -ne $markerVersion) { throw "Rollback-Readback inkonsistent: components.json=$stored; Marker=$markerVersion" }
@@ -544,22 +839,29 @@ function Resolve-KICompleteFailedTransactionState {
     param(
         [Parameter(Mandatory)][string]$PackageRoot,
         [Parameter(Mandatory)][string]$TargetRoot,
-        [Parameter(Mandatory)][string]$StateDirectory,
+        [string]$StateDirectory,
+        [object]$PathContext,
         [Parameter(Mandatory)][object]$ComponentContract,
         [hashtable]$FixtureState
     )
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PackageRoot -Mutating}
+    $transactionDirectory=[string]$PathContext.TransactionBaseRoot
+    if(-not[string]::IsNullOrWhiteSpace($StateDirectory)-and-not(Test-KICompleteSameRoot -First $StateDirectory -Second $transactionDirectory)){throw 'StateDirectory stimmt nicht mit dem aktuellen TransactionBaseRoot überein.'}
     $reconciled=@()
-    $componentStatePath=Join-Path $StateDirectory 'components.json'
+    $componentStatePath=Get-KICompleteComponentStatePath -PathContext $PathContext
     $componentState=if(Test-Path -LiteralPath $componentStatePath -PathType Leaf){Read-KICompleteJson $componentStatePath}else{$null}
     $validatedAtUtc=[DateTimeOffset]::MinValue
     if($null-ne$componentState-and$componentState.PSObject.Properties.Name-contains'validatedAtUtc'){
         try{$validatedAtUtc=([DateTimeOffset]$componentState.validatedAtUtc).ToUniversalTime()}catch{}
     }
-    foreach($directory in @(Get-ChildItem -LiteralPath $StateDirectory -Directory -ErrorAction SilentlyContinue|Sort-Object Name)){
+    foreach($directory in @(Get-ChildItem -LiteralPath $transactionDirectory -Directory -ErrorAction SilentlyContinue|Sort-Object Name)){
+        if(($directory.Attributes-band[IO.FileAttributes]::ReparsePoint)-ne0){throw "Transaction-Verzeichnis ist ein Reparse-Punkt: $($directory.FullName)"}
         $path=Join-Path $directory.FullName 'transaction.json'
         if(-not(Test-Path -LiteralPath $path -PathType Leaf)){continue}
         $transaction=Read-KICompleteJson $path
         if([string]$transaction.status-ne'Failed'){continue}
+        $transactionContext=New-KICompletePathContext -TargetRoot ([string]$PathContext.TargetRoot) -PackageRoot $PackageRoot -TransactionId $directory.Name -Mutating
+        Assert-KICompletePathAwareTransaction -Transaction $transaction -PathContext $transactionContext -TransactionPath $path
         if($transaction.PSObject.Properties.Name-contains'rc14Recovery'-and[bool]$transaction.rc14Recovery.readbackPassed){continue}
         if($transaction.PSObject.Properties.Name-contains'failedStateRecovery'-and[bool]$transaction.failedStateRecovery.readbackPassed){continue}
         if($transaction.PSObject.Properties.Name-contains'createdAtUtc'){
@@ -604,15 +906,39 @@ function Resolve-KICompleteFailedTransactionState {
 }
 
 function Install-KICompleteCentralStarters {
+    # Finalization-Rollback-P1: each changed entry now also records existedBefore/backupPath
+    # (never just the changed content) so Restore-KICompleteCentralStarters can distinguish an
+    # overwritten pre-existing file (restore original content) from a newly created one (must be
+    # removed again on rollback, never left behind as a "new artifact that stuck around").
     param([string]$PackageRoot,[string]$TargetRoot,[string]$BackupRoot)
     $source=Join-Path $PackageRoot 'Lifecycle';$changed=@()
     foreach($name in @('Start-KIStack.cmd','Stop-KIStack.cmd','Stop-KIStack-Managed.ps1','Validate-KIStack.cmd','Get-KIStackStatus.ps1','Show-KIStackStatus.ps1','Status-KIStack-Interactive.cmd','Repair-KIStack.cmd','Update-KIStack-OpenWebUI.cmd','Update-KIStack-OpenWebUI.ps1','Update-KIStack-All.cmd','Update-KIStack-All.ps1')){
         $src=Join-Path $source $name;$dst=Join-Path $TargetRoot $name
-        if((Test-Path $dst) -and ((Get-FileHash $src).Hash -eq (Get-FileHash $dst).Hash)){continue}
-        if(Test-Path $dst){New-Item -ItemType Directory $BackupRoot -Force|Out-Null;Copy-Item $dst (Join-Path $BackupRoot $name) -Force}
-        Copy-Item $src $dst -Force;$changed+=$name
+        $existedBefore=Test-Path -LiteralPath $dst
+        if($existedBefore -and ((Get-FileHash $src).Hash -eq (Get-FileHash $dst).Hash)){continue}
+        $backupPath=$null
+        if($existedBefore){New-Item -ItemType Directory $BackupRoot -Force|Out-Null;$backupPath=Join-Path $BackupRoot $name;Copy-Item $dst $backupPath -Force}
+        Copy-Item $src $dst -Force
+        $changed+=@([pscustomobject]@{name=$name;existedBefore=$existedBefore;backupPath=$backupPath})
     }
     $changed
+}
+
+function Restore-KICompleteCentralStarters {
+    # Finalization-Rollback-P1 compensation: reverses exactly what Install-KICompleteCentralStarters
+    # actually changed -- restores overwritten content from its per-file backup, and removes any
+    # file that did not exist before this run, rather than leaving a newly-created starter behind.
+    param([string]$TargetRoot,[object[]]$Changes)
+    foreach($change in @($Changes)){
+        $dst=Join-Path $TargetRoot ([string]$change.name)
+        if([bool]$change.existedBefore){
+            Copy-Item -LiteralPath ([string]$change.backupPath) -Destination $dst -Force
+        }
+        elseif(Test-Path -LiteralPath $dst){
+            Remove-Item -LiteralPath $dst -Force
+        }
+    }
+    [pscustomobject]@{status='CentralStartersRestored';restored=$true;count=@($Changes).Count}
 }
 
 function Remove-KICompleteLMStudioCompetingAutostart {
@@ -646,17 +972,33 @@ function Remove-KICompleteLMStudioCompetingAutostart {
 }
 
 function Install-KICompleteOperations {
-    param([string]$TargetRoot,[string]$BackupRoot)
-    $state=[ordered]@{schemaVersion='1.0';createdAtUtc=[DateTime]::UtcNow.ToString('o');runValues=@();desktopLinks=@();systemdUnits=@();dockerContainers=@();changes=@()}
+    # DesktopPath: real production callers never pass this (empty -> the real, single Windows
+    # Desktop folder for the current user, exactly as before). Real, reproduced Architekturfund
+    # (2.13.0 consolidation workstream): a fixture/Greenfield test driving the full
+    # Invoke-KIStackCompleteInstaller orchestrator against an isolated, disposable -TargetRoot
+    # had NO way to avoid this function writing real .lnk files onto the REAL Desktop (only
+    # pointing their TARGET at the disposable fixture path) -- [Environment]::GetFolderPath
+    # ('Desktop') was never parameterized at all. This optional override exists solely so an
+    # isolated test can redirect desktop-link creation into its own fixture directory instead.
+    param([string]$TargetRoot,[string]$BackupRoot,[string]$DesktopPath='',[object]$PathContext)
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PSScriptRoot -DesktopPath $DesktopPath -Mutating}
+    if([string]::IsNullOrWhiteSpace([string]$PathContext.TransactionId)){throw 'Operations-Backup erfordert einen transaktionsgebundenen PathContext.'}
+    $expectedOperationsRoot=[IO.Path]::Combine([string]$PathContext.TransactionBackupRoot,'operations')
+    if(-not(Test-KICompleteSameRoot -First $BackupRoot -Second $expectedOperationsRoot)){throw 'Operations-BackupRoot stimmt nicht mit der aktuellen Transaction überein.'}
+    Assert-KICompletePathWithinRoot -Path $BackupRoot -Root ([string]$PathContext.TransactionBackupRoot) -Name 'Operations BackupRoot' -RejectReparsePoint|Out-Null
+    $backupPath=Join-Path $BackupRoot 'operations.backup.json'
+    $state=[ordered]@{schemaVersion='1.1';transactionId=[string]$PathContext.TransactionId;targetRoot=[string]$PathContext.TargetRoot;backupPath=$backupPath;componentId='operations';createdAtUtc=[DateTime]::UtcNow.ToString('o');runValues=@();desktopLinks=@();systemdUnits=@();dockerContainers=@();changes=@()}
     New-Item -ItemType Directory -Path $BackupRoot -Force|Out-Null
-    $backupPath=Join-Path $BackupRoot 'operations.backup.json';Write-KICompleteJson $backupPath $state
+    Write-KICompleteJson $backupPath $state
     $autostartResult=Remove-KICompleteLMStudioCompetingAutostart -OnBeforeRemove {
         param($foundEntry)
         $state.runValues+=@($foundEntry);Write-KICompleteJson $backupPath $state
     }
     foreach($removedEntry in $autostartResult.removed){$state.changes+=@("Run:$($removedEntry.name)")}
     if($autostartResult.removed.Count){Write-KICompleteJson $backupPath $state}
-    $desktop=[Environment]::GetFolderPath('Desktop');$shell=New-Object -ComObject WScript.Shell;$pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source
+    $desktop=if([string]::IsNullOrWhiteSpace($DesktopPath)){[Environment]::GetFolderPath('Desktop')}else{$DesktopPath}
+    if($desktop-ne[Environment]::GetFolderPath('Desktop')){New-Item -ItemType Directory -Path $desktop -Force|Out-Null}
+    $shell=New-Object -ComObject WScript.Shell;$pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source
     foreach($link in @(@{name='KI-Stack starten.lnk';target='Start-KIStack.cmd'},@{name='KI-Stack stoppen.lnk';target='Stop-KIStack.cmd'},@{name='KI-Stack Status.lnk';target='Show-KIStackStatus.ps1';executable=$pwsh;arguments=('-NoLogo -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $TargetRoot 'Show-KIStackStatus.ps1')+'"')})){
         $path=Join-Path $desktop $link.name
         if(Test-Path $path){$old=$shell.CreateShortcut($path);$state.desktopLinks+=@([ordered]@{path=$path;existed=$true;target=$old.TargetPath;workingDirectory=$old.WorkingDirectory;arguments=$old.Arguments})}else{$state.desktopLinks+=@([ordered]@{path=$path;existed=$false})};Write-KICompleteJson $backupPath $state
@@ -670,17 +1012,39 @@ function Install-KICompleteOperations {
         foreach($id in @(& docker.exe ps -aq)){$inspect=& docker.exe inspect $id|ConvertFrom-Json -Depth 50;$c=$inspect[0];$owned=([string]$c.Name-match'(?i)ki.?stack|openwebui|searxng')-or([string]$c.Config.Image-match'(?i)ki.?stack|openwebui|searxng');if(-not$owned){continue};$policy=[string]$c.HostConfig.RestartPolicy.Name;$state.dockerContainers+=@([ordered]@{id=[string]$c.Id;name=[string]$c.Name;restartPolicy=$policy});if($policy-and$policy-ne'no'){$null=& docker.exe update --restart=no $c.Id;$state.changes+=@("Docker:$($c.Name)")}}
     }
     Write-KICompleteJson $backupPath $state
-    Write-KICompleteJson (Join-Path $TargetRoot 'state/complete-installer/operations-latest.json') ([ordered]@{schemaVersion='1.0';backupPath=$backupPath;appliedAtUtc=[DateTime]::UtcNow.ToString('o')})
+    Write-KICompleteJson (Join-Path ([string]$PathContext.StateRoot) 'operations-latest.json') ([ordered]@{schemaVersion='1.1';transactionId=[string]$PathContext.TransactionId;targetRoot=[string]$PathContext.TargetRoot;backupRoot=[string]$PathContext.TransactionBackupRoot;backupPath=$backupPath;componentId='operations';pathContractVersion=[string]$PathContext.PathContractVersion;appliedAtUtc=[DateTime]::UtcNow.ToString('o')})
     [pscustomobject]@{backupPath=$backupPath;desktop=$desktop;changes=@($state.changes)}
 }
 
 function Restore-KICompleteOperations {
-    param([string]$TargetRoot,[string]$BackupPath)
+    param([string]$TargetRoot,[string]$BackupPath,[object]$PathContext)
+    if($null-eq$PathContext){$PathContext=New-KICompletePathContext -TargetRoot $TargetRoot -PackageRoot $PSScriptRoot -Mutating}
+    $pointerState=$null;$legacyOperations=$false
     if ([string]::IsNullOrWhiteSpace($BackupPath)) {
-        $pointer=Join-Path $TargetRoot 'state/complete-installer/operations-latest.json';if(-not(Test-Path $pointer)){return [pscustomobject]@{status='NoOperationsBackup';restored=$false}}
-        $BackupPath=[string](Read-KICompleteJson $pointer).backupPath
+        $pointer=Join-Path ([string]$PathContext.StateRoot) 'operations-latest.json';if(-not(Test-Path $pointer)){return [pscustomobject]@{status='NoOperationsBackup';restored=$false}}
+        $pointerState=Read-KICompleteJson $pointer
+        $BackupPath=[string]$pointerState.backupPath
+        if([string]$pointerState.schemaVersion-eq'1.0'){
+            $pointerContext=Resolve-KICompleteLegacyOperationsContext -PathContext $PathContext -PointerPath $pointer -BackupPath $BackupPath
+            $legacyOperations=$true
+        }
+        elseif([string]$pointerState.schemaVersion-eq'1.1'){
+            if(-not(Test-KICompleteSameRoot -First ([string]$pointerState.targetRoot) -Second ([string]$PathContext.TargetRoot))){throw 'Operations-Pointer gehört zu einem fremden TargetRoot.'}
+            if(-not[string]::Equals([string]$pointerState.pathContractVersion,[string]$PathContext.PathContractVersion,[StringComparison]::Ordinal)-or[string]$pointerState.componentId-ne'operations'){throw 'Operations-Pointer-Vertrag ist ungültig.'}
+            $pointerContext=New-KICompletePathContext -TargetRoot ([string]$PathContext.TargetRoot) -PackageRoot ([string]$PathContext.PackageRoot) -TransactionId ([string]$pointerState.transactionId) -Mutating
+            if(-not(Test-KICompleteSameRoot -First ([string]$pointerState.backupRoot) -Second ([string]$pointerContext.TransactionBackupRoot))){throw 'Operations-Pointer enthält einen fremden BackupRoot.'}
+        }
+        else{throw 'Nicht unterstützte Operations-Pointer-Schemaversion.'}
+        $PathContext=$pointerContext
     }
-    $backupPath=$BackupPath;$state=Read-KICompleteJson $backupPath;$shell=New-Object -ComObject WScript.Shell
+    if([string]::IsNullOrWhiteSpace([string]$PathContext.TransactionId)){throw 'Operations-Restore erfordert eine eindeutige TransactionId.'}
+    $expectedBackup=[IO.Path]::Combine([string]$PathContext.TransactionBackupRoot,'operations','operations.backup.json')
+    if(-not(Test-KICompleteSameRoot -First $BackupPath -Second $expectedBackup)){throw 'Operations-Backup gehört nicht zur erwarteten Transaction.'}
+    $backupPath=Assert-KICompletePathWithinRoot -Path $BackupPath -Root ([string]$PathContext.TransactionBackupRoot) -Name 'Operations BackupPath' -RejectReparsePoint
+    $state=Read-KICompleteJson $backupPath
+    if($legacyOperations){if([string]$state.schemaVersion-ne'1.0'){throw 'Legacy-Operations-Pointer verweist nicht auf ein Legacy-Backup.'}}
+    elseif([string]$state.schemaVersion-ne'1.1'-or-not[string]::Equals([string]$state.transactionId,[string]$PathContext.TransactionId,[StringComparison]::Ordinal)-or-not(Test-KICompleteSameRoot -First ([string]$state.targetRoot) -Second ([string]$PathContext.TargetRoot))-or-not(Test-KICompleteSameRoot -First ([string]$state.backupPath) -Second $backupPath)-or[string]$state.componentId-ne'operations'){throw 'Operations-Backup-Metadaten stimmen nicht mit Root und Transaction überein.'}
+    $shell=New-Object -ComObject WScript.Shell
     foreach($entry in @($state.runValues)){if(-not(Test-Path $entry.path)){New-Item $entry.path -Force|Out-Null};Set-ItemProperty -LiteralPath $entry.path -Name $entry.name -Value ([string]$entry.value)}
     foreach($entry in @($state.desktopLinks)){if([bool]$entry.existed){$s=$shell.CreateShortcut([string]$entry.path);$s.TargetPath=[string]$entry.target;$s.WorkingDirectory=[string]$entry.workingDirectory;$s.Arguments=[string]$entry.arguments;$s.Save()}elseif(Test-Path $entry.path){Remove-Item $entry.path -Force}}
     foreach($entry in @($state.systemdUnits)){if([bool]$entry.wasEnabled){$null=& wsl.exe -d Debian -u root -- systemctl enable ([string]$entry.unit) 2>&1}}
@@ -689,9 +1053,12 @@ function Restore-KICompleteOperations {
 }
 
 function Test-KICompleteOperations {
-    param([string]$TargetRoot)
+    # DesktopPath: see the identical parameter on Install-KICompleteOperations -- must resolve
+    # to the SAME location that function used, so this readback check never inspects the real
+    # Desktop when Install ran against an isolated fixture path instead.
+    param([string]$TargetRoot,[string]$DesktopPath='')
     $issues=@();$runProperties=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'electron.app.LM Studio' -ErrorAction SilentlyContinue;$runProperty=if($null-ne$runProperties){$runProperties.PSObject.Properties['electron.app.LM Studio']}else{$null};if($null-ne$runProperty-and$runProperty.Value){$issues+='LM Studio Run-Autostart vorhanden.'}
-    $shell=New-Object -ComObject WScript.Shell;$desktop=[Environment]::GetFolderPath('Desktop');$pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source;foreach($link in @(@{name='KI-Stack starten.lnk';target=(Join-Path $TargetRoot 'Start-KIStack.cmd');arguments=''},@{name='KI-Stack stoppen.lnk';target=(Join-Path $TargetRoot 'Stop-KIStack.cmd');arguments=''},@{name='KI-Stack Status.lnk';target=$pwsh;arguments=('-NoLogo -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $TargetRoot 'Show-KIStackStatus.ps1')+'"')})){$path=Join-Path $desktop $link.name;if(-not(Test-Path $path)){$issues+="Desktop-Link fehlt: $($link.name)";continue};$s=$shell.CreateShortcut($path);if($s.TargetPath-ne$link.target-or$s.WorkingDirectory-ne$TargetRoot-or$s.Arguments-ne$link.arguments){$issues+="Desktop-Link falsch: $($link.name)"}}
+    $shell=New-Object -ComObject WScript.Shell;$desktop=if([string]::IsNullOrWhiteSpace($DesktopPath)){[Environment]::GetFolderPath('Desktop')}else{$DesktopPath};$pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source;foreach($link in @(@{name='KI-Stack starten.lnk';target=(Join-Path $TargetRoot 'Start-KIStack.cmd');arguments=''},@{name='KI-Stack stoppen.lnk';target=(Join-Path $TargetRoot 'Stop-KIStack.cmd');arguments=''},@{name='KI-Stack Status.lnk';target=$pwsh;arguments=('-NoLogo -NoProfile -ExecutionPolicy Bypass -File "'+(Join-Path $TargetRoot 'Show-KIStackStatus.ps1')+'"')})){$path=Join-Path $desktop $link.name;if(-not(Test-Path $path)){$issues+="Desktop-Link fehlt: $($link.name)";continue};$s=$shell.CreateShortcut($path);if($s.TargetPath-ne$link.target-or$s.WorkingDirectory-ne$TargetRoot-or$s.Arguments-ne$link.arguments){$issues+="Desktop-Link falsch: $($link.name)"}}
     # Either uwsgi.service or ki-stack-searxng.service (the sibling Cutover-
     # Runtime Integration module's unit) providing the SearXNG endpoint is a
     # valid, compliant state; valkey-server and nginx remain required either way.
@@ -705,9 +1072,16 @@ function Test-KICompleteOperations {
 }
 
 function Install-KICompleteOrchestrator {
+    # Finalization-Rollback-P1: reports existedBefore/backupPath explicitly (not just "a backup
+    # was made when one happened to be needed") so Restore-KICompleteOrchestrator can tell a
+    # first-ever install (nothing existed before -> rollback must remove the whole directory
+    # again) apart from an upgrade of an existing installation (rollback must restore the exact
+    # prior content), instead of leaving a newly-created directory behind on either path.
     param([string]$PackageRoot,[string]$TargetRoot,[string]$BackupRoot)
     $destination=Join-Path $TargetRoot 'installer/complete'
-    if(Test-Path $destination){$backup=Join-Path $BackupRoot 'installer/complete';New-Item (Split-Path $backup -Parent) -ItemType Directory -Force|Out-Null;Copy-Item $destination $backup -Recurse -Force}
+    $existedBefore=Test-Path -LiteralPath $destination
+    $orchestratorBackupPath=$null
+    if($existedBefore){$orchestratorBackupPath=Join-Path $BackupRoot 'installer/complete';New-Item (Split-Path $orchestratorBackupPath -Parent) -ItemType Directory -Force|Out-Null;Copy-Item $destination $orchestratorBackupPath -Recurse -Force}
     New-Item $destination -ItemType Directory -Force|Out-Null
     # Copy-Item -Force below only adds/overwrites; it never removes a destination
     # file whose name no longer exists in the source. Without this pass, a stale
@@ -729,7 +1103,23 @@ function Install-KICompleteOrchestrator {
         }
     }
     Copy-Item (Join-Path $PackageRoot '*') $destination -Recurse -Force
-    @('installer/complete')
+    [pscustomobject]@{changed=@('installer/complete');existedBefore=$existedBefore;backupPath=$orchestratorBackupPath}
+}
+
+function Restore-KICompleteOrchestrator {
+    # Finalization-Rollback-P1 compensation: restores the exact prior 'installer/complete'
+    # directory when one existed, or removes the newly-created one entirely when it did not --
+    # never a blind copy-back that would leave a first-ever install's directory in place.
+    param([string]$TargetRoot,[bool]$ExistedBefore,[string]$BackupPath)
+    $destination=Join-Path $TargetRoot 'installer/complete'
+    if($ExistedBefore){
+        if(Test-Path -LiteralPath $destination){Remove-Item -LiteralPath $destination -Recurse -Force}
+        Copy-Item -LiteralPath $BackupPath -Destination $destination -Recurse -Force
+    }
+    elseif(Test-Path -LiteralPath $destination){
+        Remove-Item -LiteralPath $destination -Recurse -Force
+    }
+    [pscustomobject]@{status='OrchestratorRestored';restored=$true}
 }
 
 function Install-KICompleteRAGModule {
@@ -812,47 +1202,108 @@ function Invoke-KICompleteLifecycle {
 }
 
 function Invoke-KIStackCompleteInstaller {
-    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate','Rollback','Start','Stop')][string]$Mode='Audit',[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[string]$TransactionId,[switch]$Resume,[switch]$DryRun,[switch]$EnableOpenWebUIBallistics,[Security.SecureString]$OpenWebUIApiToken,[string[]]$ReplayComponent=@())
+    # DesktopPath: see Install-KICompleteOperations/Test-KICompleteOperations -- real production
+    # callers never pass this (empty string keeps the real, single Windows Desktop folder).
+    # Exists solely so an isolated fixture/Greenfield test can redirect desktop-link creation
+    # into its own disposable directory instead of the real, current user's real Desktop.
+    param([ValidateSet('Audit','Install','Upgrade','Repair','Validate','Rollback','RollbackOperations','Start','Stop')][string]$Mode='Audit',[string]$PackageRoot=$PSScriptRoot,[string]$TargetRoot='C:\KI-Stack',[string]$TransactionId,[switch]$Resume,[switch]$DryRun,[switch]$EnableOpenWebUIBallistics,[Security.SecureString]$OpenWebUIApiToken,[string[]]$ReplayComponent=@(),[string]$DesktopPath='')
     $PackageRoot = Get-KICompletePackageRoot $PackageRoot
+    $transactionalMode=$Mode-in@('Install','Upgrade','Repair')-and-not$DryRun
+    if($Resume-and[string]::IsNullOrWhiteSpace($TransactionId)){throw 'Resume erfordert TransactionId.'}
+    if($transactionalMode-and[string]::IsNullOrWhiteSpace($TransactionId)){$TransactionId='KI-COMPLETE-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')}
+    $pathContextArguments=@{TargetRoot=$TargetRoot;PackageRoot=$PackageRoot;DesktopPath=$DesktopPath;Mutating=($transactionalMode-or$Mode-in@('Rollback','RollbackOperations'))}
+    if(-not[string]::IsNullOrWhiteSpace($TransactionId)){$pathContextArguments.TransactionId=$TransactionId}
+    $pathContext=New-KICompletePathContext @pathContextArguments
+    $TargetRoot=[string]$pathContext.TargetRoot
+    # Config.stateDirectory/backupDirectory/logDirectory remain package-format legacy fields.
+    # New runs derive every CompleteInstaller-owned path exclusively from $pathContext.
     $config = Read-KICompleteJson (Join-Path $PackageRoot 'Config/complete-installer.config.json')
     $componentContract=Read-KICompleteJson (Join-Path $PackageRoot 'Contracts/COMPONENTS.json')
     if ($Mode -in @('Start','Stop')) { return Invoke-KICompleteLifecycle $Mode $TargetRoot }
-    if ($Mode -eq 'Rollback') { return Restore-KICompleteOperations -TargetRoot $TargetRoot }
+    if ($Mode -in @('Rollback','RollbackOperations')) {
+        # Mode-Rollback-P1: this mode has only ever called Restore-KICompleteOperations -- see
+        # that function for the exact, real scope (LM Studio competing-autostart registry
+        # values, the three KI-Stack Desktop shortcuts, and any KI-Stack-owned Docker container
+        # restart policy, from the most recent operations-latest.json backup pointer). It has
+        # never restored, and still does not restore, any installed component
+        # (OpenWebUI/ComfyUI/Integration/RAG/the Agent-Visual-Ballistics packs/Codex Local/
+        # Foundation Runtime/Python-Git), WSL/winget state, user data, models, Knowledge, or
+        # Code-Interpreter configuration -- this was never, and is not, a full installation
+        # rollback.
+        #
+        # 'Rollback' (deprecated) vs. 'RollbackOperations' (canonical) deliberately behave
+        # DIFFERENTLY here, not just cosmetically: 'Rollback' is a real, pre-existing public CLI
+        # surface that external scripts may already call, so for 2.13 it keeps the exact
+        # historical flat return shape (whatever Restore-KICompleteOperations itself returns,
+        # unwrapped) AND the exact historical exit-code contract (a missing operations-latest
+        # state returns restored=$false and exits 0, it does not throw) -- neither is a security
+        # boundary, so there is nothing to gain from breaking either just to be consistent with
+        # the new mode. Only a deprecation warning is added. 'RollbackOperations' has no such
+        # compatibility obligation (it is brand new in this same release) and gets the fully
+        # deliberate new contract: a structured result naming operation/scope/notRestored, and
+        # fail-closed (throws) when nothing could actually be restored.
+        if ($Mode -eq 'Rollback') {
+            Write-Warning "Mode 'Rollback' ist ein veralteter Alias für 'RollbackOperations' und wird in einer künftigen Version entfernt. Er hat noch nie mehr getan als 'RollbackOperations': ausschließlich Registry/Autostart, Desktop-Verknüpfungen und Docker-Restart-Policy werden wiederhergestellt -- niemals ein vollständiger Installations-Rollback. Rückgabeform und Exitcode-Verhalten bleiben für diesen Alias unverändert; für die neue, strukturierte Rückgabe -Mode RollbackOperations verwenden."
+            return Restore-KICompleteOperations -TargetRoot $TargetRoot -PathContext $pathContext
+        }
+        $operationsRestoreResult = Restore-KICompleteOperations -TargetRoot $TargetRoot -PathContext $pathContext
+        if (-not [bool]$operationsRestoreResult.restored) {
+            # Fail closed (RollbackOperations only -- see comment above): no valid
+            # operations-latest state means nothing was, or could be, restored -- this must
+            # never be reported as a successful (or attempted) rollback of any kind, full or
+            # otherwise.
+            throw "Operations Restore fehlgeschlagen: kein gültiger operations-latest-Zustand gefunden (Status: $([string]$operationsRestoreResult.status)). Dieser Modus führt ausschließlich ein Operations Restore aus (Registry/Autostart, Desktop-Verknüpfungen, Docker-Restart-Policy) -- es wurde kein vollständiger Installations-Rollback versucht, und keiner ist über diesen Modus möglich."
+        }
+        # Only reached for Mode='RollbackOperations' -- 'Rollback' already returned above --
+        # so there is no 'deprecatedAliasUsed' field here: this shape is never produced by the
+        # deprecated alias, which keeps the historical flat shape instead (see above).
+        return [pscustomobject][ordered]@{
+            version='2.13.0'
+            mode=$Mode
+            operation='OperationsRestore'
+            scope=@('Registry/Autostart (LM Studio competing autostart)','Desktop-Verknüpfungen (KI-Stack starten/stoppen/Status)','Docker-Restart-Policy (KI-Stack-eigene Container)')
+            notRestored='Installierte Komponenten (OpenWebUI, ComfyUI, Integration, RAG, Agent-/Visual-/Ballistics-Packs, Codex Local, Foundation Runtime, Python/Git), WSL/Winget-Zustand, Nutzerdaten, Modelle, Knowledge, Code-Interpreter-Konfiguration oder sonstiger vorheriger Installer-Zustand werden von diesem Modus nicht berührt.'
+            result=$operationsRestoreResult
+        }
+    }
     $preflight = Test-KICompletePreflight -PackageRoot $PackageRoot -TargetRoot $TargetRoot -ReadOnly:($Mode -in @('Audit','Validate') -or $DryRun)
     if (-not $preflight.passed) { throw ('Preflight fehlgeschlagen: ' + ($preflight.issues -join '; ')) }
     $pendingRollback = if ($Mode -notin @('Audit','Validate') -and -not $DryRun -and -not $Resume) {
-        $rollbackRecovery=Invoke-KICompletePendingComponentRollback -PackageRoot $PackageRoot -TargetRoot $TargetRoot -StateDirectory ([string]$config.stateDirectory)
-        $failedStateRecovery=Resolve-KICompleteFailedTransactionState -PackageRoot $PackageRoot -TargetRoot $TargetRoot -StateDirectory ([string]$config.stateDirectory) -ComponentContract $componentContract
+        $rollbackRecovery=Invoke-KICompletePendingComponentRollback -PackageRoot $PackageRoot -TargetRoot $TargetRoot -PathContext $pathContext
+        $failedStateRecovery=Resolve-KICompleteFailedTransactionState -PackageRoot $PackageRoot -TargetRoot $TargetRoot -PathContext $pathContext -ComponentContract $componentContract
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
-    $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics -ReplayComponent $ReplayComponent
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.12.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.12.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot);mutatesTarget=$false} }
-    if(-not$Resume -and $plan.alreadyCompliant -and -not[bool]$plan.hasReplay -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot).passed){
+    $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics -ReplayComponent $ReplayComponent -PathContext $pathContext
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.13.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.13.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if(-not$Resume -and $plan.alreadyCompliant -and -not[bool]$plan.hasReplay -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -TargetRoot $TargetRoot -CompleteVersion '2.12.0'}
-        return [pscustomobject]@{version='2.12.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -PathContext $pathContext -CompleteVersion '2.13.0'}
+        return [pscustomobject]@{version='2.13.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
-    $state = [string]$config.stateDirectory
+    $state = [string]$pathContext.StateRoot
     if ($Resume) {
-        if (-not $TransactionId) { throw 'Resume erfordert TransactionId.' }
-        $txPath = Join-Path $state "$TransactionId/transaction.json"
-        if (-not (Test-Path $txPath)) { throw 'Resume-Datei fehlt.' }
-        $tx = Read-KICompleteJson $txPath
+        $loaded=Read-KICompleteTransactionForResume -PathContext $pathContext
+        $txPath=$loaded.path
+        $resumePath=$loaded.resumePath
+        $tx=$loaded.transaction
     }
     else {
-        if ([string]::IsNullOrWhiteSpace($TransactionId)) {
-            $created = New-KICompleteTransaction -Plan $plan -StateDirectory $state
-        }
-        else {
-            $created = New-KICompleteTransaction -Plan $plan -StateDirectory $state -TransactionId $TransactionId
-        }
-        $tx=$created.transaction; $txPath=$created.path; $TransactionId=$tx.transactionId
+        $created = New-KICompleteTransaction -Plan $plan -PathContext $pathContext
+        $tx=$created.transaction; $txPath=$created.path; $resumePath=$created.resumePath; $TransactionId=$tx.transactionId
     }
     $tx.status='Running'; Write-KICompleteJson $txPath $tx
+    # Finalization-Rollback-P1: WriteFinalState is the actual commit boundary. Everything before
+    # it (Orchestrator/CentralStarters/Operations/Knowledge-Detach/CodeInterpreter) is required to
+    # be fully reversible and is compensated, in reverse order, via $preCommitCompensations if any
+    # LATER step fails -- never just the one step whose own name happens to match
+    # $finalizationPhase, unlike the prior, narrower defect. $committed only ever flips to $true
+    # once WriteFinalState's own writes have both succeeded; nothing after that point may ever
+    # trigger pre-commit compensation again, no matter what it does or how it fails.
     $finalizationPhase = $null
-    $operationsStarted = $false
+    $preCommitCompensations = [Collections.Generic.List[object]]::new()
+    $committed = $false
     try {
         $cutoverExecuted = $false
         $index=0
@@ -878,11 +1329,11 @@ function Invoke-KIStackCompleteInstaller {
             Write-KICompleteStepStatus -Heartbeat $currentStepHeartbeat -Status Running -Message ("Schritt {0} von {1} wird ausgeführt" -f ($index+1),$tx.steps.Count)
             if ($step.id -in @('foundation-runtime','python-git','applications','cutover-runtime')) {
                 if (-not $cutoverExecuted) {
-                    $extract = Join-Path $state "$TransactionId/CutoverRuntime"
+                    $extract = Join-Path ([string]$pathContext.PayloadRoot) 'CutoverRuntime'
                     $cutoverRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'CutoverRuntime' -Destination $extract
                     $kernel = Join-Path $cutoverRoot 'Invoke-KIStackBuilderKernel.ps1'
                     $preflightGenerator = Join-Path $cutoverRoot 'New-KIStackEmbeddedPreflight.ps1'
-                    $preflight = Join-Path $state "$TransactionId/generated/Preflight-Continuation-v1.6.14.zip"
+                    $preflight = Join-Path ([string]$pathContext.TempRoot) 'generated/Preflight-Continuation-v1.6.14.zip'
                     if (-not (Test-Path -LiteralPath $kernel -PathType Leaf) -or -not (Test-Path -LiteralPath $preflightGenerator -PathType Leaf)) {
                         throw 'Cutover-Kernel oder Preflight-Generator fehlt.'
                     }
@@ -891,11 +1342,21 @@ function Invoke-KIStackCompleteInstaller {
                         throw 'Der transaktionslokale Cutover-Preflight wurde nicht erzeugt.'
                     }
                     $pwsh = (Get-Command pwsh.exe -ErrorAction Stop).Source
-                    $cutoverState = Join-Path $state "$TransactionId/cutover-state"
+                    $cutoverState = Join-Path ([string]$pathContext.TempRoot) 'cutover-state'
+                    $kernelTransactionId = $TransactionId + '-cutover'
+                    $runtimeConfig = Write-KICompleteKernelRuntimeConfig -PathContext $pathContext -BaseConfigPath (Join-Path $cutoverRoot 'Config/kernel-config.json') -KernelTransactionId $kernelTransactionId -KernelStateRoot $cutoverState
+                    if ($tx.PSObject.Properties['kernelRuntimeConfigSha256'] -and -not [string]::Equals([string]$tx.kernelRuntimeConfigSha256,[string]$runtimeConfig.sha256,[StringComparison]::OrdinalIgnoreCase)) {
+                        throw 'Die deterministisch neu erzeugte Kernel-RuntimeConfig stimmt nicht mit der gespeicherten Transaktions-SHA256 überein.'
+                    }
+                    $tx | Add-Member -NotePropertyName kernelRuntimeConfigPath -NotePropertyValue ([string]$runtimeConfig.path) -Force
+                    $tx | Add-Member -NotePropertyName kernelRuntimeConfigSha256 -NotePropertyValue ([string]$runtimeConfig.sha256) -Force
+                    $tx | Add-Member -NotePropertyName kernelRuntimeConfigTransactionId -NotePropertyValue $kernelTransactionId -Force
+                    Write-KICompleteJson $txPath $tx
                     $arguments = @(
-                        '-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',$kernel,
-                        '-PreflightPath',$preflight,'-Mode','Execute','-StateDirectory',$cutoverState,
-                        '-TransactionId',($TransactionId + '-cutover'),'-RollbackOnFailure',
+                        '-NoLogo','-NoProfile','-ExecutionPolicy','Bypass','-File',(ConvertTo-KICompleteProcessArgument $kernel),
+                        '-PreflightPath',(ConvertTo-KICompleteProcessArgument $preflight),'-Mode','Execute','-StateDirectory',(ConvertTo-KICompleteProcessArgument $cutoverState),
+                        '-TransactionId',$kernelTransactionId,'-RuntimeConfigPath',(ConvertTo-KICompleteProcessArgument ([string]$runtimeConfig.path)),
+                        '-ExpectedTargetRoot',(ConvertTo-KICompleteProcessArgument ([string]$pathContext.TargetRoot)),'-ExpectedRuntimeConfigSha256',([string]$runtimeConfig.sha256),'-RollbackOnFailure',
                         '-ExecutionConfirmation','EXECUTE'
                     )
                     $cutoverTransactionPath=Join-Path $cutoverState (($TransactionId + '-cutover') + '/transaction.json')
@@ -911,7 +1372,7 @@ function Invoke-KIStackCompleteInstaller {
                         $step.exitCode=31
                         $step.result=@{orchestratedBy='CutoverRuntime public kernel';transactionId=($TransactionId + '-cutover');status='RebootRequired';resumeRequired=$true;kernelResultPath=$kernelResultPath;containsSecrets=$false}
                         $tx.status='WaitingForRestart'
-                        Write-KICompleteJson (Join-Path $state "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;status='WaitingForRestart';cutoverTransactionId=($TransactionId + '-cutover');completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')}|ForEach-Object id);containsSecrets=$false})
+                        Write-KICompleteJson $resumePath (New-KICompleteResumeState -PathContext $pathContext -NextStep $index -Status 'WaitingForRestart' -CutoverTransactionId ($TransactionId + '-cutover') -CompletedSteps @($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')}|ForEach-Object id))
                         Write-KICompleteJson $txPath $tx
                         return $tx
                     }
@@ -939,10 +1400,11 @@ function Invoke-KIStackCompleteInstaller {
                     $step.status='SkippedSupportedInstallation'
                 }
                 else {
-                    $extract = Join-Path $state "$TransactionId/ComfyUI"
+                    $extract = Join-Path ([string]$pathContext.PayloadRoot) 'ComfyUI'
                     $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'ComfyUI' -Destination $extract
                     $entry = Join-Path $componentRoot 'Invoke-KIStackComfyUI.ps1'
-                    $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=(Join-Path $TargetRoot 'ComfyUI')}
+                    $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=(Join-Path $TargetRoot 'ComfyUI');BackupRoot=(Join-Path ([string]$pathContext.TransactionBackupRoot) 'comfyui')}
+                    if($result.changed-and$result.backup){Assert-KICompleteRecoveryBackupPath -BackupPath ([string]$result.backup) -PathContext $pathContext -ComponentId 'comfyui' -EnsureMetadata|Out-Null}
                     try {
                         $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=(Join-Path $TargetRoot 'ComfyUI')}
                         $actual = Get-KICompleteInstalledVersion -Component $component -TargetRoot $TargetRoot
@@ -966,21 +1428,21 @@ function Invoke-KIStackCompleteInstaller {
                 }
             }
             elseif ($step.id -eq 'integration') {
-                $extract = Join-Path $state "$TransactionId/Integration"
+                $extract = Join-Path ([string]$pathContext.PayloadRoot) 'Integration'
                 $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'Integration' -Destination $extract
                 $entry = Join-Path $componentRoot 'Invoke-KIStackIntegration.ps1'
                 $action = if ($step.plannedMode -eq 'Repair') { 'Repair' } elseif ($step.plannedMode -eq 'Upgrade') { 'Upgrade' } else { 'Install' }
-                $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action}
-                $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate'}
+                $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot}
+                $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
                 if (-not [bool]$validation.passed) { throw 'Integration-Validierung fehlgeschlagen.' }
                 $step.result=@{install=$result;validation=$validation}
             }
             elseif ($step.id -eq 'models-workflows') {
-                $extract = Join-Path $state "$TransactionId/ModelsWorkflows"
+                $extract = Join-Path ([string]$pathContext.PayloadRoot) 'ModelsWorkflows'
                 $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'ModelsWorkflows' -Destination $extract
                 $entry = Join-Path $componentRoot 'Import-KIStackExternalModels.ps1'
                 $result = & $entry -Mode Install -SourcePath (Join-Path $PackageRoot 'ExternalModels') -TargetRoot $TargetRoot `
-                    -StateRoot (Join-Path $state "$TransactionId/model-import") -TransactionId ($TransactionId + '-models')
+                    -StateRoot (Join-Path ([string]$pathContext.TempRoot) 'model-import') -TransactionId ($TransactionId + '-models')
                 if (-not [bool]$result.passed) {
                     $step.status='WaitingForUserAction'
                     $waiting=@($result.results|Where-Object status -eq 'WaitingForNetwork'|ForEach-Object id)
@@ -1006,7 +1468,7 @@ function Invoke-KIStackCompleteInstaller {
                     $payloadName=if($step.id-eq'openwebui-agent-pack'){'OpenWebUIAgentPack'}else{'OpenWebUIVisualPack'}
                     $payload=Get-ChildItem -LiteralPath (Join-Path $PackageRoot ('Payload/'+$payloadName)) -File -Filter '*.zip'|Select-Object -First 1
                     if(-not$payload){throw "Payload fehlt: $payloadName"}
-                    $extract=Join-Path ([string]$config.stateDirectory) "$TransactionId/$payloadName"
+                    $extract=Join-Path ([string]$pathContext.PayloadRoot) $payloadName
                     if(Test-Path -LiteralPath $extract){Remove-Item -LiteralPath $extract -Recurse -Force}
                     Expand-Archive -LiteralPath $payload.FullName -DestinationPath $extract
                     if($step.id-eq'openwebui-agent-pack'){
@@ -1014,7 +1476,7 @@ function Invoke-KIStackCompleteInstaller {
                         if(-not$module){throw 'Agent-Pack-Modul fehlt.'}
                         Import-Module $module.FullName -Force
                         $agentPackageRoot=Split-Path -Parent $module.FullName
-                        $agentBackupDirectory=Join-Path ([string]$config.backupDirectory) "$TransactionId/agent-pack"
+                        $agentBackupDirectory=Join-Path ([string]$pathContext.TransactionBackupRoot) 'agent-pack'
                         New-Item -ItemType Directory -Path $agentBackupDirectory -Force|Out-Null
                         $agentMarkerPath=Join-Path $TargetRoot 'modules/openwebui-agent-pack/installation.json'
                         $agentMarkerBackup=Join-Path $agentBackupDirectory 'component-marker.backup.json'
@@ -1048,13 +1510,13 @@ function Invoke-KIStackCompleteInstaller {
             elseif ($step.id -eq 'openwebui-ballistics-pack') {
                 if($null-eq$OpenWebUIApiToken){$OpenWebUIApiToken=Read-Host 'Temporären OpenWebUI-Administrator-API-Key eingeben' -AsSecureString}
                 $payload=Get-ChildItem (Join-Path $PackageRoot 'Payload/OpenWebUIBallisticsPack') -Filter '*.zip' -File|Select-Object -First 1;if(-not$payload){throw'Ballistics-Pack-Payload fehlt.'}
-                $extract=Join-Path ([string]$config.stateDirectory) "$TransactionId/ballistics-package";if(Test-Path $extract){Remove-Item $extract -Recurse -Force};Expand-Archive $payload.FullName $extract
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'ballistics-package';if(Test-Path $extract){Remove-Item $extract -Recurse -Force};Expand-Archive $payload.FullName $extract
                 $module=Get-ChildItem $extract -Filter 'OpenWebUIBallisticsPack.psm1' -Recurse -File|Select-Object -First 1;if(-not$module){throw'Ballistics-Pack-Modul fehlt.'};Import-Module $module.FullName -Force
-                $packageRoot=Split-Path $module.FullName -Parent;$result=Install-OpenWebUIBallisticsPack $packageRoot ([string]$config.openWebUIEndpoint) $OpenWebUIApiToken '' (Join-Path ([string]$config.backupDirectory) "$TransactionId/ballistics") $TargetRoot
+                $packageRoot=Split-Path $module.FullName -Parent;$result=Install-OpenWebUIBallisticsPack $packageRoot ([string]$config.openWebUIEndpoint) $OpenWebUIApiToken '' (Join-Path ([string]$pathContext.TransactionBackupRoot) 'ballistics') $TargetRoot
                 $step.result=$result;$step.backup=$result.backupPath
             }
             elseif ($step.id -eq 'codex-local') {
-                $extract=Join-Path $state "$TransactionId/CodexLocal"
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'CodexLocal'
                 $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'CodexLocal' -Destination $extract
                 $entry=Join-Path $componentRoot 'Invoke-KIStackCodexLocal.ps1'
                 if(-not(Test-Path -LiteralPath $entry -PathType Leaf)){throw 'Codex-Local-Einstieg fehlt.'}
@@ -1076,13 +1538,13 @@ function Invoke-KIStackCompleteInstaller {
                 }
             }
             elseif ($step.id -eq 'rag') {
-                $extract=Join-Path $state "$TransactionId/RAG"
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'RAG'
                 $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'RAG' -Destination $extract
                 $test=Join-Path $componentRoot 'Test-KIStackRAG.ps1'
                 if(-not(Test-Path -LiteralPath $test -PathType Leaf)){throw 'RAG-Selbsttest fehlt.'}
                 $validation=Invoke-KICompleteJsonScript -Script $test -Arguments @{PackageRoot=$componentRoot}
                 if(-not[bool]$validation.passed){throw ('RAG-Quellvalidierung fehlgeschlagen: '+(@($validation.failures)-join'; '))}
-                $backupRoot=Join-Path ([string]$config.backupDirectory) "$TransactionId/rag"
+                $backupRoot=Join-Path ([string]$pathContext.TransactionBackupRoot) 'rag'
                 $result=Install-KICompleteRAGModule -ComponentRoot $componentRoot -TargetRoot $TargetRoot -BackupRoot $backupRoot
                 $step.backup=$backupRoot
                 $step.result=@{install=$result;validation=$validation;ingestionDeferred=$true;validated=$true}
@@ -1090,13 +1552,13 @@ function Invoke-KIStackCompleteInstaller {
             elseif ($step.id -eq 'validation-gate') {
                 $payload=Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Payload/ValidationGate') -File -Filter '*.zip'|Select-Object -First 1
                 if(-not$payload){throw 'Validation-Gate-Payload fehlt.'}
-                $extract=Join-Path ([string]$config.stateDirectory) "$TransactionId/ValidationGate"
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'ValidationGate'
                 if(Test-Path -LiteralPath $extract){Remove-Item -LiteralPath $extract -Recurse -Force}
                 Expand-Archive -LiteralPath $payload.FullName -DestinationPath $extract
                 $installer=Get-ChildItem -LiteralPath $extract -Recurse -File -Filter 'Install-KIStack-ValidationGate.ps1'|Select-Object -First 1
                 if(-not$installer){throw 'Öffentlicher Validation-Gate-Installer fehlt.'}
                 $installRoot=Join-Path $TargetRoot 'Tools/PackageValidationGate'
-                $backupRoot=Join-Path ([string]$config.backupDirectory) "$TransactionId/validation-gate"
+                $backupRoot=Join-Path ([string]$pathContext.TransactionBackupRoot) 'validation-gate'
                 $currentRoot=Join-Path $installRoot 'current'
                 if(Test-Path -LiteralPath $currentRoot){
                     New-Item -ItemType Directory -Path $backupRoot -Force|Out-Null
@@ -1141,29 +1603,86 @@ function Invoke-KIStackCompleteInstaller {
             }else{
                 Write-KICompleteStepStatus -Heartbeat $currentStepHeartbeat -Status Completed -Message ("{0} abgeschlossen" -f $step.name)
             }
-            Write-KICompleteJson (Join-Path $state "$TransactionId/resume.json") ([ordered]@{schemaVersion='1.0';transactionId=$TransactionId;nextStep=$index;completedSteps=@($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')}|ForEach-Object id);containsSecrets=$false})
+            Write-KICompleteJson $resumePath (New-KICompleteResumeState -PathContext $pathContext -NextStep $index -CompletedSteps @($tx.steps|Where-Object{$_.status -in @('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')}|ForEach-Object id))
             Write-KICompleteJson $txPath $tx
         }
-        $backup=Join-Path ([string]$config.backupDirectory) $TransactionId
+        $backup=[string]$pathContext.TransactionBackupRoot
         $finalizationPhase = 'InstallOrchestrator'
-        $orchestratorChanges=Install-KICompleteOrchestrator $PackageRoot $TargetRoot $backup
+        $orchestratorResult=Install-KICompleteOrchestrator $PackageRoot $TargetRoot $backup
+        $preCommitCompensations.Add([pscustomobject]@{name='Orchestrator';action={Restore-KICompleteOrchestrator -TargetRoot $TargetRoot -ExistedBefore ([bool]$orchestratorResult.existedBefore) -BackupPath ([string]$orchestratorResult.backupPath)}})
         $finalizationPhase = 'InstallCentralStarters'
         $starterChanges=Install-KICompleteCentralStarters $PackageRoot $TargetRoot $backup
+        $preCommitCompensations.Add([pscustomobject]@{name='CentralStarters';action={Restore-KICompleteCentralStarters -TargetRoot $TargetRoot -Changes $starterChanges}})
         $finalizationPhase = 'InstallOperations'
-        $operationsStarted = $true
-        $operations=Install-KICompleteOperations $TargetRoot (Join-Path $backup 'operations')
-        $finalizationPhase = 'RemoveKnowledgeExperiment'
+        $operations=Install-KICompleteOperations $TargetRoot (Join-Path $backup 'operations') -DesktopPath $DesktopPath -PathContext $pathContext
+        $preCommitCompensations.Add([pscustomobject]@{name='Operations';action={Restore-KICompleteOperations -TargetRoot $TargetRoot -BackupPath (Join-Path $backup 'operations/operations.backup.json') -PathContext $pathContext}})
+        # Finalization-Rollback-P1: knowledge removal is split into a fully reversible PRE-COMMIT
+        # "Detach" (unbind meta.knowledge from the managed profiles only -- Remove-KIStackKnowledgeExperiment.ps1,
+        # despite its name, no longer deletes anything) and a POST-COMMIT, best-effort "Cleanup"
+        # (actual Knowledge-collection/file deletion, run only after WriteFinalState succeeds, see
+        # below). Deleting real OpenWebUI content before the installation is committed is exactly
+        # the destructive-before-commit defect this P1 closes; a real Knowledge-Restore compensation
+        # is only possible, and only needed, for the Detach half.
+        $finalizationPhase = 'DetachKnowledgeExperiment'
         $knowledgeRollback=if($null-ne$OpenWebUIApiToken){& (Join-Path $PackageRoot 'Operations/Remove-KIStackKnowledgeExperiment.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BackupDirectory (Join-Path $backup 'knowledge-rollback')}else{[pscustomobject]@{status='CredentialRequiredForApiReadback';apiKeyStored=$false}}
+        if([string]$knowledgeRollback.status -eq 'Detached'){
+            $preCommitCompensations.Add([pscustomobject]@{name='KnowledgeDetach';action={& (Join-Path $PackageRoot 'Operations/Restore-KIStackKnowledgeExperiment.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BackupPath ([string]$knowledgeRollback.backupPath) | Out-Null; [pscustomobject]@{status='KnowledgeProfilesRestored';restored=$true}}})
+        }
         $finalizationPhase = 'SetCodeInterpreter'
+        # SetCodeInterpreter already compensates a failure within its OWN execution (see
+        # Operations/Set-KIStackCodeInterpreter.ps1's own try/catch -> Restore-KIStackCodeInterpreter.ps1).
+        # A compensation is registered here ONLY when it returned success -- i.e. only for a LATER
+        # step's failure -- so a self-rollback never doubles up with this outer one.
         $codeInterpreter=if($null-ne$OpenWebUIApiToken){& (Join-Path $PackageRoot 'Operations/Set-KIStackCodeInterpreter.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BackupDirectory (Join-Path $backup 'code-interpreter')}else{[pscustomobject]@{status='CredentialRequiredForApiConfiguration';apiKeyStored=$false}}
+        if([string]$codeInterpreter.status -eq 'Configured'){
+            $preCommitCompensations.Add([pscustomobject]@{name='CodeInterpreter';action={& (Join-Path $PackageRoot 'Operations/Restore-KIStackCodeInterpreter.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BackupPath ([string]$codeInterpreter.backupPath) | Out-Null; [pscustomobject]@{status='CodeInterpreterRestored';restored=$true}}})
+        }
         $finalizationPhase = 'WriteFinalState'
-        $tx|Add-Member -NotePropertyName finalization -NotePropertyValue ([ordered]@{orchestratorFiles=$orchestratorChanges;centralStarters=$starterChanges;operations=$operations;knowledgeRollback=$knowledgeRollback;codeInterpreter=$codeInterpreter}) -Force
+        $tx|Add-Member -NotePropertyName finalization -NotePropertyValue ([ordered]@{orchestratorFiles=$orchestratorResult;centralStarters=$starterChanges;operations=$operations;knowledgeRollback=$knowledgeRollback;codeInterpreter=$codeInterpreter}) -Force
         $tx = Clear-KICompleteStaleTransactionError -Transaction $tx
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
-        $componentStatePath=Join-Path $state 'components.json';$componentVersions=[ordered]@{}
+        $componentStatePath=Get-KICompleteComponentStatePath -PathContext $pathContext;$componentVersions=[ordered]@{}
         foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
-        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.12.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
-        Write-KICompleteJson $txPath $tx; return $tx
+        # Kept as a variable (Finalization-Rollback-P1 persistence fix), not written inline, so a
+        # later status change from the Knowledge cleanup below (Completed -> CompletedWithWarnings)
+        # can re-sync this exact same object into components.json too -- otherwise this file would
+        # permanently keep reporting "ValidatedExistingInstallation" while transaction.json already
+        # correctly shows CompletedWithWarnings, two persisted state files disagreeing forever.
+        $componentState=[ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.13.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}}
+        Write-KICompleteJson $componentStatePath $componentState
+        Write-KICompleteJson $txPath $tx
+        # Commit boundary: both required Final-State writes above succeeded. From this point on,
+        # nothing may ever compensate a pre-commit step again -- see the catch block's
+        # "-not $committed" guard -- regardless of what happens next (including the best-effort
+        # Knowledge cleanup immediately below).
+        $committed = $true
+        if([string]$knowledgeRollback.status -eq 'Detached'){
+            # POST-COMMIT, best-effort cleanup of the Knowledge collections/files Detach identified
+            # as no longer referenced by any managed profile. Runs only after a successful commit;
+            # its own outcome, good or bad, can never roll back the already-committed installation
+            # (stale/orphaned OpenWebUI data is the accepted trade-off -- see Cleanup script header).
+            # The nested try/catch is defense-in-depth only: the Cleanup script itself is designed
+            # to never throw, but $committed already being $true means even an unexpected exception
+            # here could not trigger pre-commit compensation regardless.
+            $cleanup=$null
+            try {
+                $cleanup = & (Join-Path $PackageRoot 'Operations/Remove-KIStackKnowledgeExperimentCollections.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -Collections @($knowledgeRollback.collectionsPendingCleanup)
+            }
+            catch {
+                $cleanup = [pscustomobject]@{status='CompletedWithWarnings';collectionsRemoved=0;filesRemoved=0;remainingCollections=@($knowledgeRollback.collectionsPendingCleanup);failures=@($_.Exception.Message)}
+            }
+            $tx | Add-Member -NotePropertyName knowledgeCleanup -NotePropertyValue $cleanup -Force
+            if([string]$cleanup.status -eq 'CompletedWithWarnings' -and [string]$tx.status -eq 'Completed'){
+                $tx.status='CompletedWithWarnings'
+                # Re-sync components.json's own status field to match -- it was written above
+                # (before Cleanup ran) with the then-current 'Completed'/'ValidatedExistingInstallation'
+                # value and must not be left stale now that the real outcome is CompletedWithWarnings.
+                $componentState.status=$tx.status
+                Write-KICompleteJson $componentStatePath $componentState
+            }
+            Write-KICompleteJson $txPath $tx
+        }
+        return $tx
     }
     catch {
         $failure = $_
@@ -1186,17 +1705,35 @@ function Invoke-KIStackCompleteInstaller {
             $failureHeartbeat=if($null-ne$currentStepHeartbeat){$currentStepHeartbeat}else{New-KICompleteStepHeartbeat -StepLabel $runningStep[0].name}
             Write-KICompleteStepStatus -Heartbeat $failureHeartbeat -Status Failed -Message $failure.Exception.Message
         }
-        if ($operationsStarted -and $finalizationPhase -eq 'InstallOperations') {
-            try {
-                $operationsRollback = Restore-KICompleteOperations -TargetRoot $TargetRoot -BackupPath (Join-Path $backup 'operations/operations.backup.json')
-                $tx | Add-Member -NotePropertyName finalizationRollback -NotePropertyValue $operationsRollback -Force
+        if (-not $committed -and $preCommitCompensations.Count -gt 0) {
+            # Reverse-order compensation stack (Finalization-Rollback-P1): only ever runs before
+            # the commit boundary above, only for steps that actually registered themselves as
+            # successfully completed, each isolated in its own try/catch so one failed restore
+            # can never prevent the remaining ones from still being attempted.
+            $rollbackSteps=[Collections.Generic.List[object]]::new()
+            for ($i = $preCommitCompensations.Count - 1; $i -ge 0; $i--) {
+                $entry = $preCommitCompensations[$i]
+                try {
+                    $entryResult = & $entry.action
+                    $rollbackSteps.Add([ordered]@{name=$entry.name;status='Completed';result=$entryResult})
+                }
+                catch {
+                    $rollbackSteps.Add([ordered]@{name=$entry.name;status='Failed';error=$_.Exception.Message})
+                }
             }
-            catch {
-                $tx | Add-Member -NotePropertyName finalizationRollback -NotePropertyValue ([ordered]@{status='Failed';error=$_.Exception.Message}) -Force
-            }
-        }
-        elseif ($failure.Exception.Data.Contains('KIStackRollbackStatus')) {
             $tx | Add-Member -NotePropertyName finalizationRollback -NotePropertyValue ([ordered]@{
+                status=$(if (@($rollbackSteps | Where-Object { $_.status -eq 'Failed' }).Count -eq 0) { 'Completed' } else { 'PartiallyFailed' })
+                steps=@($rollbackSteps)
+            }) -Force
+        }
+        if ($failure.Exception.Data.Contains('KIStackRollbackStatus')) {
+            # Independent of the reverse compensation stack above: a step (e.g. SetCodeInterpreter,
+            # or an earlier per-component step) can already have compensated ITS OWN failure
+            # internally before re-throwing. Both can genuinely apply to the same failure (e.g.
+            # SetCodeInterpreter self-rolls-back while Orchestrator/CentralStarters/Operations/
+            # KnowledgeDetach still need the outer reverse stack above), so this is recorded
+            # separately rather than overwriting finalizationRollback.
+            $tx | Add-Member -NotePropertyName stepSelfRollback -NotePropertyValue ([ordered]@{
                 status=[string]$failure.Exception.Data['KIStackRollbackStatus']
                 backupPath=[string]$failure.Exception.Data['KIStackBackupPath']
             }) -Force

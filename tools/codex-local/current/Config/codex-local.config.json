@@ -1,9 +1,10 @@
 {
   "schemaVersion": "1.0",
-  "version": "0.1.4",
+  "version": "0.2.1",
   "targetRoot": "C:\\KI-Stack",
   "moduleRoot": "C:\\KI-Stack\\modules\\codex-local",
   "stateRoot": "C:\\KI-Stack\\state\\codex-local",
+  "codexHome": "C:\\KI-Stack\\state\\codex-local\\codex-home",
   "backupRoot": "C:\\KI-Stack\\backups\\codex-local",
   "lmStudioBaseUrl": "http://127.0.0.1:1234/v1",
   "codexPackage": "@openai/codex",
@@ -20,5 +21,7 @@
   "approvalPolicy": "on-request",
   "localProvider": "lmstudio",
   "projectRootMarkers": [".git", "AGENTS.md"],
-  "requireModelEndpoint": true
+  "requireModelEndpoint": true,
+  "chatModel": "qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved",
+  "skipGitRepoCheck": true
 }

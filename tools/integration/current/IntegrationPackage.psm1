@@ -4,13 +4,13 @@ $ErrorActionPreference='Stop'
 function Read-IntegrationJson { param([string]$Path) Get-Content $Path -Raw|ConvertFrom-Json -Depth 100 }
 function Get-IntegrationRuntimeContract { param([string]$PackageRoot) Read-IntegrationJson (Join-Path $PackageRoot 'Runtime/RUNTIME-CONTRACT.json') }
 function Test-IntegrationRuntime {
-    param([string]$TargetRoot='C:\KI-Stack\modules\integration',[object]$Contract)
+    param([Parameter(Mandatory)][string]$RuntimeRoot,[object]$Contract)
     if($null-eq$Contract){return $false}
-    foreach($name in @($Contract.files)+@([string]$Contract.generatedMarker)){if(-not(Test-Path -LiteralPath (Join-Path $TargetRoot $name)-PathType Leaf)){return $false}}
+    foreach($name in @($Contract.files)+@([string]$Contract.generatedMarker)){if(-not(Test-Path -LiteralPath (Join-Path $RuntimeRoot $name)-PathType Leaf)){return $false}}
     return $true
 }
 function Backup-IntegrationWindowsRuntime {
-    param([string]$RuntimeRoot='C:\KI-Stack\modules\integration',[Parameter(Mandatory)][string]$BackupPath)
+    param([Parameter(Mandatory)][string]$RuntimeRoot,[Parameter(Mandatory)][string]$BackupPath)
     $existed=Test-Path -LiteralPath $RuntimeRoot -PathType Container
     [pscustomobject]@{runtimeRoot=$RuntimeRoot;existed=$existed}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $BackupPath 'windows-runtime.json') -Encoding UTF8
     if($existed){Copy-Item -LiteralPath $RuntimeRoot -Destination (Join-Path $BackupPath 'windows-runtime') -Recurse -Force}
@@ -77,15 +77,21 @@ function Test-IntegrationServicesEnabled {
         return ($coreEnabled -and $searxngEnabled)
     } catch { return $false }
 }
-function Test-IntegrationTarget { $runtimeContract=Get-IntegrationRuntimeContract $PSScriptRoot;[pscustomobject]@{passed=((Test-IntegrationEndpoint)-and(Test-IntegrationRuntime -Contract $runtimeContract)-and(Test-IntegrationServicesEnabled));version='1.5.11';runtimeChain=@('wsl keeper','valkey-server','uwsgi','nginx');runtimeGitDependency=$false} }
+function Test-IntegrationTarget {
+    param([Parameter(Mandatory)][string]$PackageRoot,[Parameter(Mandatory)][string]$TargetRoot)
+    $runtimeContract=Get-IntegrationRuntimeContract $PackageRoot
+    $runtimeRoot=Join-Path $TargetRoot 'modules/integration'
+    [pscustomobject]@{passed=((Test-IntegrationEndpoint)-and(Test-IntegrationRuntime -RuntimeRoot $runtimeRoot -Contract $runtimeContract)-and(Test-IntegrationServicesEnabled));version='1.5.11';runtimeChain=@('wsl keeper','valkey-server','uwsgi','nginx');runtimeGitDependency=$false;targetRoot=$TargetRoot}
+}
 function ConvertTo-IntegrationWslPath { param([string]$Path) (@(wsl.exe -d Debian --exec wslpath -u $Path)|Select-Object -Last 1).Trim() }
 function Backup-IntegrationState {
-    param([string]$BackupRoot='C:\KI-Stack\backups\integration-1.5.11')
+    param([Parameter(Mandatory)][string]$TargetRoot)
+    $BackupRoot=Join-Path $TargetRoot 'backups/integration-1.5.11'
     $directory=Join-Path $BackupRoot ([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'));New-Item -ItemType Directory $directory -Force|Out-Null
     $archive=Join-Path $directory 'linux-state.tar.gz';$linuxArchive=ConvertTo-IntegrationWslPath $archive
     & wsl.exe -d Debian -u root --exec tar -czf $linuxArchive --ignore-failed-read /opt/ki-stack/integration/installation.json /etc/searxng/settings.yml /etc/uwsgi/apps-available/searxng.ini /etc/uwsgi/apps-enabled/searxng.ini /etc/nginx/default.d/searxng.conf
     if($LASTEXITCODE-ne0){throw"Integration backup failed: $LASTEXITCODE"}
-    Backup-IntegrationWindowsRuntime -BackupPath $directory
+    Backup-IntegrationWindowsRuntime -RuntimeRoot (Join-Path $TargetRoot 'modules/integration') -BackupPath $directory
     [pscustomobject]@{directory=$directory;archive=$archive}
 }
 function Restore-IntegrationState {
@@ -153,23 +159,51 @@ function Write-IntegrationMarker {
     Set-Content -LiteralPath $temp -Value $Content -Encoding UTF8
     Move-Item -LiteralPath $temp -Destination $Path -Force
 }
+function Merge-IntegrationOpenWebUIWithSearchStarterContent {
+    # Start-KIStack-OpenWebUI-WithSearch.cmd is unconditionally overwritten by
+    # Install-IntegrationRuntime below on every Install/Upgrade/Repair pass, but RAG (a
+    # separately-versioned, later-ordered component) patches this exact same file to source
+    # its own OpenWebUI-RAG.env.cmd (search_document:/search_query: embedding prefixes) once
+    # RAG is installed. A blind overwrite here silently erases that patch -- the identical
+    # class of regression already found and fixed in the BuilderKernel's own copy of this
+    # starter (tools/cutover-runtime/current/Modules/07-Integration/KIModuleIntegration.psm1
+    # Get-KIIntegrationOpenWebUIWithSearchStarterContent), just via this package's own
+    # static-file-copy deployment path rather than dynamic template generation. Fixed the
+    # same way: fold an already-applied RAG env-call line found on the live target forward
+    # into the freshly copied content, rather than silently discarding it.
+    param([Parameter(Mandatory)][string]$SourceContent,[AllowNull()][string]$ExistingContent)
+    if(-not$ExistingContent){return $SourceContent}
+    $ragEnvCallMatch=[regex]::Match($ExistingContent,'(?im)^call\s+"[^"]*OpenWebUI-RAG\.env\.cmd"\s*$')
+    if(-not$ragEnvCallMatch.Success){return $SourceContent}
+    $rootRelativeRagCall='call "%~dp0..\rag\OpenWebUI-RAG.env.cmd"'
+    if($SourceContent.Contains($rootRelativeRagCall)){return $SourceContent}
+    [regex]::Replace($SourceContent,'(?im)^@echo off\s*',("@echo off`r`n"+$rootRelativeRagCall+"`r`n"),1)
+}
 function Install-IntegrationRuntime {
-    param([string]$PackageRoot,[string]$TargetRoot='C:\KI-Stack\modules\integration',[Parameter(Mandatory)][object]$Marker)
+    param([Parameter(Mandatory)][string]$PackageRoot,[Parameter(Mandatory)][string]$RuntimeRoot,[Parameter(Mandatory)][object]$Marker)
     $contract=Get-IntegrationRuntimeContract $PackageRoot;$sourceRoot=Join-Path $PackageRoot 'Runtime'
-    New-Item -ItemType Directory -Path $TargetRoot -Force|Out-Null
+    New-Item -ItemType Directory -Path $RuntimeRoot -Force|Out-Null
     foreach($name in @($contract.files)){
         $source=Join-Path $sourceRoot $name;if(-not(Test-Path -LiteralPath $source -PathType Leaf)){throw "Integration runtime source missing: $name"}
-        $destination=Join-Path $TargetRoot $name;$temporary=$destination+'.tmp-'+[guid]::NewGuid().ToString('N')
-        Copy-Item -LiteralPath $source -Destination $temporary -Force;Move-Item -LiteralPath $temporary -Destination $destination -Force
+        $destination=Join-Path $RuntimeRoot $name;$temporary=$destination+'.tmp-'+[guid]::NewGuid().ToString('N')
+        if($name-eq'Start-KIStack-OpenWebUI-WithSearch.cmd'){
+            $sourceContent=[IO.File]::ReadAllText($source)
+            $existingContent=if(Test-Path -LiteralPath $destination -PathType Leaf){[IO.File]::ReadAllText($destination)}else{$null}
+            $mergedContent=Merge-IntegrationOpenWebUIWithSearchStarterContent -SourceContent $sourceContent -ExistingContent $existingContent
+            [IO.File]::WriteAllText($temporary,$mergedContent,[Text.Encoding]::ASCII)
+        } else {
+            Copy-Item -LiteralPath $source -Destination $temporary -Force
+        }
+        Move-Item -LiteralPath $temporary -Destination $destination -Force
     }
-    $markerPath=Join-Path $TargetRoot ([string]$contract.generatedMarker)
+    $markerPath=Join-Path $RuntimeRoot ([string]$contract.generatedMarker)
     Write-IntegrationMarker -Path $markerPath -Content ($Marker|ConvertTo-Json -Depth 20)
-    if(-not(Test-IntegrationRuntime -TargetRoot $TargetRoot -Contract $contract)){throw 'Integration runtime readback failed.'}
-    [pscustomobject]@{passed=$true;targetRoot=$TargetRoot;files=@($contract.files)+@([string]$contract.generatedMarker)}
+    if(-not(Test-IntegrationRuntime -RuntimeRoot $RuntimeRoot -Contract $contract)){throw 'Integration runtime readback failed.'}
+    [pscustomobject]@{passed=$true;runtimeRoot=$RuntimeRoot;files=@($contract.files)+@([string]$contract.generatedMarker)}
 }
 function Install-IntegrationPayload {
-    param([string]$PackageRoot)
-    $test=Test-IntegrationPayload $PackageRoot;if(-not$test.passed){throw($test.errors-join'; ')};$backup=Backup-IntegrationState
+    param([Parameter(Mandatory)][string]$PackageRoot,[Parameter(Mandatory)][string]$TargetRoot)
+    $test=Test-IntegrationPayload $PackageRoot;if(-not$test.passed){throw($test.errors-join'; ')};$backup=Backup-IntegrationState -TargetRoot $TargetRoot
     $script=Join-Path $PackageRoot 'Linux/install-searxng-payload.sh';$manifest=Join-Path $PackageRoot 'Payload/CONTENT-MANIFEST.json'
     $scriptLinux=ConvertTo-IntegrationWslPath $script;$payloadLinux=ConvertTo-IntegrationWslPath $test.path;$manifestLinux=ConvertTo-IntegrationWslPath $manifest
     $payloadCommand="wsl.exe -d Debian -u root --exec bash `"$scriptLinux`" `"$payloadLinux`" `"$manifestLinux`" $([string]$test.contract.output.sha256) $([string]$test.contract.upstream.revision)"
@@ -184,8 +218,8 @@ function Install-IntegrationPayload {
     Assert-IntegrationPayloadExitCode -ExitCode $payloadExitCode -BackupPath $backup.directory -DiagnosticLogPath $diagnosticLogPath
     try {
         $marker=[ordered]@{schemaVersion='1.0';managedBy='KI-STACK-INTEGRATION-MANAGED';version='1.5.11';release='KI-Stack-Integration-Execute-v1.5.11';installedAt=[DateTime]::UtcNow.ToString('o');distribution='Debian';searxngUrl='http://localhost/searxng';payloadId='KI-STACK-SEARXNG-SOURCE-2026.6.28';payloadSha256=[string]$test.contract.output.sha256;linuxMode='adopted-existing';runtimeGitDependency=$false}
-        $runtime=Install-IntegrationRuntime -PackageRoot $PackageRoot -Marker $marker
-        $result=Test-IntegrationTarget;if(-not[bool]$result.passed){throw 'Integration runtime or local SearXNG readback failed.'};$result|Add-Member backupPath $backup.directory;$result|Add-Member runtime $runtime;$result
+        $runtime=Install-IntegrationRuntime -PackageRoot $PackageRoot -RuntimeRoot (Join-Path $TargetRoot 'modules/integration') -Marker $marker
+        $result=Test-IntegrationTarget -PackageRoot $PackageRoot -TargetRoot $TargetRoot;if(-not[bool]$result.passed){throw 'Integration runtime or local SearXNG readback failed.'};$result|Add-Member backupPath $backup.directory;$result|Add-Member runtime $runtime;$result
     } catch {
         Restore-IntegrationState $backup.directory|Out-Null
         throw

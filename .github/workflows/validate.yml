@@ -13,7 +13,13 @@ jobs:
   validate:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Validate package and repository
         shell: pwsh
         run: ./scripts/Test-Repository.ps1
+      - name: Finalization rollback regression (commit boundary, compensation stack, Knowledge Detach/Cleanup)
+        shell: pwsh
+        run: pwsh -NoLogo -NoProfile -File ./tools/complete-installer/current/Test-KIStackFinalizationRollback.ps1
+      - name: Mode=Rollback / RollbackOperations regression (Operations Restore contract)
+        shell: pwsh
+        run: pwsh -NoLogo -NoProfile -File ./tools/complete-installer/current/Test-KIStackModeRollbackOperations.ps1

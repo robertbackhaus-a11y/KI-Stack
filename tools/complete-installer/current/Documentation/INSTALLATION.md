@@ -1,6 +1,6 @@
 # Installation, upgrade, and operations
 
-1. Verify the `KI-Stack-Complete-Installer-vX.Y.Z.zip` (currently `v2.12.0`) against its adjacent `.sha256` sidecar with `Get-FileHash -Algorithm SHA256`. An SPDX 2.3 SBOM (`....spdx.json`) is generated automatically alongside the ZIP by the build script; its own root-package checksum matches the ZIP and sidecar exactly. Both build outputs are the product of a deterministic build: building the same source tree twice produces a byte-identical ZIP (same SHA256).
+1. Verify the `KI-Stack-Complete-Installer-vX.Y.Z.zip` (currently `v2.13.0`) against its adjacent `.sha256` sidecar with `Get-FileHash -Algorithm SHA256`. An SPDX 2.3 SBOM (`....spdx.json`) is generated automatically alongside the ZIP by the build script; its own root-package checksum matches the ZIP and sidecar exactly. Both build outputs are the product of a deterministic build: building the same source tree twice produces a byte-identical ZIP (same SHA256).
 2. Extract the package and run `Start-KIStack-Installer.cmd` with PowerShell 7.
 3. If first-time WSL activation reports `RESTART REQUIRED` (exit code 31), restart Windows and run `Resume-KIStack-Installer.cmd <TransactionId>`. `WaitingForRestart` is resumable and does not trigger rollback.
 4. Confirm UAC. If the OpenWebUI Visual Pack step is not yet compliant, OpenWebUI opens in your default browser once it and ComfyUI are reachable: complete first login (create the admin account) or sign in, generate an API key under Settings -> Account -> API Keys, then return to the installer and press Enter to continue. Enter that key through the hidden prompt; it is held only in memory as a `SecureString`, never stored, and should be revoked afterwards. The existing Visual Pack install/validate path then runs with that key, and a final prompt asks for one real image test and one real video test in OpenWebUI before the step is accepted.
@@ -69,8 +69,8 @@ Codex Local exclusively uses the package-managed Node.js runtime under `C:\KI-St
 - Audit: `Start-KIStack-Audit.cmd`
 - Validate: `Start-KIStack-Validate.cmd`
 - Repair: `Start-KIStack-Repair.cmd`
-- Rollback: `Start-KIStack-Rollback.cmd`
+- Operations Restore (`-Mode RollbackOperations`; `-Mode Rollback` remains a deprecated alias for the exact same call): `Start-KIStack-Rollback.cmd`
 
-Recovery checks pending and failed transactions before a new plan. Rollback restores only the selected transaction. Existing compliant models and user data are retained.
+Recovery checks pending and failed transactions before a new plan. Operations Restore is **not** a full installation rollback: it restores only the operating-system-level changes `InstallOperations` itself makes -- the LM Studio competing-autostart registry state, the three KI-Stack Desktop shortcuts, and any KI-Stack-owned Docker container restart policy -- from the most recent operations backup. No installed component, no user data, and no models are ever touched or restored by it; see `Contracts/ROLLBACK.md` for the exact scope.
 
 The Greenfield contract has been verified with a complete, successful, physical installation on an empty target: every step completed and the installer exited with code 0.

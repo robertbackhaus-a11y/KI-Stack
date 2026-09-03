@@ -19,6 +19,8 @@ function New-KIPinnedReferenceFixture {
     $installerRoot=Join-Path $FixtureRoot 'installer/complete'
     New-Item -ItemType Directory -Path (Join-Path $installerRoot 'Contracts') -Force|Out-Null
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Destination $installerRoot -Force
+    New-Item -ItemType Directory -Path (Join-Path $installerRoot 'Runtime') -Force|Out-Null
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Runtime/KIStackPathContext.psm1') -Destination (Join-Path $installerRoot 'Runtime') -Force
 
     # Minimal fixture contract: one pinned-runtime-reference and one recovery-reference component,
     # each pinned at the exact version the real, hardcoded $acceptedVersions snapshot in

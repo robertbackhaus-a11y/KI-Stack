@@ -33,11 +33,48 @@ $results.Add((Test-HttpStatus 'OpenWebUI' 'http://127.0.0.1:8080/api/config' {pa
 $results.Add((Test-HttpStatus 'SearXNG HTML' 'http://localhost/searxng/' $null))
 $results.Add((Test-HttpStatus 'SearXNG JSON-Suche' 'http://localhost/searxng/search?q=ki-stack&format=json' {param($c);try{$j=$c|ConvertFrom-Json;return $null-ne$j.results}catch{return $false}}))
 $results.Add((Test-HttpStatus 'ComfyUI Health' 'http://127.0.0.1:8188/system_stats' {param($c);try{$null=$c|ConvertFrom-Json;return $true}catch{return $false}}))
-$codexMarker='C:\KI-Stack\modules\codex-local\installation.json'
-$ragMarker='C:\KI-Stack\modules\rag\installation.json'
-$codexCommand=Get-Command codex.exe,codex.cmd,codex -ErrorAction SilentlyContinue|Select-Object -First 1
-$results.Add((New-StatusResult 'Codex Local' $(if((Test-Path $codexMarker)-and$codexCommand){'Läuft'}else{'Gestoppt'}) $(if($codexCommand){"CLI $(& $codexCommand.Source --version 2>$null)"}else{'CLI nicht gefunden'})))
+$targetRoot=$PSScriptRoot
+$codexMarker=Join-Path $targetRoot 'modules/codex-local/installation.json'
+$ragMarker=Join-Path $targetRoot 'modules/rag/installation.json'
+# 2.13.0-Consolidation-Workstream, Nebenfund C (real, already-flagged, now fixed): Codex Local
+# deliberately never registers a global codex.exe/codex.cmd/codex on PATH (CodexLocal.psm1's
+# own managed-runtime contract explicitly forbids that global-fallback pattern) -- a PATH-based
+# Get-Command here would always report "CLI nicht gefunden" even on a genuinely healthy,
+# installed Codex Local, real PATH lookup replaced with the same real, managed
+# node.exe + codex.js paths CodexLocal.psm1's own Get-KICodexPaths resolves, plus the same
+# isolated CODEX_HOME override already applied to CompleteInstaller.psm1's
+# Test-KICompleteCodexLocalCompliant (never the real, shared %USERPROFILE%\.codex).
+$codexNode=Join-Path $targetRoot 'modules/codex-local/runtime/node.exe'
+$codexCli=Join-Path $targetRoot 'modules/codex-local/npm-global/node_modules/@openai/codex/bin/codex.js'
+$codexInstalled=(Test-Path -LiteralPath $codexMarker -PathType Leaf)-and(Test-Path -LiteralPath $codexNode -PathType Leaf)-and(Test-Path -LiteralPath $codexCli -PathType Leaf)
+$codexVersionDetail='CLI nicht gefunden'
+if($codexInstalled){
+    $originalCodexHomeForThisCheck=$env:CODEX_HOME
+    $env:CODEX_HOME=Join-Path $targetRoot 'state/codex-local/codex-home'
+    try{$codexVersionOutput=& $codexNode $codexCli --version 2>$null;if($LASTEXITCODE-eq0-and$codexVersionOutput){$codexVersionDetail="CLI $codexVersionOutput"}}
+    catch{}
+    finally{$env:CODEX_HOME=$originalCodexHomeForThisCheck}
+}
+$results.Add((New-StatusResult 'Codex Local' $(if($codexInstalled){'Läuft'}else{'Gestoppt'}) $codexVersionDetail))
 $results.Add((New-StatusResult 'RAG-Modul' $(if(Test-Path $ragMarker){'Läuft'}else{'Gestoppt'}) $(if(Test-Path $ragMarker){'Installiert; Import bedarfsgesteuert'}else{'Nicht installiert'})))
+
+# OpenWebUI-Credential-Bootstrap-Workstream (Section 25): never displays the credential itself --
+# Test-KIStackOpenWebUICredential's own status enum is mapped to the simpler, non-secret
+# five-value vocabulary this report uses (Missing/Configured/Valid/Invalid/Unchecked).
+try{
+    Import-Module (Join-Path $targetRoot 'installer/complete/Lifecycle/KIStackOpenWebUICredential.psm1') -Force -DisableNameChecking -ErrorAction Stop
+    $credentialStatus=Test-KIStackOpenWebUICredential -TargetRoot $targetRoot -TimeoutSec ([Math]::Min($TimeoutSeconds,5))
+    $mapped=switch([string]$credentialStatus.status){
+        'NotConfigured'{'Missing'}
+        'Valid'{'Valid'}
+        'Invalid'{'Invalid'}
+        'InsufficientPrivileges'{'Configured'}
+        default{'Unchecked'}
+    }
+    $results.Add((New-StatusResult 'OpenWebUICredential' $mapped $(if([string]$credentialStatus.status-eq'InsufficientPrivileges'){'Konfiguriert, aber keine Admin-Rolle'}elseif([string]$credentialStatus.reason){[string]$credentialStatus.reason}else{[string]$credentialStatus.status})))
+}catch{
+    $results.Add((New-StatusResult 'OpenWebUICredential' 'Unchecked' 'Statusprüfung konnte nicht ausgeführt werden'))
+}
 
 $keeper=@(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue|Where-Object{$_.Name -eq 'wsl.exe'-and$_.CommandLine -match '(?i)-d\s+Debian\b.*--exec\s+sleep\s+infinity\b'})
 $results.Add((New-StatusResult 'WSL-Keeper' $(if($keeper.Count){'Läuft'}else{'Gestoppt'}) $(if($keeper.Count){"PID $($keeper[0].ProcessId)"}else{'Kein Keeper-Prozess'})))

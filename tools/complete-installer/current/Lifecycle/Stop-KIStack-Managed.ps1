@@ -2,9 +2,11 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 if($PSVersionTable.PSEdition-ne'Core'-or$PSVersionTable.PSVersion.Major-lt7){throw'PowerShell 7 ist erforderlich; Windows PowerShell wird nicht unterstützt.'}
 
+$targetRoot=$PSScriptRoot
+$targetRootPattern=[regex]::Escape($targetRoot.TrimEnd('\')+'\')
 $owned = @(Get-CimInstance Win32_Process | Where-Object {
     $_.CommandLine -and (
-        ($_.CommandLine -match '(?i)C:\\KI-Stack\\' -and $_.CommandLine -match '(?i)open-webui|ComfyUI|Start-KIStack|LM Studio') -or
+        ($_.CommandLine -match $targetRootPattern -and $_.CommandLine -match '(?i)open-webui|ComfyUI|Start-KIStack|LM Studio') -or
         ($_.Name -eq 'LM Studio.exe' -and $_.CommandLine -match '(?i)(?:^|\s)--run-as-service(?:\s|$)')
     )
 })
@@ -24,9 +26,9 @@ if (Get-Command wsl.exe -ErrorAction SilentlyContinue) {
 }
 
 foreach ($pidFile in @(
-    'C:\KI-Stack\modules\integration\wsl-keeper.pid',
-    'C:\KI-Stack\modules\comfyui\comfyui.pid',
-    'C:\KI-Stack\modules\applications\openwebui.pid'
+    (Join-Path $targetRoot 'modules/integration/wsl-keeper.pid'),
+    (Join-Path $targetRoot 'modules/comfyui/comfyui.pid'),
+    (Join-Path $targetRoot 'modules/applications/openwebui.pid')
 )) {
     if (Test-Path -LiteralPath $pidFile) { Remove-Item -LiteralPath $pidFile -Force }
 }

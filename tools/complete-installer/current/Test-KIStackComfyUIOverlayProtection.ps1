@@ -44,6 +44,12 @@ function New-KIOverlayFixturePackageRoot {
     $patched=$source.Replace($needle,'if($false){$issues+=''Administratorrechte erforderlich.''}')
     Set-Content -LiteralPath (Join-Path $PackageStageRoot 'CompleteInstaller.psm1') -Value $patched -Encoding UTF8
 
+    # Real Runtime/KIStackPathContext.psm1, copied unmodified -- CompleteInstaller.psm1 imports
+    # this by relative path from its own $PSScriptRoot (same requirement already handled
+    # correctly by Test-KIStackReplayComponent.ps1 / Test-KIStackUpdateAll.ps1).
+    New-Item -ItemType Directory -Path (Join-Path $PackageStageRoot 'Runtime') -Force|Out-Null
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Runtime/KIStackPathContext.psm1') -Destination (Join-Path $PackageStageRoot 'Runtime')
+
     New-Item -ItemType Directory -Path (Join-Path $PackageStageRoot 'Contracts') -Force|Out-Null
     $components=[ordered]@{schemaVersion='1.0';components=@(
         [ordered]@{id='comfyui';name='ComfyUI';version='1.2.4';order=30;source='Payload/ComfyUI';marker='modules/comfyui/installation.json';probe=[ordered]@{type='json';path='modules/comfyui/installation.json';fields=@('version','releaseVersion','packageVersion')};kind='component';installable=$true}
@@ -121,13 +127,23 @@ function New-KIOverlayFixtureRepository {
 function Invoke-KIOverlayFixtureScenario {
     # Runs the real Invoke-KIStackCompleteInstaller -Mode Upgrade in an isolated child process
     # against the given package/target roots, returning the parsed result JSON.
+    #
+    # -DesktopPath is REQUIRED here, always pointing inside the disposable fixture tree (never
+    # the real Windows Desktop) -- real, reproduced Architekturfund (2.13.0 consolidation
+    # workstream): before this fix, this exact test (its own fixture root is named
+    # KIStack-ComfyUIOverlay-<guid>, matching the real, observed symptom precisely) had no way
+    # to avoid Invoke-KIStackCompleteInstaller's Install-KICompleteOperations writing real .lnk
+    # files onto the operator's REAL Desktop -- only their TARGET path pointed at this fixture's
+    # disposable directories. See Test-KIStackDesktopLinkIsolation.ps1 for the dedicated
+    # regression coverage of the underlying fix.
     param([Parameter(Mandatory)][string]$PackageStageRoot,[Parameter(Mandatory)][string]$TargetRoot,[Parameter(Mandatory)][string]$RunnerScriptPath)
+    $fixtureDesktopPath=Join-Path $TargetRoot '__fixture-desktop'
     Set-Content -LiteralPath $RunnerScriptPath -Encoding UTF8 -Value @"
 Set-StrictMode -Version Latest
 `$ErrorActionPreference='Stop'
 Import-Module '$($PackageStageRoot.Replace("'","''"))/CompleteInstaller.psm1' -Force
 try {
-    `$result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot '$($PackageStageRoot.Replace("'","''"))' -TargetRoot '$($TargetRoot.Replace("'","''"))'
+    `$result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot '$($PackageStageRoot.Replace("'","''"))' -TargetRoot '$($TargetRoot.Replace("'","''"))' -DesktopPath '$($fixtureDesktopPath.Replace("'","''"))'
     [pscustomobject]@{threw=`$false;result=`$result}|ConvertTo-Json -Depth 20 -Compress
 } catch {
     [pscustomobject]@{threw=`$true;message=`$_.Exception.Message}|ConvertTo-Json -Depth 10 -Compress

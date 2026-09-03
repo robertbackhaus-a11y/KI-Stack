@@ -7,6 +7,8 @@ $temp=Join-Path ([IO.Path]::GetTempPath()) ('KIStack-ExitCode-'+[guid]::NewGuid(
 try{
     New-Item -ItemType Directory -Path $temp -Force|Out-Null
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Destination $temp
+    New-Item -ItemType Directory -Path (Join-Path $temp 'Runtime') -Force|Out-Null
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Runtime/KIStackPathContext.psm1') -Destination (Join-Path $temp 'Runtime')
     $source=Get-Content -LiteralPath (Join-Path $PackageRoot 'Start-KIStackCompleteInstaller.ps1') -Raw
     $source=$source.Replace('if(-not(Test-KICompleteAdministrator)){','if($false){')
     $source=$source.Replace('$plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -ReplayComponent $ReplayComponent','$plan=[pscustomobject]@{steps=@()}')

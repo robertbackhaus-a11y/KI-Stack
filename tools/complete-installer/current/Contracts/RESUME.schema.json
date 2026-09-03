@@ -1,1 +1,19 @@
-{"$schema":"https://json-schema.org/draft/2020-12/schema","type":"object","required":["schemaVersion","transactionId","nextStep","completedSteps"],"properties":{"schemaVersion":{"const":"1.0"},"transactionId":{"type":"string"},"nextStep":{"type":"integer","minimum":0},"completedSteps":{"type":"array","items":{"type":"string"}},"containsSecrets":{"const":false}}}
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "legacy": {
+      "type": "object",
+      "required": ["schemaVersion", "transactionId", "nextStep", "completedSteps"],
+      "properties": {"schemaVersion": {"const": "1.0"}, "transactionId": {"type": "string"}, "nextStep": {"type": "integer", "minimum": 0}, "completedSteps": {"type": "array", "items": {"type": "string"}}, "containsSecrets": {"const": false}}
+    },
+    "pathAware": {
+      "type": "object",
+      "required": ["schemaVersion", "transactionId", "nextStep", "completedSteps", "targetRoot", "stateRoot", "transactionRoot", "backupRoot", "logRoot", "pathContractVersion"],
+      "properties": {
+        "schemaVersion": {"const": "1.1"}, "transactionId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}, "nextStep": {"type": "integer", "minimum": 0}, "completedSteps": {"type": "array", "items": {"type": "string"}},
+        "targetRoot": {"type": "string", "minLength": 1}, "stateRoot": {"type": "string", "minLength": 1}, "transactionRoot": {"type": "string", "minLength": 1}, "backupRoot": {"type": "string", "minLength": 1}, "logRoot": {"type": "string", "minLength": 1}, "pathContractVersion": {"type": "string", "minLength": 1}, "containsSecrets": {"const": false}
+      }
+    }
+  },
+  "anyOf": [{"$ref": "#/$defs/legacy"}, {"$ref": "#/$defs/pathAware"}]
+}

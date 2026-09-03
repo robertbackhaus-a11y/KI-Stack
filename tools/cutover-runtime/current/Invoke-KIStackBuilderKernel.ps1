@@ -4,6 +4,9 @@ param(
     [Parameter(Mandatory)][string]$PreflightPath,
     [ValidateSet('DryRun','Execute')][string]$Mode = 'DryRun',
     [string]$ConfigPath = (Join-Path $PSScriptRoot 'Config\kernel-config.json'),
+    [string]$RuntimeConfigPath,
+    [string]$ExpectedTargetRoot,
+    [string]$ExpectedRuntimeConfigSha256,
     [string]$StateDirectory = (Join-Path $PSScriptRoot 'State'),
     [string]$TransactionId,
     [switch]$Resume,
@@ -27,7 +30,23 @@ function Get-KIInstallResultControlStatus {
     [string]$statusProperty.Value
 }
 
-$config = Read-KIJson -Path $ConfigPath
+if (-not $TransactionId) {
+    $TransactionId = 'KI-STACK-TX-{0}' -f (Get-Date -Format 'yyyyMMdd-HHmmss')
+}
+
+$runtimeContractRequested = -not [string]::IsNullOrWhiteSpace($RuntimeConfigPath) -or -not [string]::IsNullOrWhiteSpace($ExpectedTargetRoot) -or -not [string]::IsNullOrWhiteSpace($ExpectedRuntimeConfigSha256)
+if ($runtimeContractRequested) {
+    if ([string]::IsNullOrWhiteSpace($RuntimeConfigPath) -or [string]::IsNullOrWhiteSpace($ExpectedTargetRoot)) {
+        throw 'RuntimeConfigPath und ExpectedTargetRoot müssen für einen gebundenen Kernel-Lauf gemeinsam angegeben werden.'
+    }
+    if (-not (Test-Path -LiteralPath $RuntimeConfigPath -PathType Leaf)) { throw "RuntimeConfigPath wurde nicht gefunden: $RuntimeConfigPath" }
+    $config = Read-KIJson -Path $RuntimeConfigPath
+    Assert-KIKernelRuntimeConfig -Config $config -RuntimeConfigPath $RuntimeConfigPath -ExpectedTargetRoot $ExpectedTargetRoot -ExpectedTransactionId $TransactionId -StateDirectory $StateDirectory -ExpectedSha256 $ExpectedRuntimeConfigSha256
+}
+else {
+    # Belegter Standalone-/Legacy-Pfad (Start-KIStack-Cutover.ps1).
+    $config = Read-KIJson -Path $ConfigPath
+}
 
 if ($Mode -eq 'Execute') {
     if (-not [bool]$config.defaults.requireAdministratorForExecute) {
@@ -45,10 +64,6 @@ if ($Mode -eq 'Execute') {
     if ([bool]$config.defaults.allowDestructiveActions) {
         throw 'Destruktive Aktionen dürfen für diese Freigabe nicht aktiviert sein.'
     }
-}
-
-if (-not $TransactionId) {
-    $TransactionId = 'KI-STACK-TX-{0}' -f (Get-Date -Format 'yyyyMMdd-HHmmss')
 }
 
 $transactionDirectory = Join-Path $StateDirectory $TransactionId

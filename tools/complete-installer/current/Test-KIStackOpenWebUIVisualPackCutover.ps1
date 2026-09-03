@@ -7,6 +7,8 @@ $temp=Join-Path ([IO.Path]::GetTempPath()) ('KIStack-VisualCutover-'+[guid]::New
 try{
     New-Item -ItemType Directory -Path $temp -Force|Out-Null
     Copy-Item -LiteralPath (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Destination $temp
+    New-Item -ItemType Directory -Path (Join-Path $temp 'Runtime') -Force|Out-Null
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Runtime/KIStackPathContext.psm1') -Destination (Join-Path $temp 'Runtime')
     $source=Get-Content -LiteralPath (Join-Path $PackageRoot 'Start-KIStackCompleteInstaller.ps1') -Raw
     $source=$source.Replace('if(-not(Test-KICompleteAdministrator)){','if($false){')
     $source=$source.Replace('$plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -ReplayComponent $ReplayComponent','$plan=[pscustomobject]@{steps=@([pscustomobject]@{id=''openwebui-visual-pack'';plannedMode=''Upgrade''})}')
@@ -68,6 +70,6 @@ try{
     }
 
     $passed=(@($checkNoApiKey.Values)-notcontains$false)-and(@($checkOpenWebUIDown.Values)-notcontains$false)-and(@($checkComfyDown.Values)-notcontains$false)-and(@($checkSuccess.Values)-notcontains$false)
-    [pscustomobject]@{passed=$passed;version='2.12.0';checks=[ordered]@{noApiKeyPath=$checkNoApiKey;openWebUIUnreachablePath=$checkOpenWebUIDown;comfyUnreachablePath=$checkComfyDown;successPath=$checkSuccess};targetSystemAccessed=$false}|ConvertTo-Json -Depth 10
+    [pscustomobject]@{passed=$passed;version='2.13.0';checks=[ordered]@{noApiKeyPath=$checkNoApiKey;openWebUIUnreachablePath=$checkOpenWebUIDown;comfyUnreachablePath=$checkComfyDown;successPath=$checkSuccess};targetSystemAccessed=$false}|ConvertTo-Json -Depth 10
     if(-not$passed){throw 'OpenWebUI-Visual-Pack-Cutover-Regression fehlgeschlagen.'}
 }finally{if(Test-Path $temp){Remove-Item $temp -Recurse -Force}}

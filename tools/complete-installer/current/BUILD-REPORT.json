@@ -1,9 +1,9 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.12.0",
-  "baseVersion": "2.10.1",
-  "status": "ReconcilePreserveContract_ResearchAgent_RAGProjectScope_SourceOnlyBuild",
+  "version": "2.13.0",
+  "baseVersion": "2.12.0",
+  "status": "ComponentIsolation_VersionRegistry_ReleaseAttestation_CodexLocalIsolatedHome_OpenWebUICredentialBootstrap_ResearchAgentWebSearchValidation",
   "previousCandidateRejected": "2.4.0-rc8",
   "previousCandidateRejectReason": "StrictMode rejected normal module results whose data object did not expose the optional reboot control status property.",
   "deterministicArchive": true,
@@ -49,7 +49,7 @@
   "openWebUIAgentPack": "1.9.0",
   "validationGate": "1.0.3",
   "rag": "0.4.0",
-  "codexLocal": "0.1.4",
+  "codexLocal": "0.2.1",
   "rcBuildValidation": {
     "script": "scripts/Invoke-KIStackCompleteInstallerRCBuildValidation.ps1",
     "status": "WindowsArtifactValidated_TargetExecutionLocked",
@@ -194,5 +194,72 @@
         "fixedAndReverifiedAgainstTheSameLiveTarget": true
       }
     ]
+  },
+  "openWebUICredentialBootstrap": {
+    "status": "targetValidated",
+    "cycle": "2.13.0",
+    "change": "New DPAPI-backed local credential store (tools/complete-installer/current/Lifecycle/KIStackOpenWebUICredential.psm1) plus Initialize-/Test-/Remove-KIStackOpenWebUICredential.ps1 entry points: one-time interactive admin login mints a real, persistent OpenWebUI API key (verified against the real, installed OpenWebUI 0.11.1 source: POST /api/v1/auths/signin then POST /api/v1/auths/api_key, enabling ENABLE_API_KEYS via the official admin-config API first since it defaults to disabled), stored encrypted (never plaintext) via PowerShell's built-in ConvertFrom-SecureString/ConvertTo-SecureString (Windows DPAPI, user+machine bound). Start-KIStackCompleteInstaller.ps1 now resolves this stored credential first and only falls back to the original one-time interactive prompt when none is configured -- purely additive, no change to the existing prompt path.",
+    "validation": "Test-KIStackOpenWebUICredentialBootstrap.ps1 (isolated bootstrap, fixture-based): Store/Encrypt-Decrypt roundtrip, NotConfigured, Initial Bootstrap, Idempotent second bootstrap, Offline, Invalid (corrupted store and real server-side rejection), InsufficientPrivileges, Rotation (new key validated before the old is superseded), Revoke, three negative controls (secret-logging redaction, no-database-access scanner self-test, idempotency-regression trap) -- all PASS.",
+    "realTargetValidation": {
+      "environment": "existing real target (C:\\KI-Stack), real OpenWebUI 0.11.1 instance",
+      "bootstrap": "PASS -- real admin signin, real sk-... API key minted, status Valid, role admin",
+      "adminRead": "PASS -- GET /api/v1/users/ (1 real user, unchanged before/after)",
+      "knowledgeCreate": "PASS -- real 'KI-Stack Controlled Knowledge' collection created and read back via the real API",
+      "credentialFileContainsNoPlaintextSecret": true,
+      "foreignUsersOrKeysModified": false
+    }
+  },
+  "codexLocalIsolatedHomeAndRealE2E": {
+    "status": "targetValidated",
+    "cycle": "2.13.0",
+    "change": "Codex Local now derives its own CODEX_HOME purely from TargetRoot (state/codex-local/codex-home), never the ambient $env:CODEX_HOME or the real, shared %USERPROFILE%\\.codex -- every real invocation (generated starter, Get-KICodexVersion, Invoke-KICodexAnalysisAcceptance, the npm install calls, and the Complete Installer's own Test-KICompleteCodexLocalCompliant) sets it explicitly for that one child process only. Root cause: pre-existing state in the real, shared ~/.codex was found to be the actual cause of a reproduced wrong-model auto-download that the already-shipped explicit -m model pin alone did not reliably prevent.",
+    "validation": "Test-KIStackCodexLocalIsolation.ps1 (fast, network-free): codexHome is a pure function of TargetRoot, an -Install -DryRun plan ignores a hostile ambient CODEX_HOME, the foreign fixture is never touched, the generated starter sets the isolated home before Codex ever runs and pins the explicit contracted model, a negative control proves reverting the fix lets ambient state regain influence, and the real %USERPROFILE%\\.codex is provably untouched by the whole suite -- all PASS. Test-KIStackCodexLocalOperationalization.ps1 (real npm/network) additionally proves this for real across Install/Upgrade/Repair/Rollback with a real, hostile foreign ambient CODEX_HOME the entire run.",
+    "realTargetValidation": {
+      "environment": "existing real target (C:\\KI-Stack), version 0.1.4 -> 0.2.1",
+      "upgrade": "PASS -- Invoke-KIStackIsolatedComponentUpdate resolved Action=Upgrade for real, installation.json now records version 0.2.1 and profilePath under the isolated home",
+      "starterContainsIsolatedCodexHomeLine": true,
+      "starterContainsExplicitModelFlag": true,
+      "e2eExecCall": "PASS -- real codex exec via the isolated home returned the exact requested string, real session file recorded under the isolated home, absent from the real %USERPROFILE%\\.codex",
+      "realGlobalCodexHomeSnapshotUnchanged": true,
+      "gptOss20bDownloadTriggered": false
+    }
+  },
+  "researchAgentWebSearchValidation": {
+    "status": "targetValidated",
+    "cycle": "2.13.0",
+    "rootCause": "Level B, precisely isolated: native function-calling tool injection (search_web/fetch_url) in the real, installed OpenWebUI 0.11.1 source is gated on a non-empty metadata.session_id (utils/middleware.py's use_builtin_tools) -- a plain Bearer-token API call without one never receives the tool at all. With session_id present, tool injection and the model's own tool-calling behavior are both correct. OpenWebUI's own further automatic background-task execution/continuation of that tool call (used when session_id and a real chat_id are both present) has a separate, real, reproducible stall after the initial knowledge_search preprocessing step, independent of Redis/SearXNG availability -- an OpenWebUI-core limitation for non-browser callers, not an Agent Pack or model defect, and out of scope to patch from this repository.",
+    "change": "No Agent Pack code change was required -- ki-stack-research's own provisioned fields (capabilities.web_search, builtinTools.web_search, params.function_calling=native, real Knowledge binding) were already correct, confirmed by reading the live OpenWebUI object back directly.",
+    "validation": "Test-KIStackResearchAgentWebSearch.ps1 (new): repo-vs-live field contract, a negative control proving a missing web_search flag would be caught, OpenWebUI web-search config-mapping validation with two negative controls (disabled search, invalid engine), a real mocked-HTTP reconcile proving the fields survive Install and a second reconcile pass unchanged alongside the Knowledge binding -- all PASS.",
+    "realTargetValidation": {
+      "environment": "existing real target (C:\\KI-Stack), real OpenWebUI 0.11.1 + real SearXNG + real LM Studio",
+      "directLmStudioToolCallTest": "PASS -- a minimal direct /v1/chat/completions call with a toy tool definition returned a real, well-formed tool_calls entry on the first attempt",
+      "syntheticSessionIdNativeCall": "PASS -- the model correctly requested search_web with a sensible query once a real, non-empty session_id was supplied",
+      "manualToolRoundTrip": "PASS -- the model's search_web request was answered with real SearXNG results, the model then requested fetch_url on the real GitHub releases page, that was fetched for real, and the final answer correctly cited the real, current OpenWebUI release version with its source URL (finish_reason: stop)",
+      "openWebUIOwnAutomaticExecutionForApiCallers": "STALL -- reproducibly stops after the initial knowledge_search status update when session_id+chat_id route through OpenWebUI's own background-task pipeline; documented as a real, named OpenWebUI-core limitation, not fixed from this repository",
+      "diagnosticChatsCreatedAndCleanedUp": 2,
+      "preExistingRealChatsUnaffected": true
+    }
+  },
+  "consolidationFixes": {
+    "status": "targetValidated",
+    "cycle": "2.13.0",
+    "desktopLinkIsolation": {
+      "rootCause": "Install-KICompleteOperations/Test-KICompleteOperations called [Environment]::GetFolderPath('Desktop') completely unparameterized, so any test driving the full Invoke-KIStackCompleteInstaller orchestrator against an isolated, disposable -TargetRoot (Test-KIStackComfyUIOverlayProtection.ps1's own 'greenfield-target' fixture, matching the real, observed symptom precisely) had no way to avoid writing real .lnk files onto the operator's real Desktop.",
+      "fix": "New optional -DesktopPath override threaded through Invoke-KIStackCompleteInstaller/Install-KICompleteOperations/Test-KICompleteOperations, defaulting to the real Desktop unchanged when omitted (every real production call site).",
+      "validation": "Test-KIStackDesktopLinkIsolation.ps1 (new): isolated fixture desktops receive their own links only, the real Desktop is snapshotted byte-identical before/after (real, live check, not simulated), a negative control confirms the real fallback expression is still present in source -- all PASS. Test-KIStackComfyUIOverlayProtection.ps1 updated to pass an isolated -DesktopPath and reverified passing."
+    },
+    "startupHealthRetry": {
+      "rootCause": "The generated Test-KIStack-Health.ps1 made exactly one immediate HTTP attempt per endpoint after a flat 5s global startup grace period -- ComfyUI/OpenWebUI legitimately take longer, producing a false allReachable:false on a normal, successful startup.",
+      "fix": "Each endpoint now gets its own bounded poll/retry budget (MaxWaitSeconds, defaulting to the config's own healthTimeoutSeconds field, which was previously declared but never read) with a short retry interval and a clear per-endpoint attempts/duration diagnosis; a component that never comes up still fails, with a bounded (never indefinite) wait and a non-zero exit code, exactly as before.",
+      "validation": "Test-KIStackStartupHealthRetry.ps1 (new): structural retry-loop presence, a real slow-but-successfully-starting mock endpoint is now correctly detected as reachable (previously a false negative), and a real never-starting endpoint still fails cleanly and quickly -- all PASS."
+    },
+    "codexLocalStatusDetection": {
+      "rootCause": "Get-KIStackStatus.ps1 detected Codex Local via a global PATH lookup (Get-Command codex.exe,codex.cmd,codex), which CodexLocal.psm1's own managed-runtime contract deliberately never populates -- a genuinely installed, Healthy Codex Local 0.2.1 was still reported Gestoppt/CLI nicht gefunden.",
+      "fix": "Replaced with the real managed node.exe + codex.js paths and the isolated CODEX_HOME, matching the same fix already applied to Test-KICompleteCodexLocalCompliant.",
+      "validation": "Test-KIStackStatusCodexDetection.ps1 (new, structural). realTargetValidation: real status now correctly reports 'Läuft, CLI codex-cli 0.145.0' against the real, installed Codex Local 0.2.1."
+    },
+    "wslKeeperArchitectureReview": {
+      "outcome": "notABug -- existing architecture confirmed sound: Start-KIStack-SearXNG.ps1's keeper is already de-duplication-safe (a recorded PID is re-verified as a genuine matching wsl.exe process, via Test-KeeperIdentity, before a new keeper is ever started), Stop-KIStack-SearXNG.ps1 deliberately terminates it, and no automatic restart after reboot is intended (KI-Stack is deliberately service-free/manual-start by design). Observed instability during this session's own automated testing is attributed to this sandboxed session's own process-lifecycle handling of detached background processes, not a defect in the real script for a real interactive user. No Windows service introduced; no code change made."
+    }
   }
 }
