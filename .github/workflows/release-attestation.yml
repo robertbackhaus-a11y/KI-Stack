@@ -23,10 +23,22 @@ permissions:
   id-token: write
   attestations: write
 
-concurrency:
-  group: attest-release-${{ github.event.release.tag_name }}
-  cancel-in-progress: false
-
+# Intentionally NO workflow-level `concurrency:` block here. This workflow's `attest` job
+# below calls attest-release.yml via `uses:` (workflow_call), which runs as a nested job
+# inside THIS SAME run -- not as an independent run. attest-release.yml already declares its
+# own concurrency group (`attest-release-${{ inputs.tag }}`), which serializes the actual
+# attestation work regardless of which of its two entry points (workflow_call from here, or a
+# manual workflow_dispatch) triggered it. If this workflow ALSO declared a top-level
+# concurrency group for the same tag, the two would collide: the outer run would already hold
+# the group by the time its own nested `attest` job tried to acquire the identical group,
+# which GitHub Actions cannot satisfy (a run cannot wait on a lock only it itself can release)
+# -- this is a documented GitHub Actions deadlock, and is exactly what caused the automatic
+# v2.13.0 release attestation (run 33739173060) to fail with the `attest` job never even being
+# created, while `resolve` (which carries no concurrency claim) succeeded normally. The
+# `resolve` job above is read-only (no side effects), so redundant parallel runs of it from a
+# duplicate `release: published` delivery are harmless and need no serialization of their own;
+# the one place that matters -- actually creating attestations -- stays fully protected by
+# attest-release.yml's own concurrency group, for both the automatic and manual paths.
 jobs:
   resolve:
     name: Resolve Complete Installer assets for this release
