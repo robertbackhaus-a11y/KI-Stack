@@ -44,6 +44,12 @@ function New-KIOverlayFixturePackageRoot {
     $patched=$source.Replace($needle,'if($false){$issues+=''Administratorrechte erforderlich.''}')
     Set-Content -LiteralPath (Join-Path $PackageStageRoot 'CompleteInstaller.psm1') -Value $patched -Encoding UTF8
 
+    # Real Runtime/KIStackPathContext.psm1, copied unmodified -- CompleteInstaller.psm1 imports
+    # this by relative path from its own $PSScriptRoot (same requirement already handled
+    # correctly by Test-KIStackReplayComponent.ps1 / Test-KIStackUpdateAll.ps1).
+    New-Item -ItemType Directory -Path (Join-Path $PackageStageRoot 'Runtime') -Force|Out-Null
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Runtime/KIStackPathContext.psm1') -Destination (Join-Path $PackageStageRoot 'Runtime')
+
     New-Item -ItemType Directory -Path (Join-Path $PackageStageRoot 'Contracts') -Force|Out-Null
     $components=[ordered]@{schemaVersion='1.0';components=@(
         [ordered]@{id='comfyui';name='ComfyUI';version='1.2.4';order=30;source='Payload/ComfyUI';marker='modules/comfyui/installation.json';probe=[ordered]@{type='json';path='modules/comfyui/installation.json';fields=@('version','releaseVersion','packageVersion')};kind='component';installable=$true}
