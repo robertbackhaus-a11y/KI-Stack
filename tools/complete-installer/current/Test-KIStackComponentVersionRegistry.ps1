@@ -244,14 +244,14 @@ if($referenceChainChecks.Values-contains$false){$fail.Add('bundledReferenceCompo
 
 # --- K. Codex Local 0.1.4 -> 0.2.1 bump (Versionsbump-Workstream, extended by the CODEX_HOME-
 # Isolation-Workstream's own follow-up 0.2.0 -> 0.2.1 patch bump): explicit, literal proof that
-# this feature branch's own, not-yet-published SourceVersion (0.2.1, this repository's own
-# tools/codex-local/current/VERSION right now) is never confused with PublishedVersion (still
-# 0.1.4 -- the actual, real, latest published Complete Installer release, v2.12.0, has not
-# shipped either bump yet -- neither 0.2.0 nor 0.2.1). A real target still at InstalledVersion
-# 0.1.4 must report UpToDate against the real Published value, never an update recommendation
-# manufactured out of this branch's own unpublished source bump; a hypothetical target already
-# sitting on 0.2.1 must report NewerInstalled against that same real Published value, never a
-# downgrade suggestion. -----------------------------------------------------------------------
+# this repository's own tools/codex-local/current/VERSION source file carries the expected
+# bump. The live part below (real Published value vs. a real target's InstalledVersion) is
+# checked separately, as timeless properties of the resolver rather than against a literal
+# expected Published value -- see that block's own comment for why (a hardcoded expectation
+# like "Published is still 0.1.4" is a snapshot of a point in time, not an invariant, and goes
+# stale the instant a new Complete Installer release ships a component's already-bumped
+# source; this is exactly what happened here when v2.13.0 published with codex-local already
+# at 0.2.1, which is a legitimate external state change, not a resolver defect). -------------
 $realCodexSourceVersion=(Get-Content -LiteralPath (Join-Path $repoRoot 'tools/codex-local/current/VERSION') -Raw).Trim()
 $checks.codexLocalVersionBump_SourceVersionIsBumped=[ordered]@{
     sourceVersionIs021=($realCodexSourceVersion-eq'0.2.1')
@@ -259,35 +259,76 @@ $checks.codexLocalVersionBump_SourceVersionIsBumped=[ordered]@{
 if($checks.codexLocalVersionBump_SourceVersionIsBumped.Values-contains$false){$fail.Add("codexLocalVersionBump_SourceVersionIsBumped failed: tools/codex-local/current/VERSION is '$realCodexSourceVersion', expected '0.2.1'.")}
 
 # Real GitHub lookup (not a fixture) -- this is the one deliberate exception to this suite's
-# otherwise fixture-only posture (see header comment), needed specifically to prove the actual,
-# real Published value is genuinely still 0.1.4 and was not accidentally affected by anything
-# in this workstream. Degrades to a documented skip, never a hard failure, if genuinely offline
-# -- offline behavior itself is already covered by check C's fixture-based VersionUnavailable
-# path; this check's whole point is a real assertion about the real, current GitHub state.
+# otherwise fixture-only posture (see header comment), needed to prove Resolve-
+# KIStackComponentVersion correctly classifies a real target against whatever the actual,
+# currently latest published Complete Installer release's codex-local VERSION genuinely is --
+# without this test itself ever hardcoding that value as a literal expectation. The three
+# checks below are timeless properties of the resolver given whatever $realPublished.version
+# actually is right now, each derived FROM that real value rather than from a fixed literal:
+#   - reflexivity: InstalledVersion == real Published -> UpToDate.
+#   - update detection: a guaranteed-older InstalledVersion -> UpdateAvailable, pointing at the
+#     real Published value.
+#   - no-downgrade: a guaranteed-newer InstalledVersion -> NewerInstalled, never reporting any
+#     other available version than the real Published one.
+# None of the three ever needs updating when a new Complete Installer release ships -- unlike
+# this block's previous design, which hardcoded "Published == 0.1.4, never 0.2.1" and broke the
+# moment v2.13.0 published with codex-local already at 0.2.1 (a real, expected, external state
+# change -- verified read-only against the actual v2.12.0/v2.13.0 release tags -- not a defect
+# in this registry or its resolver). Degrades to a documented skip, never a hard failure, if
+# genuinely offline -- offline behavior itself is already covered by check C's fixture-based
+# VersionUnavailable path; this check's whole point is a real assertion about the real,
+# current GitHub state.
 $realLatestRelease=Get-KIStackLatestPublishedCompleteInstallerRelease
-if($realLatestRelease.found){
-    $realPublished=Get-KIStackPublishedComponentVersion -PackageIdentity ([pscustomobject]@{kind='file';path='tools/codex-local/current/VERSION'}) -Tag ([string]$realLatestRelease.tag)
-    $checks.codexLocalVersionBump_PublishedStillMatchesRealRelease=[ordered]@{
-        realPublishedVersionIs014=($realPublished.version-eq'0.1.4')
-        realPublishedNeverEquals021=($realPublished.version-ne'0.2.1')
-    }
-    if($checks.codexLocalVersionBump_PublishedStillMatchesRealRelease.Values-contains$false){$fail.Add("codexLocalVersionBump_PublishedStillMatchesRealRelease failed: real GitHub PublishedVersion at $($realLatestRelease.tag) is '$($realPublished.version)', expected '0.1.4' (never '0.2.1' before an actual release ships it).")}
-
-    # Resolver-level proof using the REAL published value alongside two real-shaped installed
-    # states -- not a synthetic fixture pair, so this is a direct, literal answer to "does the
-    # unpublished branch bump leak into what a real target is told is available".
-    $realTargetResolved=Resolve-KIStackComponentVersion -ComponentId 'codex-local' -InstalledVersion '0.1.4' -VersionSourceType 'own-version-file' -PublishedVersion $realPublished.version -PublishedVersionSource "Complete-Installer-Release $($realLatestRelease.tag): tools/codex-local/current/VERSION"
-    $hypotheticalNewerResolved=Resolve-KIStackComponentVersion -ComponentId 'codex-local' -InstalledVersion '0.2.1' -VersionSourceType 'own-version-file' -PublishedVersion $realPublished.version -PublishedVersionSource "Complete-Installer-Release $($realLatestRelease.tag): tools/codex-local/current/VERSION"
-    $checks.codexLocalVersionBump_PublishedVsSourceResolution=[ordered]@{
-        realTargetAt014IsUpToDate=($realTargetResolved.status-eq'UpToDate')
-        realTargetNeverShowsUpdateAvailableFromUnpublishedBranch=($realTargetResolved.status-ne'UpdateAvailable')
-        hypotheticalTargetAt021IsNewerInstalled=($hypotheticalNewerResolved.status-eq'NewerInstalled')
-        hypotheticalTargetNeverDowngraded=($hypotheticalNewerResolved.availableVersion-ne'0.2.1')
-    }
-    if($checks.codexLocalVersionBump_PublishedVsSourceResolution.Values-contains$false){$fail.Add('codexLocalVersionBump_PublishedVsSourceResolution failed: '+($checks.codexLocalVersionBump_PublishedVsSourceResolution|ConvertTo-Json -Compress))}
+if(-not $realLatestRelease.found){
+    $checks.codexLocalVersionBump_PublishedVersionInvariants=[ordered]@{skipped=$true;reason=[string]$realLatestRelease.reason}
 }else{
-    $checks.codexLocalVersionBump_PublishedStillMatchesRealRelease=[ordered]@{skipped=$true;reason=[string]$realLatestRelease.reason}
-    $checks.codexLocalVersionBump_PublishedVsSourceResolution=[ordered]@{skipped=$true;reason='Latest release lookup unavailable (offline) -- see codexLocalVersionBump_PublishedStillMatchesRealRelease.'}
+    $realPublished=Get-KIStackPublishedComponentVersion -PackageIdentity ([pscustomobject]@{kind='file';path='tools/codex-local/current/VERSION'}) -Tag ([string]$realLatestRelease.tag)
+    if(-not $realPublished.found){
+        $checks.codexLocalVersionBump_PublishedVersionInvariants=[ordered]@{skipped=$true;reason=[string]$realPublished.reason}
+    }else{
+        $publishedVersionSourceLabel="Complete-Installer-Release $($realLatestRelease.tag): tools/codex-local/current/VERSION"
+
+        # A strictly-lower and a strictly-higher SemVer neighbor, both derived from the real
+        # published value itself -- never a fixed literal -- so these invariants hold no matter
+        # what the real published value is today or after any future release.
+        #
+        # "0.0.0" is a valid SemVer core (Compare-KIStackSemVer parses it fine) and is
+        # guaranteed lower than any component version this repository has ever actually
+        # published (every one of them starts at 0.1.0 or higher -- see
+        # componentsJsonVersionMatchesRepositoryFile above).
+        $guaranteedOlder='0.0.0'
+
+        # Major+1.0.0 is guaranteed higher than any real published value under
+        # Compare-KIStackSemVer's own numeric-core comparison (it compares the Major segment
+        # first), regardless of the real value's own Minor/Patch -- never a sibling literal
+        # like "0.2.2" or "0.3.0". [version] handles the plain "X.Y.Z" shape every component
+        # VERSION file in this repository actually uses; a leading-integer regex (the same
+        # shape Compare-KIStackSemVer's own core pattern accepts) is the fallback for any
+        # value [version] itself cannot parse (e.g. a prerelease suffix) -- never an unsafe
+        # string split on '.'.
+        try {
+            $publishedMajor=([version]$realPublished.version).Major
+        } catch {
+            $majorMatch=[regex]::Match($realPublished.version,'^\d+')
+            if(-not $majorMatch.Success){ throw "Real PublishedVersion '$($realPublished.version)' hat keine erkennbare Major-Version." }
+            $publishedMajor=[int]$majorMatch.Value
+        }
+        $guaranteedNewer="$($publishedMajor + 1).0.0"
+
+        $reflexiveResolved=Resolve-KIStackComponentVersion -ComponentId 'codex-local' -InstalledVersion $realPublished.version -VersionSourceType 'own-version-file' -PublishedVersion $realPublished.version -PublishedVersionSource $publishedVersionSourceLabel
+        $olderResolved=Resolve-KIStackComponentVersion -ComponentId 'codex-local' -InstalledVersion $guaranteedOlder -VersionSourceType 'own-version-file' -PublishedVersion $realPublished.version -PublishedVersionSource $publishedVersionSourceLabel
+        $newerResolved=Resolve-KIStackComponentVersion -ComponentId 'codex-local' -InstalledVersion $guaranteedNewer -VersionSourceType 'own-version-file' -PublishedVersion $realPublished.version -PublishedVersionSource $publishedVersionSourceLabel
+
+        $checks.codexLocalVersionBump_PublishedVersionInvariants=[ordered]@{
+            reflexive_InstalledEqualsPublishedIsUpToDate=($reflexiveResolved.status-eq'UpToDate')
+            reflexive_AvailableVersionMatchesRealPublished=($reflexiveResolved.availableVersion-eq$realPublished.version)
+            older_InstalledBelowPublishedIsUpdateAvailable=($olderResolved.status-eq'UpdateAvailable')
+            older_AvailableVersionIsRealPublished=($olderResolved.availableVersion-eq$realPublished.version)
+            newer_InstalledAbovePublishedIsNewerInstalled=($newerResolved.status-eq'NewerInstalled')
+            newer_NeverReportsAnyOtherAvailableVersion=($newerResolved.availableVersion-eq$realPublished.version)
+        }
+        if($checks.codexLocalVersionBump_PublishedVersionInvariants.Values-contains$false){$fail.Add("codexLocalVersionBump_PublishedVersionInvariants failed against real GitHub PublishedVersion '$($realPublished.version)' at $($realLatestRelease.tag): "+($checks.codexLocalVersionBump_PublishedVersionInvariants|ConvertTo-Json -Compress))}
+    }
 }
 
 $passed=$fail.Count-eq0
