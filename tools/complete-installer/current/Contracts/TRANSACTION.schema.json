@@ -35,7 +35,7 @@
       "properties": {
         "schemaVersion": {"const": "1.1"},
         "transactionId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
-        "status": {"enum": ["Planned", "Running", "Completed", "Failed", "RolledBack", "RollbackFailed", "WaitingForUserAction"]},
+        "status": {"enum": ["Planned", "Running", "Completed", "CompletedWithWarnings", "Failed", "RolledBack", "RollbackFailed", "WaitingForUserAction"]},
         "steps": {"type": "array", "items": {"$ref": "#/$defs/step"}},
         "targetRoot": {"type": "string", "minLength": 1},
         "stateRoot": {"type": "string", "minLength": 1},

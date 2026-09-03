@@ -906,15 +906,39 @@ function Resolve-KICompleteFailedTransactionState {
 }
 
 function Install-KICompleteCentralStarters {
+    # Finalization-Rollback-P1: each changed entry now also records existedBefore/backupPath
+    # (never just the changed content) so Restore-KICompleteCentralStarters can distinguish an
+    # overwritten pre-existing file (restore original content) from a newly created one (must be
+    # removed again on rollback, never left behind as a "new artifact that stuck around").
     param([string]$PackageRoot,[string]$TargetRoot,[string]$BackupRoot)
     $source=Join-Path $PackageRoot 'Lifecycle';$changed=@()
     foreach($name in @('Start-KIStack.cmd','Stop-KIStack.cmd','Stop-KIStack-Managed.ps1','Validate-KIStack.cmd','Get-KIStackStatus.ps1','Show-KIStackStatus.ps1','Status-KIStack-Interactive.cmd','Repair-KIStack.cmd','Update-KIStack-OpenWebUI.cmd','Update-KIStack-OpenWebUI.ps1','Update-KIStack-All.cmd','Update-KIStack-All.ps1')){
         $src=Join-Path $source $name;$dst=Join-Path $TargetRoot $name
-        if((Test-Path $dst) -and ((Get-FileHash $src).Hash -eq (Get-FileHash $dst).Hash)){continue}
-        if(Test-Path $dst){New-Item -ItemType Directory $BackupRoot -Force|Out-Null;Copy-Item $dst (Join-Path $BackupRoot $name) -Force}
-        Copy-Item $src $dst -Force;$changed+=$name
+        $existedBefore=Test-Path -LiteralPath $dst
+        if($existedBefore -and ((Get-FileHash $src).Hash -eq (Get-FileHash $dst).Hash)){continue}
+        $backupPath=$null
+        if($existedBefore){New-Item -ItemType Directory $BackupRoot -Force|Out-Null;$backupPath=Join-Path $BackupRoot $name;Copy-Item $dst $backupPath -Force}
+        Copy-Item $src $dst -Force
+        $changed+=@([pscustomobject]@{name=$name;existedBefore=$existedBefore;backupPath=$backupPath})
     }
     $changed
+}
+
+function Restore-KICompleteCentralStarters {
+    # Finalization-Rollback-P1 compensation: reverses exactly what Install-KICompleteCentralStarters
+    # actually changed -- restores overwritten content from its per-file backup, and removes any
+    # file that did not exist before this run, rather than leaving a newly-created starter behind.
+    param([string]$TargetRoot,[object[]]$Changes)
+    foreach($change in @($Changes)){
+        $dst=Join-Path $TargetRoot ([string]$change.name)
+        if([bool]$change.existedBefore){
+            Copy-Item -LiteralPath ([string]$change.backupPath) -Destination $dst -Force
+        }
+        elseif(Test-Path -LiteralPath $dst){
+            Remove-Item -LiteralPath $dst -Force
+        }
+    }
+    [pscustomobject]@{status='CentralStartersRestored';restored=$true;count=@($Changes).Count}
 }
 
 function Remove-KICompleteLMStudioCompetingAutostart {
@@ -1048,9 +1072,16 @@ function Test-KICompleteOperations {
 }
 
 function Install-KICompleteOrchestrator {
+    # Finalization-Rollback-P1: reports existedBefore/backupPath explicitly (not just "a backup
+    # was made when one happened to be needed") so Restore-KICompleteOrchestrator can tell a
+    # first-ever install (nothing existed before -> rollback must remove the whole directory
+    # again) apart from an upgrade of an existing installation (rollback must restore the exact
+    # prior content), instead of leaving a newly-created directory behind on either path.
     param([string]$PackageRoot,[string]$TargetRoot,[string]$BackupRoot)
     $destination=Join-Path $TargetRoot 'installer/complete'
-    if(Test-Path $destination){$backup=Join-Path $BackupRoot 'installer/complete';New-Item (Split-Path $backup -Parent) -ItemType Directory -Force|Out-Null;Copy-Item $destination $backup -Recurse -Force}
+    $existedBefore=Test-Path -LiteralPath $destination
+    $orchestratorBackupPath=$null
+    if($existedBefore){$orchestratorBackupPath=Join-Path $BackupRoot 'installer/complete';New-Item (Split-Path $orchestratorBackupPath -Parent) -ItemType Directory -Force|Out-Null;Copy-Item $destination $orchestratorBackupPath -Recurse -Force}
     New-Item $destination -ItemType Directory -Force|Out-Null
     # Copy-Item -Force below only adds/overwrites; it never removes a destination
     # file whose name no longer exists in the source. Without this pass, a stale
@@ -1072,7 +1103,23 @@ function Install-KICompleteOrchestrator {
         }
     }
     Copy-Item (Join-Path $PackageRoot '*') $destination -Recurse -Force
-    @('installer/complete')
+    [pscustomobject]@{changed=@('installer/complete');existedBefore=$existedBefore;backupPath=$orchestratorBackupPath}
+}
+
+function Restore-KICompleteOrchestrator {
+    # Finalization-Rollback-P1 compensation: restores the exact prior 'installer/complete'
+    # directory when one existed, or removes the newly-created one entirely when it did not --
+    # never a blind copy-back that would leave a first-ever install's directory in place.
+    param([string]$TargetRoot,[bool]$ExistedBefore,[string]$BackupPath)
+    $destination=Join-Path $TargetRoot 'installer/complete'
+    if($ExistedBefore){
+        if(Test-Path -LiteralPath $destination){Remove-Item -LiteralPath $destination -Recurse -Force}
+        Copy-Item -LiteralPath $BackupPath -Destination $destination -Recurse -Force
+    }
+    elseif(Test-Path -LiteralPath $destination){
+        Remove-Item -LiteralPath $destination -Recurse -Force
+    }
+    [pscustomobject]@{status='OrchestratorRestored';restored=$true}
 }
 
 function Install-KICompleteRAGModule {
@@ -1202,8 +1249,16 @@ function Invoke-KIStackCompleteInstaller {
         $tx=$created.transaction; $txPath=$created.path; $resumePath=$created.resumePath; $TransactionId=$tx.transactionId
     }
     $tx.status='Running'; Write-KICompleteJson $txPath $tx
+    # Finalization-Rollback-P1: WriteFinalState is the actual commit boundary. Everything before
+    # it (Orchestrator/CentralStarters/Operations/Knowledge-Detach/CodeInterpreter) is required to
+    # be fully reversible and is compensated, in reverse order, via $preCommitCompensations if any
+    # LATER step fails -- never just the one step whose own name happens to match
+    # $finalizationPhase, unlike the prior, narrower defect. $committed only ever flips to $true
+    # once WriteFinalState's own writes have both succeeded; nothing after that point may ever
+    # trigger pre-commit compensation again, no matter what it does or how it fails.
     $finalizationPhase = $null
-    $operationsStarted = $false
+    $preCommitCompensations = [Collections.Generic.List[object]]::new()
+    $committed = $false
     try {
         $cutoverExecuted = $false
         $index=0
@@ -1508,24 +1563,81 @@ function Invoke-KIStackCompleteInstaller {
         }
         $backup=[string]$pathContext.TransactionBackupRoot
         $finalizationPhase = 'InstallOrchestrator'
-        $orchestratorChanges=Install-KICompleteOrchestrator $PackageRoot $TargetRoot $backup
+        $orchestratorResult=Install-KICompleteOrchestrator $PackageRoot $TargetRoot $backup
+        $preCommitCompensations.Add([pscustomobject]@{name='Orchestrator';action={Restore-KICompleteOrchestrator -TargetRoot $TargetRoot -ExistedBefore ([bool]$orchestratorResult.existedBefore) -BackupPath ([string]$orchestratorResult.backupPath)}})
         $finalizationPhase = 'InstallCentralStarters'
         $starterChanges=Install-KICompleteCentralStarters $PackageRoot $TargetRoot $backup
+        $preCommitCompensations.Add([pscustomobject]@{name='CentralStarters';action={Restore-KICompleteCentralStarters -TargetRoot $TargetRoot -Changes $starterChanges}})
         $finalizationPhase = 'InstallOperations'
-        $operationsStarted = $true
         $operations=Install-KICompleteOperations $TargetRoot (Join-Path $backup 'operations') -DesktopPath $DesktopPath -PathContext $pathContext
-        $finalizationPhase = 'RemoveKnowledgeExperiment'
+        $preCommitCompensations.Add([pscustomobject]@{name='Operations';action={Restore-KICompleteOperations -TargetRoot $TargetRoot -BackupPath (Join-Path $backup 'operations/operations.backup.json') -PathContext $pathContext}})
+        # Finalization-Rollback-P1: knowledge removal is split into a fully reversible PRE-COMMIT
+        # "Detach" (unbind meta.knowledge from the managed profiles only -- Remove-KIStackKnowledgeExperiment.ps1,
+        # despite its name, no longer deletes anything) and a POST-COMMIT, best-effort "Cleanup"
+        # (actual Knowledge-collection/file deletion, run only after WriteFinalState succeeds, see
+        # below). Deleting real OpenWebUI content before the installation is committed is exactly
+        # the destructive-before-commit defect this P1 closes; a real Knowledge-Restore compensation
+        # is only possible, and only needed, for the Detach half.
+        $finalizationPhase = 'DetachKnowledgeExperiment'
         $knowledgeRollback=if($null-ne$OpenWebUIApiToken){& (Join-Path $PackageRoot 'Operations/Remove-KIStackKnowledgeExperiment.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BackupDirectory (Join-Path $backup 'knowledge-rollback')}else{[pscustomobject]@{status='CredentialRequiredForApiReadback';apiKeyStored=$false}}
+        if([string]$knowledgeRollback.status -eq 'Detached'){
+            $preCommitCompensations.Add([pscustomobject]@{name='KnowledgeDetach';action={& (Join-Path $PackageRoot 'Operations/Restore-KIStackKnowledgeExperiment.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BackupPath ([string]$knowledgeRollback.backupPath) | Out-Null; [pscustomobject]@{status='KnowledgeProfilesRestored';restored=$true}}})
+        }
         $finalizationPhase = 'SetCodeInterpreter'
+        # SetCodeInterpreter already compensates a failure within its OWN execution (see
+        # Operations/Set-KIStackCodeInterpreter.ps1's own try/catch -> Restore-KIStackCodeInterpreter.ps1).
+        # A compensation is registered here ONLY when it returned success -- i.e. only for a LATER
+        # step's failure -- so a self-rollback never doubles up with this outer one.
         $codeInterpreter=if($null-ne$OpenWebUIApiToken){& (Join-Path $PackageRoot 'Operations/Set-KIStackCodeInterpreter.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BackupDirectory (Join-Path $backup 'code-interpreter')}else{[pscustomobject]@{status='CredentialRequiredForApiConfiguration';apiKeyStored=$false}}
+        if([string]$codeInterpreter.status -eq 'Configured'){
+            $preCommitCompensations.Add([pscustomobject]@{name='CodeInterpreter';action={& (Join-Path $PackageRoot 'Operations/Restore-KIStackCodeInterpreter.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -BackupPath ([string]$codeInterpreter.backupPath) | Out-Null; [pscustomobject]@{status='CodeInterpreterRestored';restored=$true}}})
+        }
         $finalizationPhase = 'WriteFinalState'
-        $tx|Add-Member -NotePropertyName finalization -NotePropertyValue ([ordered]@{orchestratorFiles=$orchestratorChanges;centralStarters=$starterChanges;operations=$operations;knowledgeRollback=$knowledgeRollback;codeInterpreter=$codeInterpreter}) -Force
+        $tx|Add-Member -NotePropertyName finalization -NotePropertyValue ([ordered]@{orchestratorFiles=$orchestratorResult;centralStarters=$starterChanges;operations=$operations;knowledgeRollback=$knowledgeRollback;codeInterpreter=$codeInterpreter}) -Force
         $tx = Clear-KICompleteStaleTransactionError -Transaction $tx
         if (@($tx.steps|Where-Object{$_.status -eq 'WaitingForUserAction'}).Count) {$tx.status='WaitingForUserAction'} else {$tx.status='Completed'}
         $componentStatePath=Get-KICompleteComponentStatePath -PathContext $pathContext;$componentVersions=[ordered]@{}
         foreach($completed in @($tx.steps|Where-Object{$_.status-in@('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')})){$componentVersions[[string]$completed.id]=[string]$completed.version}
-        Write-KICompleteJson $componentStatePath ([ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.13.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}})
-        Write-KICompleteJson $txPath $tx; return $tx
+        # Kept as a variable (Finalization-Rollback-P1 persistence fix), not written inline, so a
+        # later status change from the Knowledge cleanup below (Completed -> CompletedWithWarnings)
+        # can re-sync this exact same object into components.json too -- otherwise this file would
+        # permanently keep reporting "ValidatedExistingInstallation" while transaction.json already
+        # correctly shows CompletedWithWarnings, two persisted state files disagreeing forever.
+        $componentState=[ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.13.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}}
+        Write-KICompleteJson $componentStatePath $componentState
+        Write-KICompleteJson $txPath $tx
+        # Commit boundary: both required Final-State writes above succeeded. From this point on,
+        # nothing may ever compensate a pre-commit step again -- see the catch block's
+        # "-not $committed" guard -- regardless of what happens next (including the best-effort
+        # Knowledge cleanup immediately below).
+        $committed = $true
+        if([string]$knowledgeRollback.status -eq 'Detached'){
+            # POST-COMMIT, best-effort cleanup of the Knowledge collections/files Detach identified
+            # as no longer referenced by any managed profile. Runs only after a successful commit;
+            # its own outcome, good or bad, can never roll back the already-committed installation
+            # (stale/orphaned OpenWebUI data is the accepted trade-off -- see Cleanup script header).
+            # The nested try/catch is defense-in-depth only: the Cleanup script itself is designed
+            # to never throw, but $committed already being $true means even an unexpected exception
+            # here could not trigger pre-commit compensation regardless.
+            $cleanup=$null
+            try {
+                $cleanup = & (Join-Path $PackageRoot 'Operations/Remove-KIStackKnowledgeExperimentCollections.ps1') -Endpoint ([string]$config.openWebUIEndpoint) -ApiToken $OpenWebUIApiToken -Collections @($knowledgeRollback.collectionsPendingCleanup)
+            }
+            catch {
+                $cleanup = [pscustomobject]@{status='CompletedWithWarnings';collectionsRemoved=0;filesRemoved=0;remainingCollections=@($knowledgeRollback.collectionsPendingCleanup);failures=@($_.Exception.Message)}
+            }
+            $tx | Add-Member -NotePropertyName knowledgeCleanup -NotePropertyValue $cleanup -Force
+            if([string]$cleanup.status -eq 'CompletedWithWarnings' -and [string]$tx.status -eq 'Completed'){
+                $tx.status='CompletedWithWarnings'
+                # Re-sync components.json's own status field to match -- it was written above
+                # (before Cleanup ran) with the then-current 'Completed'/'ValidatedExistingInstallation'
+                # value and must not be left stale now that the real outcome is CompletedWithWarnings.
+                $componentState.status=$tx.status
+                Write-KICompleteJson $componentStatePath $componentState
+            }
+            Write-KICompleteJson $txPath $tx
+        }
+        return $tx
     }
     catch {
         $failure = $_
@@ -1548,17 +1660,35 @@ function Invoke-KIStackCompleteInstaller {
             $failureHeartbeat=if($null-ne$currentStepHeartbeat){$currentStepHeartbeat}else{New-KICompleteStepHeartbeat -StepLabel $runningStep[0].name}
             Write-KICompleteStepStatus -Heartbeat $failureHeartbeat -Status Failed -Message $failure.Exception.Message
         }
-        if ($operationsStarted -and $finalizationPhase -eq 'InstallOperations') {
-            try {
-                $operationsRollback = Restore-KICompleteOperations -TargetRoot $TargetRoot -BackupPath (Join-Path $backup 'operations/operations.backup.json') -PathContext $pathContext
-                $tx | Add-Member -NotePropertyName finalizationRollback -NotePropertyValue $operationsRollback -Force
+        if (-not $committed -and $preCommitCompensations.Count -gt 0) {
+            # Reverse-order compensation stack (Finalization-Rollback-P1): only ever runs before
+            # the commit boundary above, only for steps that actually registered themselves as
+            # successfully completed, each isolated in its own try/catch so one failed restore
+            # can never prevent the remaining ones from still being attempted.
+            $rollbackSteps=[Collections.Generic.List[object]]::new()
+            for ($i = $preCommitCompensations.Count - 1; $i -ge 0; $i--) {
+                $entry = $preCommitCompensations[$i]
+                try {
+                    $entryResult = & $entry.action
+                    $rollbackSteps.Add([ordered]@{name=$entry.name;status='Completed';result=$entryResult})
+                }
+                catch {
+                    $rollbackSteps.Add([ordered]@{name=$entry.name;status='Failed';error=$_.Exception.Message})
+                }
             }
-            catch {
-                $tx | Add-Member -NotePropertyName finalizationRollback -NotePropertyValue ([ordered]@{status='Failed';error=$_.Exception.Message}) -Force
-            }
-        }
-        elseif ($failure.Exception.Data.Contains('KIStackRollbackStatus')) {
             $tx | Add-Member -NotePropertyName finalizationRollback -NotePropertyValue ([ordered]@{
+                status=$(if (@($rollbackSteps | Where-Object { $_.status -eq 'Failed' }).Count -eq 0) { 'Completed' } else { 'PartiallyFailed' })
+                steps=@($rollbackSteps)
+            }) -Force
+        }
+        if ($failure.Exception.Data.Contains('KIStackRollbackStatus')) {
+            # Independent of the reverse compensation stack above: a step (e.g. SetCodeInterpreter,
+            # or an earlier per-component step) can already have compensated ITS OWN failure
+            # internally before re-throwing. Both can genuinely apply to the same failure (e.g.
+            # SetCodeInterpreter self-rolls-back while Orchestrator/CentralStarters/Operations/
+            # KnowledgeDetach still need the outer reverse stack above), so this is recorded
+            # separately rather than overwriting finalizationRollback.
+            $tx | Add-Member -NotePropertyName stepSelfRollback -NotePropertyValue ([ordered]@{
                 status=[string]$failure.Exception.Data['KIStackRollbackStatus']
                 backupPath=[string]$failure.Exception.Data['KIStackBackupPath']
             }) -Force
