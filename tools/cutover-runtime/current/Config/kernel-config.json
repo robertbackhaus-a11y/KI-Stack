@@ -81,9 +81,9 @@
   "comfyUI": {
     "root": "C:\\KI-Stack\\ComfyUI",
     "repository": "https://github.com/Comfy-Org/ComfyUI.git",
-    "ref": "v0.28.0",
+    "ref": "v0.34.0",
     "refType": "tag",
-    "minimumSupportedVersion": "v0.28.0",
+    "minimumSupportedVersion": "v0.34.0",
     "maximumSupportedVersion": null,
     "cloneDepth": 1,
     "updateExistingRepository": false,
@@ -160,8 +160,8 @@
     "openWebUI": {
       "enabled": true,
       "packageName": "open-webui",
-      "version": "0.11.1",
-      "minimumSupportedVersion": "0.11.0",
+      "version": "0.11.3",
+      "minimumSupportedVersion": "0.11.3",
       "maximumSupportedVersion": null,
       "venv": "C:\\KI-Stack\\python\\venvs\\openwebui",
       "dataRoot": "C:\\KI-Stack\\OpenWebUI\\data",

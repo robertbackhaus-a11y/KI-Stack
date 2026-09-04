@@ -363,7 +363,7 @@ try {
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.4'},
         @{name='Integration';root='tools/integration/current';version='1.5.11'},
         @{name='Cutover Runtime';root='tools/cutover-runtime/current';version='1.6.14'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.13.0'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.14.0'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root
@@ -443,6 +443,18 @@ try {
         Add-Result 'Component version registry contract' ([bool]$componentVersionRegistryReport.passed) $(if($componentVersionRegistryReport.passed){'SemVer comparison, resolver status coverage, published-version resolution and drift detection all verified'}else{($componentVersionRegistryReport.failures) -join '; '})
     }
     catch { Add-Result 'Component version registry contract' $false $_.Exception.Message }
+
+    try {
+        $openTerminalReport = (& (Join-Path $RootPath 'tools/open-terminal/current/Test-KIStackOpenTerminal.ps1') -PackageRoot (Join-Path $RootPath 'tools/open-terminal/current') | ConvertFrom-Json)
+        Add-Result 'Open Terminal component contract' ([bool]$openTerminalReport.passed) $(if($openTerminalReport.passed){'credential persistence, process identity, start/stop, healthcheck and status all verified'}else{($openTerminalReport.failures) -join '; '})
+    }
+    catch { Add-Result 'Open Terminal component contract' $false $_.Exception.Message }
+
+    try {
+        $openTerminalWiringReport = (& (Join-Path $RootPath 'tools/complete-installer/current/Test-KIStackOpenTerminalLifecycleWiring.ps1') -PackageRoot (Join-Path $RootPath 'tools/complete-installer/current') | ConvertFrom-Json)
+        Add-Result 'Open Terminal lifecycle wiring contract' ([bool]$openTerminalWiringReport.passed) $(if($openTerminalWiringReport.passed){'not-installed skip, installed invoke, and failure-never-throws all verified'}else{($openTerminalWiringReport.failures) -join '; '})
+    }
+    catch { Add-Result 'Open Terminal lifecycle wiring contract' $false $_.Exception.Message }
 
     $invalidResults = @(
         $Results | Where-Object {

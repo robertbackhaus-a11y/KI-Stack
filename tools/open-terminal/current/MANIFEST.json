@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "KI-STACK-OPEN-TERMINAL",
+  "name": "KI-Stack Open Terminal",
+  "version": "0.1.0",
+  "status": "Development_SourceValidationPending",
+  "containsSecrets": false,
+  "runtimeGitDependency": false,
+  "uvManaged": false,
+  "uvRuntimeDependency": "uvx (external prerequisite, not bundled by this package)"
+}

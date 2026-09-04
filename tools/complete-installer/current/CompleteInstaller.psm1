@@ -56,6 +56,134 @@ function Write-KICompleteStepHeartbeatIfDue {
     Write-Host ("[{0}] {1} - {2}, Laufzeit {3}" -f (Get-Date).ToString('HH:mm:ss'),$Status,$Message,$runtime)
 }
 
+function Split-KICompleteBufferedLines {
+    # Pure function: given leftover text buffered from a previous read and a newly-read chunk,
+    # returns the complete lines found so far plus the new leftover (a still-incomplete final
+    # line, or '' if the chunk ended exactly on a line break). Never returns a torn/partial
+    # line -- the actual "keine Race Conditions" mechanism Watch-KICompleteElevatedProcess
+    # relies on when tailing a file a separate, still-writing process may append to mid-read.
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Buffer,[Parameter(Mandatory)][AllowEmptyString()][string]$Chunk)
+    $combined = $Buffer + $Chunk
+    if ([string]::IsNullOrEmpty($combined)) { return [pscustomobject]@{ lines = @(); remainder = '' } }
+    $parts = @($combined -split "`r`n|`n")
+    if ($parts.Length -le 1) { return [pscustomobject]@{ lines = @(); remainder = $combined } }
+    [pscustomobject]@{ lines = @($parts[0..($parts.Length - 2)]); remainder = $parts[-1] }
+}
+
+function Test-KICompleteTranscriptNoiseLine {
+    # Deny-list, never an allow-list: only lines that are POSITIVELY IDENTIFIED as one of a
+    # small, well-known set of non-user-relevant transcript artifacts are suppressed from the
+    # live view Watch-KICompleteElevatedProcess relays; every other line -- including any real
+    # message this function's author never anticipated -- passes through unchanged. This is the
+    # deliberate, real safety property behind "keine Fehler verschlucken": an allow-list keyed
+    # to today's known status strings would silently swallow tomorrow's new warning; a deny-list
+    # keyed to today's known NOISE can only ever fail open (show something extra), never fail
+    # closed (hide something real).
+    #
+    # Two, and only two, kinds of noise are suppressed:
+    #   1. PowerShell's own Start-Transcript header/footer block (banner rules, "PowerShell
+    #      transcript start/end", and the fixed set of metadata fields it always prints --
+    #      Start/End time, Username, RunAs User, Configuration Name, Machine, Host Application,
+    #      Process ID, PSVersion, PSEdition, GitCommitId, OS, Platform, PSCompatibleVersions,
+    #      PSRemotingProtocolVersion, SerializationVersion, WSManStackVersion). Real, observed
+    #      shape (PowerShell 7.6.5) -- never the user's own installer output.
+    #   2. "PS>TerminatingError(...)" -- PowerShell's transcript records a terminating error at
+    #      the exact point it first occurs, even when a try/catch further up the call stack goes
+    #      on to handle it cleanly (e.g. every already-caught readiness/retry probe this
+    #      installer's own OpenWebUI/ComfyUI wait loops perform). This is genuinely just noise
+    #      from an ALREADY-HANDLED error path -- a real, unhandled failure is never conveyed only
+    #      through this raw transcript artifact: it is always ALSO surfaced via the explicit
+    #      Write-KICompleteStepStatus -Status Failed heartbeat line (never filtered, see below),
+    #      the real non-zero exit code, and the untouched .stderr.txt file -- so suppressing this
+    #      one redundant, low-level artifact can never make a genuine failure invisible.
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Line)
+    $trimmed = $Line.Trim()
+    if ($trimmed -match '^\*{10,}$') { return $true }
+    if ($trimmed -match '^PowerShell transcript (start|end)$') { return $true }
+    if ($trimmed -match '^(Start|End) time:') { return $true }
+    if ($trimmed -match '^(Username|RunAs User|Configuration Name|Machine|Host Application|Process ID|PSVersion|PSEdition|GitCommitId|OS|Platform|PSCompatibleVersions|PSRemotingProtocolVersion|SerializationVersion|WSManStackVersion):') { return $true }
+    if ($trimmed -match '^PS>TerminatingError\(') { return $true }
+    return $false
+}
+
+function Watch-KICompleteElevatedProcess {
+    # Live-relays an elevated (or any) child process's own transcript (Start-Transcript, in
+    # Start-KIStackCompleteInstaller.ps1 -- one of this installer's existing logging artifacts,
+    # never a new one) into the CALLER's own console while $Process runs.
+    #
+    # Why this exists: UAC elevation (Verb=RunAs, used by Start-KICompleteElevated in
+    # Start-KIStackCompleteInstaller.ps1) is implemented via ShellExecuteEx, which does not
+    # support inherited or redirected standard handles for the "runas" verb at all -- a hard
+    # Win32 constraint, not a PowerShell limitation or a missing -RedirectStandardOutput flag.
+    # Start-Process -Verb RunAs therefore can never stream the elevated child's real console
+    # output back into the caller directly; without a workaround, the window the user actually
+    # launched and is watching shows nothing at all until the entire elevated run finishes (the
+    # real, reported bug -- the elevated child's own heartbeat Write-Host calls were always
+    # working, just invisible to whichever window the user was actually looking at).
+    #
+    # The elevated child's Start-Transcript call already captures every one of those Write-Host
+    # calls, live, as they happen -- so tailing that exact, already-existing file (never writing
+    # to it, FileShare.ReadWrite so the real writer is never blocked or affected) reconstructs
+    # the same live view without touching New-KICompleteStepHeartbeat / Write-KICompleteStepStatus
+    # / Write-KICompleteStepHeartbeatIfDue at all. A FileSystemWatcher-driven wait (real change
+    # notifications, not a hand-rolled sleep loop) with a short timeout purely to re-check
+    # whether the process has exited is the closest available primitive to a real stream, given
+    # the RunAs constraint above -- and Split-KICompleteBufferedLines above ensures a line is
+    # only ever emitted once it is genuinely complete, never a torn partial read.
+    #
+    # Degrades to a plain blocking wait (the exact prior behavior) if the transcript never
+    # appears at all -- e.g. the UAC prompt was cancelled before Start-Transcript ever ran --
+    # so a failure of this live-view mechanism itself can never prevent the caller from waiting
+    # on the real process and picking up its real exit code.
+    param(
+        [Parameter(Mandatory)][Diagnostics.Process]$Process,
+        [Parameter(Mandatory)][string]$TranscriptPath,
+        [int]$AppearanceTimeoutSeconds = 30,
+        [scriptblock]$EmitLine = { param($line) Write-Host $line }
+    )
+    # A stale transcript from a PRIOR run must never be echoed again as if it were new (the
+    # "keine Duplikate" requirement) -- Start-Transcript -Force in the elevated child would
+    # overwrite it anyway, but removing it here first means tailing never risks racing that
+    # overwrite or reading old content in the window before the child gets there.
+    if (Test-Path -LiteralPath $TranscriptPath -PathType Leaf) { Remove-Item -LiteralPath $TranscriptPath -Force -ErrorAction SilentlyContinue }
+    $deadline = (Get-Date).AddSeconds($AppearanceTimeoutSeconds)
+    while (-not (Test-Path -LiteralPath $TranscriptPath -PathType Leaf) -and -not $Process.HasExited -and (Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 200
+    }
+    if (-not (Test-Path -LiteralPath $TranscriptPath -PathType Leaf)) {
+        $Process.WaitForExit()
+        return
+    }
+    $directory = Split-Path -Parent $TranscriptPath
+    $filter = Split-Path -Leaf $TranscriptPath
+    $watcher = [IO.FileSystemWatcher]::new($directory, $filter)
+    $watcher.NotifyFilter = [IO.NotifyFilters]::LastWrite -bor [IO.NotifyFilters]::Size
+    $stream = [IO.File]::Open($TranscriptPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+    $reader = [IO.StreamReader]::new($stream, [Text.Encoding]::UTF8)
+    $buffer = ''
+    try {
+        while (-not $Process.HasExited) {
+            [void]$watcher.WaitForChanged([IO.WatcherChangeTypes]::Changed, 500)
+            $split = Split-KICompleteBufferedLines -Buffer $buffer -Chunk $reader.ReadToEnd()
+            $buffer = $split.remainder
+            # Filtering happens here, once, for every caller (including a caller-supplied
+            # -EmitLine) -- never something each caller must remember to apply itself. Only ever
+            # affects what THIS live view relays; the transcript FILE being tailed already has
+            # every one of these lines written to it in full by Start-Transcript, completely
+            # unaffected by this filter (requirement: the real transcript file itself stays
+            # whole).
+            foreach ($line in $split.lines) { if (-not (Test-KICompleteTranscriptNoiseLine $line)) { & $EmitLine $line } }
+        }
+        # The process has exited -- no further writes are coming, so drain whatever is left
+        # (including a final line that never got its own trailing newline) as complete.
+        $split = Split-KICompleteBufferedLines -Buffer $buffer -Chunk $reader.ReadToEnd()
+        foreach ($line in $split.lines) { if (-not (Test-KICompleteTranscriptNoiseLine $line)) { & $EmitLine $line } }
+        if (-not [string]::IsNullOrEmpty($split.remainder) -and -not (Test-KICompleteTranscriptNoiseLine $split.remainder)) { & $EmitLine $split.remainder }
+    } finally {
+        $reader.Dispose(); $stream.Dispose(); $watcher.Dispose()
+    }
+}
+
 function Clear-KICompleteStaleTransactionError {
     # A failed attempt sets a transaction-wide .error property (see the
     # catch block below). On -Resume that property is loaded back from the
@@ -349,6 +477,30 @@ function Test-KICompleteCodexLocalCompliant {
     }catch{return $false}
 }
 
+function Test-KICompleteOpenTerminalCompliant {
+    # Mirrors Test-KICompleteCodexLocalCompliant's own shape for another self-contained
+    # ("isolation A") component: re-verified directly against the real, on-disk artifacts this
+    # package's own Install-KIOpenTerminal (tools/open-terminal/current/OpenTerminal.psm1)
+    # actually writes -- never by importing that module cross-package (this orchestrator runs
+    # from its own isolated Payload extraction, never alongside tools/open-terminal/current
+    # itself). Deliberately does NOT require the managed uv prerequisite or a running process --
+    # both are separate runtime concerns (see OpenTerminal.psm1's own Test-KIOpenTerminal /
+    # Get-KIOpenTerminalStatus split), never part of "is this package itself correctly deployed".
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.1.0')
+    $root=Join-Path $TargetRoot 'modules/open-terminal'
+    $markerPath=Join-Path $root 'installation.json'
+    $starter=Join-Path $root 'Start-KIStack-OpenTerminal.cmd'
+    $stopper=Join-Path $root 'Stop-KIStack-OpenTerminal.cmd'
+    $credentialFile=Join-Path $TargetRoot 'state/open-terminal/credential.json'
+    $workspace=Join-Path $TargetRoot 'state/open-terminal/workspace'
+    foreach($path in @($markerPath,$starter,$stopper,$credentialFile)){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){return $false}}
+    if(-not(Test-Path -LiteralPath $workspace -PathType Container)){return $false}
+    try{
+        $marker=Read-KICompleteJson $markerPath
+        return ([string]$marker.version-eq$ExpectedComponentVersion)
+    }catch{return $false}
+}
+
 function Test-KICompleteIntegrationCompliant {
     param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='1.5.11')
     $root=Join-Path $TargetRoot 'modules/integration'
@@ -467,6 +619,7 @@ function New-KICompletePlan {
         if([string]$component.id-eq'models-workflows'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteModelsWorkflowsCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         if([string]$component.id-eq'openwebui-visual-pack'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteVisualPackCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         if([string]$component.id-eq'codex-local'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
+        if([string]$component.id-eq'open-terminal'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'integration'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'comfyui'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         $reconciliationNeeded=$compliant-and$stored-ne[string]$component.version
@@ -879,6 +1032,7 @@ function Resolve-KICompleteFailedTransactionState {
             $actual=Get-KICompleteInstalledVersion -Component $component[0] -TargetRoot $TargetRoot
             $actualCompliant=$actual-eq[string]$step.version
             if([string]$step.id-eq'codex-local'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+            if([string]$step.id-eq'open-terminal'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
             if([string]$step.id-eq'integration'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
             if([string]$step.id-eq'comfyui'-and$null-eq$FixtureState){$actualCompliant=$actualCompliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
             if(-not$actualCompliant){throw "Fehlgeschlagene Transaktion ist nicht recoverbar: $($step.id); erwartet=$($step.version); real=$actual"}
@@ -921,7 +1075,15 @@ function Install-KICompleteCentralStarters {
         Copy-Item $src $dst -Force
         $changed+=@([pscustomobject]@{name=$name;existedBefore=$existedBefore;backupPath=$backupPath})
     }
-    $changed
+    # Real, reproduced schema-stability bug (centralStarters in the final transaction JSON):
+    # PowerShell's own output-stream enumeration unwraps a bare array return into its single
+    # element when exactly one starter changed (and into $null when zero changed), regardless of
+    # $changed's own, correctly-typed array contents -- observed live once Get-KIStackStatus.ps1
+    # became the only central starter needing reconciliation on an otherwise up-to-date real
+    # target. The unary comma forces this function to always hand back the real array itself
+    # (0, 1, or N elements) to its caller, never a collapsed scalar or $null -- the array's own
+    # element count is completely unaffected by this, only the collapse is prevented.
+    return ,$changed
 }
 
 function Restore-KICompleteCentralStarters {
@@ -1192,13 +1354,35 @@ function Invoke-KICompleteHealth {
     [pscustomobject]@{passed=(@($results|Where-Object{-not $_.passed}).Count -eq 0);results=@($results)}
 }
 
+function Invoke-KICompleteOpenTerminalLifecycle {
+    # Additive, best-effort Open-Terminal-Start/Stop chained onto the core Start-KIStack.cmd/
+    # Stop-KIStack.cmd contract -- Open Terminal is an independently, separately installable
+    # component (see tools/open-terminal/current), so a target that never installed it (or any
+    # older target from before this integration existed) must behave exactly as before: this
+    # function only ever runs Open Terminal's OWN starter/stopper .cmd (the same files
+    # Install-KIOpenTerminal already writes under modules/open-terminal, invoked exactly like a
+    # real user double-clicking them) when they actually exist, and never throws -- a broken or
+    # not-yet-installed Open Terminal must never break the rest of the stack's Start/Stop.
+    param([ValidateSet('Start','Stop')][string]$Action,[string]$TargetRoot='C:\KI-Stack')
+    $scriptName = if ($Action -eq 'Start') { 'Start-KIStack-OpenTerminal.cmd' } else { 'Stop-KIStack-OpenTerminal.cmd' }
+    $script = Join-Path $TargetRoot ("modules/open-terminal/{0}" -f $scriptName)
+    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { return [pscustomobject]@{action=$Action;attempted=$false;passed=$true;reason='Open Terminal ist auf diesem Ziel nicht installiert.'} }
+    try {
+        $p = Start-Process -FilePath $script -Wait -PassThru -NoNewWindow
+        [pscustomobject]@{action=$Action;attempted=$true;passed=($p.ExitCode -eq 0);exitCode=$p.ExitCode}
+    } catch {
+        [pscustomobject]@{action=$Action;attempted=$true;passed=$false;reason=$_.Exception.Message}
+    }
+}
+
 function Invoke-KICompleteLifecycle {
     param([ValidateSet('Start','Stop')][string]$Action,[string]$TargetRoot='C:\KI-Stack')
     $script = Join-Path $TargetRoot ("modules/cutover/{0}-KIStack.cmd" -f $Action)
     if (-not (Test-Path $script)) { throw "Zentraler $Action-Einstieg fehlt: $script" }
     $p=Start-Process -FilePath $script -Wait -PassThru -NoNewWindow
     if ($p.ExitCode -ne 0) { throw "$Action fehlgeschlagen: Exitcode $($p.ExitCode)" }
-    [pscustomobject]@{action=$Action;passed=$true;exitCode=$p.ExitCode}
+    $openTerminal = Invoke-KICompleteOpenTerminalLifecycle -Action $Action -TargetRoot $TargetRoot
+    [pscustomobject]@{action=$Action;passed=$true;exitCode=$p.ExitCode;openTerminal=$openTerminal}
 }
 
 function Invoke-KIStackCompleteInstaller {
@@ -1258,7 +1442,7 @@ function Invoke-KIStackCompleteInstaller {
         # so there is no 'deprecatedAliasUsed' field here: this shape is never produced by the
         # deprecated alias, which keeps the historical flat shape instead (see above).
         return [pscustomobject][ordered]@{
-            version='2.13.0'
+            version='2.14.0'
             mode=$Mode
             operation='OperationsRestore'
             scope=@('Registry/Autostart (LM Studio competing autostart)','Desktop-Verknüpfungen (KI-Stack starten/stoppen/Status)','Docker-Restart-Policy (KI-Stack-eigene Container)')
@@ -1274,13 +1458,13 @@ function Invoke-KIStackCompleteInstaller {
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
     $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics -ReplayComponent $ReplayComponent -PathContext $pathContext
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.13.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.13.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.14.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.14.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
     if(-not$Resume -and $plan.alreadyCompliant -and -not[bool]$plan.hasReplay -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -PathContext $pathContext -CompleteVersion '2.13.0'}
-        return [pscustomobject]@{version='2.13.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -PathContext $pathContext -CompleteVersion '2.14.0'}
+        return [pscustomobject]@{version='2.14.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
     $state = [string]$pathContext.StateRoot
     if ($Resume) {
@@ -1316,6 +1500,7 @@ function Invoke-KIStackCompleteInstaller {
                 $resumeActual=Get-KICompleteInstalledVersion -Component $component -TargetRoot $TargetRoot
                 $resumeCompliant=$resumeActual-eq[string]$step.version
                 if([string]$step.id-eq'codex-local'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+                if([string]$step.id-eq'open-terminal'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'integration'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'comfyui'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
                 if($resumeCompliant){$index++;continue}
@@ -1537,6 +1722,42 @@ function Invoke-KIStackCompleteInstaller {
                     throw
                 }
             }
+            elseif ($step.id -eq 'open-terminal') {
+                # Mirrors codex-local's own isolated shape exactly: Expand-KICompletePayload ->
+                # this component's own Invoke-KIStackOpenTerminal.ps1 (Install/Upgrade/Repair via
+                # plannedMode, then Validate) -> on any failure, roll back via that SAME script's
+                # own Rollback action against its own backupPath -- never a bespoke, parallel
+                # mechanism. Install-KIOpenTerminal (tools/open-terminal/current/OpenTerminal.psm1)
+                # already makes a same-version re-run ('SkippedAlreadyCompliant') a safe no-op and
+                # never rotates the persisted API key or touches the workspace/state directories
+                # on Upgrade/Repair -- both survive exactly as codex-local's own profile.
+                # config.toml/AGENTS.md customizations do.
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'OpenTerminal'
+                $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'OpenTerminal' -Destination $extract
+                $entry=Join-Path $componentRoot 'Invoke-KIStackOpenTerminal.ps1'
+                if(-not(Test-Path -LiteralPath $entry -PathType Leaf)){throw 'Open-Terminal-Einstieg fehlt.'}
+                $action=if($step.plannedMode-eq'Repair'){'Repair'}elseif($step.plannedMode-eq'Upgrade'){'Upgrade'}else{'Install'}
+                $result=$null
+                try{
+                    $result=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot}
+                    if(-not[bool]$result.passed){throw "Open-Terminal-$action fehlgeschlagen."}
+                    $validation=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
+                    if(-not[bool]$validation.passed){throw 'Open-Terminal-Validierung fehlgeschlagen.'}
+                    # SkippedAlreadyCompliant (Install-KIOpenTerminal's own, separate fast path)
+                    # carries no backupPath -- defensive, never assumed present under StrictMode,
+                    # even though plannedMode Install/Upgrade/Repair should not normally hit it.
+                    $resultBackupPath=if($result.PSObject.Properties['backupPath']){[string]$result.backupPath}else{$null}
+                    $step.backup=$resultBackupPath
+                    $step.result=@{install=$result;validation=$validation;backupPath=$resultBackupPath;validated=$true}
+                }catch{
+                    if($null -ne $result -and$result.PSObject.Properties['backupPath']-and-not [string]::IsNullOrWhiteSpace([string]$result.backupPath)){
+                        $rollback=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Rollback';BackupPath=[string]$result.backupPath}
+                        $_.Exception.Data['KIStackRollbackStatus']=if([bool]$rollback.passed){'Completed'}else{'Failed'}
+                        $_.Exception.Data['KIStackBackupPath']=[string]$result.backupPath
+                    }
+                    throw
+                }
+            }
             elseif ($step.id -eq 'rag') {
                 $extract=Join-Path ([string]$pathContext.PayloadRoot) 'RAG'
                 $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'RAG' -Destination $extract
@@ -1611,6 +1832,16 @@ function Invoke-KIStackCompleteInstaller {
         $orchestratorResult=Install-KICompleteOrchestrator $PackageRoot $TargetRoot $backup
         $preCommitCompensations.Add([pscustomobject]@{name='Orchestrator';action={Restore-KICompleteOrchestrator -TargetRoot $TargetRoot -ExistedBefore ([bool]$orchestratorResult.existedBefore) -BackupPath ([string]$orchestratorResult.backupPath)}})
         $finalizationPhase = 'InstallCentralStarters'
+        # Exactly ONE array-normalization mechanism, never two stacked: Install-KICompleteCentralStarters's
+        # own `return ,$changed` already fully guarantees a real, correctly-shaped array for 0, 1,
+        # and N changed files alike. An earlier version of this line ALSO wrapped the call site in
+        # @(...) as "defense in depth" -- that combination is not idempotent and is actively wrong:
+        # @() re-wraps the already-correct array as a NEW single-element array containing it,
+        # nesting it one level deeper at every element count (real, reproduced: the 0-element case
+        # serialized as "centralStarters": [[]] in a real transaction record; the 1-element case
+        # was silently ALSO double-nested as [[{...}]], just less visually obvious than [[]]).
+        # Never add a second wrapping layer here -- the function's own return is the single
+        # source of truth for this contract.
         $starterChanges=Install-KICompleteCentralStarters $PackageRoot $TargetRoot $backup
         $preCommitCompensations.Add([pscustomobject]@{name='CentralStarters';action={Restore-KICompleteCentralStarters -TargetRoot $TargetRoot -Changes $starterChanges}})
         $finalizationPhase = 'InstallOperations'
@@ -1648,7 +1879,7 @@ function Invoke-KIStackCompleteInstaller {
         # can re-sync this exact same object into components.json too -- otherwise this file would
         # permanently keep reporting "ValidatedExistingInstallation" while transaction.json already
         # correctly shows CompletedWithWarnings, two persisted state files disagreeing forever.
-        $componentState=[ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.13.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}}
+        $componentState=[ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.14.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}}
         Write-KICompleteJson $componentStatePath $componentState
         Write-KICompleteJson $txPath $tx
         # Commit boundary: both required Final-State writes above succeeded. From this point on,
