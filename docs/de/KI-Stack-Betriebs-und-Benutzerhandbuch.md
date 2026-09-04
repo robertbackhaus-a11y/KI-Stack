@@ -57,6 +57,18 @@ Der Agent Pack ist 1.9.0, der Visual Pack 2.0.5. Der Agent Pack verwaltet drei W
 
 Bilder bleiben sichtbarer Chatinhalt. MP4 bleibt nach Reload genau ein persistenter herunterladbarer FileItem über `/api/v1/files/{id}/content`.
 
+## Open Terminal
+
+Open Terminal ist ein lokal verwalteter Tool-/Terminal-Backend-Dienst für OpenWebUI -- Filesystem-Zugriff, PowerShell, WSL, Git und Prozess-/Command-Ausführung -- erreichbar unter `http://127.0.0.1:8000`. OpenWebUI bleibt dabei jederzeit das primäre, alleinige benutzerseitige Frontend; Open Terminal ist ausschließlich ein Backend-Tool-Server, den OpenWebUI aufruft.
+
+- **Bereitstellung**: Open Terminal wird vom Complete Installer installiert/aktualisiert/repariert, genau wie jede andere verwaltete Komponente -- es gibt keinen separaten Installationsschritt. Eine bereits aktuelle Installation wird korrekt erkannt und unangetastet gelassen (`SkippedAlreadyCompliant`), real zielsystemgeprüft bei einem zweiten Complete-Installer-Lauf.
+- **Lifecycle**: einmal installiert, wird es zusammen mit dem übrigen Stack über dieselben zentralen Kommandos gestartet und gestoppt -- `Start-KIStack.cmd` / `Stop-KIStack.cmd`. Der Status wird von `Status-KIStack.cmd` gemeinsam mit jeder anderen Komponente gemeldet (laufend/gestoppt, Endpoint, Prozess-ID, Healthcheck) -- niemals der API-Key.
+- **Laufzeit**: es läuft ohne Docker, über dieselbe verwaltete `uv`/Python-Toolchain, die der übrige KI-Stack bereits nutzt -- keine separate Python- oder `uv`-Installation.
+- **Authentifizierung**: ein einziger API-Key, einmalig bei der Ersteinrichtung erzeugt, authentifiziert jede Anfrage. Der Key bleibt über jeden späteren Neustart, jedes Upgrade und jede Reparatur der KI-Stack-Installation hinweg derselbe -- er wird nicht bei jedem Start neu erzeugt. Er wird DPAPI-geschützt (Windows Data Protection API, an diesen Rechner und dieses Windows-Benutzerkonto gebunden) im eigenen lokalen Zustand der Komponente gespeichert, nie im Repository, und von keinem KI-Stack-Skript jemals in eine Log-Datei geschrieben oder auf der Konsole ausgegeben.
+- **Anbindung von OpenWebUI**: dieser eine Schritt bleibt manuell und ist nur einmal pro OpenWebUI-Installation nötig. In OpenWebUI unter **Admin-Einstellungen -> Tools** einen neuen Tool-Server anlegen, der auf `http://127.0.0.1:8000` zeigt, und den Bearer-API-Key aus Open Terminals eigenem lokalen Credential-State als Authentifizierungstoken des Tool-Servers hinterlegen. Da sich dieser Key über Neustarts hinweg nicht ändert, muss diese Registrierung nach einem normalen KI-Stack-Neustart, -Upgrade oder -Repair nicht wiederholt werden -- nur falls das Credential bewusst zurückgesetzt wird. Eine automatische Registrierung ist noch nicht implementiert (siehe „Bekannte offene Punkte" am Ende dieses Handbuchs) -- dieser manuelle, einmalige Schritt ist der aktuell akzeptierte, dokumentierte Weg.
+
+Keine Anleitung bauen oder befolgen, die den API-Key aus seiner lokalen Zustandsdatei, einem Log oder einem Skript ausliest und außerhalb von OpenWebUIs eigenem „Tool-Server hinzufügen"-Credential-Feld im Klartext anzeigt oder kopiert -- der Key gehört ausschließlich dort direkt eingegeben und darf sonst nirgends festgehalten oder ausgegeben werden.
+
 ## OpenWebUI-Credential-Bootstrap
 
 Administrative KI-Stack-Automatisierungen (Agent-Pack-Provisionierung, RAG-/Knowledge-Anbindung, Code-Interpreter-Konfiguration) benötigen einen authentifizierten OpenWebUI-Zugriff. Verifiziert gegen den real installierten OpenWebUI-0.11.1-Quellcode (`C:\KI-Stack\python\venvs\openwebui\Lib\site-packages\open_webui\routers\auths.py`): OpenWebUI unterstützt einen langlebigen, persistenten API-Key pro Benutzer (`POST/GET/DELETE /api/v1/auths/api_key`), der jedoch nur über eine bereits authentifizierte Sitzung erzeugt werden kann (`POST /api/v1/auths/signin`); zusätzlich ist die API-Key-Unterstützung selbst standardmäßig deaktiviert (`ENABLE_API_KEYS` ist in der KI-Stack-Auslieferung nicht gesetzt) und muss beim ersten Bootstrap einmalig über die offizielle Admin-Config-API aktiviert werden.
@@ -161,3 +173,9 @@ Eine erstmalige WSL2-Aktivierung auf einer wirklich leeren Maschine kann einen W
 - **Ein Schritt meldet `CredentialRequiredForApiReadback` oder `CredentialRequiredForApiConfiguration`**: das ist erwartet, wenn kein OpenWebUI-Administrator-API-Key angegeben wurde; siehe Abschnitt Knowledge-Bootstrap und Code-Interpreter-Nacharbeit oben.
 
 Der Greenfield-Vertrag wurde mit einer vollständigen, erfolgreichen, realen Installation auf einem leeren Zielsystem verifiziert.
+
+## Bekannte offene Punkte
+
+- **Latenzanalyse**: noch keine technische Aufschlüsselung des realen Anfragewegs OpenWebUI-Eingabe -> Prompt-/Tool-Zusammenstellung -> LM-Studio-Anfrage -> erstes Token.
+- **Automatische OpenWebUI-Tool-Server-Registrierung**: Open Terminal erfordert weiterhin den oben beschriebenen einmaligen manuellen Registrierungsschritt; dies ist noch nicht automatisiert.
+- **Bootstrap-Phase ohne PowerShell 7**: der PowerShell-7-Bootstrap-Pfad (nur genutzt, wenn PowerShell 7 selbst fehlt) hat keine eigene Live-Heartbeat-Anzeige -- nur ein strukturiertes `.bootstrap.jsonl`-Diagnoseprotokoll. Eine bekannte, akzeptierte Lücke, kein 2.14-Blocker.

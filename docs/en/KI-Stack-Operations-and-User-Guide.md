@@ -57,6 +57,18 @@ The Agent Pack is 1.9.0 and the Visual Pack is 2.0.5. The Agent Pack manages thr
 
 Images remain visible chat content. MP4 output remains exactly one persistent downloadable FileItem after reload through `/api/v1/files/{id}/content`.
 
+## Open Terminal
+
+Open Terminal is a locally managed tool/terminal backend service for OpenWebUI -- filesystem access, PowerShell, WSL, Git, and process/command execution -- reachable at `http://127.0.0.1:8000`. OpenWebUI remains the primary, sole user-facing frontend at all times; Open Terminal is only a backend tool server OpenWebUI calls into.
+
+- **Deployment**: Open Terminal is installed/upgraded/repaired by the Complete Installer, exactly like every other managed component -- there is no separate installation step. An already-current installation is correctly reported and left alone (`SkippedAlreadyCompliant`), real-target proven on a second Complete Installer run.
+- **Lifecycle**: once installed, it is started and stopped together with the rest of the stack through the same central commands -- `Start-KIStack.cmd` / `Stop-KIStack.cmd`. Its status is reported by `Status-KIStack.cmd` alongside every other component (running/stopped, endpoint, process id, health check) -- never the API key.
+- **Runtime**: it runs with no Docker, through the same managed `uv`/Python toolchain the rest of KI-Stack already uses -- no separate Python or `uv` installation.
+- **Authentication**: a single API key, generated once on first setup, authenticates every request. The key stays the same across every later restart, upgrade, and repair of the KI-Stack installation -- it is not regenerated on each start. It is stored DPAPI-protected (Windows Data Protection API, bound to this machine and Windows user account) in the component's own local state, never in the repository, and it is never written to a log file or printed to the console by any KI-Stack script.
+- **Connecting OpenWebUI to it**: this one step remains manual and is only ever needed once per OpenWebUI installation. In OpenWebUI, go to **Admin Settings -> Tools**, add a new tool server pointing at `http://127.0.0.1:8000`, and supply the Bearer API key from Open Terminal's own local credential state as the tool server's authentication token. Because that key never changes across restarts, this registration does not need to be repeated after a normal KI-Stack restart, upgrade, or repair -- only if the credential is ever deliberately reset. Automatic registration is not implemented yet (see "Known open items" at the end of this guide) -- this manual, one-time step is the accepted, documented path for now.
+
+Do not build or follow any procedure that reads the API key out of its local state file, a log, or a script and displays or copies it in plaintext outside of OpenWebUI's own "add tool server" credential field -- the key must be entered there directly and never otherwise recorded or echoed.
+
 ## OpenWebUI Credential Bootstrap
 
 Administrative KI-Stack automation (Agent Pack provisioning, RAG/Knowledge wiring, Code Interpreter configuration) needs authenticated OpenWebUI access. Verified against the actually-installed OpenWebUI 0.11.1 source (`C:\KI-Stack\python\venvs\openwebui\Lib\site-packages\open_webui\routers\auths.py`): OpenWebUI supports a long-lived, persistent per-user API key (`POST/GET/DELETE /api/v1/auths/api_key`), but minting one requires an already-authenticated session (`POST /api/v1/auths/signin`) first; API-key support itself also defaults to disabled (`ENABLE_API_KEYS` is unset in the KI-Stack deployment) and must be enabled once, via the official admin-config API, as part of first bootstrap.
@@ -161,3 +173,9 @@ A first-time WSL2 activation on a genuinely empty machine can require a Windows 
 - **A step reports `CredentialRequiredForApiReadback` or `CredentialRequiredForApiConfiguration`**: this is expected when no OpenWebUI administrator API key was supplied; see the Knowledge bootstrap and Code Interpreter follow-up section above.
 
 The Greenfield contract has been verified with a complete, successful, physical installation on an empty target.
+
+## Known open items
+
+- **Latency analysis**: no technical breakdown yet of the real request path OpenWebUI input -> prompt/tool assembly -> LM Studio request -> first token.
+- **Automatic OpenWebUI tool-server registration**: Open Terminal still requires the one-time manual registration step described above; this is not yet automated.
+- **Bootstrap phase without PowerShell 7**: the PowerShell-7 bootstrap path (used only when PowerShell 7 itself is missing) has no live heartbeat display of its own -- only a structured `.bootstrap.jsonl` diagnostic log. A known, accepted gap, not a 2.14 blocker.
