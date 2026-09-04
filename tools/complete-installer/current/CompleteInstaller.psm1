@@ -1832,11 +1832,17 @@ function Invoke-KIStackCompleteInstaller {
         $orchestratorResult=Install-KICompleteOrchestrator $PackageRoot $TargetRoot $backup
         $preCommitCompensations.Add([pscustomobject]@{name='Orchestrator';action={Restore-KICompleteOrchestrator -TargetRoot $TargetRoot -ExistedBefore ([bool]$orchestratorResult.existedBefore) -BackupPath ([string]$orchestratorResult.backupPath)}})
         $finalizationPhase = 'InstallCentralStarters'
-        # @() here is defense in depth, matching this file's own established call-site-wrapping
-        # convention elsewhere (e.g. Restore-KICompleteCentralStarters's own -Changes consumption
-        # below) -- Install-KICompleteCentralStarters's own `,$changed` return already guarantees
-        # this, but never relying on a single layer for an array-schema guarantee costs nothing.
-        $starterChanges=@(Install-KICompleteCentralStarters $PackageRoot $TargetRoot $backup)
+        # Exactly ONE array-normalization mechanism, never two stacked: Install-KICompleteCentralStarters's
+        # own `return ,$changed` already fully guarantees a real, correctly-shaped array for 0, 1,
+        # and N changed files alike. An earlier version of this line ALSO wrapped the call site in
+        # @(...) as "defense in depth" -- that combination is not idempotent and is actively wrong:
+        # @() re-wraps the already-correct array as a NEW single-element array containing it,
+        # nesting it one level deeper at every element count (real, reproduced: the 0-element case
+        # serialized as "centralStarters": [[]] in a real transaction record; the 1-element case
+        # was silently ALSO double-nested as [[{...}]], just less visually obvious than [[]]).
+        # Never add a second wrapping layer here -- the function's own return is the single
+        # source of truth for this contract.
+        $starterChanges=Install-KICompleteCentralStarters $PackageRoot $TargetRoot $backup
         $preCommitCompensations.Add([pscustomobject]@{name='CentralStarters';action={Restore-KICompleteCentralStarters -TargetRoot $TargetRoot -Changes $starterChanges}})
         $finalizationPhase = 'InstallOperations'
         $operations=Install-KICompleteOperations $TargetRoot (Join-Path $backup 'operations') -DesktopPath $DesktopPath -PathContext $pathContext

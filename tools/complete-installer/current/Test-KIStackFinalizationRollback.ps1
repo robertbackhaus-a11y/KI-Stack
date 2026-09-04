@@ -84,17 +84,43 @@ try {
     if($checks.centralStartersRestore_MixedExistedAndNew.Values-contains$false){$fail.Add('centralStartersRestore_MixedExistedAndNew failed: '+($checks.centralStartersRestore_MixedExistedAndNew|ConvertTo-Json -Compress))}
 
     # === B2. centralStarters schema stability: Install-KICompleteCentralStarters must always
-    # hand back a real array -- for zero, exactly one, and several changed files alike -- never
-    # a bare scalar object PowerShell's own output-stream enumeration would otherwise collapse a
-    # single-element array return into, and never $null for the empty case. Real, reproduced bug:
-    # the final transaction JSON's finalization.centralStarters showed a bare {"name": ...} object
-    # (not an array) once a real target had exactly one stale central starter
-    # (Get-KIStackStatus.ps1) left to reconcile. Checked at three levels: the function's own
-    # return value, .Count survives the call boundary, and the real nested-property
-    # ConvertTo-Json round trip an actual transaction record goes through. ---------------------
+    # hand back a real, correctly-shaped array -- for zero, exactly one, and several changed
+    # files alike -- via exactly ONE array-normalization mechanism (the function's own
+    # `return ,$changed`), never a second, redundant wrap stacked on top at the call site.
+    #
+    # Two real, reproduced bugs this now guards against:
+    #   1. A bare {"name": ...} object (not an array at all) once a real target had exactly one
+    #      stale central starter (Get-KIStackStatus.ps1) left to reconcile -- PowerShell's own
+    #      output-stream enumeration collapsing a single-element array return to a scalar.
+    #   2. A NESTED array, "centralStarters": [[]] for zero changed files (and, less visibly,
+    #      [[{...}]] for exactly one) -- caused by CompleteInstaller.psm1's real call site
+    #      wrapping the ALREADY-correct `,$changed` return in a second, redundant @(...), which
+    #      re-wraps a correctly-shaped array as a new single-element array containing it. This
+    #      is why every check below asserts on the exact, raw, compact JSON TEXT -- not merely on
+    #      the round-tripped/reparsed object's -is [array] and .Count, which a [[...]] shape
+    #      would satisfy just as well as the correct [...] shape and therefore cannot, by itself,
+    #      distinguish the two.
+    #
+    # Every fixture below calls Install-KICompleteCentralStarters exactly the way the real
+    # orchestrator now does (CompleteInstaller.psm1's own InstallCentralStarters phase) --
+    # $starterChanges=Install-KICompleteCentralStarters ... with NO surrounding @() -- so a
+    # regression that reintroduces the redundant wrap at that real call site would be caught here
+    # by literally the same usage shape, not just by testing the function in isolation. -------
+    $starterFileNames=@('Start-KIStack.cmd','Stop-KIStack.cmd','Stop-KIStack-Managed.ps1','Validate-KIStack.cmd','Get-KIStackStatus.ps1','Show-KIStackStatus.ps1','Status-KIStack-Interactive.cmd','Repair-KIStack.cmd','Update-KIStack-OpenWebUI.cmd','Update-KIStack-OpenWebUI.ps1','Update-KIStack-All.cmd','Update-KIStack-All.ps1')
+
+    function Get-KICentralStartersRawJson {
+        # Builds the exact same shape of object CompleteInstaller.psm1's real
+        # finalization.centralStarters assignment does, and returns its compact (single-line)
+        # JSON text -- compact specifically so a nested-array shape ([[...]]) is trivially,
+        # unambiguously visible as a literal "[[" substring, with no pretty-printed whitespace or
+        # line breaks to obscure it.
+        param([Parameter(Mandatory)][AllowNull()][object]$CentralStarters)
+        ([ordered]@{finalization=[ordered]@{centralStarters=$CentralStarters}}|ConvertTo-Json -Depth 20 -Compress)
+    }
+
+    # --- Case 1: 0 Elemente -> JSON [] -------------------------------------------------------
     $startersTargetZero=Join-Path $fixtureRoot 'starters-zero';$startersBackupZero=Join-Path $fixtureRoot 'starters-zero-backup';$startersPackageZero=Join-Path $fixtureRoot 'starters-zero-package/Lifecycle'
     New-Item -ItemType Directory -Path $startersTargetZero,$startersPackageZero -Force|Out-Null
-    $starterFileNames=@('Start-KIStack.cmd','Stop-KIStack.cmd','Stop-KIStack-Managed.ps1','Validate-KIStack.cmd','Get-KIStackStatus.ps1','Show-KIStackStatus.ps1','Status-KIStack-Interactive.cmd','Repair-KIStack.cmd','Update-KIStack-OpenWebUI.cmd','Update-KIStack-OpenWebUI.ps1','Update-KIStack-All.cmd','Update-KIStack-All.ps1')
     foreach($name in $starterFileNames){
         Set-Content -LiteralPath (Join-Path $startersPackageZero $name) -Value "content: $name" -Encoding UTF8
         # Target already has byte-identical content -- Install-KICompleteCentralStarters's own
@@ -102,13 +128,17 @@ try {
         Copy-Item -LiteralPath (Join-Path $startersPackageZero $name) -Destination (Join-Path $startersTargetZero $name)
     }
     $startersResultZero=Install-KICompleteCentralStarters -PackageRoot (Split-Path -Parent $startersPackageZero) -TargetRoot $startersTargetZero -BackupRoot $startersBackupZero
-    $checks.centralStartersSchema_ZeroChangedIsEmptyArrayNeverNull=[ordered]@{
+    $rawZero=Get-KICentralStartersRawJson -CentralStarters $startersResultZero
+    $checks.centralStartersSchema_ZeroElements=[ordered]@{
         notNull=($null-ne$startersResultZero)
         isArrayType=($startersResultZero-is[array])
         countIsZero=(@($startersResultZero).Count-eq0)
+        rawJsonIsExactlyEmptyArray=$rawZero.Contains('"centralStarters":[]')
+        rawJsonNeverNestedArray=(-not$rawZero.Contains('"centralStarters":[['))
     }
-    if($checks.centralStartersSchema_ZeroChangedIsEmptyArrayNeverNull.Values-contains$false){$fail.Add('centralStartersSchema_ZeroChangedIsEmptyArrayNeverNull failed: '+($checks.centralStartersSchema_ZeroChangedIsEmptyArrayNeverNull|ConvertTo-Json -Compress))}
+    if($checks.centralStartersSchema_ZeroElements.Values-contains$false){$fail.Add('centralStartersSchema_ZeroElements failed: raw='+$rawZero+' | '+($checks.centralStartersSchema_ZeroElements|ConvertTo-Json -Compress))}
 
+    # --- Case 2: 1 Element -> JSON-Array mit genau einem Objekt ------------------------------
     $startersTargetOne=Join-Path $fixtureRoot 'starters-one';$startersBackupOne=Join-Path $fixtureRoot 'starters-one-backup';$startersPackageOne=Join-Path $fixtureRoot 'starters-one-package/Lifecycle'
     New-Item -ItemType Directory -Path $startersTargetOne,$startersPackageOne -Force|Out-Null
     foreach($name in $starterFileNames){
@@ -116,25 +146,29 @@ try {
         if($name-ne'Get-KIStackStatus.ps1'){Copy-Item -LiteralPath (Join-Path $startersPackageOne $name) -Destination (Join-Path $startersTargetOne $name)}
     }
     # Get-KIStackStatus.ps1 is deliberately the ONLY one left missing/stale on this target -- the
-    # exact real-world shape that surfaced this bug.
+    # exact real-world shape that surfaced the original bare-object bug.
     $startersResultOne=Install-KICompleteCentralStarters -PackageRoot (Split-Path -Parent $startersPackageOne) -TargetRoot $startersTargetOne -BackupRoot $startersBackupOne
-    $fakeTransactionOne=[ordered]@{schemaVersion='1.1';transactionId='schema-test-one';finalization=[ordered]@{centralStarters=$startersResultOne;operations='placeholder'}}
-    $roundTrippedOne=($fakeTransactionOne|ConvertTo-Json -Depth 20)|ConvertFrom-Json -Depth 20
-    $checks.centralStartersSchema_OneChangedStaysArrayThroughJson=[ordered]@{
+    $rawOne=Get-KICentralStartersRawJson -CentralStarters $startersResultOne
+    $roundTrippedOne=($rawOne|ConvertFrom-Json -Depth 20)
+    $checks.centralStartersSchema_OneElement=[ordered]@{
         functionReturnIsArrayType=($startersResultOne-is[array])
         functionReturnCountIsOne=(@($startersResultOne).Count-eq1)
-        # ConvertFrom-Json parses a JSON array back into an [object[]] and a bare JSON object
-        # back into a single PSCustomObject -- this is the real, end-to-end proof that the
-        # SERIALIZED transaction record itself carries a JSON array, not merely that the
-        # in-memory PowerShell variable happened to still be one right before serialization.
-        roundTrippedCentralStartersIsArrayInJson=($roundTrippedOne.finalization.centralStarters-is[array])
-        roundTrippedCentralStartersHasOneElement=(@($roundTrippedOne.finalization.centralStarters).Count-eq1)
+        # The precise, unambiguous positive shape: the array opens directly onto the object --
+        # "[{" -- never "[[" (nested) and never a bare "{" with no leading "[" at all (collapsed
+        # scalar).
+        rawJsonArrayOpensDirectlyOntoObject=$rawOne.Contains('"centralStarters":[{')
+        rawJsonNeverNestedArray=(-not$rawOne.Contains('"centralStarters":[['))
+        rawJsonNeverBareObject=(-not($rawOne-match'"centralStarters":\{'))
+        # Exactly one object in the array -- not two, not zero.
+        rawJsonHasExactlyOneObject=((@([regex]::Matches($rawOne,'\{"name"'))).Count-eq1)
+        roundTrippedIsArray=($roundTrippedOne.finalization.centralStarters-is[array])
+        roundTrippedHasOneElement=(@($roundTrippedOne.finalization.centralStarters).Count-eq1)
+        roundTrippedElementIsNotItselfAnArray=(-not(@($roundTrippedOne.finalization.centralStarters)[0]-is[array]))
         roundTrippedElementNameCorrect=([string]@($roundTrippedOne.finalization.centralStarters)[0].name-eq'Get-KIStackStatus.ps1')
     }
-    if($checks.centralStartersSchema_OneChangedStaysArrayThroughJson.Values-contains$false){$fail.Add('centralStartersSchema_OneChangedStaysArrayThroughJson failed: '+($checks.centralStartersSchema_OneChangedStaysArrayThroughJson|ConvertTo-Json -Compress))}
+    if($checks.centralStartersSchema_OneElement.Values-contains$false){$fail.Add('centralStartersSchema_OneElement failed: raw='+$rawOne+' | '+($checks.centralStartersSchema_OneElement|ConvertTo-Json -Compress))}
 
-    # Multi-element case must keep working unchanged (regression guard for the fix itself) --
-    # reuses the same real files, this time with three left stale.
+    # --- Case 3: 3 Elemente -> JSON-Array mit drei Objekten ----------------------------------
     $startersTargetMulti=Join-Path $fixtureRoot 'starters-multi';$startersBackupMulti=Join-Path $fixtureRoot 'starters-multi-backup';$startersPackageMulti=Join-Path $fixtureRoot 'starters-multi-package/Lifecycle'
     New-Item -ItemType Directory -Path $startersTargetMulti,$startersPackageMulti -Force|Out-Null
     $staleNames=@('Get-KIStackStatus.ps1','Show-KIStackStatus.ps1','Repair-KIStack.cmd')
@@ -143,14 +177,19 @@ try {
         if($name-notin$staleNames){Copy-Item -LiteralPath (Join-Path $startersPackageMulti $name) -Destination (Join-Path $startersTargetMulti $name)}
     }
     $startersResultMulti=Install-KICompleteCentralStarters -PackageRoot (Split-Path -Parent $startersPackageMulti) -TargetRoot $startersTargetMulti -BackupRoot $startersBackupMulti
-    $fakeTransactionMulti=[ordered]@{finalization=[ordered]@{centralStarters=$startersResultMulti}}
-    $roundTrippedMulti=($fakeTransactionMulti|ConvertTo-Json -Depth 20)|ConvertFrom-Json -Depth 20
-    $checks.centralStartersSchema_MultiElementStillWorks=[ordered]@{
+    $rawMulti=Get-KICentralStartersRawJson -CentralStarters $startersResultMulti
+    $roundTrippedMulti=($rawMulti|ConvertFrom-Json -Depth 20)
+    $checks.centralStartersSchema_ThreeElements=[ordered]@{
         functionReturnCountIsThree=(@($startersResultMulti).Count-eq3)
+        rawJsonArrayOpensDirectlyOntoObject=$rawMulti.Contains('"centralStarters":[{')
+        rawJsonNeverNestedArray=(-not$rawMulti.Contains('"centralStarters":[['))
+        rawJsonNeverBareObject=(-not($rawMulti-match'"centralStarters":\{'))
+        rawJsonHasExactlyThreeObjects=((@([regex]::Matches($rawMulti,'\{"name"'))).Count-eq3)
         roundTrippedCountIsThree=(@($roundTrippedMulti.finalization.centralStarters).Count-eq3)
+        noElementIsItselfAnArray=(-not(@($roundTrippedMulti.finalization.centralStarters|Where-Object{$_-is[array]}).Count))
         allExpectedNamesPresent=((@($roundTrippedMulti.finalization.centralStarters|ForEach-Object name)|Sort-Object)-join','-eq(($staleNames|Sort-Object)-join','))
     }
-    if($checks.centralStartersSchema_MultiElementStillWorks.Values-contains$false){$fail.Add('centralStartersSchema_MultiElementStillWorks failed: '+($checks.centralStartersSchema_MultiElementStillWorks|ConvertTo-Json -Compress))}
+    if($checks.centralStartersSchema_ThreeElements.Values-contains$false){$fail.Add('centralStartersSchema_ThreeElements failed: raw='+$rawMulti+' | '+($checks.centralStartersSchema_ThreeElements|ConvertTo-Json -Compress))}
 
     # === C. Knowledge Detach / Restore / Cleanup, mocked OpenWebUI API ======================
     # Local mock of the exact OpenWebUI endpoints Remove-/Restore-/Remove-...Collections.ps1
