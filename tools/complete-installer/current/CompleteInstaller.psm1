@@ -56,6 +56,92 @@ function Write-KICompleteStepHeartbeatIfDue {
     Write-Host ("[{0}] {1} - {2}, Laufzeit {3}" -f (Get-Date).ToString('HH:mm:ss'),$Status,$Message,$runtime)
 }
 
+function Split-KICompleteBufferedLines {
+    # Pure function: given leftover text buffered from a previous read and a newly-read chunk,
+    # returns the complete lines found so far plus the new leftover (a still-incomplete final
+    # line, or '' if the chunk ended exactly on a line break). Never returns a torn/partial
+    # line -- the actual "keine Race Conditions" mechanism Watch-KICompleteElevatedProcess
+    # relies on when tailing a file a separate, still-writing process may append to mid-read.
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Buffer,[Parameter(Mandatory)][AllowEmptyString()][string]$Chunk)
+    $combined = $Buffer + $Chunk
+    if ([string]::IsNullOrEmpty($combined)) { return [pscustomobject]@{ lines = @(); remainder = '' } }
+    $parts = @($combined -split "`r`n|`n")
+    if ($parts.Length -le 1) { return [pscustomobject]@{ lines = @(); remainder = $combined } }
+    [pscustomobject]@{ lines = @($parts[0..($parts.Length - 2)]); remainder = $parts[-1] }
+}
+
+function Watch-KICompleteElevatedProcess {
+    # Live-relays an elevated (or any) child process's own transcript (Start-Transcript, in
+    # Start-KIStackCompleteInstaller.ps1 -- one of this installer's existing logging artifacts,
+    # never a new one) into the CALLER's own console while $Process runs.
+    #
+    # Why this exists: UAC elevation (Verb=RunAs, used by Start-KICompleteElevated in
+    # Start-KIStackCompleteInstaller.ps1) is implemented via ShellExecuteEx, which does not
+    # support inherited or redirected standard handles for the "runas" verb at all -- a hard
+    # Win32 constraint, not a PowerShell limitation or a missing -RedirectStandardOutput flag.
+    # Start-Process -Verb RunAs therefore can never stream the elevated child's real console
+    # output back into the caller directly; without a workaround, the window the user actually
+    # launched and is watching shows nothing at all until the entire elevated run finishes (the
+    # real, reported bug -- the elevated child's own heartbeat Write-Host calls were always
+    # working, just invisible to whichever window the user was actually looking at).
+    #
+    # The elevated child's Start-Transcript call already captures every one of those Write-Host
+    # calls, live, as they happen -- so tailing that exact, already-existing file (never writing
+    # to it, FileShare.ReadWrite so the real writer is never blocked or affected) reconstructs
+    # the same live view without touching New-KICompleteStepHeartbeat / Write-KICompleteStepStatus
+    # / Write-KICompleteStepHeartbeatIfDue at all. A FileSystemWatcher-driven wait (real change
+    # notifications, not a hand-rolled sleep loop) with a short timeout purely to re-check
+    # whether the process has exited is the closest available primitive to a real stream, given
+    # the RunAs constraint above -- and Split-KICompleteBufferedLines above ensures a line is
+    # only ever emitted once it is genuinely complete, never a torn partial read.
+    #
+    # Degrades to a plain blocking wait (the exact prior behavior) if the transcript never
+    # appears at all -- e.g. the UAC prompt was cancelled before Start-Transcript ever ran --
+    # so a failure of this live-view mechanism itself can never prevent the caller from waiting
+    # on the real process and picking up its real exit code.
+    param(
+        [Parameter(Mandatory)][Diagnostics.Process]$Process,
+        [Parameter(Mandatory)][string]$TranscriptPath,
+        [int]$AppearanceTimeoutSeconds = 30,
+        [scriptblock]$EmitLine = { param($line) Write-Host $line }
+    )
+    # A stale transcript from a PRIOR run must never be echoed again as if it were new (the
+    # "keine Duplikate" requirement) -- Start-Transcript -Force in the elevated child would
+    # overwrite it anyway, but removing it here first means tailing never risks racing that
+    # overwrite or reading old content in the window before the child gets there.
+    if (Test-Path -LiteralPath $TranscriptPath -PathType Leaf) { Remove-Item -LiteralPath $TranscriptPath -Force -ErrorAction SilentlyContinue }
+    $deadline = (Get-Date).AddSeconds($AppearanceTimeoutSeconds)
+    while (-not (Test-Path -LiteralPath $TranscriptPath -PathType Leaf) -and -not $Process.HasExited -and (Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 200
+    }
+    if (-not (Test-Path -LiteralPath $TranscriptPath -PathType Leaf)) {
+        $Process.WaitForExit()
+        return
+    }
+    $directory = Split-Path -Parent $TranscriptPath
+    $filter = Split-Path -Leaf $TranscriptPath
+    $watcher = [IO.FileSystemWatcher]::new($directory, $filter)
+    $watcher.NotifyFilter = [IO.NotifyFilters]::LastWrite -bor [IO.NotifyFilters]::Size
+    $stream = [IO.File]::Open($TranscriptPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+    $reader = [IO.StreamReader]::new($stream, [Text.Encoding]::UTF8)
+    $buffer = ''
+    try {
+        while (-not $Process.HasExited) {
+            [void]$watcher.WaitForChanged([IO.WatcherChangeTypes]::Changed, 500)
+            $split = Split-KICompleteBufferedLines -Buffer $buffer -Chunk $reader.ReadToEnd()
+            $buffer = $split.remainder
+            foreach ($line in $split.lines) { & $EmitLine $line }
+        }
+        # The process has exited -- no further writes are coming, so drain whatever is left
+        # (including a final line that never got its own trailing newline) as complete.
+        $split = Split-KICompleteBufferedLines -Buffer $buffer -Chunk $reader.ReadToEnd()
+        foreach ($line in $split.lines) { & $EmitLine $line }
+        if (-not [string]::IsNullOrEmpty($split.remainder)) { & $EmitLine $split.remainder }
+    } finally {
+        $reader.Dispose(); $stream.Dispose(); $watcher.Dispose()
+    }
+}
+
 function Clear-KICompleteStaleTransactionError {
     # A failed attempt sets a transaction-wide .error property (see the
     # catch block below). On -Resume that property is loaded back from the

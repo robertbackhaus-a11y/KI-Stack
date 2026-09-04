@@ -35,7 +35,15 @@ function Start-KICompleteElevated {
     if($LoggingProbe){$arguments.Add('-LoggingProbe')}
     if($TransactionId){$arguments.Add('-TransactionId');$arguments.Add($TransactionId)}
     if($ReplayComponent.Count){$arguments.Add('-ReplayComponent');foreach($id in $ReplayComponent){$arguments.Add($id)}}
-    $process=Start-Process -FilePath (Get-KIPowerShell7) -ArgumentList $arguments -Verb RunAs -Wait -PassThru -ErrorAction Stop
+    $process=Start-Process -FilePath (Get-KIPowerShell7) -ArgumentList $arguments -Verb RunAs -PassThru -ErrorAction Stop
+    try {
+        Watch-KICompleteElevatedProcess -Process $process -TranscriptPath ($LogPath + '.transcript.txt')
+    } catch {
+        # The live-view mechanism itself must never turn a successful elevated run into a
+        # reported failure -- fall back to the exact prior behavior (blind wait) and still exit
+        # with the elevated process's own real exit code.
+        if (-not $process.HasExited) { $process.WaitForExit() }
+    }
     exit $process.ExitCode
 }
 
@@ -44,6 +52,10 @@ if([string]::IsNullOrWhiteSpace($LogPath)){$LogPath=Join-Path $PSScriptRoot 'KI-
 $LogPath=[IO.Path]::GetFullPath($LogPath)
 $logParent=Split-Path -Parent $LogPath
 if(-not(Test-Path -LiteralPath $logParent)){New-Item -ItemType Directory -Path $logParent -Force|Out-Null}
+# Imported here, before the elevation check below, so Start-KICompleteElevated's own call to
+# Watch-KICompleteElevatedProcess (both now live in CompleteInstaller.psm1, alongside the
+# heartbeat functions whose output it relays) is available regardless of which branch runs.
+Import-Module (Join-Path $PSScriptRoot 'CompleteInstaller.psm1') -Force
 
 if(-not(Test-KICompleteAdministrator)){
     if($Elevated){throw 'Die UAC-Elevation wurde abgebrochen oder war nicht wirksam.'}
@@ -68,7 +80,6 @@ try{
         $exitCode=0
         return
     }
-    Import-Module (Join-Path $PSScriptRoot 'CompleteInstaller.psm1') -Force
     $plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot 'C:\KI-Stack' -ReplayComponent $ReplayComponent
     $needsOpenWebUI=@($plan.steps|Where-Object{$_.id-in@('openwebui-agent-pack','openwebui-visual-pack')-and$_.plannedMode-ne'Skip'})
     $needsVisualPackCutover=@($needsOpenWebUI|Where-Object{$_.id-eq'openwebui-visual-pack'}).Count-gt0
