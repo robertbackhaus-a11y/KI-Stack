@@ -131,6 +131,11 @@ function Test-KICompleteLiveTailScenario {
             exitCode=$proc.ExitCode
             captured=@($captured)
             transcriptLineCount=@(Get-Content -LiteralPath $transcriptPath -ErrorAction SilentlyContinue).Count
+            # Captured as raw content here, before the scratch directory (and the transcript
+            # file with it) is removed in `finally` below -- proves the real, on-disk artifact
+            # still has everything the live filter suppressed, without the caller needing its
+            # own now-deleted path.
+            transcriptRawContent=(Get-Content -LiteralPath $transcriptPath -Raw -ErrorAction SilentlyContinue)
             expectedExitCodeMatched=($proc.ExitCode-eq$ExpectedExitCode)
         }
     }finally{
@@ -149,8 +154,11 @@ $completedScenario=Test-KICompleteLiveTailScenario -ExpectedExitCode 0 -WriterBo
     exit 0
 }
 $completedLinesJoined=($completedScenario.captured|ForEach-Object line)-join "`n"
+# Measured against the periodic heartbeat, not Completed -- the writer body sleeps a real
+# ~1400ms total BEFORE the periodic tick fires, but emits Completed immediately afterward with
+# no further sleep, so Running-to-Completed alone would not reliably prove live delivery.
 $firstStatusMs=@($completedScenario.captured|Where-Object{$_.line-match'Running - Start'}|Select-Object -First 1).elapsedMs
-$lastStatusMs=@($completedScenario.captured|Where-Object{$_.line-match'Completed - Fertig'}|Select-Object -First 1).elapsedMs
+$lastStatusMs=@($completedScenario.captured|Where-Object{$_.line-match'Tick-faellig, Laufzeit'}|Select-Object -First 1).elapsedMs
 $checks_liveCompleted=[ordered]@{
     runningAppeared=($completedLinesJoined-match'Running - Start')
     tooEarlyTickNeverAppeared=($completedLinesJoined-notmatch'Tick-zu-frueh')
@@ -160,10 +168,14 @@ $checks_liveCompleted=[ordered]@{
     noDuplicateLines=(@($completedScenario.captured|Group-Object line|Where-Object{$_.Count-gt1-and$_.Name-notmatch'^\*+$'}).Count-eq0)
     transcriptFileFullyWritten=($completedScenario.transcriptLineCount-gt0)
     # The real proof of "live", not "buffered until the end": Running must have surfaced well
-    # before Completed did, tracking the writer's own real Start-Sleep calls (>=1000ms apart),
-    # never both appearing within a few ms of each other the way a buffered-until-exit relay
-    # would produce.
-    surfacedLiveNotBuffered=($null-ne$firstStatusMs-and$null-ne$lastStatusMs-and($lastStatusMs-$firstStatusMs)-ge900)
+    # before the periodic heartbeat did, tracking the writer's own real Start-Sleep calls.
+    # PowerShell's own transcript writer applies some internal buffering of its own (observed
+    # directly: a real ~1400ms writer-side gap between these two lines shows up as a somewhat
+    # smaller, but still real and clearly non-zero, gap once relayed through Start-Transcript's
+    # own file writes) -- 300ms is comfortably above what a genuinely buffered-until-process-exit
+    # relay could ever produce (which clusters every line within single-digit ms of each other,
+    # right at process exit), while staying robust to that real, orthogonal buffering behavior.
+    surfacedLiveNotBuffered=($null-ne$firstStatusMs-and$null-ne$lastStatusMs-and($lastStatusMs-$firstStatusMs)-ge300)
 }
 foreach($key in $checks_liveCompleted.Keys){if(-not$checks_liveCompleted[$key]){$fail.Add("Live-tail Completed-scenario check failed: $key")}}
 
@@ -180,6 +192,76 @@ $checks_liveFailed=[ordered]@{
     exitCodeMatchesRealFailure=$failedScenario.expectedExitCodeMatched
 }
 foreach($key in $checks_liveFailed.Keys){if(-not$checks_liveFailed[$key]){$fail.Add("Live-tail Failed-scenario check failed: $key")}}
+
+# 10. Live-view noise filter: PowerShell's real transcript header/footer and a real, genuinely
+#     caught-and-handled "PS>TerminatingError(...)" line (a real failed probe, exactly the
+#     already-caught readiness/retry shape this installer's own OpenWebUI/ComfyUI wait loops
+#     produce) must never reach the live view -- while the real Step-label/Running/Completed
+#     lines around them do, AND the raw transcript FILE on disk still has every single one of
+#     those suppressed lines in full (the filter only ever affects the live relay, never the
+#     artifact itself).
+$noiseScenario=Test-KICompleteLiveTailScenario -ExpectedExitCode 0 -WriterBody {
+    $hb=New-KICompleteStepHeartbeat -StepLabel 'Filter Test Step'
+    Write-KICompleteStepStatus -Heartbeat $hb -Status Running -Message 'Start'
+    try{Get-Content -LiteralPath 'C:\this-file-does-not-exist-xyz.txt' -ErrorAction Stop}catch{}
+    Write-KICompleteStepStatus -Heartbeat $hb -Status Completed -Message 'Fertig'
+    exit 0
+}
+$noiseLinesJoined=($noiseScenario.captured|ForEach-Object line)-join "`n"
+$noiseTranscriptRaw=$noiseScenario.transcriptRawContent
+$checks_liveNoiseFilter=[ordered]@{
+    stepLabelAnnouncementVisible=($noiseLinesJoined-match'\[Filter Test Step\]')
+    runningVisible=($noiseLinesJoined-match'Running - Start')
+    completedVisible=($noiseLinesJoined-match'Completed - Fertig')
+    transcriptHeaderBannerHidden=($noiseLinesJoined-notmatch'PowerShell transcript start')
+    transcriptFooterBannerHidden=($noiseLinesJoined-notmatch'PowerShell transcript end')
+    transcriptSeparatorRulesHidden=(-not(@($noiseScenario.captured|Where-Object{$_.line.Trim()-match'^\*{10,}$'}).Count))
+    metadataFieldsHidden=($noiseLinesJoined-notmatch'PSVersion:'-and$noiseLinesJoined-notmatch'Username:'-and$noiseLinesJoined-notmatch'Host Application:')
+    terminatingErrorNoiseHidden=($noiseLinesJoined-notmatch'PS>TerminatingError')
+    # The suppressed content must still be fully, really present in the actual transcript file --
+    # never removed from the real artifact, only from the live relay.
+    rawTranscriptStillHasHeader=($null-ne$noiseTranscriptRaw-and$noiseTranscriptRaw.Contains('PowerShell transcript start'))
+    rawTranscriptStillHasFooter=($null-ne$noiseTranscriptRaw-and$noiseTranscriptRaw.Contains('PowerShell transcript end'))
+    rawTranscriptStillHasTerminatingError=($null-ne$noiseTranscriptRaw-and$noiseTranscriptRaw.Contains('PS>TerminatingError'))
+}
+foreach($key in $checks_liveNoiseFilter.Keys){if(-not$checks_liveNoiseFilter[$key]){$fail.Add("Live-view noise filter check failed: $key")}}
+
+# 11. A real failure occurring ALONGSIDE the same kind of internal, already-caught noise must
+#     still surface Failed live, exactly once -- the filter must never combine with a real error
+#     path to hide it (the actual "keine Fehler verschlucken" proof, not just the filter's own
+#     unit behavior in isolation).
+$noisyFailureScenario=Test-KICompleteLiveTailScenario -ExpectedExitCode 9 -WriterBody {
+    $hb=New-KICompleteStepHeartbeat -StepLabel 'Fake Step'
+    Write-KICompleteStepStatus -Heartbeat $hb -Status Running -Message 'Start'
+    try{Get-Content -LiteralPath 'C:\this-file-does-not-exist-xyz.txt' -ErrorAction Stop}catch{}
+    Write-KICompleteStepStatus -Heartbeat $hb -Status Failed -Message 'Echter Fehler'
+    exit 9
+}
+$noisyFailureLinesJoined=($noisyFailureScenario.captured|ForEach-Object line)-join "`n"
+$checks_liveNoisyFailure=[ordered]@{
+    realFailedStillVisibleAmidNoise=(@([regex]::Matches($noisyFailureLinesJoined,'Failed - Echter Fehler')).Count-eq1)
+    terminatingErrorNoiseStillHidden=($noisyFailureLinesJoined-notmatch'PS>TerminatingError')
+    exitCodeMatchesRealFailure=$noisyFailureScenario.expectedExitCodeMatched
+}
+foreach($key in $checks_liveNoisyFailure.Keys){if(-not$checks_liveNoisyFailure[$key]){$fail.Add("Live-view noisy-failure check failed: $key")}}
+
+# 12. Test-KICompleteTranscriptNoiseLine as a pure predicate -- direct proof the deny-list is
+#     exact (only the documented known-noise shapes match) and never matches an arbitrary,
+#     unanticipated real message (the actual "kann keinen echten Fehler verschlucken" guarantee,
+#     stated as a property of the filter function itself rather than only observed indirectly).
+$checks_noisePredicate=[ordered]@{
+    matchesSeparatorRule=(Test-KICompleteTranscriptNoiseLine '**********************')
+    matchesTranscriptStart=(Test-KICompleteTranscriptNoiseLine 'PowerShell transcript start')
+    matchesTranscriptEnd=(Test-KICompleteTranscriptNoiseLine 'PowerShell transcript end')
+    matchesUsernameField=(Test-KICompleteTranscriptNoiseLine 'Username: NXK-01\okami')
+    matchesTerminatingError=(Test-KICompleteTranscriptNoiseLine 'PS>TerminatingError(Get-Content): "some real message"')
+    neverMatchesRealRunningLine=(-not(Test-KICompleteTranscriptNoiseLine '[10:00:00] Running - Start'))
+    neverMatchesRealFailedLine=(-not(Test-KICompleteTranscriptNoiseLine '[10:00:00] Failed - Echter, unerwarteter Fehler'))
+    neverMatchesStepAnnouncement=(-not(Test-KICompleteTranscriptNoiseLine '[Irgendein Schritt]'))
+    neverMatchesArbitraryUserMessage=(-not(Test-KICompleteTranscriptNoiseLine 'Windows-Neustart erforderlich. Danach Resume-KIStack-Installer.cmd ABC123 ausfuehren.'))
+    neverMatchesEmptyLine=(-not(Test-KICompleteTranscriptNoiseLine ''))
+}
+foreach($key in $checks_noisePredicate.Keys){if(-not$checks_noisePredicate[$key]){$fail.Add("Test-KICompleteTranscriptNoiseLine predicate check failed: $key")}}
 
 $waitingForUserActionScenario=Test-KICompleteLiveTailScenario -ExpectedExitCode 0 -WriterBody {
     $hb=New-KICompleteStepHeartbeat -StepLabel 'Visual Integration'
@@ -214,6 +296,48 @@ $checks_splitBuffering=[ordered]@{
 }
 foreach($key in $checks_splitBuffering.Keys){if(-not$checks_splitBuffering[$key]){$fail.Add("Split-KICompleteBufferedLines check failed: $key")}}
 
+# 13. No duplicate final JSON in the normal launcher path: the same copy-and-patch technique
+#     Test-KIStackExitCodePropagation.ps1 already establishes (skip the elevation branch, and
+#     substitute a fixture $result instead of a real Invoke-KIStackCompleteInstaller run) is
+#     reused here to run the REAL, unmodified completion-path code (the human-readable summary
+#     replacing the old Write-Output $json) and capture its REAL stdout -- proving the full JSON
+#     never appears on stdout at all anymore (Start-KIStack-Installer.cmd's own final "type
+#     %LOG%" is therefore the only place it is shown), while KI-Stack-Installer-output.txt
+#     itself still receives the exact, complete, unabridged JSON record unchanged.
+$dupJsonTemp=Join-Path ([IO.Path]::GetTempPath()) ('KIHB-nodup-'+[guid]::NewGuid().ToString('N').Substring(0,10))
+New-Item -ItemType Directory -Path $dupJsonTemp -Force|Out-Null
+try{
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'CompleteInstaller.psm1') -Destination $dupJsonTemp
+    New-Item -ItemType Directory -Path (Join-Path $dupJsonTemp 'Runtime') -Force|Out-Null
+    Copy-Item -LiteralPath (Join-Path $PackageRoot 'Runtime/KIStackPathContext.psm1') -Destination (Join-Path $dupJsonTemp 'Runtime')
+    $dupJsonSource=Get-Content -LiteralPath (Join-Path $PackageRoot 'Start-KIStackCompleteInstaller.ps1') -Raw
+    $dupJsonSource=$dupJsonSource.Replace('if(-not(Test-KICompleteAdministrator)){','if($false){')
+    $dupJsonSource=$dupJsonSource.Replace('$plan=New-KICompletePlan -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -ReplayComponent $ReplayComponent','$plan=[pscustomobject]@{steps=@()}')
+    $dupJsonSource=$dupJsonSource.Replace(
+        '$result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot ''C:\KI-Stack'' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken -ReplayComponent $ReplayComponent',
+        '$result=[pscustomobject]@{schemaVersion=''1.1'';status=''Completed'';transactionId=''TEST-NODUP'';steps=@([pscustomobject]@{id=''fake-a'';status=''Completed''},[pscustomobject]@{id=''fake-b'';status=''SkippedAlreadyCompliant''})}'
+    )
+    $dupJsonScript=Join-Path $dupJsonTemp 'patched.ps1'
+    [IO.File]::WriteAllText($dupJsonScript,$dupJsonSource,[Text.UTF8Encoding]::new($false))
+    $dupJsonLog=Join-Path $dupJsonTemp 'output.log'
+    $dupJsonStdout=(& (Get-Command pwsh.exe).Source -NoLogo -NoProfile -File $dupJsonScript -Elevated -LogPath $dupJsonLog 2>$null)-join "`n"
+    $dupJsonLogContent=Get-Content -LiteralPath $dupJsonLog -Raw -ErrorAction SilentlyContinue
+    $checks_noDuplicateFinalJson=[ordered]@{
+        # The exact JSON key:value text ConvertTo-Json would produce for the fixture -- must
+        # appear in the log FILE, never on stdout.
+        stdoutNeverContainsFullJsonRecord=(-not$dupJsonStdout.Contains('"transactionId": "TEST-NODUP"'))
+        stdoutNeverContainsSchemaVersionField=(-not$dupJsonStdout.Contains('"schemaVersion"'))
+        humanReadableSummaryAppearsOnStdout=($dupJsonStdout-match'Ergebnis: Completed \(TransactionId: TEST-NODUP\)')
+        humanReadableSummaryAppearsExactlyOnce=(@([regex]::Matches($dupJsonStdout,'Ergebnis: Completed')).Count-eq1)
+        componentSummaryLineAppears=($dupJsonStdout-match'Komponenten: 2 von 2 abgeschlossen')
+        logFileStillHasCompleteJsonRecord=($null-ne$dupJsonLogContent-and$dupJsonLogContent.Contains('"transactionId": "TEST-NODUP"')-and$dupJsonLogContent.Contains('"schemaVersion"'))
+        exitCodeStillZero=($LASTEXITCODE-eq0)
+    }
+    foreach($key in $checks_noDuplicateFinalJson.Keys){if(-not$checks_noDuplicateFinalJson[$key]){$fail.Add("No-duplicate-final-JSON check failed: $key")}}
+}finally{
+    if(Test-Path -LiteralPath $dupJsonTemp){Remove-Item -LiteralPath $dupJsonTemp -Recurse -Force -ErrorAction SilentlyContinue}
+}
+
 $passed=$fail.Count-eq0
 [pscustomobject]@{passed=$passed;checks=[ordered]@{
     shortStepNoHeartbeat=($shortStartLines-eq1-and$shortHeartbeatLines-eq0)
@@ -227,6 +351,10 @@ $passed=$fail.Count-eq0
     liveTailFailedScenario=$checks_liveFailed
     liveTailWaitingForUserActionScenario=$checks_liveWaitingForUserAction
     liveTailRebootScenario=$checks_liveReboot
+    liveViewNoiseFilter=$checks_liveNoiseFilter
+    liveViewNoisyFailure=$checks_liveNoisyFailure
+    noisePredicate=$checks_noisePredicate
     splitBuffering=$checks_splitBuffering
+    noDuplicateFinalJson=$checks_noDuplicateFinalJson
 };failures=@($fail)}|ConvertTo-Json -Depth 10
 if(-not$passed){throw 'Installer-Heartbeat-Regression fehlgeschlagen.'}

@@ -160,7 +160,21 @@ try{
         $result=Invoke-KIStackCompleteInstaller -Mode Upgrade -PackageRoot $PSScriptRoot -TargetRoot 'C:\KI-Stack' -TransactionId $TransactionId -Resume:$Resume -OpenWebUIApiToken $apiToken -ReplayComponent $ReplayComponent
         $json=$result|ConvertTo-Json -Depth 100
         [IO.File]::WriteAllText($LogPath,$json+[Environment]::NewLine,[Text.UTF8Encoding]::new($false))
-        Write-Output $json
+        # The full JSON is never written to the console/transcript here anymore -- it is already
+        # complete and unchanged in $LogPath (KI-Stack-Installer-output.txt), which the calling
+        # .cmd's own "type" step still shows exactly once at the end. Emitting the same
+        # multi-line block a second time here, into the live-tailed transcript, was the real
+        # cause of the reported duplicate JSON: once live via the transcript tail, once again
+        # from the log file. A short, human-readable summary is what a live view actually needs;
+        # the complete machine-readable record stays exactly where it always was.
+        $resultStatusText=[string]$result.status
+        $resultTransactionIdText=[string]$result.transactionId
+        $resultStepsProperty=$result.PSObject.Properties['steps']
+        $resultTotalSteps=if($null-ne$resultStepsProperty){@($resultStepsProperty.Value).Count}else{0}
+        $resultDoneSteps=if($null-ne$resultStepsProperty){@($resultStepsProperty.Value|Where-Object{[string]$_.status-in@('Completed','SkippedAlreadyCompliant','SkippedSupportedInstallation')}).Count}else{0}
+        Write-Host ''
+        Write-Host ("Ergebnis: {0} (TransactionId: {1})" -f $resultStatusText,$resultTransactionIdText) -ForegroundColor $(if($resultStatusText-eq'WaitingForRestart'){'Yellow'}elseif($resultStatusText-match'Completed'){'Green'}else{'Red'})
+        if($resultTotalSteps-gt0){Write-Host ("Komponenten: {0} von {1} abgeschlossen/übersprungen." -f $resultDoneSteps,$resultTotalSteps)}
         if($needsVisualPackCutover){
             $visualStep=@($result.steps|Where-Object{$_.id-eq'openwebui-visual-pack'-and$_.status-eq'Completed'}|Select-Object -First 1)
             if($visualStep.Count){

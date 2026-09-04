@@ -70,6 +70,42 @@ function Split-KICompleteBufferedLines {
     [pscustomobject]@{ lines = @($parts[0..($parts.Length - 2)]); remainder = $parts[-1] }
 }
 
+function Test-KICompleteTranscriptNoiseLine {
+    # Deny-list, never an allow-list: only lines that are POSITIVELY IDENTIFIED as one of a
+    # small, well-known set of non-user-relevant transcript artifacts are suppressed from the
+    # live view Watch-KICompleteElevatedProcess relays; every other line -- including any real
+    # message this function's author never anticipated -- passes through unchanged. This is the
+    # deliberate, real safety property behind "keine Fehler verschlucken": an allow-list keyed
+    # to today's known status strings would silently swallow tomorrow's new warning; a deny-list
+    # keyed to today's known NOISE can only ever fail open (show something extra), never fail
+    # closed (hide something real).
+    #
+    # Two, and only two, kinds of noise are suppressed:
+    #   1. PowerShell's own Start-Transcript header/footer block (banner rules, "PowerShell
+    #      transcript start/end", and the fixed set of metadata fields it always prints --
+    #      Start/End time, Username, RunAs User, Configuration Name, Machine, Host Application,
+    #      Process ID, PSVersion, PSEdition, GitCommitId, OS, Platform, PSCompatibleVersions,
+    #      PSRemotingProtocolVersion, SerializationVersion, WSManStackVersion). Real, observed
+    #      shape (PowerShell 7.6.5) -- never the user's own installer output.
+    #   2. "PS>TerminatingError(...)" -- PowerShell's transcript records a terminating error at
+    #      the exact point it first occurs, even when a try/catch further up the call stack goes
+    #      on to handle it cleanly (e.g. every already-caught readiness/retry probe this
+    #      installer's own OpenWebUI/ComfyUI wait loops perform). This is genuinely just noise
+    #      from an ALREADY-HANDLED error path -- a real, unhandled failure is never conveyed only
+    #      through this raw transcript artifact: it is always ALSO surfaced via the explicit
+    #      Write-KICompleteStepStatus -Status Failed heartbeat line (never filtered, see below),
+    #      the real non-zero exit code, and the untouched .stderr.txt file -- so suppressing this
+    #      one redundant, low-level artifact can never make a genuine failure invisible.
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Line)
+    $trimmed = $Line.Trim()
+    if ($trimmed -match '^\*{10,}$') { return $true }
+    if ($trimmed -match '^PowerShell transcript (start|end)$') { return $true }
+    if ($trimmed -match '^(Start|End) time:') { return $true }
+    if ($trimmed -match '^(Username|RunAs User|Configuration Name|Machine|Host Application|Process ID|PSVersion|PSEdition|GitCommitId|OS|Platform|PSCompatibleVersions|PSRemotingProtocolVersion|SerializationVersion|WSManStackVersion):') { return $true }
+    if ($trimmed -match '^PS>TerminatingError\(') { return $true }
+    return $false
+}
+
 function Watch-KICompleteElevatedProcess {
     # Live-relays an elevated (or any) child process's own transcript (Start-Transcript, in
     # Start-KIStackCompleteInstaller.ps1 -- one of this installer's existing logging artifacts,
@@ -130,13 +166,19 @@ function Watch-KICompleteElevatedProcess {
             [void]$watcher.WaitForChanged([IO.WatcherChangeTypes]::Changed, 500)
             $split = Split-KICompleteBufferedLines -Buffer $buffer -Chunk $reader.ReadToEnd()
             $buffer = $split.remainder
-            foreach ($line in $split.lines) { & $EmitLine $line }
+            # Filtering happens here, once, for every caller (including a caller-supplied
+            # -EmitLine) -- never something each caller must remember to apply itself. Only ever
+            # affects what THIS live view relays; the transcript FILE being tailed already has
+            # every one of these lines written to it in full by Start-Transcript, completely
+            # unaffected by this filter (requirement: the real transcript file itself stays
+            # whole).
+            foreach ($line in $split.lines) { if (-not (Test-KICompleteTranscriptNoiseLine $line)) { & $EmitLine $line } }
         }
         # The process has exited -- no further writes are coming, so drain whatever is left
         # (including a final line that never got its own trailing newline) as complete.
         $split = Split-KICompleteBufferedLines -Buffer $buffer -Chunk $reader.ReadToEnd()
-        foreach ($line in $split.lines) { & $EmitLine $line }
-        if (-not [string]::IsNullOrEmpty($split.remainder)) { & $EmitLine $split.remainder }
+        foreach ($line in $split.lines) { if (-not (Test-KICompleteTranscriptNoiseLine $line)) { & $EmitLine $line } }
+        if (-not [string]::IsNullOrEmpty($split.remainder) -and -not (Test-KICompleteTranscriptNoiseLine $split.remainder)) { & $EmitLine $split.remainder }
     } finally {
         $reader.Dispose(); $stream.Dispose(); $watcher.Dispose()
     }
@@ -1033,7 +1075,15 @@ function Install-KICompleteCentralStarters {
         Copy-Item $src $dst -Force
         $changed+=@([pscustomobject]@{name=$name;existedBefore=$existedBefore;backupPath=$backupPath})
     }
-    $changed
+    # Real, reproduced schema-stability bug (centralStarters in the final transaction JSON):
+    # PowerShell's own output-stream enumeration unwraps a bare array return into its single
+    # element when exactly one starter changed (and into $null when zero changed), regardless of
+    # $changed's own, correctly-typed array contents -- observed live once Get-KIStackStatus.ps1
+    # became the only central starter needing reconciliation on an otherwise up-to-date real
+    # target. The unary comma forces this function to always hand back the real array itself
+    # (0, 1, or N elements) to its caller, never a collapsed scalar or $null -- the array's own
+    # element count is completely unaffected by this, only the collapse is prevented.
+    return ,$changed
 }
 
 function Restore-KICompleteCentralStarters {
@@ -1782,7 +1832,11 @@ function Invoke-KIStackCompleteInstaller {
         $orchestratorResult=Install-KICompleteOrchestrator $PackageRoot $TargetRoot $backup
         $preCommitCompensations.Add([pscustomobject]@{name='Orchestrator';action={Restore-KICompleteOrchestrator -TargetRoot $TargetRoot -ExistedBefore ([bool]$orchestratorResult.existedBefore) -BackupPath ([string]$orchestratorResult.backupPath)}})
         $finalizationPhase = 'InstallCentralStarters'
-        $starterChanges=Install-KICompleteCentralStarters $PackageRoot $TargetRoot $backup
+        # @() here is defense in depth, matching this file's own established call-site-wrapping
+        # convention elsewhere (e.g. Restore-KICompleteCentralStarters's own -Changes consumption
+        # below) -- Install-KICompleteCentralStarters's own `,$changed` return already guarantees
+        # this, but never relying on a single layer for an array-schema guarantee costs nothing.
+        $starterChanges=@(Install-KICompleteCentralStarters $PackageRoot $TargetRoot $backup)
         $preCommitCompensations.Add([pscustomobject]@{name='CentralStarters';action={Restore-KICompleteCentralStarters -TargetRoot $TargetRoot -Changes $starterChanges}})
         $finalizationPhase = 'InstallOperations'
         $operations=Install-KICompleteOperations $TargetRoot (Join-Path $backup 'operations') -DesktopPath $DesktopPath -PathContext $pathContext
