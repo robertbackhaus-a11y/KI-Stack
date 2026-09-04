@@ -15,7 +15,7 @@ foreach($marker in @('KI-Stack-Installer-output.txt','Start-KIStackCompleteInsta
     if(-not$executeStarter.Contains($marker)){$fail.Add("Execute starter contract: $marker")}
 }
 
-if ($manifest.version -ne '2.13.0' -or $manifest.baseVersion -ne '2.12.0') { $fail.Add('Version contract') }
+if ($manifest.version -ne '2.14.0' -or $manifest.baseVersion -ne '2.13.0') { $fail.Add('Version contract') }
 if ($payloads.modelPolicy.chatModels.Count -ne 1 -or $payloads.modelPolicy.chatModels[0] -ne 'qwen3.6-27b-uncensored-heretic-v2-native-mtp-preserved') { $fail.Add('Heretic chat-only contract') }
 if ($payloads.modelPolicy.nomicRole -ne 'embedding-only' -or $payloads.modelPolicy.embeddingModels.Count -ne 1) { $fail.Add('Nomic embedding-only contract') }
 if ([string]$payloads.modelContractAuthority.packagedArchive -ne 'Payload/ModelsWorkflows/KI-Stack-Visual-Models-Workflows-v2.0.3.zip') { $fail.Add('Authoritative model contract') }
@@ -355,7 +355,7 @@ if ($syntaxErrors.Count) { $fail.Add('PowerShell syntax') }
 
 [pscustomobject]@{
     passed = ($fail.Count -eq 0)
-    version = '2.13.0'
+    version = '2.14.0'
     checks = 28
     failures = $fail
 } | ConvertTo-Json -Depth 10

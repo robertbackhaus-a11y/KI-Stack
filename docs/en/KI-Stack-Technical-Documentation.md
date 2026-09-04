@@ -1,6 +1,6 @@
-# KI-Stack 2.13.0 technical documentation
+# KI-Stack 2.14.0 technical documentation
 
-KI-Stack is a transactional Windows local-AI stack. Complete Installer `2.13.0` is the current repository/development state (not yet published as a GitHub Release); `2.12.0` is the latest actually published GitHub Release. Complete Installer 2.10.0 remains the last state that was both regression- and real-target-validated end to end as a whole (see `docs/releases/complete-installer-v2.10.0.md`), and the last complete, physical Greenfield installation on an empty target was performed and verified in an earlier cycle (2.4.0). 2.13.0 itself adds several real, new real-target proofs over 2.12.0, though: a real Codex Local login-to-upgrade-to-starter-to-`codex exec` end-to-end run, a real OpenWebUI credential bootstrap validation (admin login, API key, DPAPI store), and a real web-search proof for `ki-stack-research` -- not a full Windows Greenfield proof (deliberately deferred to `2.15`), but substantially more real target coverage than 2.12.0. Since then, on the same still-unpublished development line, Open Terminal `0.1.0` was integrated as a real, target-validated Complete Installer component (see "Open Terminal" below), and the installer's live heartbeat, transcript live-view filtering, single final result summary, and `centralStarters` transaction-schema stability were all fixed and real-target verified. See "Validation scope" below.
+KI-Stack is a transactional Windows local-AI stack. Complete Installer `2.14.0` is the current repository/development state (not yet published as a GitHub Release); `2.12.0` is the latest actually published GitHub Release. Complete Installer 2.10.0 remains the last state that was both regression- and real-target-validated end to end as a whole (see `docs/releases/complete-installer-v2.10.0.md`), and the last complete, physical Greenfield installation on an empty target was performed and verified in an earlier cycle (2.4.0). 2.13.0 itself adds several real, new real-target proofs over 2.12.0, though: a real Codex Local login-to-upgrade-to-starter-to-`codex exec` end-to-end run, a real OpenWebUI credential bootstrap validation (admin login, API key, DPAPI store), and a real web-search proof for `ki-stack-research` -- not a full Windows Greenfield proof (deliberately deferred to `2.15`), but substantially more real target coverage than 2.12.0. Since then, on the same still-unpublished development line, Open Terminal `0.1.0` was integrated as a real, target-validated Complete Installer component (see "Open Terminal" below), and the installer's live heartbeat, transcript live-view filtering, single final result summary, and `centralStarters` transaction-schema stability were all fixed and real-target verified. See "Validation scope" below.
 
 ## Active components
 
@@ -21,7 +21,7 @@ KI-Stack is a transactional Windows local-AI stack. Complete Installer `2.13.0` 
 | Target Acceptance | 1.0.10 |
 | OpenWebUI Visual Pack | 2.0.5 |
 | OpenWebUI Agent Pack | 1.9.0 |
-| Complete Installer | 2.13.0 |
+| Complete Installer | 2.14.0 |
 
 ComfyUI's reference and minimum supported version for reproducible Greenfield installs and reconciliation is `v0.34.0`; an existing, supported newer installation is preserved and never auto-downgraded. Open WebUI's `ReferenceVersion` and `MinimumSupportedVersion` are both `0.11.3` -- any installed version from `0.11.3` up is supported, and an existing, supported newer installation is preserved the same way, never auto-downgraded to the exact reference.
 

@@ -1,7 +1,7 @@
 {
   "schemaVersion": "2.0",
   "package": "KI-Stack Complete Installer",
-  "version": "2.13.0",
+  "version": "2.14.0",
   "status": "ComponentIsolation_VersionRegistry_ReleaseAttestation_CodexLocalIsolatedHome_OpenWebUICredentialBootstrap_ResearchAgentWebSearchValidation",
   "results": {
     "rcBuildValidation": {
