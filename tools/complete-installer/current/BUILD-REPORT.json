@@ -261,5 +261,48 @@
     "wslKeeperArchitectureReview": {
       "outcome": "notABug -- existing architecture confirmed sound: Start-KIStack-SearXNG.ps1's keeper is already de-duplication-safe (a recorded PID is re-verified as a genuine matching wsl.exe process, via Test-KeeperIdentity, before a new keeper is ever started), Stop-KIStack-SearXNG.ps1 deliberately terminates it, and no automatic restart after reboot is intended (KI-Stack is deliberately service-free/manual-start by design). Observed instability during this session's own automated testing is attributed to this sandboxed session's own process-lifecycle handling of detached background processes, not a defect in the real script for a real interactive user. No Windows service introduced; no code change made."
     }
+  },
+  "openTerminalIntegration": {
+    "status": "targetValidated",
+    "cycle": "2.14.0",
+    "change": "Open Terminal 0.1.0 added as a new, self-contained ('isolation A') Complete Installer component: its own Invoke-KIStackOpenTerminal.ps1 entry point, own backup/rollback, and own version probe (modules/open-terminal/installation.json), participating in real Install/Upgrade/Repair/Skip planning exactly like Codex Local. It runs 'uvx open-terminal run --host 127.0.0.1 --port 8000 --cwd <managed-workspace>' resolved deterministically under C:\\KI-Stack\\python (the managed console script if present, otherwise python.exe -m uv, and only as a last resort a bare uv/uv.exe on PATH -- never assuming an unmanaged uvx is simply there); no Docker involved. Stop verifies process identity by PID plus a live Win32_Process command-line match, never a bare PID lookup. Authentication is a single 256-bit random API key, generated once and stored DPAPI-encrypted (ConvertFrom-SecureString, current-user scope) under C:\\KI-Stack\\state\\open-terminal\\credential.json, resolved into the child process environment only at start time and reused unchanged across restarts/upgrades/repairs -- never written to a file, script, or log in plaintext. Readiness is a bounded wait against http://127.0.0.1:8000/openapi.json. Start/Stop/Status are chained onto the Complete Installer's own root Start-KIStack.cmd/Stop-KIStack.cmd/Get-KIStackStatus.ps1. OpenWebUI remains the sole user-facing frontend; connecting it to Open Terminal still requires one manual, one-time OpenAPI tool-server registration under OpenWebUI's own Admin Settings -> Tools (not yet automated).",
+    "validation": "Test-KIStackOpenTerminal.ps1 / Test-KIStackComponentContract coverage (per scripts/Test-Repository.ps1's 'Open Terminal component contract' and 'Open Terminal lifecycle wiring contract' checks): credential persistence, process identity, start/stop, healthcheck, status reporting, not-installed skip, installed invoke, and failure-never-throws all verified -- all PASS.",
+    "realTargetValidation": {
+      "environment": "existing real target (C:\\KI-Stack), real elevated Complete Installer Upgrade run",
+      "installOutcome": "PASS -- Open Terminal installed for real, credential.json created DPAPI-encrypted, endpoint reachable at http://127.0.0.1:8000/openapi.json",
+      "followUpRun": "PASS -- a subsequent Complete Installer run against the same target correctly reported Open Terminal SkippedAlreadyCompliant",
+      "overallTransactionStatus": "Completed",
+      "overallExitCode": 0
+    }
+  },
+  "installerHeartbeatAndOutputFixes": {
+    "status": "targetValidated",
+    "cycle": "2.14.0",
+    "liveHeartbeatDuringElevation": {
+      "rootCause": "The generated Start-KIStackCompleteInstaller.ps1 transcript buffered its own step-status output while running elevated (UAC), so an elevated execution showed nothing in the live console until the very end even though Write-KICompleteStepStatus/Write-KICompleteStepHeartbeatIfDue were already writing correctly to the transcript file underneath.",
+      "fix": "The elevated launch path now tails that transcript file live instead of only reading it back after the child process exits, using a race-condition-safe line splitter (Split-KICompleteBufferedLines) so a line split exactly across two reads is never emitted torn.",
+      "validation": "Test-KIStackInstallerHeartbeat.ps1: elevationLiveViewWired, liveTailCompletedScenario, liveTailFailedScenario, liveTailWaitingForUserActionScenario, liveTailRebootScenario (exit code 31 preserved), and splitBuffering edge cases (torn word withheld until its line completes) -- all PASS."
+    },
+    "transcriptNoiseFilterAndSingleFinalJson": {
+      "rootCause": "The elevated live view surfaced internal PowerShell transcript scaffolding (header/footer, '****'-style markers) alongside real step-status lines, and the final result JSON could appear twice -- once from the live tail, once again from the completed transcript read-back.",
+      "fix": "The live view is now filtered to real step-status/heartbeat lines only (liveViewNoiseFilter/noisePredicate), and the launcher emits a single human-readable completion summary on stdout instead of the raw JSON a second time; the full JSON record is still written exactly once, unabridged, to KI-Stack-Installer-output.txt.",
+      "validation": "Test-KIStackInstallerHeartbeat.ps1: liveViewNoiseFilter, liveViewNoisyFailure, noisePredicate, and noDuplicateFinalJson (stdout never contains the full JSON record or a repeated human-readable summary; the log file still has the complete, unabridged JSON) -- all PASS.",
+      "realTargetNote": "Confirmed live during this cycle's real Upgrade run against C:\\KI-Stack: the elevated console showed streaming step-status/heartbeat lines throughout, with no transcript scaffolding and no duplicated final JSON."
+    }
+  },
+  "centralStartersSchemaStability": {
+    "status": "targetValidated",
+    "cycle": "2.14.0",
+    "rootCause": "Install-KICompleteCentralStarters's changed-file list could reach the transaction record's finalization.centralStarters field already PowerShell-array-unwrapped, so it could serialize as a bare object for exactly one changed file, or as a nested array ('centralStarters':[[]]) for zero, instead of the documented flat JSON array.",
+    "fix": "The write site now defends explicitly against PowerShell's array-unwrapping (an always-array assignment before serialization), so centralStarters is a genuine, flat JSON array for zero, one, or many entries.",
+    "validation": "Test-KIStackFinalizationRollback.ps1: centralStartersSchema_ZeroElements ('\"centralStarters\":[]', never nested), centralStartersSchema_OneElement ('\"centralStarters\":[{', never a bare object, round-trips as a 1-element array), and centralStartersSchema_ThreeElements (round-trips as a 3-element array with every expected name present, no element itself an array) -- all PASS."
+  },
+  "deterministicBuildAndSelfTest2_14_0": {
+    "status": "targetValidated",
+    "cycle": "2.14.0",
+    "deterministicDualBuildConfirmed": true,
+    "packageSelfTest": "28/28 passed against a freshly extracted build",
+    "repositoryTest": "33/33 passed (scripts/Test-Repository.ps1)",
+    "note": "Two independent builds of the 2.14.0 package (New-KIStackCompleteInstallerArchive.ps1) produce byte-identical ZIPs -- same size and SHA-256; the sidecar and SBOM root-package checksum match the built ZIP exactly."
   }
 }
