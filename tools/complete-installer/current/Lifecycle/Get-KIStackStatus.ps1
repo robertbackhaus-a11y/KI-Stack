@@ -100,6 +100,52 @@ if(-not(Test-Path -LiteralPath $openTerminalMarker -PathType Leaf)){
     }
 }
 
+# MCP-Runtime-Integration: mirrors the Open-Terminal block above exactly (same PID + real
+# CommandLine-identity discipline, same inline duplication instead of a cross-package import of
+# McpRuntime.psm1's own Test-KIMcpRuntimeProcessIdentity, for the same packaging reason). The
+# reachability probe differs deliberately: mcp-runtime speaks native MCP over streamable-http,
+# not a plain REST endpoint like Open Terminal's /openapi.json -- a bare GET has no defined
+# success status in that protocol, so ANY HTTP response (including a 4xx/5xx from the server
+# correctly rejecting a non-MCP GET) counts as "reachable"; only a real connection failure
+# (nothing listening) counts as Gestoppt. Never logs the API key.
+$mcpRuntimeMarker=Join-Path $targetRoot 'modules/mcp-runtime/installation.json'
+$mcpRuntimePidFile=Join-Path $targetRoot 'state/mcp-runtime/mcp-runtime.pid'
+if(-not(Test-Path -LiteralPath $mcpRuntimeMarker -PathType Leaf)){
+    $results.Add((New-StatusResult 'MCP Runtime' 'Gestoppt' 'Nicht installiert'))
+}else{
+    try{
+        $mcpMarker=Get-Content -LiteralPath $mcpRuntimeMarker -Raw|ConvertFrom-Json
+        $mcpHostValue=[string]$mcpMarker.host;$mcpPort=[int]$mcpMarker.port
+        $mcpEndpoint="http://${mcpHostValue}:${mcpPort}/mcp"
+        $mcpTrackedId=$null
+        if(Test-Path -LiteralPath $mcpRuntimePidFile -PathType Leaf){
+            $mcpRaw=(Get-Content -LiteralPath $mcpRuntimePidFile -Raw).Trim()
+            if($mcpRaw-match'^\d+$'){
+                $mcpProc=Get-CimInstance Win32_Process -Filter "ProcessId=$mcpRaw" -ErrorAction SilentlyContinue
+                $mcpCommandLine=if($null-ne$mcpProc){[string]$mcpProc.CommandLine}else{''}
+                if($null-ne$mcpProc-and$mcpProc.Name-in@('uv.exe','uvx.exe','python.exe')-and$mcpCommandLine-match'(?i)mcp_launcher\.py'-and($mcpCommandLine-match[regex]::Escape("$mcpPort"))){
+                    $mcpTrackedId=[int]$mcpRaw
+                }
+            }
+        }
+        if($null-eq$mcpTrackedId){
+            $results.Add((New-StatusResult 'MCP Runtime' 'Gestoppt' "Endpoint $mcpEndpoint"))
+        }else{
+            $mcpHealthy=$false;$mcpDetail="PID $mcpTrackedId"
+            try{
+                $mcpResponse=Invoke-WebRequest -Uri $mcpEndpoint -Method Get -TimeoutSec $TimeoutSeconds -UseBasicParsing -ErrorAction Stop
+                $mcpHealthy=$true;$mcpDetail="PID $mcpTrackedId; HTTP $($mcpResponse.StatusCode)"
+            }catch{
+                if($_.Exception.Response){$mcpHealthy=$true;$mcpDetail="PID $mcpTrackedId; HTTP $([int]$_.Exception.Response.StatusCode) (MCP erwartet keinen einfachen GET)"}
+                else{$mcpDetail="PID $mcpTrackedId; Healthcheck fehlgeschlagen"}
+            }
+            $results.Add((New-StatusResult 'MCP Runtime' $(if($mcpHealthy){'Läuft'}else{'Fehler'}) $mcpDetail))
+        }
+    }catch{
+        $results.Add((New-StatusResult 'MCP Runtime' 'Fehler' $_.Exception.Message))
+    }
+}
+
 # OpenWebUI-Credential-Bootstrap-Workstream (Section 25): never displays the credential itself --
 # Test-KIStackOpenWebUICredential's own status enum is mapped to the simpler, non-secret
 # five-value vocabulary this report uses (Missing/Configured/Valid/Invalid/Unchecked).

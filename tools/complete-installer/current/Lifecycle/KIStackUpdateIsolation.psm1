@@ -277,7 +277,7 @@ function Get-KIStackIsolatedExecutionHandler {
     # Contracts/COMPONENTS.json's own isolatedExecutionImplemented flag -- this list is the
     # implementation-side mirror of that contract, asserted equal by
     # Test-KIStackUpdateIsolation.ps1).
-    return @('openwebui-agent-pack','openwebui-visual-pack','openwebui-ballistics-pack','codex-local','rag','comfyui','models-workflows','integration','validation-gate')
+    return @('openwebui-agent-pack','openwebui-visual-pack','openwebui-ballistics-pack','codex-local','rag','comfyui','models-workflows','integration','validation-gate','mcp-runtime')
 }
 
 function Get-KIStackIsolatedActionMode {
@@ -536,6 +536,32 @@ function Invoke-KIStackIsolatedComponentUpdate {
                 }
                 Write-KICompleteComponentMarker -Component $Component -TargetRoot $TargetRoot
                 return [pscustomobject][ordered]@{id=$ComponentId;outcome='Completed';backupPath=$backupRoot;detail=[ordered]@{orchestratedBy='public Validation Gate installer';installedVersion=[string]$Component.version}}
+            }
+            'mcp-runtime' {
+                # Mirrors codex-local's dispatch shape (own Install/Upgrade/Repair/Validate/
+                # Rollback actions via Get-KIStackIsolatedActionMode, real automatic rollback on a
+                # failed post-action Validate) -- but, unlike codex-local, McpRuntime.psm1's own
+                # marker (schemaVersion/version/host/port/installedAtUtc) already satisfies this
+                # contract's probe (fields:["version"]) and Test-KIMcpRuntime itself only ever
+                # reads the marker's .version field back, so Write-KICompleteComponentMarker is
+                # correctly never called here -- it would just overwrite host/port/installedAtUtc
+                # for no benefit, exactly the reason codex-local's own branch skips it too.
+                $action = Get-KIStackIsolatedActionMode -Component $Component -TargetRoot $TargetRoot
+                $payloadRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'McpRuntime' -Destination $WorkDirectory
+                $entry = Join-Path $payloadRoot 'Invoke-KIStackMcpRuntime.ps1'
+                if (-not (Test-Path -LiteralPath $entry -PathType Leaf)) { throw 'MCP-Runtime-Einstieg fehlt.' }
+                $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot}
+                if (-not [bool]$result.passed) { throw 'MCP-Runtime-Installation fehlgeschlagen.' }
+                try {
+                    $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
+                    if (-not [bool]$validation.passed) { throw 'MCP-Runtime-Validierung fehlgeschlagen.' }
+                } catch {
+                    if (-not [string]::IsNullOrWhiteSpace([string]$result.backupPath)) {
+                        [void](Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Rollback';TargetRoot=$TargetRoot;BackupPath=[string]$result.backupPath})
+                    }
+                    throw
+                }
+                return [pscustomobject][ordered]@{id=$ComponentId;outcome='Completed';backupPath=[string]$result.backupPath;detail=[ordered]@{action=$action;install=$result;validation=$validation}}
             }
         }
     }

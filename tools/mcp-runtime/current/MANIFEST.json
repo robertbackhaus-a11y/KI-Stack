@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "KI-STACK-MCP-RUNTIME",
+  "name": "KI-Stack MCP Runtime",
+  "version": "0.1.0",
+  "status": "Development_SourceValidationPending",
+  "containsSecrets": false,
+  "runtimeGitDependency": false,
+  "uvManaged": false,
+  "uvRuntimeDependency": "uv (external prerequisite, not bundled by this package; open-terminal[mcp] resolved via `uv run --with`)"
+}
