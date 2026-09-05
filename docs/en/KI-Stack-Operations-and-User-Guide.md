@@ -1,4 +1,4 @@
-# KI-Stack 2.14.0 operations and user guide
+# KI-Stack 2.15.0 operations and user guide
 
 ## Normal operation
 
