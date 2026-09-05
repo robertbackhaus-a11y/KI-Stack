@@ -295,6 +295,20 @@ function New-AgentPackModelForm {
     $extensionToolsProperty = $Definition.PSObject.Properties['extensionTools']
     if ($null -ne $extensionToolsProperty -and [bool]$extensionToolsProperty.Value -eq $false) { $allowExtensionTools = $false }
 
+    # MCP-Server-Bindung (2.15 Phase 7): bound to every definition by default, exactly mirroring
+    # ExtensionToolIds's own opt-out shape -- a definition declares "mcpBinding": false to
+    # exclude it (ki-stack-research does, alongside its own "extensionTools": false, matching
+    # its deliberate deny-listed capabilities.terminal:false security posture). This is the
+    # KI-Stack-owned, already-registered mcp-runtime tool-server id (Contracts/COMPONENTS.json
+    # mcp-runtime -> Config/mcp-runtime.config.json's own fixed toolServerId), never a
+    # per-install-discovered value -- hardcoded here the same way managedBy/agentPackVersion
+    # already are two lines below. Never treated as an "Extension Tool" (a separate concept,
+    # Visual Pack's own image/video tools) -- its own dedicated flag, its own dedicated list.
+    $allowMcpBinding = $true
+    $mcpBindingProperty = $Definition.PSObject.Properties['mcpBinding']
+    if ($null -ne $mcpBindingProperty -and [bool]$mcpBindingProperty.Value -eq $false) { $allowMcpBinding = $false }
+    $mcpServerToolIds = if ($allowMcpBinding) { @('server:mcp:ki-stack-mcp-runtime') } else { @() }
+
     $capabilities = [ordered]@{ code_interpreter = [bool]$Definition.codeInterpreter }
     $capabilitiesProperty = $Definition.PSObject.Properties['capabilities']
     if ($null -ne $capabilitiesProperty -and $null -ne $capabilitiesProperty.Value) {
@@ -305,7 +319,7 @@ function New-AgentPackModelForm {
         description = [string]$Definition.description
         capabilities = $capabilities
         knowledge = @($KnowledgeAttachments)
-        toolIds = @(if ($allowExtensionTools) { $ExtensionToolIds } else { @() })
+        toolIds = @(@(if ($allowExtensionTools) { $ExtensionToolIds } else { @() }) + $mcpServerToolIds)
         skillIds = @()
         functionIds = @()
         managedBy = 'KI-STACK-OPENWEBUI-AGENT-PACK'
@@ -603,7 +617,10 @@ function Test-OpenWebUIAgentPack {
         if ([bool]$model.meta.capabilities.code_interpreter -ne [bool]$definition.codeInterpreter) { $failures.Add("Code Interpreter: $($definition.id)") }
 
         $extensionToolsProperty = $definition.PSObject.Properties['extensionTools']
-        $expectedToolIds = if ($null -ne $extensionToolsProperty -and [bool]$extensionToolsProperty.Value -eq $false) { @() } else { $extensionToolIds }
+        $expectedExtensionToolIds = if ($null -ne $extensionToolsProperty -and [bool]$extensionToolsProperty.Value -eq $false) { @() } else { $extensionToolIds }
+        $mcpBindingProperty = $definition.PSObject.Properties['mcpBinding']
+        $expectedMcpToolIds = if ($null -ne $mcpBindingProperty -and [bool]$mcpBindingProperty.Value -eq $false) { @() } else { @('server:mcp:ki-stack-mcp-runtime') }
+        $expectedToolIds = @($expectedExtensionToolIds) + @($expectedMcpToolIds)
         if ((@($model.meta.toolIds) -join '|') -ne ($expectedToolIds -join '|')) { $failures.Add("Unerwünschte Tool-Bindung: $($definition.id)") }
         if (@($model.meta.skillIds).Count -ne 0 -or @($model.meta.functionIds).Count -ne 0) { $failures.Add("Unerwünschte Skill-/Function-Bindung: $($definition.id)") }
 

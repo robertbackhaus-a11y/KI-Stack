@@ -1,9 +1,10 @@
 #Requires -Version 7.0
 [CmdletBinding()]
 param(
-    [ValidateSet('Audit', 'Install', 'Upgrade', 'Repair', 'Validate', 'Status', 'Start', 'Stop', 'Rollback')][string]$Action = 'Audit',
+    [ValidateSet('Audit', 'Install', 'Upgrade', 'Repair', 'Validate', 'Status', 'Start', 'Stop', 'Rollback', 'SyncRegistrationCredential')][string]$Action = 'Audit',
     [string]$TargetRoot = 'C:\KI-Stack',
     [string]$BackupPath,
+    [string]$OpenWebUIEndpoint = 'http://127.0.0.1:8080',
     [switch]$DryRun,
     [switch]$SkipUvCheck
 )
@@ -20,6 +21,7 @@ $result = switch ($Action) {
     'Start' { Start-KIOpenTerminal -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot }
     'Stop' { Stop-KIOpenTerminal -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot }
     'Rollback' { Restore-KIOpenTerminal -BackupPath $BackupPath -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot }
+    'SyncRegistrationCredential' { Repair-KIOpenTerminalOpenWebUIRegistrationCredential -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot -OpenWebUIEndpoint $OpenWebUIEndpoint }
 }
 $result | ConvertTo-Json -Depth 50
 if (-not [bool]$result.passed) { exit 1 }

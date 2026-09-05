@@ -456,6 +456,18 @@ try {
     }
     catch { Add-Result 'Open Terminal lifecycle wiring contract' $false $_.Exception.Message }
 
+    try {
+        $mcpRuntimeParityReport = (& (Join-Path $RootPath 'tools/complete-installer/current/Test-KIStackPrimaryInstallerComponentParity.ps1') -PackageRoot (Join-Path $RootPath 'tools/complete-installer/current') | ConvertFrom-Json)
+        Add-Result 'Primary installer component parity contract' ([bool]$mcpRuntimeParityReport.passed) $(if($mcpRuntimeParityReport.passed){'every contract component (mcp-runtime included) has a real primary-step-loop handler, not just an isolated-dispatcher one'}else{($mcpRuntimeParityReport.failures) -join '; '})
+    }
+    catch { Add-Result 'Primary installer component parity contract' $false $_.Exception.Message }
+
+    # Test-KIStackMcpRuntimeSeededPrimaryFlow.ps1 is deliberately NOT registered here -- like
+    # Test-KIStackOpenTerminalCompleteInstallerIntegration.ps1 before it, it requires a real,
+    # already-built Payload/McpRuntime/*.zip (Expand-KICompletePayload), which this standard,
+    # no-build-artifacts-assumed suite never provides. It remains a real, standalone
+    # verification script, run manually against a staged package -- see its own header comment.
+
     $invalidResults = @(
         $Results | Where-Object {
             $null -eq $_ -or

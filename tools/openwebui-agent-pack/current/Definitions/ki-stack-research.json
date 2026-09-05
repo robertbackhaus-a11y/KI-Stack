@@ -11,6 +11,7 @@
   "knowledgeSource": "rag-global",
   "toolIds": [],
   "extensionTools": false,
+  "mcpBinding": false,
   "skillIds": [],
   "functionIds": [],
   "builtinTools": {

@@ -355,6 +355,32 @@ function Get-KICompleteInstalledVersion {
         }
         throw "Unbekannter Komponenten-Probetyp: $($probe.type)"
     }
+    if([string]$Component.id -eq 'cutover-runtime'){
+        # Real, per-target post-Execute bugfix (2.15 Phase 7 follow-up): a real Execute of
+        # cutover-runtime writes its own live, per-target marker at modules/cutover/installation.json
+        # (confirmed empirically -- a real Execute on 2026-09-05 wrote release
+        # "KI-Stack-Cutover-Execute-v1.6.14" there), exactly like every other real component's own
+        # marker further below in the switch's default case. The frozen $acceptedVersions snapshot
+        # below has no way to ever see that -- it unconditionally returns its static '1.6.10' for
+        # this component id before the switch/marker logic is ever reached, so a real, successful,
+        # validated Execute (status Completed, validated true, exitCode 0) was permanently reported
+        # as compliant:false by every subsequent Audit/DryRun/Execute afterwards. Checking this real,
+        # live marker FIRST -- only for cutover-runtime, only when it exists and actually parses --
+        # fixes exactly that, without touching the frozen map's own protective behavior for
+        # foundation-runtime/python-git/production-recovery/validation-gate/target-acceptance (none of
+        # which have an equivalent live per-target marker, and are deliberately left unchanged) or for
+        # cutover-runtime itself before its first real Execute ever runs (no marker exists yet, so this
+        # falls through to the exact same frozen-map fallback as before).
+        $liveMarkerPath=Join-Path $TargetRoot 'modules/cutover/installation.json'
+        if(Test-Path -LiteralPath $liveMarkerPath -PathType Leaf){
+            try{
+                $liveMarker=Read-KICompleteJson $liveMarkerPath
+                if($liveMarker.PSObject.Properties.Name -contains 'release' -and [string]$liveMarker.release -match '-v(?<version>[0-9]+\.[0-9]+\.[0-9]+(?:-r[0-9]+)?)$'){
+                    return [string]$Matches.version
+                }
+            }catch{}
+        }
+    }
     $acceptancePath=Join-Path $TargetRoot 'modules/production-recovery/acceptance.json'
     $accepted=$null;if(Test-Path $acceptancePath){$accepted=Read-KICompleteJson $acceptancePath}
     if($accepted -and [bool]$accepted.passed -and [string]$accepted.recoveryRevision -eq 'r7'){
@@ -501,6 +527,32 @@ function Test-KICompleteOpenTerminalCompliant {
     }catch{return $false}
 }
 
+function Test-KICompleteMcpRuntimeCompliant {
+    # Mirrors Test-KICompleteOpenTerminalCompliant's own shape and its own reasoning: mcp-runtime
+    # already has a richer compliance function (McpRuntime.psm1's own Test-KIMcpRuntime -- marker
+    # version match, starter/stopper/workspace/credential presence, optional live uv check), but
+    # this orchestrator cannot reliably cross-import it either: in the packaged/shipped form,
+    # McpRuntime.psm1 lives inside Payload/McpRuntime/*.zip, not as a sibling file next to this
+    # module -- exactly the same packaging constraint Test-KICompleteOpenTerminalCompliant already
+    # documents for Open Terminal. This re-verifies directly against the real, on-disk artifacts
+    # Install-KIMcpRuntime actually writes (same four items Test-KIMcpRuntime itself checks minus
+    # the live uv/decryption checks, which -- like Open Terminal's own split -- are separate
+    # runtime concerns, not "is this package correctly deployed").
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.1.0')
+    $root=Join-Path $TargetRoot 'modules/mcp-runtime'
+    $markerPath=Join-Path $root 'installation.json'
+    $starter=Join-Path $root 'Start-KIStack-McpRuntime.cmd'
+    $stopper=Join-Path $root 'Stop-KIStack-McpRuntime.cmd'
+    $credentialFile=Join-Path $TargetRoot 'state/mcp-runtime/credential.json'
+    $workspace=Join-Path $TargetRoot 'state/mcp-runtime/workspace'
+    foreach($path in @($markerPath,$starter,$stopper,$credentialFile)){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){return $false}}
+    if(-not(Test-Path -LiteralPath $workspace -PathType Container)){return $false}
+    try{
+        $marker=Read-KICompleteJson $markerPath
+        return ([string]$marker.version-eq$ExpectedComponentVersion)
+    }catch{return $false}
+}
+
 function Test-KICompleteIntegrationCompliant {
     param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='1.5.11')
     $root=Join-Path $TargetRoot 'modules/integration'
@@ -620,6 +672,7 @@ function New-KICompletePlan {
         if([string]$component.id-eq'openwebui-visual-pack'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteVisualPackCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         if([string]$component.id-eq'codex-local'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'open-terminal'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
+        if([string]$component.id-eq'mcp-runtime'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteMcpRuntimeCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'integration'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'comfyui'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         $reconciliationNeeded=$compliant-and$stored-ne[string]$component.version
@@ -1375,6 +1428,27 @@ function Invoke-KICompleteOpenTerminalLifecycle {
     }
 }
 
+function Invoke-KICompleteMcpRuntimeLifecycle {
+    # Mirrors Invoke-KICompleteOpenTerminalLifecycle exactly, same additive/best-effort/never-
+    # throws contract, same reasoning: mcp-runtime is an independently, separately installable
+    # component (tools/mcp-runtime/current), so a target that never installed it must behave
+    # exactly as before -- only ever runs mcp-runtime's OWN starter/stopper .cmd (the same files
+    # Install-KIMcpRuntime already writes under modules/mcp-runtime) when they actually exist.
+    # This governs the SERVER PROCESS only -- Open-WebUI registration is a separate concern
+    # (Register/Unregister/RegistrationStatus), never chained onto Start/Stop here, exactly as
+    # Open Terminal's own OpenWebUI tool-server registration is documented as a separate step.
+    param([ValidateSet('Start','Stop')][string]$Action,[string]$TargetRoot='C:\KI-Stack')
+    $scriptName = if ($Action -eq 'Start') { 'Start-KIStack-McpRuntime.cmd' } else { 'Stop-KIStack-McpRuntime.cmd' }
+    $script = Join-Path $TargetRoot ("modules/mcp-runtime/{0}" -f $scriptName)
+    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { return [pscustomobject]@{action=$Action;attempted=$false;passed=$true;reason='MCP Runtime ist auf diesem Ziel nicht installiert.'} }
+    try {
+        $p = Start-Process -FilePath $script -Wait -PassThru -NoNewWindow
+        [pscustomobject]@{action=$Action;attempted=$true;passed=($p.ExitCode -eq 0);exitCode=$p.ExitCode}
+    } catch {
+        [pscustomobject]@{action=$Action;attempted=$true;passed=$false;reason=$_.Exception.Message}
+    }
+}
+
 function Invoke-KICompleteLifecycle {
     param([ValidateSet('Start','Stop')][string]$Action,[string]$TargetRoot='C:\KI-Stack')
     $script = Join-Path $TargetRoot ("modules/cutover/{0}-KIStack.cmd" -f $Action)
@@ -1382,7 +1456,8 @@ function Invoke-KICompleteLifecycle {
     $p=Start-Process -FilePath $script -Wait -PassThru -NoNewWindow
     if ($p.ExitCode -ne 0) { throw "$Action fehlgeschlagen: Exitcode $($p.ExitCode)" }
     $openTerminal = Invoke-KICompleteOpenTerminalLifecycle -Action $Action -TargetRoot $TargetRoot
-    [pscustomobject]@{action=$Action;passed=$true;exitCode=$p.ExitCode;openTerminal=$openTerminal}
+    $mcpRuntime = Invoke-KICompleteMcpRuntimeLifecycle -Action $Action -TargetRoot $TargetRoot
+    [pscustomobject]@{action=$Action;passed=$true;exitCode=$p.ExitCode;openTerminal=$openTerminal;mcpRuntime=$mcpRuntime}
 }
 
 function Invoke-KIStackCompleteInstaller {
@@ -1501,6 +1576,7 @@ function Invoke-KIStackCompleteInstaller {
                 $resumeCompliant=$resumeActual-eq[string]$step.version
                 if([string]$step.id-eq'codex-local'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'open-terminal'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+                if([string]$step.id-eq'mcp-runtime'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteMcpRuntimeCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'integration'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'comfyui'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
                 if($resumeCompliant){$index++;continue}
@@ -1746,6 +1822,45 @@ function Invoke-KIStackCompleteInstaller {
                     # SkippedAlreadyCompliant (Install-KIOpenTerminal's own, separate fast path)
                     # carries no backupPath -- defensive, never assumed present under StrictMode,
                     # even though plannedMode Install/Upgrade/Repair should not normally hit it.
+                    $resultBackupPath=if($result.PSObject.Properties['backupPath']){[string]$result.backupPath}else{$null}
+                    $step.backup=$resultBackupPath
+                    $step.result=@{install=$result;validation=$validation;backupPath=$resultBackupPath;validated=$true}
+                }catch{
+                    if($null -ne $result -and$result.PSObject.Properties['backupPath']-and-not [string]::IsNullOrWhiteSpace([string]$result.backupPath)){
+                        $rollback=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Rollback';BackupPath=[string]$result.backupPath}
+                        $_.Exception.Data['KIStackRollbackStatus']=if([bool]$rollback.passed){'Completed'}else{'Failed'}
+                        $_.Exception.Data['KIStackBackupPath']=[string]$result.backupPath
+                    }
+                    throw
+                }
+            }
+            elseif ($step.id -eq 'mcp-runtime') {
+                # Mirrors open-terminal's own isolated shape exactly (same template, same
+                # Expand-KICompletePayload -> own entry-point Install/Upgrade/Repair via
+                # plannedMode, then Validate -> on any failure, roll back via that SAME entry
+                # point's own Rollback action against its own backupPath). Deliberately does
+                # NOT start the server process and does NOT register it with Open WebUI here --
+                # Open Terminal's own primary-installer branch does neither either (its own
+                # Start/Stop is a separate, additive chain onto the root Start-/Stop-KIStack.cmd,
+                # see Invoke-KICompleteMcpRuntimeLifecycle below; its own OpenWebUI tool-server
+                # registration is documented as a separate, one-time step, automated or manual,
+                # never part of Install). Real Open-WebUI reachability plus a bootstrapped admin
+                # credential are runtime preconditions for Register only, never modeled as a
+                # dependency here -- Register can run before or after this step, or not at all
+                # yet, without blocking Install/Upgrade/Repair.
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'McpRuntime'
+                $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'McpRuntime' -Destination $extract
+                $entry=Join-Path $componentRoot 'Invoke-KIStackMcpRuntime.ps1'
+                if(-not(Test-Path -LiteralPath $entry -PathType Leaf)){throw 'MCP-Runtime-Einstieg fehlt.'}
+                $action=if($step.plannedMode-eq'Repair'){'Repair'}elseif($step.plannedMode-eq'Upgrade'){'Upgrade'}else{'Install'}
+                $result=$null
+                try{
+                    $result=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot}
+                    if(-not[bool]$result.passed){throw "MCP-Runtime-$action fehlgeschlagen."}
+                    $validation=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
+                    if(-not[bool]$validation.passed){throw 'MCP-Runtime-Validierung fehlgeschlagen.'}
+                    # SkippedAlreadyCompliant carries no backupPath -- defensive, never assumed
+                    # present under StrictMode, mirroring open-terminal's own identical comment.
                     $resultBackupPath=if($result.PSObject.Properties['backupPath']){[string]$result.backupPath}else{$null}
                     $step.backup=$resultBackupPath
                     $step.result=@{install=$result;validation=$validation;backupPath=$resultBackupPath;validated=$true}

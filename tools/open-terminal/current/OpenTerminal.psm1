@@ -521,4 +521,81 @@ function Restore-KIOpenTerminal {
     Restore-KIOpenTerminalBackup -BackupPath $BackupPath
 }
 
+function Get-KIOpenTerminalOpenWebUIAdminHeaders {
+    # Mirrors mcp-runtime's own Get-KIMcpRuntimeOpenWebUIAdminHeaders exactly (same vendored
+    # module, same reasoning: this package cannot reliably cross-import
+    # Lifecycle/KIStackOpenWebUICredential.psm1 in its packaged/shipped form). Reuses the
+    # EXISTING, already-bootstrapped Open-WebUI admin credential store -- creates no new
+    # Open-WebUI credential of its own.
+    param([string]$TargetRoot = 'C:\KI-Stack')
+    $credModule = Join-Path $PSScriptRoot 'Vendor/KIStackOpenWebUICredential.psm1'
+    if (-not (Get-Command Get-KIStackOpenWebUICredential -ErrorAction SilentlyContinue)) {
+        Import-Module $credModule -Force -ErrorAction Stop
+    }
+    $credential = Get-KIStackOpenWebUICredential -TargetRoot $TargetRoot
+    if ($null -eq $credential) { throw 'Kein Open-WebUI-Admin-API-Key im lokalen Credential-Store gefunden (Lifecycle/KIStackOpenWebUICredential.psm1). Bootstrap zuerst mit dessen eigenem Initialize-/Bootstrap-Pfad.' }
+    $plain = ConvertFrom-KIOpenTerminalSecureStringTransient -Value $credential.apiKey
+    try {
+        @{ Authorization = "Bearer $plain"; 'Content-Type' = 'application/json' }
+    } finally {
+        $plain = $null
+    }
+}
+
+function Repair-KIOpenTerminalOpenWebUIRegistrationCredential {
+    # Fixes a real, found-in-production bug (2.15 Phase 6/7): Open Terminal's own DPAPI-stored
+    # API key can drift out of sync with whatever key value is registered in Open WebUI's
+    # `terminal_server.connections` (e.g. after an out-of-band credential regeneration) --
+    # registration itself has never been automated (still a one-time manual admin step, see
+    # README), so nothing ever re-synced the key afterwards. HTTP 401 "Invalid API key" on every
+    # real tool call is the observed symptom.
+    #
+    # Deliberately narrow, NOT a general credential-sync framework: this only ever repairs the
+    # `key` field of the ONE terminal_server.connections entry whose url:port already matches
+    # this Open Terminal instance's own configured host:port (a real, already-existing entry --
+    # it never creates one, since initial registration remains a manual step by design). Every
+    # other field on that entry (id, name, enabled, path, auth_type, config, server_type,
+    # policy_id) and every OTHER entry in the list are read back byte-for-byte unchanged --
+    # exact same Read-Modify-Write discipline mcp-runtime's own Register/Unregister functions
+    # already establish. Never logs, returns, or echoes the plaintext key.
+    param([string]$PackageRoot = $PSScriptRoot, [string]$TargetRoot = 'C:\KI-Stack', [string]$OpenWebUIEndpoint = 'http://127.0.0.1:8080')
+    $config = Get-KIOpenTerminalConfig -PackageRoot $PackageRoot
+    $credential = Get-KIOpenTerminalCredential -TargetRoot $TargetRoot
+    if ($null -eq $credential -or [bool]$credential.decryptionFailed) { return [pscustomobject]@{ passed = $false; status = 'CredentialUnavailable'; reason = 'Open Terminals eigene DPAPI-Credential ist nicht lesbar/entschlüsselbar.'; mutatesTarget = $false } }
+    $realKey = ConvertFrom-KIOpenTerminalSecureStringTransient -Value $credential.apiKey
+    try {
+        $headers = Get-KIOpenTerminalOpenWebUIAdminHeaders -TargetRoot $TargetRoot
+        $current = Invoke-RestMethod -Uri "$OpenWebUIEndpoint/api/v1/configs/terminal_servers" -Headers $headers -Method Get
+        # Match by PORT only, not an exact host:port string -- a real, found-the-hard-way case:
+        # this component's own config uses host "127.0.0.1", but a real registered entry can
+        # legitimately say "localhost" instead (both resolve to the same loopback listener; an
+        # exact string match on "http://127.0.0.1:$port" missed a real, matching registration).
+        $expectedPort = [int]$config.port
+        $entries = @($current.TERMINAL_SERVER_CONNECTIONS)
+        $matchIndex = -1
+        for ($i = 0; $i -lt $entries.Count; $i++) {
+            $entryPort = $null
+            if ([string]$entries[$i].url -match ':(\d+)\s*$') { $entryPort = [int]$Matches[1] }
+            if ($entryPort -eq $expectedPort) { $matchIndex = $i; break }
+        }
+        if ($matchIndex -lt 0) {
+            return [pscustomobject]@{ passed = $true; status = 'NoMatchingRegistration'; reason = "Kein terminal_server.connections-Eintrag mit Port $expectedPort gefunden -- Registrierung bleibt ein manueller Schritt, nichts zu reparieren."; mutatesTarget = $false }
+        }
+        $entry = $entries[$matchIndex]
+        if ([string]$entry.key -ceq $realKey) {
+            return [pscustomobject]@{ passed = $true; status = 'AlreadyInSync'; entryId = [string]$entry.id; mutatesTarget = $false }
+        }
+        $repaired = [ordered]@{
+            id = $entry.id; name = $entry.name; enabled = $entry.enabled; url = $entry.url; path = $entry.path
+            key = $realKey; auth_type = $entry.auth_type; config = $entry.config; server_type = $entry.server_type; policy_id = $entry.policy_id
+        }
+        $entries[$matchIndex] = $repaired
+        $body = @{ TERMINAL_SERVER_CONNECTIONS = @($entries) } | ConvertTo-Json -Depth 20
+        Invoke-RestMethod -Uri "$OpenWebUIEndpoint/api/v1/configs/terminal_servers" -Method Post -Headers $headers -Body $body | Out-Null
+        [pscustomobject]@{ passed = $true; status = 'Repaired'; entryId = [string]$entry.id; otherEntriesPreserved = ($entries.Count - 1); mutatesTarget = $true }
+    } finally {
+        $realKey = $null
+    }
+}
+
 Export-ModuleMember -Function *
