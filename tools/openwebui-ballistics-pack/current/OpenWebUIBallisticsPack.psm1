@@ -27,10 +27,25 @@ function New-BallisticsToolForm {
     [ordered]@{id='ki_stack_ballistics_calculator';name='KI-Stack Ballistikrechner';content=Get-Content (Join-Path $PackageRoot 'Tool/BallisticsCalculator.py') -Raw -Encoding UTF8;meta=[ordered]@{description='Lokaler Rechner für externe Ballistik, DOPE und Schießstandauswertung.';manifest=[ordered]@{managedBy='KI-STACK-OPENWEBUI-BALLISTICS-PACK';version='1.0.0';canonical_id='ki-stack-ballistics-calculator';solver='pyballistic 2.2.0';engine='RK4IntegrationEngine'};has_user_valves=$false};access_grants=@()}
 }
 
+function Get-BallisticsMcpToolIds {
+    # MCP-Server-Bindung (2.16 Phase 3A): mirrors OpenWebUIAgentPack.psm1's own established
+    # "mcpBinding" opt-out convention exactly (2.15 Phase 7) -- bound by default, a definition
+    # declares "mcpBinding": false to exclude it. ki-stack-18bravo.json declares no such
+    # property today, so this defaults to enabled, matching its real, already-registered live
+    # state. Never treated as part of the ballistics-specific toolIds -- its own dedicated,
+    # always-appended-last entry, exactly like Agent-Pack's own $mcpServerToolIds.
+    param([object]$Definition)
+    $allowMcpBinding = $true
+    $mcpBindingProperty = $Definition.PSObject.Properties['mcpBinding']
+    if ($null -ne $mcpBindingProperty -and [bool]$mcpBindingProperty.Value -eq $false) { $allowMcpBinding = $false }
+    if ($allowMcpBinding) { @('server:mcp:ki-stack-mcp-runtime') } else { @() }
+}
+
 function New-BallisticsModelForm {
     param([string]$PackageRoot,[string]$BaseModelId)
     $d=Get-Content (Join-Path $PackageRoot 'Definitions/ki-stack-18bravo.json') -Raw|ConvertFrom-Json -Depth 30
-    [ordered]@{id=[string]$d.id;base_model_id=$BaseModelId;name=[string]$d.displayName;meta=[ordered]@{description=[string]$d.description;capabilities=[ordered]@{};knowledge=@();toolIds=@('ki_stack_ballistics_calculator');skillIds=@();functionIds=@();managedBy='KI-STACK-OPENWEBUI-BALLISTICS-PACK';ballisticsPackVersion='1.0.0'};params=[ordered]@{system=[string]$d.systemPrompt;function_calling='native'};access_grants=@();is_active=$true}
+    $mcpToolIds=@(Get-BallisticsMcpToolIds $d)
+    [ordered]@{id=[string]$d.id;base_model_id=$BaseModelId;name=[string]$d.displayName;meta=[ordered]@{description=[string]$d.description;capabilities=[ordered]@{};knowledge=@();toolIds=@(@('ki_stack_ballistics_calculator')+$mcpToolIds);skillIds=@();functionIds=@();managedBy='KI-STACK-OPENWEBUI-BALLISTICS-PACK';ballisticsPackVersion='1.0.0'};params=[ordered]@{system=[string]$d.systemPrompt;function_calling='native'};access_grants=@();is_active=$true}
 }
 
 function Resolve-BallisticsBaseModel {
@@ -85,10 +100,24 @@ function Install-OpenWebUIBallisticsPack {
 }
 
 function Test-OpenWebUIBallisticsPack {
-    param($Endpoint,$ApiToken)
+    param($Endpoint,$ApiToken,[string]$PackageRoot)
     $fail=[Collections.Generic.List[string]]::new();$tool=Get-BallisticsTool $Endpoint $ApiToken;$model=Get-BallisticsModel $Endpoint $ApiToken 'ki-stack-18bravo'
     if(-not$tool){$fail.Add('Tool fehlt')}elseif(-not(Test-BallisticsToolOwned $tool)-or[string]$tool.meta.manifest.version-ne'1.0.0'){$fail.Add('Tool-Vertrag')}
-    if(-not$model){$fail.Add('Profil fehlt')}else{if([string]$model.name-ne'18Bravo'){$fail.Add('Profilname')};if(@($model.meta.toolIds).Count-ne1-or[string]$model.meta.toolIds[0]-ne'ki_stack_ballistics_calculator'){$fail.Add('Exklusive Toolbindung')};if(@($model.meta.knowledge).Count){$fail.Add('Knowledge-Bindung')}}
+    if(-not$model){$fail.Add('Profil fehlt')}else{
+        if([string]$model.name-ne'18Bravo'){$fail.Add('Profilname')}
+        # 2.16 Phase 3A: "exklusiv" heisst weiterhin "nur der Ballistikrechner plus, falls
+        # mcpBinding nicht per Definition abgeschaltet ist, genau die eine MCP-Server-Bindung" --
+        # nie ein zusaetzliches, unerwartetes drittes Tool und nie ein Duplikat.
+        $definition=Get-Content (Join-Path $PackageRoot 'Definitions/ki-stack-18bravo.json') -Raw|ConvertFrom-Json -Depth 30
+        $expectedToolIds=@(@('ki_stack_ballistics_calculator')+@(Get-BallisticsMcpToolIds $definition))
+        $actualToolIds=@($model.meta.toolIds)
+        $actualSorted=@($actualToolIds|Sort-Object)
+        $expectedSorted=@($expectedToolIds|Sort-Object)
+        $matches=($actualSorted.Count-eq$expectedSorted.Count)-and-not(@(Compare-Object $actualSorted $expectedSorted).Count)
+        if(-not$matches){$fail.Add('Exklusive Toolbindung')}
+        if($actualToolIds.Count-ne(@($actualToolIds|Select-Object -Unique).Count)){$fail.Add('Tool-ID-Duplikat im Profil')}
+        if(@($model.meta.knowledge).Count){$fail.Add('Knowledge-Bindung')}
+    }
     foreach($id in @('ki-stack-allgemein','ki-stack-it-technik')){$m=Get-BallisticsModel $Endpoint $ApiToken $id;if(@($m.meta.toolIds)-contains'ki_stack_ballistics_calculator'){$fail.Add("Unerwünschte Bindung: $id")}}
     $tools=Invoke-BallisticsApi $Endpoint $ApiToken '/api/v1/tools/';if(@($tools|Where-Object id -eq 'ki_stack_ballistics_calculator').Count-ne1){$fail.Add('Tool-Duplikat')}
     $models=Invoke-BallisticsApi $Endpoint $ApiToken '/api/v1/models/list?page=1';if(@($models.items|Where-Object id -eq 'ki-stack-18bravo').Count-ne1){$fail.Add('Profil-Duplikat')}

@@ -5,6 +5,6 @@ try {
  if($Mode-eq'DryRun'){$payload=Test-BallisticsPayloads $PSScriptRoot;[pscustomobject]@{version='1.0.0';mode='DryRun';payloads=$payload;profileId='ki-stack-18bravo';toolId='ki_stack_ballistics_calculator';mutatesTarget=$false};exit $(if($payload.passed){0}else{1})}
  if($null-eq$ApiToken){$ApiToken=Read-Host 'Temporären OpenWebUI-Administrator-API-Key eingeben' -AsSecureString}
  if($Mode-eq'Execute'){Install-OpenWebUIBallisticsPack $PSScriptRoot $Endpoint $ApiToken $BaseModelId $BackupDirectory}
- elseif($Mode-eq'Validate'){Test-OpenWebUIBallisticsPack $Endpoint $ApiToken}
+ elseif($Mode-eq'Validate'){Test-OpenWebUIBallisticsPack $Endpoint $ApiToken $PSScriptRoot}
  else {if(-not$BackupPath){throw'Rollback erfordert BackupPath.'};Restore-OpenWebUIBallisticsPack $Endpoint $ApiToken $BackupPath}
 } finally {$ApiToken=$null;[GC]::Collect()}
