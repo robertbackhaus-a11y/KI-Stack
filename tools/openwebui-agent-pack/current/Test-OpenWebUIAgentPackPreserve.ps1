@@ -149,7 +149,13 @@ $seedItTechnik = [ordered]@{
     meta=[ordered]@{
         description='stale description'
         capabilities=[ordered]@{ code_interpreter=$false; vision=$true; pdf_ocr=$true }
-        knowledge=@()
+        # 2.17 Phase 1 regression: it-technik has no knowledgeSource contract, so meta.knowledge
+        # is Preserve-owned (Resolve-AgentPackReconcileForm) -- a real admin can attach a
+        # knowledge collection via the OpenWebUI UI outside the package process, exactly like
+        # the foreign capabilities/builtinTools keys seeded above. This must survive reconcile
+        # AND must not fail Test-OpenWebUIAgentPack's own validation (the real bug found in
+        # production: validation asserted the opposite of what reconcile actually guarantees).
+        knowledge=@(@{type='collection';id='foreign-kb-live-attached';name='Live-attached foreign knowledge'})
         toolIds=@('some-stale-tool-id')
         skillIds=@()
         functionIds=@()
@@ -282,6 +288,25 @@ function Invoke-PreserveAssertions {
         }
         $refChecks["$Label.fallE_freshCreateIsFullPackageState"] = $createOk
         if($createOk.Values -contains $false){ $FailRef.Add("$Label/fallE_freshCreateIsFullPackageState failed: "+($allgemeinAfter|ConvertTo-Json -Compress -Depth 10)) }
+
+        # Fall F (2.17 Phase 1 regression): Test-OpenWebUIAgentPack (live validation) must obey
+        # the exact same field-ownership contract as reconcile itself -- a foreign,
+        # live-attached knowledge binding on a non-knowledgeSource profile (it-technik, seeded
+        # above) is Preserve-owned and must NOT fail validation; research, which DOES declare a
+        # knowledgeSource, must still be validated exactly against its real, resolved RAG
+        # collection. Only run under $ExpectPreserveToWork -- the negative-control pass
+        # deliberately uses the pre-fix module behavior for Falls A-C and is not a meaningful
+        # validation-contract check.
+        if($ExpectPreserveToWork){
+            $validation = Test-OpenWebUIAgentPack -PackageRoot $PackageRoot -Endpoint $mock.Endpoint -ApiToken $token -BaseModelId $baseModelId
+            $validationOk = [ordered]@{
+                validationPassed = [bool]$validation.passed
+                noForeignKnowledgeFailureOnItTechnik = (@($validation.failures) -notcontains 'Unerwünschte Knowledge-Bindung: ki-stack-it-technik')
+                noSpuriousResearchKnowledgeFailure = (@($validation.failures) -notcontains 'Unerwünschte Knowledge-Bindung: ki-stack-research')
+            }
+            $refChecks["$Label.fallF_validationObeysKnowledgeOwnership"] = $validationOk
+            if($validationOk.Values -contains $false){ $FailRef.Add("$Label/fallF_validationObeysKnowledgeOwnership failed: "+($validation|ConvertTo-Json -Compress -Depth 10)) }
+        }
 
         return [pscustomobject]@{ install=$result }
     } finally {

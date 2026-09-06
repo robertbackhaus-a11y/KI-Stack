@@ -42,10 +42,21 @@ function Get-BallisticsMcpToolIds {
 }
 
 function New-BallisticsModelForm {
+    # capabilities.memory=false (2.17 Phase 1): native Open WebUI Memory is deliberately disabled
+    # by policy for this profile -- general, cross-session user memory must never silently
+    # substitute for the explicit, current firearm/load/BC/muzzle-velocity inputs a ballistics
+    # calculation actually needs; existing Ballistics save-confirmation semantics (see
+    # ki-stack-18bravo.json's own systemPrompt) remain the sole, authoritative mechanism for
+    # persisting anything across calculations. Explicit `false`, not merely omitted, so it is
+    # reasserted on every reconcile rather than silently drifting back to the default-enabled
+    # state the way capabilities.builtin_tools drifted on ki-stack-it-technik (2.17 Phase 0
+    # finding) -- this profile has no per-key merge mechanism of its own (unlike Agent-Pack's
+    # Merge-AgentPackObjectValueByKey), so this hardcoded single key is the whole of its
+    # capabilities contract, matching every other hardcoded field in this same form.
     param([string]$PackageRoot,[string]$BaseModelId)
     $d=Get-Content (Join-Path $PackageRoot 'Definitions/ki-stack-18bravo.json') -Raw|ConvertFrom-Json -Depth 30
     $mcpToolIds=@(Get-BallisticsMcpToolIds $d)
-    [ordered]@{id=[string]$d.id;base_model_id=$BaseModelId;name=[string]$d.displayName;meta=[ordered]@{description=[string]$d.description;capabilities=[ordered]@{};knowledge=@();toolIds=@(@('ki_stack_ballistics_calculator')+$mcpToolIds);skillIds=@();functionIds=@();managedBy='KI-STACK-OPENWEBUI-BALLISTICS-PACK';ballisticsPackVersion='1.0.0'};params=[ordered]@{system=[string]$d.systemPrompt;function_calling='native'};access_grants=@();is_active=$true}
+    [ordered]@{id=[string]$d.id;base_model_id=$BaseModelId;name=[string]$d.displayName;meta=[ordered]@{description=[string]$d.description;capabilities=[ordered]@{memory=$false};knowledge=@();toolIds=@(@('ki_stack_ballistics_calculator')+$mcpToolIds);skillIds=@();functionIds=@();managedBy='KI-STACK-OPENWEBUI-BALLISTICS-PACK';ballisticsPackVersion='1.0.0'};params=[ordered]@{system=[string]$d.systemPrompt;function_calling='native'};access_grants=@();is_active=$true}
 }
 
 function Resolve-BallisticsBaseModel {
