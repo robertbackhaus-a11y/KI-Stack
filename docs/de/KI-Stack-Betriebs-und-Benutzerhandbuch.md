@@ -1,4 +1,4 @@
-# KI-Stack 2.15.0 – Betriebs- und Benutzerhandbuch
+# KI-Stack 2.16.0 – Betriebs- und Benutzerhandbuch
 
 ## Normalbetrieb
 

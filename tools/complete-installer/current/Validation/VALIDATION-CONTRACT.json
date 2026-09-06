@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "packageName": "KI-Stack-Complete-Installer",
-  "packageVersion": "2.15.0",
+  "packageVersion": "2.16.0",
   "packageType": "CompleteInstaller",
   "selfTestEntryPoint": "Test-KIStackCompleteInstaller.ps1",
   "selfTestArguments": [],
