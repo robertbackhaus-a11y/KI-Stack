@@ -2,9 +2,9 @@
   "schemaVersion": "2.0",
   "packageId": "KI-STACK-COMPLETE-INSTALLER",
   "name": "KI-Stack Complete Installer",
-  "version": "2.16.0",
+  "version": "2.17.0",
   "status": "ComponentIsolation_VersionRegistry_ReleaseAttestation_CodexLocalIsolatedHome_OpenWebUICredentialBootstrap_ResearchAgentWebSearchValidation",
-  "baseVersion": "2.15.0",
+  "baseVersion": "2.16.0",
   "components": {
     "comfyUI": "1.2.4",
     "visualModelsWorkflows": "2.0.3",
