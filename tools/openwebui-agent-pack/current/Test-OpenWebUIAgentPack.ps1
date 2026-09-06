@@ -18,6 +18,7 @@ $config = Get-Content -LiteralPath (Join-Path $PackageRoot 'Config\agent-pack.co
 $manifest = Get-Content -LiteralPath (Join-Path $PackageRoot 'MANIFEST.json') -Raw | ConvertFrom-Json -Depth 20
 if ($version -ne '1.9.0' -or $config.version -ne $version -or $manifest.version -ne $version) { $failures.Add('Versionskonsistenz') }
 $definitions = @(Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'Definitions') -File -Filter '*.json' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json -Depth 30 })
+Import-Module (Join-Path $PackageRoot 'OpenWebUIAgentPack.psm1') -Force -DisableNameChecking
 if (($definitions.id | Sort-Object) -join '|' -ne 'ki-stack-allgemein|ki-stack-it-technik|ki-stack-research') { $failures.Add('Technische IDs') }
 foreach ($definition in $definitions) {
     if ($definition.schemaVersion -ne '1.0' -or [string]::IsNullOrWhiteSpace($definition.displayName) -or [string]::IsNullOrWhiteSpace($definition.systemPrompt)) { $failures.Add("Definitionsschema: $($definition.id)") }
@@ -51,6 +52,35 @@ if ($null -eq $research) {
     # reliance on an external precondition staying absent).
     if ([bool]$research.capabilities.image_generation -ne $false -or [bool]$research.capabilities.memory -ne $false -or [bool]$research.capabilities.terminal -ne $false) { $failures.Add('ki-stack-research: capabilities-Deny-Liste') }
 }
+# 2.17 Phase 1: native-memory gates. it-technik/allgemein must package-declare
+# capabilities.builtin_tools:true (fixes the real Phase-0 misconfiguration --
+# capabilities.memory:true alone is silently overridden by builtin_tools:false),
+# capabilities.memory:true, and builtinTools.memory:true so all three are reasserted on
+# every reconcile rather than depending on an undeclared, drift-prone default.
+foreach ($id in @('ki-stack-it-technik','ki-stack-allgemein')) {
+    $definition = $definitions | Where-Object id -eq $id
+    if ($null -eq $definition) { $failures.Add("${id} fehlt"); continue }
+    if ([bool]$definition.capabilities.builtin_tools -ne $true) { $failures.Add("${id}: capabilities.builtin_tools muss true sein") }
+    if ([bool]$definition.capabilities.memory -ne $true) { $failures.Add("${id}: capabilities.memory muss true sein") }
+    if ([bool]$definition.builtinTools.memory -ne $true) { $failures.Add("${id}: builtinTools.memory muss true sein") }
+}
+
+# Offline, form-generation-level proof (no live target needed -- New-AgentPackModelForm
+# only reads local Definitions/*.json): the MCP binding survives alongside the new
+# memory-related capabilities, and generating the form twice in a row (simulating a
+# repeated reconcile) is fully deterministic -- no duplicate toolIds, no drift between
+# the two calls.
+foreach ($id in @('ki-stack-it-technik','ki-stack-allgemein')) {
+    $definition = $definitions | Where-Object id -eq $id
+    $forms = @(1,2 | ForEach-Object { New-AgentPackModelForm -Definition $definition -BaseModelId 'fixture-base-model' })
+    $toolIds0 = @($forms[0].meta.toolIds)
+    if ($toolIds0 -notcontains 'server:mcp:ki-stack-mcp-runtime') { $failures.Add("${id}: server:mcp:ki-stack-mcp-runtime fehlt im generierten Formular") }
+    if ($toolIds0.Count -ne (@($toolIds0 | Select-Object -Unique).Count)) { $failures.Add("${id}: doppelter Tool-Eintrag im generierten Formular") }
+    $bothPasses = ($forms[0] | ConvertTo-Json -Depth 30 -Compress) -eq ($forms[1] | ConvertTo-Json -Depth 30 -Compress)
+    if (-not $bothPasses) { $failures.Add("${id}: wiederholte Formularerzeugung ist nicht deterministisch") }
+    if ([bool]$forms[0].meta.capabilities.memory -ne $true -or [bool]$forms[0].meta.capabilities.builtin_tools -ne $true) { $failures.Add("${id}: generiertes Formular traegt die Memory-Gates nicht") }
+}
+
 $text = Get-ChildItem -LiteralPath $PackageRoot -Recurse -File | Where-Object { $_.Extension -in '.ps1','.psm1','.cmd','.json','.md','.txt' } | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }
 if (($text -join "`n") -match '(?i)sk-[a-z0-9]{20,}|C:\\Users\\[A-Za-z0-9._-]+') { $failures.Add('Secret oder persönlicher Pfad') }
 $moduleText = Get-Content -LiteralPath (Join-Path $PackageRoot 'OpenWebUIAgentPack.psm1') -Raw
@@ -65,6 +95,6 @@ foreach ($contract in @('ki_stack_generate_image','ki_stack_generate_video','2.0
 # the module alone) -- this self-test is what actually catches VERSION/module drift, since
 # nothing else would notice if a future bump only touched one of the two.
 if (-not $moduleText.Contains("agentPackVersion = '$version'")) { $failures.Add('agentPackVersion-Literal stimmt nicht mit VERSION überein') }
-$report = [ordered]@{ version=$version; action='SelfTest'; passed=($failures.Count -eq 0); checks=18; failures=@($failures) }
+$report = [ordered]@{ version=$version; action='SelfTest'; passed=($failures.Count -eq 0); checks=26; failures=@($failures) }
 $report | ConvertTo-Json -Depth 10
 if ($failures.Count) { throw ('Agent-Pack-SelfTest fehlgeschlagen: ' + ($failures -join '; ')) }

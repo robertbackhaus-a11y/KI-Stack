@@ -10,5 +10,12 @@
   "knowledge": [],
   "toolIds": [],
   "skillIds": [],
-  "functionIds": []
+  "functionIds": [],
+  "capabilities": {
+    "builtin_tools": true,
+    "memory": true
+  },
+  "builtinTools": {
+    "memory": true
+  }
 }

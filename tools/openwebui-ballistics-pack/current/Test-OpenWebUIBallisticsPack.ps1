@@ -22,6 +22,10 @@ foreach($pass in 1,2){
     if($toolIds-notcontains'server:mcp:ki-stack-mcp-runtime'){$fail.Add("MCP-Bindungs-Regression (Pass $pass): server:mcp:ki-stack-mcp-runtime fehlt")}
     if($toolIds.Count-ne(@($toolIds|Select-Object -Unique).Count)){$fail.Add("MCP-Bindungs-Regression (Pass $pass): doppelter Tool-Eintrag")}
     if($toolIds.Count-ne2){$fail.Add("MCP-Bindungs-Regression (Pass $pass): unerwartete Tool-Anzahl $($toolIds.Count)")}
+    # 2.17 Phase 1: native Open WebUI Memory must be disabled by policy for this profile
+    # (see MEMORY-CONTRACT.md, "Ballistics Rationale") -- explicit false, reasserted on
+    # every reconcile, identically on a repeated pass.
+    if([bool]$form.meta.capabilities.memory-ne$false){$fail.Add("Memory-Policy-Regression (Pass $pass): capabilities.memory muss false sein")}
 }
 if($SolverRoot){$old=$env:PYTHONPATH;$oldBytecode=$env:PYTHONDONTWRITEBYTECODE;$env:PYTHONPATH=$SolverRoot;$env:PYTHONDONTWRITEBYTECODE='1';try{&$PythonPath (Join-Path $PSScriptRoot 'Tests/test_ballistics_calculator.py');if($LASTEXITCODE-ne0){$fail.Add('Solver-Fixtures')}}finally{$env:PYTHONPATH=$old;$env:PYTHONDONTWRITEBYTECODE=$oldBytecode}}
 $result=[pscustomobject]@{version='1.0.0';passed=($fail.Count-eq0);failures=@($fail);fixtures=@('G1','G7','metric','imperial','MRAD','MOA','wind-0','wind-90','wind-180','temperature','pressure','missing','invalid-BC','negative-range','zero-velocity','unit-conflict','click','CSV','JSON','profile-confirmation','rollback-contract')};$result;if(-not$result.passed){exit 1}

@@ -636,7 +636,15 @@ function Test-OpenWebUIAgentPack {
             # trustworthy ground truth to assert against this run, so the existing
             # knowledge binding is left unexamined rather than flagged as wrong.
         }
-        elseif (@($model.meta.knowledge).Count -ne 0) { $failures.Add("Unerwünschte Knowledge-Bindung: $($definition.id)") }
+        # 2.17 Phase 1 fix: a definition with no knowledgeSource contract has meta.knowledge
+        # under Preserve ownership per Resolve-AgentPackReconcileForm (see that function's own
+        # field-ownership table) -- exactly like meta.capabilities/meta.builtinTools foreign
+        # keys, a live-only knowledge attachment a real admin added outside the package
+        # process is not something this package has an opinion about and must not fail
+        # validation. Previously this `elseif` asserted the opposite (empty required),
+        # contradicting reconcile's own documented contract and failing for real against
+        # production the moment any such profile carried live-attached knowledge. No
+        # assertion is made here at all now -- Preserve means no opinion, not "must be empty".
 
         $builtinToolsProperty = $definition.PSObject.Properties['builtinTools']
         if ($null -ne $builtinToolsProperty -and $null -ne $builtinToolsProperty.Value) {
