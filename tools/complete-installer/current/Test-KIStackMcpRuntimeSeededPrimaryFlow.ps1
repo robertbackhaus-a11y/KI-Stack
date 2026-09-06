@@ -168,7 +168,7 @@ try {
     $pathContext3 = New-KICompletePathContext -TargetRoot $t3 -PackageRoot $PackageRoot -Mutating -TransactionId ('KI-SEEDED-' + [guid]::NewGuid().ToString('N').Substring(0,12))
     Invoke-KISeededMcpRuntimeStep -TargetRoot $t3 -PathContext $pathContext3 -PlannedMode 'Install' | Out-Null
     $stateStatePath = Get-KICompleteComponentStatePath -PathContext $pathContext3
-    Write-KICompleteJson $stateStatePath ([ordered]@{ schemaVersion = '1.0'; status = 'ValidatedExistingInstallation'; completeInstallerVersion = '2.16.0'; validatedAtUtc = [DateTime]::UtcNow.ToString('o'); components = [ordered]@{ 'mcp-runtime' = $mcpVersion }; evidence = [ordered]@{ containsSecrets = $false } })
+    Write-KICompleteJson $stateStatePath ([ordered]@{ schemaVersion = '1.0'; status = 'ValidatedExistingInstallation'; completeInstallerVersion = '2.17.0'; validatedAtUtc = [DateTime]::UtcNow.ToString('o'); components = [ordered]@{ 'mcp-runtime' = $mcpVersion }; evidence = [ordered]@{ containsSecrets = $false } })
     Remove-Item -LiteralPath (Join-Path $t3 'modules/mcp-runtime/installation.json') -Force
     $planRepair = New-KICompletePlan -Mode Upgrade -PackageRoot $PackageRoot -TargetRoot $t3 -PathContext $pathContext3
     $mcpStepRepairPlanned = @($planRepair.steps | Where-Object id -eq 'mcp-runtime')[0]
