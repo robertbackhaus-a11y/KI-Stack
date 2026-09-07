@@ -20,13 +20,14 @@ Project page and accompanying articles: [okami.de – Lokaler KI-Stack](https://
 | Production recovery | 1.7.0-r7 | Target-system accepted; portable runtime resolution |
 | Universal package Validation Gate | 1.0.3 | Activated on the target system |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
-| OpenWebUI Agent Pack | 1.9.0 | Stable; three Heretic-only profiles (`ki-stack-it-technik`, `ki-stack-allgemein`, and the new `ki-stack-research` reference agent combining dynamically-bound local RAG knowledge with web search, isolated Pyodide code interpretation, and no shell/host/administrative access) with Visual Pack 2.0.5 bindings; reconcile now merges rather than replaces `meta` on update, so live/UI-added `capabilities`/`builtinTools`/`access_grants`/`profile_image_url` values on already-managed profiles survive a re-run instead of being silently overwritten |
+| OpenWebUI Agent Pack | 1.9.0 | Stable; manages `ki-stack-it-technik`, `ki-stack-allgemein`, and `ki-stack-research`. MCP-enabled production profiles use the MCP Runtime for local terminal/host control where permitted; `ki-stack-research` deliberately remains without MCP terminal access and combines dynamically-bound local RAG Knowledge, SearXNG web search, and isolated Pyodide code interpretation. Native Memory is enabled for `ki-stack-it-technik` and `ki-stack-allgemein`, disabled for `ki-stack-research`; reconcile preserves permitted live/UI metadata and KI-Stack MCP bindings. |
 | OpenWebUI Visual Pack | 2.0.5 | Stable; Z-Image and WAN2.2 tools with persistent MP4 attachments |
 | OpenWebUI Ballistics Pack | 1.0.0 | Stable; `18Bravo` and solver target-system validated |
 | Codex Local | 0.2.1 | Stable component; own isolated `CODEX_HOME` (never again the shared `%USERPROFILE%\.codex`), real target-validated via a login-to-upgrade-to-starter-to-`codex exec` end-to-end run |
 | RAG | 0.4.0 | Stable component; Add/Replace/Remove (plus Skip for already-current sources) and Rollback of Add/Replace/Remove are all real target-system validated; adds project-scoped Knowledge collections alongside the existing global scope, each mapped to its own isolated OpenWebUI Knowledge collection |
+| MCP Runtime | 0.1.0 | Stable primary terminal/host-control backend for MCP-enabled Open WebUI profiles; local Streamable HTTP endpoint on `127.0.0.1:8021`, twelve command/process/filesystem tools, DPAPI-protected credential, managed through the Complete Installer |
 | Open Terminal | 0.1.0 | Stable component; local tool/terminal backend service for OpenWebUI (filesystem, PowerShell, WSL, Git, process/command execution) at `http://127.0.0.1:8000`, no Docker; started through the existing, already-managed KI-Stack Python/uv contract (deterministic managed-path resolution, never a bare PATH lookup); authenticated with a single persistent, DPAPI-protected local API key (never in the repository, never logged, reused unchanged across restarts); Install/Upgrade/Repair/Skip via the Complete Installer, Start/Stop/Status via the same central KI-Stack lifecycle commands as every other component; real-target validated, including a real Complete Installer run that left it `SkippedAlreadyCompliant` on a second pass. Connecting it to OpenWebUI itself still requires one manual, one-time tool-server registration (see "Open Terminal" below) |
-| Complete Installer | 2.17.0 | Published as GitHub Release `v2.17.0`: a secure, DPAPI-backed OpenWebUI credential bootstrap (one-time admin login, a long-lived API key, a central resolver, rotation/revoke), Codex Local `0.2.1` with an isolated `CODEX_HOME` and a real end-to-end proof, a real web-search proof for `ki-stack-research`, Component Isolation, an internal component version registry, an automatic Release Attestation chain, plus real consolidation fixes (test-run desktop-shortcut isolation, a bounded-retry start/status healthcheck, correct Codex Local status detection). The published 2.17.0 release also includes: Open Terminal `0.1.0` fully integrated as a managed component (see the "Open Terminal" section below); the installer's live heartbeat now actually streams during a UAC-elevated run instead of only appearing at the very end, with internal transcript noise filtered from the live view and the final result JSON no longer shown twice; and the `centralStarters` field in the transaction record is now schema-stable (always a real JSON array, never collapsing to a bare object or a wrongly nested one). Deterministic dual-build and PackageSelfTest reverified against this state. `2.17.0` (`KI-Stack-Complete-Installer-v2.17.0.zip`) is the current published [GitHub Release](https://github.com/robertbackhaus-a11y/KI-Stack/releases/tag/v2.17.0). |
+| Complete Installer | 2.17.0 | Current published GitHub Release `v2.17.0`. Includes the 2.15 MCP Foundation, 2.16 autonomous Local Control, and 2.17 native persistent Open WebUI Memory; also carries Component Isolation, the internal component version registry, automatic Release Attestation, secure OpenWebUI credential bootstrap, Codex Local `0.2.1`, RAG `0.4.0`, Open Terminal fallback support, deterministic builds, PackageSelfTest, and the validated installer/reconciliation hardening accumulated through this release. |
 | System Cleanup Audit | 1.0.0 | Audit completed; cleanup plan pending explicit approval |
 
 The repository tracks complete package sources. Built ZIP files are published as GitHub Release assets rather than committed to normal Git history.
@@ -87,38 +88,7 @@ pwsh -NoProfile -File .\tools\complete-installer\current\New-KIStackCompleteInst
 
 Do not commit credentials, access tokens, private keys, personal transaction logs or machine-specific state. No open-source license has been selected yet; public visibility alone does not grant reuse rights.
 
-
 Production Recovery `1.7.0-r7` is a recovery line, not a new runtime version; r5 remains its published predecessor. The current Cutover Runtime version is `1.6.14` (see the table above and `docs/releases/complete-installer-v2.10.0.md`).
-
-
-## Applications v1.4.0-rc1
-
-LM Studio and Open WebUI 0.10.2 are delivered as the sixth transaction-protected Execute module.
-
-
-## Applications v1.4.3-rc1
-
-Fixes StrictMode-safe LM Studio detection and exposes exact transaction failure causes.
-
-
-## Applications v1.4.9-rc1
-
-Sets repository-local Git author identity before commits and annotated tags without changing global Git configuration.
-
-
-## Cutover release history
-
-`cutover-v1.6.1-rc1` adds the final cutover and acceptance layer.
-
-
-## Cutover corrective release history
-
-`cutover-v1.6.2-rc1` fixes final validation and diagnostic regression contracts.
-
-
-## Cutover release history (1.6.3, historical)
-
-`cutover-v1.6.3-rc1` fixes release-manifest schema validation. Superseded by `1.6.13` (see the table above).
 
 ## Production recovery and target acceptance
 
@@ -126,23 +96,49 @@ The repository includes complete reusable sources for Production Recovery `1.7.0
 
 ## OpenWebUI Agent Pack
 
-OpenWebUI Agent Pack `1.9.0` manages three workspace models -- `KI & IT-Technik`, `Allgemein`, and the reference research agent `ki-stack-research` -- through the supported OpenWebUI HTTP API (`ReferenceVersion`/`MinimumSupportedVersion` `0.11.3`; any newer supported installation is preserved, never auto-downgraded). `KI & IT-Technik`/`Allgemein` enable only the built-in browser-local Pyodide Code Interpreter capability and preserve only the registered Image Pack/Visual Pack tool bindings; `execute_code` is not a workspace tool ID. `ki-stack-research` instead binds exactly one dynamically-resolved local RAG Knowledge collection plus web search, has no Extension Tools bound at all, and explicitly denies `terminal` and every other unused native capability -- no shell, host filesystem, or administrative OpenWebUI access exists for any managed profile. Reconcile on an already-existing profile now merges rather than replaces `meta`: only package-declared fields (`toolIds`, `knowledge` where contractually owned, the prompt, etc.) are reasserted, while any other live/UI-added value on `capabilities`, `builtinTools`, `access_grants`, or `profile_image_url` survives untouched. Provisioning requires a real, externally-supplied OpenWebUI administrator API key (never extracted from the database, never committed to the repository); this is a known automation/bootstrap boundary, not a defect -- reconcile, idempotency, and knowledge binding are all independently verified via mocked-HTTP regression tests without it.
+OpenWebUI Agent Pack `1.9.0` manages the KI-Stack workspace profiles through Open WebUI's supported HTTP API. Current profile policy is intentionally different by role:
 
-OpenWebUI Image Pack `1.10.0` continues to manage exactly one canonical tool, `ki-stack-generate-image`, through local ComfyUI 1.2.2. Its existing `generate_image` FLUX2 method is retained and the explicit `generate_pony_image` method adds Pony SDXL at 1024 × 1024, CLIP skip 2, 40 steps, CFG 3.1, `euler` and `normal`. Both paths persist images directly in the OpenWebUI chat. The pack downloads no models; the Pony checkpoint must already be installed. The Pony workflow and chat output were practically tested on the target, without claiming complete 1.10.0 target-system validation.
+- `ki-stack-it-technik` and `ki-stack-allgemein` use the MCP Runtime for local terminal/host control and have native Open WebUI Memory enabled.
+- `ki-stack-18bravo` uses the MCP Runtime where required for its technical workflow, but native Memory remains disabled; Ballistics profile persistence keeps its explicit save-confirmation contract.
+- `ki-stack-research` combines dynamically-bound local RAG Knowledge, SearXNG web search, and isolated Pyodide Code Interpreter; it deliberately has no MCP terminal binding and native Memory remains disabled.
+- `roleplay` remains outside the managed Memory policy and otherwise unchanged by the 2.17 Memory work.
 
-OpenWebUI Ballistics Pack `1.0.0` adds the exclusively bound `18Bravo` technical profile and `ki_stack_ballistics_calculator`. Its pinned `pyballistic` 2.2.0 RK4 core supports G1/G7 calculations without Git, compiled solver extensions, SciPy engine or chart extensions. It requires complete explicit inputs, stores profiles only after confirmation and is restricted to lawful sporting, hunting and engineering use.
+Agent Pack reconciliation preserves package-owned settings while retaining foreign/live Open WebUI metadata where the ownership contract allows it. MCP bindings added by the KI-Stack control architecture survive subsequent reconcile runs instead of being silently removed.
 
-Overall status: `TARGET_SYSTEM_ACCEPTANCE_PASSED`.
+## MCP Runtime and Local Control
+
+MCP Runtime `0.1.0`, introduced with KI-Stack 2.15, is the primary terminal and host-control path for MCP-enabled profiles. It runs locally on `127.0.0.1:8021` through Open WebUI's standard MCP tool-server mechanism and exposes the validated command, process, filesystem, search, and file-display tool surface.
+
+KI-Stack 2.16 builds Local Control on this existing MCP runtime rather than adding a second Windows-control service. General Windows, WSL, process, file, service, registry, task, and application control uses the existing MCP tools, `run_command`, PowerShell, and the established KI-Stack lifecycle scripts. No additional Local-Control port, credential, or runtime is introduced.
+
+## Native Memory
+
+KI-Stack 2.17 uses Open WebUI's own local native Memory implementation instead of adding another memory service or vector/database backend.
+
+Memory policy:
+
+- enabled: `ki-stack-it-technik`, `ki-stack-allgemein`
+- disabled: `ki-stack-18bravo`, `ki-stack-research`
+- unmanaged by this contract: `roleplay`
+
+Memory is stored in Open WebUI's `webui.db`, is user-scoped, and can be reused across chats and managed profiles for the same authenticated user. Chat-level activation still depends on Open WebUI's request/chat `features.memory=true` flag because Open WebUI 0.11.3 does not provide a persisted server-side default for that request flag.
+
+The 2.17 database-protection contract adds an online SQLite backup using `VACUUM INTO`, integrity verification, and controlled restore tooling with a pre-restore safety backup, WAL/SHM handling, and post-restore health verification. A real online production backup was performed; no production database restore was performed.
 
 ## Open Terminal
 
-Open Terminal `0.1.0` is a locally managed tool/terminal backend service for OpenWebUI -- filesystem access, PowerShell, WSL, Git, and process/command execution -- reachable at `http://127.0.0.1:8000`. OpenWebUI remains the primary, sole user-facing frontend; Open Terminal is a backend tool server OpenWebUI calls into, never a separate UI. It runs with no Docker, started through the existing, already-managed KI-Stack Python/uv contract (deterministic managed-path resolution under the managed Python root, never a bare PATH lookup). Authentication uses a single, persistent, cryptographically random API key, generated once on first setup and DPAPI-protected (Windows Data Protection API, current-user scope) under the target's own state directory -- never committed to the repository, never written to a log or console output, and reused unchanged across every later start, upgrade, and repair. Install/Upgrade/Repair/Skip are handled entirely by the Complete Installer like every other managed component; day-to-day Start/Stop/Status run through the same central KI-Stack lifecycle commands (`Start-KIStack.cmd`/`Stop-KIStack.cmd`/`Status-KIStack.cmd`) as the rest of the stack. Connecting it to OpenWebUI itself still requires one manual, one-time step: registering it as an OpenAPI tool server under OpenWebUI's own Admin Settings -> Tools, using the endpoint above and the persisted API key -- automatic registration is not yet implemented (see "Known open items" below).
+Open Terminal `0.1.0` remains fully installed, supported, lifecycle-managed, and runnable, but since KI-Stack 2.15 it is no longer the default terminal/host-control integration for production MCP-enabled profiles. MCP Runtime is the primary path.
 
-## Known open items (post-2.14)
+Open Terminal remains an explicit fallback and rollback option. It runs locally at `http://127.0.0.1:8000`, uses the managed Python/uv runtime, and authenticates with its own persistent DPAPI-protected local API key. Install/Upgrade/Repair/Skip and central Start/Stop/Status handling remain supported.
 
-- **Latency analysis**: no technical breakdown yet of the real request path OpenWebUI input -> prompt/tool assembly -> LM Studio request -> first token. Planned for after 2.14.
-- **Automatic OpenWebUI tool-server registration**: Open Terminal still requires the one-time manual registration step described above; automatic registration is not yet implemented.
-- **Bootstrap phase without PowerShell 7**: the PowerShell-7 bootstrap path (used only when PowerShell 7 itself is missing) has no live heartbeat display of its own yet -- it only writes a structured `.bootstrap.jsonl` diagnostic log. This is a known, accepted gap, not a 2.14 blocker.
+If the Open Terminal fallback is deliberately used through Open WebUI's legacy OpenAPI tool-server path, that registration remains a separate explicit configuration step; normal MCP-based KI-Stack operation does not depend on it.
+
+## Known open items
+
+- **Latency tracing**: a complete technical timing breakdown of OpenWebUI input -> prompt/tool assembly -> LM Studio request -> first token is still not implemented as a dedicated tracing facility. The LM Studio runtime-baseline check added in 2.15 covers only one previously identified latency-related setting and is not a replacement for end-to-end tracing.
+- **Memory request default**: Open WebUI 0.11.3 has no persisted server-side default for `features.memory=true`; Memory therefore still depends on chat/request-side activation.
+- **Open WebUI database operations**: online backup is real-target validated and controlled restore is acceptance-tested against a temporary database copy, but no production `webui.db` restore has been performed.
+- **GUI/Desktop automation**: broad graphical desktop/application automation remains outside 2.17 and is planned for the next architecture stage.
 
 ## Supply-chain security
 

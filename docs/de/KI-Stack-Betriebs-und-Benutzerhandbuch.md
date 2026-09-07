@@ -53,48 +53,105 @@ SearXNG ist über nginx unter `/searxng` erreichbar, das auf eine lokale, per `u
 
 ## OpenWebUI
 
-Der Agent Pack ist 1.9.0, der Visual Pack 2.0.5. Der Agent Pack verwaltet drei Workspace-Modelle: `KI & IT-Technik`, `Allgemein` und den Referenz-Research-Agenten `ki-stack-research` (dynamisch gebundenes lokales RAG-Wissen plus Websuche, isolierter Pyodide-Code-Interpreter, keine Extension-Tools, kein Shell-/Host-/Administrationszugriff -- siehe „RAG / Knowledge-Ingestion" unten sowie das eigene README des Agent Packs für den vollständigen Vertrag). Ein Upgrade mit bereits bootstraptem, gültigem OpenWebUI-Credential (siehe „OpenWebUI-Credential-Bootstrap" unten) verwendet dieses automatisch, ohne interaktive Abfrage; ist noch keines vorhanden, fragt der Installer wie bisher einmalig einen temporären API-Key ab (verdeckt eingegeben, nur im Arbeitsspeicher gehalten, nie gespeichert).
+Der Agent Pack ist `1.9.0`, der Visual Pack `2.0.5`.
+
+Aktuelle Policy der verwalteten Profile:
+
+- `ki-stack-it-technik`: MCP Runtime für lokale Terminal-/Host-Steuerung aktiviert; natives OpenWebUI-Memory aktiviert.
+- `ki-stack-allgemein`: MCP Runtime für lokale Terminal-/Host-Steuerung aktiviert; natives OpenWebUI-Memory aktiviert.
+- `ki-stack-research`: dynamisch gebundenes lokales RAG-Knowledge, SearXNG-Websuche und isolierter Pyodide-Code-Interpreter; keine MCP-Terminalbindung; natives Memory deaktiviert.
+- `ki-stack-18bravo`: Ballistics-Profil mit erhaltener technischer MCP-Bindung; natives Memory deaktiviert.
+- `roleplay`: außerhalb der verwalteten Memory-Policy.
 
 Bilder bleiben sichtbarer Chatinhalt. MP4 bleibt nach Reload genau ein persistenter herunterladbarer FileItem über `/api/v1/files/{id}/content`.
 
-## Open Terminal
+## MCP Runtime und Local Control
 
-Open Terminal ist ein lokal verwalteter Tool-/Terminal-Backend-Dienst für OpenWebUI -- Filesystem-Zugriff, PowerShell, WSL, Git und Prozess-/Command-Ausführung -- erreichbar unter `http://127.0.0.1:8000`. OpenWebUI bleibt dabei jederzeit das primäre, alleinige benutzerseitige Frontend; Open Terminal ist ausschließlich ein Backend-Tool-Server, den OpenWebUI aufruft.
+MCP Runtime `0.1.0` ist der primäre Terminal- und Host-Control-Backendpfad für MCP-fähige KI-Stack-Profile. Er läuft lokal auf `127.0.0.1:8021` über OpenWebUIs MCP-Tool-Server-Mechanismus.
 
-- **Bereitstellung**: Open Terminal wird vom Complete Installer installiert/aktualisiert/repariert, genau wie jede andere verwaltete Komponente -- es gibt keinen separaten Installationsschritt. Eine bereits aktuelle Installation wird korrekt erkannt und unangetastet gelassen (`SkippedAlreadyCompliant`), real zielsystemgeprüft bei einem zweiten Complete-Installer-Lauf.
-- **Lifecycle**: einmal installiert, wird es zusammen mit dem übrigen Stack über dieselben zentralen Kommandos gestartet und gestoppt -- `Start-KIStack.cmd` / `Stop-KIStack.cmd`. Der Status wird von `Status-KIStack.cmd` gemeinsam mit jeder anderen Komponente gemeldet (laufend/gestoppt, Endpoint, Prozess-ID, Healthcheck) -- niemals der API-Key.
-- **Laufzeit**: es läuft ohne Docker, über dieselbe verwaltete `uv`/Python-Toolchain, die der übrige KI-Stack bereits nutzt -- keine separate Python- oder `uv`-Installation.
-- **Authentifizierung**: ein einziger API-Key, einmalig bei der Ersteinrichtung erzeugt, authentifiziert jede Anfrage. Der Key bleibt über jeden späteren Neustart, jedes Upgrade und jede Reparatur der KI-Stack-Installation hinweg derselbe -- er wird nicht bei jedem Start neu erzeugt. Er wird DPAPI-geschützt (Windows Data Protection API, an diesen Rechner und dieses Windows-Benutzerkonto gebunden) im eigenen lokalen Zustand der Komponente gespeichert, nie im Repository, und von keinem KI-Stack-Skript jemals in eine Log-Datei geschrieben oder auf der Konsole ausgegeben.
-- **Anbindung von OpenWebUI**: dieser eine Schritt bleibt manuell und ist nur einmal pro OpenWebUI-Installation nötig. In OpenWebUI unter **Admin-Einstellungen -> Tools** einen neuen Tool-Server anlegen, der auf `http://127.0.0.1:8000` zeigt, und den Bearer-API-Key aus Open Terminals eigenem lokalen Credential-State als Authentifizierungstoken des Tool-Servers hinterlegen. Da sich dieser Key über Neustarts hinweg nicht ändert, muss diese Registrierung nach einem normalen KI-Stack-Neustart, -Upgrade oder -Repair nicht wiederholt werden -- nur falls das Credential bewusst zurückgesetzt wird. Eine automatische Registrierung ist noch nicht implementiert (siehe „Bekannte offene Punkte" am Ende dieses Handbuchs) -- dieser manuelle, einmalige Schritt ist der aktuell akzeptierte, dokumentierte Weg.
+Er stellt die verwaltete Werkzeugoberfläche für Command-Ausführung, Prozesssteuerung, Filesystem-Operationen, Suche und Dateianzeige bereit. KI-Stack 2.16 baut Local Control auf genau dieser Runtime auf, statt einen weiteren Windows-Control-Dienst einzuführen.
 
-Keine Anleitung bauen oder befolgen, die den API-Key aus seiner lokalen Zustandsdatei, einem Log oder einem Skript ausliest und außerhalb von OpenWebUIs eigenem „Tool-Server hinzufügen"-Credential-Feld im Klartext anzeigt oder kopiert -- der Key gehört ausschließlich dort direkt eingegeben und darf sonst nirgends festgehalten oder ausgegeben werden.
+Im Betrieb bedeutet das:
 
+- das normale OpenWebUI-Profil verwenden;
+- das Profil ruft die registrierten MCP-Tools auf;
+- allgemeine Windows-/WSL-/Anwendungsarbeiten verwenden die vorhandene MCP-Oberfläche, insbesondere `run_command`, PowerShell und die KI-Stack-Lifecycle-Skripte;
+- es gibt keinen zweiten Local-Control-Port, keine zweite Runtime und kein zusätzliches Credential.
+
+Der MCP Runtime wird vom Complete Installer installiert und reconciled und nimmt am normalen zentralen KI-Stack-Lifecycle teil.
+
+## Native Memory
+
+KI-Stack 2.17 verwendet OpenWebUIs eigenes natives Memory.
+
+Memory-Policy:
+
+- aktiviert: `ki-stack-it-technik`, `ki-stack-allgemein`
+- deaktiviert: `ki-stack-18bravo`, `ki-stack-research`
+- durch diesen Vertrag nicht verwaltet: `roleplay`
+
+Memory ist benutzerbezogen und liegt in OpenWebUIs `webui.db`. Für denselben authentifizierten Benutzer kann es chat- und profilübergreifend wiederverwendet werden.
+
+Ein Chat/Request muss Memory weiterhin mit `features.memory=true` aktivieren; OpenWebUI 0.11.3 besitzt keinen persistenten serverseitigen Standard für dieses Request-Flag.
+
+Zum Schutz der Datenbank stellt 2.17 bereit:
+
+- Online-SQLite-Backup über `VACUUM INTO`;
+- Integritätsprüfung des erzeugten Backups;
+- kontrolliertes Restore-Werkzeug;
+- verpflichtendes Sicherheitsbackup vor dem Restore;
+- WAL-/SHM-Behandlung;
+- Health-Verifikation nach dem Restore.
+
+Ein reales Online-Backup der Produktionsdatenbank wurde durchgeführt. Die kontrollierte Restore-Acceptance erfolgte gegen eine temporäre Datenbankkopie; ein Restore der produktiven `webui.db` wurde nicht durchgeführt.
+
+## Open-Terminal-Fallback
+
+Open Terminal `0.1.0` bleibt installiert, unterstützt, über den Lifecycle verwaltet und unter `http://127.0.0.1:8000` verfügbar, ist aber nicht mehr der Standardpfad für Terminal-/Host-Control produktiver MCP-fähiger Profile.
+
+Open Terminal nur noch als ausdrücklichen Fallback- oder Rollback-Pfad verwenden.
+
+Weiterhin genutzt werden:
+
+- die verwaltete KI-Stack-Python-/uv-Runtime;
+- der persistente DPAPI-geschützte API-Key;
+- begrenzte Readiness-Prüfungen;
+- Prozessidentitätsprüfung;
+- zentrale KI-Stack-Start-/Stop-/Status-Behandlung.
+
+Wird der Fallback bewusst über OpenWebUIs Legacy-OpenAPI-Tool-Server-Integration verwendet, bleibt dessen Registrierung ein separater expliziter Konfigurationsschritt. Der normale MCP-basierte Betrieb benötigt diese Registrierung nicht.
 ## OpenWebUI-Credential-Bootstrap
 
-Administrative KI-Stack-Automatisierungen (Agent-Pack-Provisionierung, RAG-/Knowledge-Anbindung, Code-Interpreter-Konfiguration) benötigen einen authentifizierten OpenWebUI-Zugriff. Verifiziert gegen den real installierten OpenWebUI-0.11.1-Quellcode (`C:\KI-Stack\python\venvs\openwebui\Lib\site-packages\open_webui\routers\auths.py`): OpenWebUI unterstützt einen langlebigen, persistenten API-Key pro Benutzer (`POST/GET/DELETE /api/v1/auths/api_key`), der jedoch nur über eine bereits authentifizierte Sitzung erzeugt werden kann (`POST /api/v1/auths/signin`); zusätzlich ist die API-Key-Unterstützung selbst standardmäßig deaktiviert (`ENABLE_API_KEYS` ist in der KI-Stack-Auslieferung nicht gesetzt) und muss beim ersten Bootstrap einmalig über die offizielle Admin-Config-API aktiviert werden.
+Administrative KI-Stack-Automatisierung verwendet ein zentrales persistentes OpenWebUI-Credential.
 
-- **Bootstrap** (`Initialize-KIStackOpenWebUICredential.ps1`, in `tools/complete-installer/current`): einmaliger, interaktiver Operator-Lauf. Fragt E-Mail und Passwort des OpenWebUI-Administrator-Kontos ab (`Read-Host -AsSecureString` für das Passwort -- nicht sichtbar, nicht geloggt, nie als Kommandozeilenargument), meldet sich real bei OpenWebUI an, aktiviert bei Bedarf `ENABLE_API_KEYS`, erzeugt einen echten, persistenten API-Key und validiert ihn, bevor irgendetwas gespeichert wird. Ein zweiter Lauf gegen ein bereits gültiges Credential ist ein reiner No-Op (`ReusedExisting`) -- kein neuer Key wird erzeugt, außer mit `-Rotate`.
-- **Secret Storage**: der Key wird ausschließlich verschlüsselt unter `C:\KI-Stack\state\openwebui\credential.json` abgelegt (Windows-DPAPI, Benutzerkontext-gebunden, über PowerShells eingebautes `ConvertFrom-SecureString`/`ConvertTo-SecureString` ohne expliziten Schlüssel). Kein Klartext-Tokenfile, kein Secret im Repository, kein Secret in einem Build-Artefakt.
-- **Maschinen-/Benutzerbindung**: das Credential ist DPAPI-verschlüsselt für genau den Windows-Benutzer und die Maschine, die es erzeugt haben. Es ist **nicht** ohne Weiteres auf eine andere Maschine oder einen anderen Benutzer portierbar -- eine Wiederherstellung auf einer neuen Maschine oder unter einem anderen Benutzerkonto verlangt einen erneuten Bootstrap (`Initialize-KIStackOpenWebUICredential.ps1` erneut ausführen), niemals eine falsche „portable Backup"-Erwartung.
-- **Zentraler Resolver**: `Get-KIStackOpenWebUICredential` liest den Store, entschlüsselt und liefert den Key ausschließlich als `[Security.SecureString]` im Prozessspeicher -- nie als Ausgabe, nie geloggt. `Test-KIStackOpenWebUICredential.ps1` liefert einen sauber unterschiedenen Status: `NotConfigured`, `Valid`, `Invalid`, `OpenWebUIUnavailable`, `InsufficientPrivileges`, `Error` -- ein nicht erreichbares OpenWebUI wird nie mit einem ungültigen Key verwechselt.
-- **Rotation** (`-Rotate`): neuer Key wird erzeugt und real validiert, bevor der alte als ersetzt gilt; schlägt die Validierung fehl, bleibt das vorherige, funktionierende Credential aktiv (Rollback), der alte Key wird nie vorab gelöscht.
-- **Revoke** (`Remove-KIStackOpenWebUICredential.ps1`): entfernt ausschließlich den KI-Stack-eigenen lokalen Store und widerruft ausschließlich den zugehörigen eigenen Key -- nie fremde Benutzer, nie fremde Keys, keine Admin-Passwortänderung.
-- **Offline/Privilegien**: OpenWebUI nicht erreichbar ergibt `OpenWebUIUnavailable`, nie `Invalid`. Ein Credential, das sich zwar authentifiziert, aber keine Admin-Rolle hat, ergibt `InsufficientPrivileges` -- administrative Automatisierung läuft in beiden Fällen nicht blind unauthentifiziert weiter, sondern meldet den Zustand klar (Blocked/Skip mit Diagnose).
-- **Sicherheit**: kein Zugriff auf die OpenWebUI-eigene Datenbankdatei, keine SQL-Abfragen, kein Passwort-Hash-Zugriff, keine Session-Cookie-/Browser-Automatisierung -- ausschließlich die dokumentierte, stabile REST-Oberfläche. Alle neuen Log-/Fehlerpfade redaktieren `Bearer <token>` und `sk-...`-Werte.
-- **Integration**: der zentrale Resolver ist im normalen Complete-Installer-Ablauf (`Start-KIStackCompleteInstaller.ps1`) verankert -- ein Upgrade mit bereits gültigem Credential fragt nie interaktiv nach; ein Greenfield-Ziel ohne Credential dokumentiert API-abhängige Schritte kontrolliert als ausstehend, statt sie unauthentifiziert zu erzwingen. Agent-Pack-, RAG- und Code-Interpreter-Provisionierung nutzen denselben, bereits aufgelösten Token -- ihr eigener Managed-/Merge-/Preserve-Vertrag und ihre Knowledge-Bindungslogik bleiben unverändert.
-- **Code Interpreter**: die Konfiguration (`/api/v1/configs/code_execution`, Pyodide-Engine, Werkzeugbindung je Profil) ist bereits vollständig über die stabile Admin-API automatisiert (`Operations/Set-KIStackCodeInterpreter.ps1`) -- kein manueller Schritt nötig, sofern ein gültiges Credential vorliegt.
-- **Status**: der zentrale Status zeigt `OpenWebUICredential: Missing/Configured/Valid/Invalid/Unchecked` -- nie den Key selbst.
+`Initialize-KIStackOpenWebUICredential.ps1` führt den einmaligen interaktiven Bootstrap durch:
 
-### Research-Agent-Websuche: der reale Ausführungspfad
+- fragt das OpenWebUI-Administratorkonto ab;
+- meldet sich über OpenWebUIs unterstützte API an;
+- aktiviert bei Bedarf die API-Key-Unterstützung;
+- erzeugt einen persistenten benutzerbezogenen API-Key;
+- validiert den Key, bevor etwas gespeichert wird.
 
-Real gegen den installierten OpenWebUI-0.11.1-Quellcode (`open_webui/utils/middleware.py`, `open_webui/utils/tools.py`) und eine echte, authentifizierte API-Sitzung verifiziert -- nicht aus älteren OpenWebUI-Versionen oder aus Modellaussagen abgeleitet:
+Der Key wird ausschließlich DPAPI-verschlüsselt unter `C:\KI-Stack\state\openwebui\credential.json` gespeichert. Er wird niemals im Klartext im Repository, in Build-Artefakten, Kommandozeilen, Reports oder Logs persistiert.
 
-- **Die Konfiguration von `ki-stack-research` selbst ist korrekt und wird korrekt abgeglichen.** Das reale OpenWebUI-Objekt trägt `capabilities.web_search`, `builtinTools.web_search` und `params.function_calling: "native"` exakt wie vom Agent Pack definiert -- bestätigt durch Rücklesen des realen, live gespeicherten Objekts, nicht aus dem Repository abgeleitet.
-- **Natives Function Calling bietet eingebaute Werkzeuge (u. a. `search_web`/`fetch_url`) nur an, wenn die Anfrage eine nicht-leere `session_id` trägt** (`use_builtin_tools`-Prüfung in `utils/middleware.py`) -- ein reiner Bearer-Token-API-Aufruf ohne `session_id` erhält das Werkzeug nie und das Modell erfindet dann eine plausibel klingende, aber nicht belegte Antwort. Mit vorhandener `session_id` fordert das Modell zuverlässig und beim ersten Versuch korrekt `search_web` mit einer sinnvollen Abfrage an -- real bewiesen und unabhängig reproduziert durch einen direkten Minimal-Aufruf gegen LM Studios eigenes `/v1/chat/completions` mit einer Test-Funktionsdefinition, was das native Tool-Calling des Modells als vollständig funktionsfähig bestätigt.
-- **Die automatische Ausführung dieses Werkzeugaufrufs durch OpenWebUI selbst (Abfrage stellen, SearXNG aufrufen, Ergebnis zurückführen, Konversation fortsetzen) ist an OpenWebUIs Socket.IO-/Background-Task-Pipeline gebunden** (ausgelöst, wenn sowohl `session_id` als auch eine reale `chat_id` vorhanden sind). Hier wurde ein realer, reproduzierbarer Defekt gefunden: Diese Pipeline startet zuverlässig (ein realer `knowledge_search`-Status wird im Chat vermerkt), bleibt dann aber unabhängig von der Erreichbarkeit von SearXNG/Valkey dauerhaft hängen, bevor das Modell je wieder aufgerufen wird. Das ist ein echter OpenWebUI-0.11.1-Defekt im eigenen, headless/API-getriebenen Ausführungspfad -- kein Defekt des KI-Stack-Agent-Packs oder des Credential-Bootstraps, und ohne Patch am OpenWebUI-eigenen Python-Quellcode aus diesem Repository heraus nicht behebbar (außerhalb des Scopes; ein solcher Patch wurde nicht vorgenommen).
-- **Ein realer, vollständiger, nicht simulierter Nachweis wurde dennoch erbracht**, indem der standardmäßige OpenAI-kompatible Tool-Calling-Rundlauf manuell vervollständigt wurde (genau wie es von jedem externen Tool-Calling-Client erwartet wird): die `search_web`-Anfrage des Modells wurde mit echten SearXNG-Ergebnissen beantwortet, das Modell forderte daraufhin `fetch_url` auf der echten GitHub-Release-Seite an, diese wurde real abgerufen, und die finale Antwort des Modells nannte korrekt die reale, aktuelle OpenWebUI-Release-Version samt Quell-URL. Das beweist die vollständige Kette -- Research Agent → Websuche → SearXNG → reale Quellen → Antwort -- funktioniert Ende-zu-Ende über den echten Tool-Calling-Vertrag; nur OpenWebUIs eigene *unsichtbare, automatische* Ausführung dieses Vertrags für Nicht-Browser-Sitzungen ist aktuell defekt.
-- **Nicht behaupten**: „Der Research-Agent führt automatisch Websuchen aus" für einen reinen API-/Bearer-Token-Aufrufer heute -- das tut er wegen des obigen OpenWebUI-seitigen Hängers nicht. Er *fordert* das Werkzeug korrekt an und antwortet korrekt, sobald der Aufrufer das Werkzeugergebnis liefert.
+Spätere Complete-Installer-, Agent-Pack-, RAG-, Knowledge- und Code-Interpreter-Aktionen lösen dasselbe Credential automatisch auf und verwenden es wieder.
 
+Unterstützte Credential-Aktionen:
+
+- Status: `Test-KIStackOpenWebUICredential.ps1`
+- Bootstrap/Wiederverwendung: `Initialize-KIStackOpenWebUICredential.ps1`
+- Rotation: `Initialize-KIStackOpenWebUICredential.ps1 -Rotate`
+- Revoke: `Remove-KIStackOpenWebUICredential.ps1`
+
+Bei Rotation wird der Ersatz validiert, bevor das bisher funktionierende Credential abgelöst wird. Revoke entfernt ausschließlich das KI-Stack-eigene lokale Credential und den zugehörigen Key.
+
+Ist OpenWebUI nicht erreichbar, wird das Credential nicht fälschlich als ungültig gemeldet. Fehlt ein verwendbares Administrator-Credential, werden API-abhängige Arbeiten kontrolliert als Pending/Blocked gemeldet, statt unauthentifiziert fortzufahren.
+
+### Research-Agent-Websuche
+
+`ki-stack-research` wird als Research-Profil mit dynamisch gebundenem lokalem RAG-Knowledge, SearXNG-gestützter Websuche und isoliertem Pyodide-Code-Interpreter verwaltet.
+
+Profilvertrag, Tool-Bindungen und Knowledge-Bindung werden durch den Agent Pack reconciled. Historische Headless-/API-Ausführungspfad-Nachweise früherer OpenWebUI-Versionen bleiben in den jeweiligen Release-Dokumenten erhalten; dieses aktuelle Betriebshandbuch behandelt diese versionsspezifischen früheren Beobachtungen nicht als Betriebsvertrag für OpenWebUI 0.11.3.
 ## RAG / Knowledge-Ingestion
 
 Das RAG-Modul (0.4.0) wird bei einer normalen Installation automatisch unter `C:\KI-Stack\modules\rag` installiert; seine OpenWebUI-Suchpräfix-Umgebung wird dabei in den bestehenden OpenWebUI-Starter eingebunden. Die Installation prüft nur den eigenen Quellenvertrag des Moduls und legt dessen Dateien ab — sie **ingestiert keine Dokumente**, und standardmäßig sind keine Quellen konfiguriert (`Config/sources.json` liefert eine leere Allow-List aus).
@@ -113,14 +170,13 @@ Standardmäßig gehören alle Quellen zu einer globalen Knowledge-Collection. `N
 
 Der Referenz-Research-Agent `ki-stack-research` (OpenWebUI Agent Pack, siehe „OpenWebUI" oben) löst die globale RAG-Knowledge-Collection zur Installations-/Reconcile-Zeit dynamisch anhand des Namens auf -- nie eine hartcodierte Collection-ID. Existiert diese Collection noch nicht (RAG hat auf diesem Ziel noch nie `Execute` ausgeführt), wird `ki-stack-research` bei diesem Lauf vollständig übersprungen statt mit leerer Knowledge-Bindung angelegt zu werden; alle anderen verwalteten Profile werden im selben Lauf normal fertiggestellt.
 
-## Knowledge-Bootstrap und Code-Interpreter-Nacharbeit
+## Credential-abhängige Finalisierung
 
-Ohne angegebenen OpenWebUI-Administrator-API-Key bleiben zwei Abschlussschritte manuelle Nacharbeit (in der finalen Installer-Zusammenfassung als `CredentialRequiredForApiReadback` beziehungsweise `CredentialRequiredForApiConfiguration` ausgewiesen):
+Agent Pack, RAG-/Knowledge-Anbindung und Code-Interpreter-Konfiguration verwenden das oben beschriebene zentrale OpenWebUI-Credential.
 
-- Entfernen des temporären Knowledge-Bootstrap-Experiments (unabhängig von der eigentlichen Ingestion des RAG-Moduls oben).
-- Konfiguration der OpenWebUI-Code-Interpreter-Verbindung.
+Mit einem gültig gespeicherten Credential werden diese Schritte im unterstützten Installer-/Reconcile-Ablauf automatisch abgeschlossen.
 
-Bei einem späteren Lauf mit angegebenem temporärem Administrator-API-Key erledigt der Installer diese Schritte automatisch, andernfalls müssen sie manuell in OpenWebUI nachgeholt werden.
+Fehlt das Credential, ist es ungültig, nicht prüfbar oder besitzt keine Administratorrechte, werden die betroffenen API-abhängigen Arbeiten kontrolliert als Pending/Blocked mit Diagnose gemeldet. Ein separater temporärer Administrator-API-Key gehört nicht mehr zum normalen Betriebsverfahren; stattdessen das zentrale KI-Stack-Credential bootstrappen oder reparieren.
 
 ## Wartung: Reconcile- und Wiederholungslauf-Verhalten
 
@@ -170,12 +226,14 @@ Eine erstmalige WSL2-Aktivierung auf einer wirklich leeren Maschine kann einen W
 - **Installer meldet `NEUSTART ERFORDERLICH` / Exitcode 31**: Windows neu starten, danach `Resume-KIStack-Installer.cmd <TransactionId>` mit der ausgegebenen TransaktionsID ausführen.
 - **LM-Studio-/Codex-Local-Schritt schlägt mit nicht erreichbarem Endpunkt fehl**: prüfen, ob das LM-Studio-Fenster offen ist und ob `%USERPROFILE%\.lmstudio\bin\lms.exe` existiert; wurde LM Studio gerade zum allerersten Mal installiert, kann die eigene Ersteinrichtung auf einer langsamen Maschine länger dauern als das Wartefenster des Starters — die Transaktion erneut per Resume fortsetzen.
 - **SearXNG scheint nicht erreichbar**: in der WSL-Debian-Instanz `systemctl status ki-stack-searxng uwsgi nginx valkey-server` prüfen; dass entweder `ki-stack-searxng` oder `uwsgi` aktiv und auf Port 8888 gesund ist, ist ein gültiger, erwarteter Zustand.
-- **Ein Schritt meldet `CredentialRequiredForApiReadback` oder `CredentialRequiredForApiConfiguration`**: das ist erwartet, wenn kein OpenWebUI-Administrator-API-Key angegeben wurde; siehe Abschnitt Knowledge-Bootstrap und Code-Interpreter-Nacharbeit oben.
+- **Ein OpenWebUI-API-abhängiger Schritt meldet einen Credential-bezogenen Pending-/Blocked-Zustand**: `Test-KIStackOpenWebUICredential.ps1` ausführen. Existiert kein gültiges Credential, dieses mit `Initialize-KIStackOpenWebUICredential.ps1` bootstrappen; nicht auf einen separat gepflegten temporären API-Key zurückfallen.
 
-Der Greenfield-Vertrag wurde mit einer vollständigen, erfolgreichen, realen Installation auf einem leeren Zielsystem verifiziert.
+Die letzte vollständige, erfolgreiche, reale Greenfield-Installation auf einem leeren Zielsystem wurde mit Complete Installer 2.4.0 verifiziert. Die späteren Releases bis 2.17.0 ergänzen Regression-, Paket-, Komponenten-, Upgrade-/Reconcile- und Real-Target-Nachweise, behaupten jedoch keinen neueren vollständigen Windows-Greenfield-Lauf auf einem leeren Zielsystem.
 
 ## Bekannte offene Punkte
 
-- **Latenzanalyse**: noch keine technische Aufschlüsselung des realen Anfragewegs OpenWebUI-Eingabe -> Prompt-/Tool-Zusammenstellung -> LM-Studio-Anfrage -> erstes Token.
-- **Automatische OpenWebUI-Tool-Server-Registrierung**: Open Terminal erfordert weiterhin den oben beschriebenen einmaligen manuellen Registrierungsschritt; dies ist noch nicht automatisiert.
-- **Bootstrap-Phase ohne PowerShell 7**: der PowerShell-7-Bootstrap-Pfad (nur genutzt, wenn PowerShell 7 selbst fehlt) hat keine eigene Live-Heartbeat-Anzeige -- nur ein strukturiertes `.bootstrap.jsonl`-Diagnoseprotokoll. Eine bekannte, akzeptierte Lücke, kein 2.14-Blocker.
+- **Latenz-Tracing**: Es gibt weiterhin keine dedizierte Ende-zu-Ende-Zeitaufschlüsselung für OpenWebUI-Eingabe -> Prompt-/Tool-Aufbereitung -> LM-Studio-Request -> erstes Token.
+- **Memory-Request-Default**: OpenWebUI 0.11.3 besitzt keinen persistenten serverseitigen Standard für `features.memory=true`.
+- **Produktionsdatenbank-Restore**: Das Online-Backup von `webui.db` ist real zielsystemvalidiert und das kontrollierte Restore acceptance-getestet; ein Restore der Produktionsdatenbank wurde nicht durchgeführt.
+- **GUI-/Desktop-Automation**: Breite grafische Desktop-/Anwendungsautomation liegt außerhalb von 2.17.
+- **Bootstrap-Phase ohne PowerShell 7**: Der Bootstrap-Pfad, der nur verwendet wird wenn PowerShell 7 selbst fehlt, besitzt keine eigene Live-Heartbeat-Anzeige und schreibt stattdessen ein strukturiertes `.bootstrap.jsonl`-Diagnoselog.
