@@ -258,6 +258,137 @@ try {
         $cutoverBuildReport.Contains("KI-Stack Cutover v$runtimeVersion")
     )
     Add-Result 'Documentation version consistency' $documentationVersionsOk "runtime=$runtimeVersion; models=$modelsVersion; applications=$applicationsVersion; integration=$integrationVersion"
+    # Living-documentation gate:
+    # Current operational documentation must follow the current Complete Installer
+    # state while historical release documentation remains intentionally untouched.
+    $completeInstallerVersion = (
+        Get-Content -LiteralPath (
+            Join-Path $RootPath 'tools/complete-installer/current/VERSION'
+        ) -Raw
+    ).Trim()
+
+    $livingDocs = @(
+        'README.md',
+        'README.de.md',
+        'docs/en/KI-Stack-Installation-Guide.md',
+        'docs/de/KI-Stack-Installationsanleitung.md',
+        'docs/en/KI-Stack-Technical-Documentation.md',
+        'docs/de/KI-Stack-Technische-Dokumentation.md',
+        'docs/en/KI-Stack-Operations-and-User-Guide.md',
+        'docs/de/KI-Stack-Betriebs-und-Benutzerhandbuch.md',
+        'docs/en/KI-Stack-Manual-Model-Provisioning.md',
+        'docs/de/KI-Stack-Manuelle-Modellbereitstellung.md',
+        'docs/en/KI-Stack-Model-Download-Guide.md',
+        'docs/de/KI-Stack-Modell-Downloadanleitung.md',
+        'tools/complete-installer/current/README.md',
+        'tools/complete-installer/current/README.de.md'
+    )
+
+    $documentationGateFailures = [Collections.Generic.List[string]]::new()
+
+    foreach ($relativePath in $livingDocs) {
+        $fullPath = Join-Path $RootPath $relativePath
+
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            $documentationGateFailures.Add(
+                "Living document missing: $relativePath"
+            )
+            continue
+        }
+
+        $content = Get-Content -LiteralPath $fullPath -Raw
+
+        if (-not $content.Contains($completeInstallerVersion)) {
+            $documentationGateFailures.Add(
+                "$relativePath does not reference current Complete Installer version $completeInstallerVersion"
+            )
+        }
+    }
+
+    $changelogPath = Join-Path $RootPath 'CHANGELOG.md'
+    $changelog = Get-Content -LiteralPath $changelogPath -Raw
+
+    $releaseHeadingPattern = (
+        '(?m)^##\s+' +
+        [regex]::Escape($completeInstallerVersion) +
+        '\s*$'
+    )
+
+    $releaseHeadingCount = (
+        [regex]::Matches(
+            $changelog,
+            $releaseHeadingPattern
+        )
+    ).Count
+
+    if ($releaseHeadingCount -ne 1) {
+        $documentationGateFailures.Add(
+            "CHANGELOG.md must contain exactly one release heading for $completeInstallerVersion; found $releaseHeadingCount"
+        )
+    }
+
+    $staleCurrentStatePatterns = @(
+        @{
+            Pattern = '(?i)2\.11\.0'
+            Description = 'non-existent Complete Installer release 2.11.0'
+        },
+        @{
+            Pattern = '(?i)2\.10\.0\s+(?:remains|is)\s+the\s+last'
+            Description = 'obsolete English 2.10 current-validation statement'
+        },
+        @{
+            Pattern = '(?i)2\.10\.0.{0,80}(?:bleibt|ist)\s+(?:der\s+)?letzte'
+            Description = 'obsolete German 2.10 current-validation statement'
+        },
+        @{
+            Pattern = '(?i)post-2\.14'
+            Description = 'obsolete post-2.14 planning marker'
+        },
+        @{
+            Pattern = '(?i)nach\s+2\.14'
+            Description = 'obsolete German post-2.14 planning marker'
+        },
+        @{
+            Pattern = '(?i)Codex\s+Local\s+0\.2\.0'
+            Description = 'obsolete Codex Local 0.2.0 current-state reference'
+        },
+        @{
+            Pattern = '(?i)OpenWebUI[-\s]+0\.11\.1'
+            Description = 'obsolete Open WebUI 0.11.1 current-state reference'
+        },
+        @{
+            Pattern = '(?i)OpenWebUI\s+Image\s+Pack'
+            Description = 'obsolete Image Pack current-state reference'
+        }
+    )
+
+    foreach ($relativePath in $livingDocs) {
+        $fullPath = Join-Path $RootPath $relativePath
+
+        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
+            continue
+        }
+
+        $content = Get-Content -LiteralPath $fullPath -Raw
+
+        foreach ($rule in $staleCurrentStatePatterns) {
+            if ($content -match $rule.Pattern) {
+                $documentationGateFailures.Add(
+                    "$relativePath contains $($rule.Description)"
+                )
+            }
+        }
+    }
+
+    Add-Result `
+        'Living documentation release gate' `
+        ($documentationGateFailures.Count -eq 0) `
+        $(if ($documentationGateFailures.Count) {
+            $documentationGateFailures -join '; '
+        }
+        else {
+            "version=$completeInstallerVersion; livingDocs=$($livingDocs.Count); changelogHeading=1"
+        })
 
     $activeModelsRoot=Join-Path $RootPath 'tools/models-workflows/current'
     $activeManifest=Get-Content (Join-Path $activeModelsRoot 'Manifests/models.manifest.json') -Raw|ConvertFrom-Json -Depth 100
