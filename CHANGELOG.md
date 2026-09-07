@@ -1,5 +1,71 @@
 # Changelog
 
+## 2.17.0
+
+- Adds native persistent Memory support by reusing Open WebUI's existing local Memory implementation; no second memory service, database, MCP runtime, port, or cloud dependency is introduced.
+- Enables native Memory for `ki-stack-it-technik` and `ki-stack-allgemein`; keeps it disabled for `ki-stack-18bravo` and `ki-stack-research`.
+- Documents the Open WebUI Memory gating and ownership contract; Memory remains user-scoped, cross-chat and cross-profile for the same authenticated user.
+- Preserves Agent Pack Knowledge bindings, MCP bindings, Local Control behavior, and the Ballistics Pack's explicit-save semantics.
+- Adds safe online Open WebUI SQLite backup through `VACUUM INTO`, with integrity verification and no raw live-database copy fallback.
+- Adds controlled restore tooling with pre-restore safety backup, WAL/SHM handling, integrity validation, and post-restore health verification.
+- Validated with repository regression 34/34 PASS, real Memory add/search/delete acceptance, real online database backup, and controlled restore testing against a temporary database copy.
+- No production database restore was performed.
+
+## 2.16.0
+
+- Adds autonomous Local Control on top of the existing MCP Runtime without introducing a second runtime, new MCP tools, ports, credentials, or Windows-control service.
+- Uses the existing `run_command` MCP surface, PowerShell, and KI-Stack lifecycle scripts for Windows, WSL, process, filesystem, service, registry, task, and application control.
+- Adds Local Control operating principles to MCP-enabled profiles and removes unnecessary blanket confirmation for ordinary repair and system-change workflows.
+- Validates structured PowerShell output through `ConvertTo-Json`.
+- Fixes Ballistics Pack reconciliation so the MCP binding survives repeated reconcile runs.
+- Repository regression 34/34 PASS; real-target Local Control and MCP-binding idempotency validated.
+
+## 2.15.0
+
+- Introduces native MCP as the default terminal and host-control path for terminal-capable Open WebUI profiles.
+- Adds the isolated `mcp-runtime` 0.1.0 Complete Installer component, bound locally on `127.0.0.1:8021`.
+- Registers the runtime through Open WebUI's standard MCP tool-server path and exposes twelve filesystem, process, command, and search tools.
+- Migrates `ki-stack-it-technik`, `ki-stack-18bravo`, `roleplay`, and `ki-stack-allgemein` to MCP while keeping Open Terminal installed and supported as a rollback/fallback path.
+- Fixes Agent Pack reconciliation so external MCP tool bindings are preserved.
+- Adds Open Terminal registration-credential synchronization for stale credential cases.
+- Adds a read-only LM Studio runtime-baseline check for Max Concurrent Predictions.
+- Fixes Cutover Runtime compliance detection to prefer the real live marker over a frozen historical acceptance snapshot.
+- Includes local credential-hygiene remediation and validated rollback paths.
+
+## 2.14.0
+
+- Adds Open Terminal 0.1.0 as a real, target-validated Complete Installer component.
+- Integrates Open Terminal into the central Start/Stop/Status lifecycle and provides isolated install, upgrade, repair, backup, rollback, version, credential, and readiness handling.
+- Uses a persistent DPAPI-protected local API key and a local OpenAPI endpoint on `127.0.0.1:8000`.
+- Raises the Open WebUI reference/minimum supported version to `0.11.3` and the ComfyUI reference/minimum supported version to `v0.34.0`.
+- Fixes live heartbeat streaming during UAC-elevated installer runs.
+- Filters PowerShell transcript scaffolding from the live view and prevents duplicate final-result output.
+- Fixes the transaction `centralStarters` field so it is always serialized as a real JSON array.
+- Repository validation 33/33 PASS; PackageSelfTest 28/28 PASS; deterministic double-build and real-target Complete Installer validation completed.
+
+## 2.13.0
+
+- Adds automatic Release Attestation for published Complete Installer assets.
+- Adds Component Isolation and an internal Component Version Registry.
+- Updates Codex Local to 0.2.1 with a fully isolated `CODEX_HOME`, never reusing the shared `%USERPROFILE%\.codex`.
+- Adds a secure Open WebUI credential bootstrap with one-time administrator authentication, persistent API-key support, DPAPI-backed local storage, rotation, revoke, and central credential resolution.
+- Adds a real LM Studio plus Codex Local login-to-starter-to-`codex exec` end-to-end validation.
+- Adds a real SearXNG-backed web-search validation for `ki-stack-research`.
+- Verifies ZIP SHA256, sidecar SHA256, and SPDX SBOM root-package SHA256 as one release contract.
+- Repository tests 37/37 PASS; PackageSelfTest 28/28 PASS; deterministic byte-identical double-build confirmed.
+
+## 2.12.0
+
+- Adds RAG document/query prefix handling for Nomic embeddings.
+- Adds `source_file` and `chunk_index` metadata plus idempotent SHA256-based re-import handling.
+- Adds project-scoped RAG separation and repeatable unattended import.
+- Ensures the RAG embedding starter modification survives later Integration reconciliation.
+- Adds the `KI-Stack Research` profile with local RAG/Knowledge, SearXNG web search, isolated Code Interpreter, dynamic Knowledge binding, and explicit terminal/extension-tool restrictions.
+- Hardens Agent Pack reconciliation so unmanaged Open WebUI metadata and UI-side configuration are preserved.
+- Raises the Open WebUI Greenfield reference to 0.11.1 while preserving supported newer versions.
+- Confirms ComfyUI v0.34.0 as supported and preservable while retaining v0.28.0 as the Greenfield reference at that release.
+- Adds deterministic Complete Installer build and explicit SBOM/release regression coverage.
+- Repository tests 35/35 PASS; RAG, Agent Pack, PackageSelfTest, deterministic-build, SHA256, and SPDX-2.3 validation completed.
 ## 2.10.1
 
 - Complete Installer maintenance release.
@@ -301,6 +367,8 @@
 - Runtime logic remains functionally unchanged from v1.3.6.
 
 # Changelog
+
+
 
 ## Models / Workflows 1.3.6-rc1 — release candidate
 

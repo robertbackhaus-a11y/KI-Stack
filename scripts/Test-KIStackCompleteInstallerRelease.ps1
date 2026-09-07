@@ -166,42 +166,113 @@ try {
         -PackageRoot $packageRoot.FullName `
         -TargetRoot $fixtureTarget `
         -FixtureState $fixture
+    $fixturePathContext = New-KICompletePathContext `
+        -TargetRoot $fixtureTarget `
+        -PackageRoot $packageRoot.FullName `
+        -TransactionId 'fixture-resume' `
+        -Mutating
+
+    Initialize-KICompletePathContextDirectories `
+        -Context $fixturePathContext | Out-Null
+
     $transaction = New-KICompleteTransaction `
         -Plan $plan `
-        -StateDirectory (Join-Path $tempRoot 'resume-state') `
-        -TransactionId 'fixture-resume'
+        -PathContext $fixturePathContext
+
     $resume = Get-Content -LiteralPath $transaction.resumePath -Raw | ConvertFrom-Json
-    if ($resume.transactionId -ne 'fixture-resume' -or $resume.nextStep -ne 0 -or $resume.containsSecrets) {
+    if (
+        $resume.transactionId -ne 'fixture-resume' -or
+        $resume.nextStep -ne 0 -or
+        $resume.containsSecrets
+    ) {
         throw 'Resume fixture failed.'
     }
+
+    $automaticTransactionId = 'KI-COMPLETE-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')
+
+    $automaticPathContext = New-KICompletePathContext `
+        -TargetRoot $fixtureTarget `
+        -PackageRoot $packageRoot.FullName `
+        -TransactionId $automaticTransactionId `
+        -Mutating
+
+    Initialize-KICompletePathContextDirectories `
+        -Context $automaticPathContext | Out-Null
+
     $automaticTransaction = New-KICompleteTransaction `
         -Plan $plan `
-        -StateDirectory (Join-Path $tempRoot 'automatic-transaction-state')
+        -PathContext $automaticPathContext
+
     if (
         [string]::IsNullOrWhiteSpace([string]$automaticTransaction.transaction.transactionId) -or
+        [string]$automaticTransaction.transaction.transactionId -ne $automaticTransactionId -or
         [string]::IsNullOrWhiteSpace([string]$automaticTransaction.path) -or
         -not (Test-Path -LiteralPath $automaticTransaction.path -PathType Leaf) -or
         (Split-Path -Leaf (Split-Path -Parent $automaticTransaction.path)) -ne
             [string]$automaticTransaction.transaction.transactionId
     ) {
-        throw 'Automatic transaction-id fixture failed.'
+        throw 'Transaction path-context fixture failed.'
     }
 
     $rollbackTarget = Join-Path $tempRoot 'rollback-fixture'
-    $rollbackState = Join-Path $rollbackTarget 'state\complete-installer'
-    $rollbackBackup = Join-Path $tempRoot 'rollback-backup.json'
-    New-Item -ItemType Directory -Path $rollbackState -Force | Out-Null
+    $rollbackTransactionId = 'ROLLBACK-FIXTURE'
+
+    $rollbackPathContext = New-KICompletePathContext `
+        -TargetRoot $rollbackTarget `
+        -PackageRoot $packageRoot.FullName `
+        -TransactionId $rollbackTransactionId `
+        -Mutating
+
+    Initialize-KICompletePathContextDirectories `
+        -Context $rollbackPathContext | Out-Null
+
+    $rollbackOperationsRoot = Join-Path `
+        $rollbackPathContext.TransactionBackupRoot `
+        'operations'
+
+    New-Item `
+        -ItemType Directory `
+        -Path $rollbackOperationsRoot `
+        -Force | Out-Null
+
+    $rollbackBackup = Join-Path `
+        $rollbackOperationsRoot `
+        'operations.backup.json'
+
     [IO.File]::WriteAllText(
         $rollbackBackup,
-        '{"schemaVersion":"1.0","runValues":[],"desktopLinks":[],"systemdUnits":[],"dockerContainers":[],"changes":[]}',
+        (@{
+            schemaVersion = '1.1'
+            transactionId = $rollbackTransactionId
+            targetRoot = [string]$rollbackPathContext.TargetRoot
+            backupPath = $rollbackBackup
+            componentId = 'operations'
+            runValues = @()
+            desktopLinks = @()
+            systemdUnits = @()
+            dockerContainers = @()
+            changes = @()
+        } | ConvertTo-Json -Depth 10 -Compress),
         [Text.UTF8Encoding]::new($false)
     )
+
     [IO.File]::WriteAllText(
-        (Join-Path $rollbackState 'operations-latest.json'),
-        (@{schemaVersion='1.0';backupPath=$rollbackBackup} | ConvertTo-Json -Compress),
+        (Join-Path $rollbackPathContext.StateRoot 'operations-latest.json'),
+        (@{
+            schemaVersion = '1.1'
+            transactionId = $rollbackTransactionId
+            targetRoot = [string]$rollbackPathContext.TargetRoot
+            backupRoot = [string]$rollbackPathContext.TransactionBackupRoot
+            backupPath = $rollbackBackup
+            componentId = 'operations'
+            pathContractVersion = [string]$rollbackPathContext.PathContractVersion
+        } | ConvertTo-Json -Depth 10 -Compress),
         [Text.UTF8Encoding]::new($false)
     )
-    $rollback = Restore-KICompleteOperations -TargetRoot $rollbackTarget
+
+    $rollback = Restore-KICompleteOperations `
+        -TargetRoot $rollbackTarget
+
     if (-not $rollback.restored -or $rollback.status -ne 'OperationsRestored') {
         throw 'Rollback fixture failed.'
     }
