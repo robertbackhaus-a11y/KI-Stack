@@ -4,7 +4,7 @@
 
 Transactional, modular Windows AI stack installer for PowerShell 7, Git, Python, ComfyUI, models, LM Studio, Open WebUI, WSL and SearXNG. Every module includes self-test, dry run, execute, transaction logging and rollback.
 
-Projektseite und begleitende Artikel: https://www.okami.de/category/howtos/ki-stack/
+Projektseite und begleitende Artikel: [https://www.okami.de/projekte/lokaler-ki-stack-sprachmodelle-bilder-videos-und-rag-auf-einem-system/]
 
 ## Current state
 
