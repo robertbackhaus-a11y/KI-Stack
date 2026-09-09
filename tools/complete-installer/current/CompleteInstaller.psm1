@@ -553,6 +553,49 @@ function Test-KICompleteMcpRuntimeCompliant {
     }catch{return $false}
 }
 
+function Test-KICompleteWinAppCompliant {
+    # Mirrors Test-KICompleteMcpRuntimeCompliant's own shape and reasoning for another
+    # self-contained ("isolation A") component. winapp's own package logic
+    # (tools/winapp/current/WinApp.psm1) has a richer Test-KIWinApp, but this orchestrator runs
+    # from its own isolated Payload extraction and cannot cross-import it -- so it re-verifies
+    # directly against the real, on-disk artifacts Install-KIWinApp actually writes:
+    # <TargetRoot>\tools\winapp\VERSION (== expected), <TargetRoot>\tools\winapp\installation.json
+    # (marker version == expected), the extracted package directory, SHA256SUMS.txt still matching
+    # every extracted file, the hardened executable layout (EXACTLY one winapp.exe, DIRECTLY at
+    # the package root -- a second winapp.exe anywhere under current\ is non-compliant), and the
+    # required upstream files (winapp.exe, libSkiaSharp.dll, winapp.pdb). The live
+    # `winapp --version` probe is a separate runtime concern, never part of "is this package
+    # correctly deployed".
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.6.1')
+    $root=Join-Path $TargetRoot 'tools/winapp'
+    $packageRoot=Join-Path $root 'current'
+    $versionStamp=Join-Path $root 'VERSION'
+    $markerPath=Join-Path $root 'installation.json'
+    $checksumFile=Join-Path $root 'SHA256SUMS.txt'
+    foreach($path in @($versionStamp,$markerPath,$checksumFile)){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){return $false}}
+    if(-not(Test-Path -LiteralPath $packageRoot -PathType Container)){return $false}
+    try{
+        if((Get-Content -LiteralPath $versionStamp -Raw).Trim()-ne$ExpectedComponentVersion){return $false}
+        $marker=Read-KICompleteJson $markerPath
+        if([string]$marker.version-ne$ExpectedComponentVersion){return $false}
+    }catch{return $false}
+    foreach($line in Get-Content -LiteralPath $checksumFile){
+        if([string]::IsNullOrWhiteSpace($line)){continue}
+        if($line-notmatch'^([0-9a-fA-F]{64})\s+\*?(.+)$'){return $false}
+        $file=Join-Path $packageRoot ($Matches[2].Replace('/',[IO.Path]::DirectorySeparatorChar))
+        if(-not(Test-Path -LiteralPath $file -PathType Leaf)){return $false}
+        if((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()-ne$Matches[1].ToLowerInvariant()){return $false}
+    }
+    $rootExe=[IO.Path]::GetFullPath((Join-Path $packageRoot 'winapp.exe'))
+    if(-not(Test-Path -LiteralPath $rootExe -PathType Leaf)){return $false}
+    $allExe=@(Get-ChildItem -LiteralPath $packageRoot -Recurse -File -Filter 'winapp.exe' -ErrorAction SilentlyContinue|ForEach-Object{[IO.Path]::GetFullPath($_.FullName)})
+    if(@($allExe|Where-Object{-not [string]::Equals($_,$rootExe,[StringComparison]::OrdinalIgnoreCase)}).Count-gt0){return $false}
+    foreach($required in @('winapp.exe','libSkiaSharp.dll','winapp.pdb')){
+        if(-not(Test-Path -LiteralPath (Join-Path $packageRoot $required) -PathType Leaf)){return $false}
+    }
+    return $true
+}
+
 function Test-KICompleteIntegrationCompliant {
     param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='1.5.11')
     $root=Join-Path $TargetRoot 'modules/integration'
@@ -673,6 +716,7 @@ function New-KICompletePlan {
         if([string]$component.id-eq'codex-local'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'open-terminal'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'mcp-runtime'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteMcpRuntimeCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
+        if([string]$component.id-eq'winapp'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteWinAppCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'integration'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'comfyui'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         $reconciliationNeeded=$compliant-and$stored-ne[string]$component.version
@@ -1577,6 +1621,7 @@ function Invoke-KIStackCompleteInstaller {
                 if([string]$step.id-eq'codex-local'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'open-terminal'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'mcp-runtime'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteMcpRuntimeCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+                if([string]$step.id-eq'winapp'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteWinAppCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'integration'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'comfyui'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
                 if($resumeCompliant){$index++;continue}
@@ -1859,6 +1904,46 @@ function Invoke-KIStackCompleteInstaller {
                     if(-not[bool]$result.passed){throw "MCP-Runtime-$action fehlgeschlagen."}
                     $validation=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
                     if(-not[bool]$validation.passed){throw 'MCP-Runtime-Validierung fehlgeschlagen.'}
+                    # SkippedAlreadyCompliant carries no backupPath -- defensive, never assumed
+                    # present under StrictMode, mirroring open-terminal's own identical comment.
+                    $resultBackupPath=if($result.PSObject.Properties['backupPath']){[string]$result.backupPath}else{$null}
+                    $step.backup=$resultBackupPath
+                    $step.result=@{install=$result;validation=$validation;backupPath=$resultBackupPath;validated=$true}
+                }catch{
+                    if($null -ne $result -and$result.PSObject.Properties['backupPath']-and-not [string]::IsNullOrWhiteSpace([string]$result.backupPath)){
+                        $rollback=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Rollback';BackupPath=[string]$result.backupPath}
+                        $_.Exception.Data['KIStackRollbackStatus']=if([bool]$rollback.passed){'Completed'}else{'Failed'}
+                        $_.Exception.Data['KIStackBackupPath']=[string]$result.backupPath
+                    }
+                    throw
+                }
+            }
+            elseif ($step.id -eq 'winapp') {
+                # Mirrors open-terminal's / mcp-runtime's own isolated shape exactly (same
+                # template, same Expand-KICompletePayload -> own entry-point Install/Upgrade/
+                # Repair via plannedMode, then Validate -> on any failure, roll back via that
+                # SAME entry point's own Rollback action against its own backupPath). The
+                # component's own Invoke-KIStackWinApp.ps1 -Action Install then downloads
+                # winappcli-x64.zip from the single pinned upstream release URL recorded in its
+                # own Manifests/winapp.source.manifest.json, verifies sizeBytes+sha256 before
+                # extraction (fail closed on any mismatch), and extracts the FULL package
+                # unchanged into <TargetRoot>\tools\winapp\current\. Install-KIWinApp already
+                # makes a same-version re-run with an intact, checksum-verified package a safe
+                # no-op ('SkippedAlreadyCompliant'); a missing or corrupt package is re-acquired
+                # and re-extracted. No process is started and no Open-WebUI registration
+                # happens here -- winapp is a resolvable tool binary for a later Desktop-Control
+                # wrapper, not a managed service.
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'WinApp'
+                $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'WinApp' -Destination $extract
+                $entry=Join-Path $componentRoot 'Invoke-KIStackWinApp.ps1'
+                if(-not(Test-Path -LiteralPath $entry -PathType Leaf)){throw 'WinApp-Einstieg fehlt.'}
+                $action=if($step.plannedMode-eq'Repair'){'Repair'}elseif($step.plannedMode-eq'Upgrade'){'Upgrade'}else{'Install'}
+                $result=$null
+                try{
+                    $result=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot}
+                    if(-not[bool]$result.passed){throw "WinApp-$action fehlgeschlagen."}
+                    $validation=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
+                    if(-not[bool]$validation.passed){throw 'WinApp-Validierung fehlgeschlagen.'}
                     # SkippedAlreadyCompliant carries no backupPath -- defensive, never assumed
                     # present under StrictMode, mirroring open-terminal's own identical comment.
                     $resultBackupPath=if($result.PSObject.Properties['backupPath']){[string]$result.backupPath}else{$null}

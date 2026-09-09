@@ -25,4 +25,5 @@ tools/openwebui-visual-pack/current/** -text
 tools/openwebui-ballistics-pack/current/** -text
 tools/rag/current/** -text
 tools/codex-local/current/** -text
+tools/winapp/current/** -text
 tools/** whitespace=cr-at-eol

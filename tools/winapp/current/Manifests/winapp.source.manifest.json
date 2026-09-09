@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "1.0",
+  "tool": "winapp",
+  "version": "0.6.1",
+  "upstream": {
+    "project": "microsoft/winappCli",
+    "projectUrl": "https://github.com/microsoft/winappCli",
+    "releaseTag": "v0.6.1",
+    "sourceRevision": "d9a8d0f8ef192fa3ce07febdbe178606ea5fb4f5"
+  },
+  "downloadContract": {
+    "networkRequiredOnlyWhenArtifactMissing": true,
+    "resumeSupported": false,
+    "activation": "verify-size-and-sha256-then-extract",
+    "distribution": "standalone-x64-zip",
+    "explicitlyNotUsed": ["msix", "winget", "app-execution-alias"],
+    "dynamicLatestForbidden": true
+  },
+  "artifact": {
+    "id": "winappcli-x64",
+    "fileName": "winappcli-x64.zip",
+    "archiveKind": "zip",
+    "sizeBytes": 46673152,
+    "sha256": "11c03be2d356d6f910649cecce912a9bc6a0814dc4f2e9ae14e379a8cf470f01",
+    "sources": [
+      "https://github.com/microsoft/winappCli/releases/download/v0.6.1/winappcli-x64.zip"
+    ],
+    "extractionTarget": "tools/winapp/current",
+    "preservePackageStructure": true,
+    "expectedExecutable": "winapp.exe",
+    "expectedExecutableRelativePath": "winapp.exe",
+    "expectedExecutableVersion": "0.6.1",
+    "verifiedPackageLayout": {
+      "verifiedOn": "x64",
+      "note": "Manually verified against the real upstream download. Exactly one winapp.exe, directly at the package root.",
+      "files": [
+        {"path": "winapp.exe", "sizeBytes": 31485312},
+        {"path": "libSkiaSharp.dll", "sizeBytes": 9414216},
+        {"path": "winapp.pdb", "sizeBytes": 147656704}
+      ],
+      "requiredFiles": ["winapp.exe", "libSkiaSharp.dll", "winapp.pdb"],
+      "executableMustBeAtPackageRoot": true,
+      "additionalWinappExeForbidden": true,
+      "pdbRetained": true
+    }
+  }
+}

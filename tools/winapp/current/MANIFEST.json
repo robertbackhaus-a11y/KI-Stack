@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "KI-STACK-WINAPP",
+  "name": "KI-Stack WinApp Provisioning",
+  "version": "0.6.1",
+  "status": "Development_SourceValidationPending",
+  "containsSecrets": false,
+  "vendoredBinary": false,
+  "runtimeGitDependency": false,
+  "externalArtifact": {
+    "tool": "winapp",
+    "upstreamVersion": "0.6.1",
+    "distribution": "standalone-x64-zip",
+    "sourceManifest": "Manifests/winapp.source.manifest.json",
+    "acquisition": "download-from-pinned-url-verify-size-and-sha256-then-extract",
+    "notBundledInGit": "winappcli-x64.zip is never checked into the repository; it is fetched at install time from the single pinned upstream release URL and integrity-checked before extraction."
+  }
+}

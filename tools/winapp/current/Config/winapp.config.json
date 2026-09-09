@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "version": "0.6.1",
+  "targetRoot": "C:\\KI-Stack",
+  "toolName": "winapp",
+  "relativeInstallRoot": "tools/winapp",
+  "packageSubdirectory": "current",
+  "executableName": "winapp.exe",
+  "executableRelativePath": "winapp.exe",
+  "expectedExecutableVersion": "0.6.1",
+  "packageLayout": {
+    "executableMustBeAtPackageRoot": true,
+    "additionalWinappExeForbidden": true,
+    "requiredFiles": ["winapp.exe", "libSkiaSharp.dll", "winapp.pdb"]
+  },
+  "sourceManifest": "Manifests/winapp.source.manifest.json",
+  "download": {
+    "timeoutSeconds": 900,
+    "userAgent": "KI-Stack-WinApp-Provisioner/0.6.1"
+  },
+  "resolver": {
+    "productionSource": "central-kistack-tools-path-only",
+    "productionExecutablePath": "<KIStackRoot>/tools/winapp/current/winapp.exe",
+    "productionFallbacksForbidden": ["Get-Command", "WindowsApps", "WinGet-Links", "WinGet-Packages", "User-PATH"]
+  }
+}

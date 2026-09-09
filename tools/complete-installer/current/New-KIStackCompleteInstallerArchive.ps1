@@ -118,7 +118,7 @@ try {
     $sidecar = $zipPath + '.sha256'
     [IO.File]::WriteAllText($sidecar,"$hash *$([IO.Path]::GetFileName($zipPath))`r`n",[Text.ASCIIEncoding]::new())
     $sbomPath = Join-Path $OutputDirectory ($packageName + '.spdx.json')
-    & (Join-Path $repositoryRoot 'scripts\New-KIStackSpdxSbom.ps1') -PackageName 'KI-Stack Complete Installer' -PackageVersion $version -ZipPath $zipPath -OutputPath $sbomPath -ModelsManifestPath (Join-Path $repositoryRoot 'tools\models-workflows\current\Manifests\models.manifest.json') -ComponentsPath (Join-Path $PSScriptRoot 'Contracts\COMPONENTS.json') | Out-Null
+    & (Join-Path $repositoryRoot 'scripts\New-KIStackSpdxSbom.ps1') -PackageName 'KI-Stack Complete Installer' -PackageVersion $version -ZipPath $zipPath -OutputPath $sbomPath -ModelsManifestPath (Join-Path $repositoryRoot 'tools\models-workflows\current\Manifests\models.manifest.json') -ComponentsPath (Join-Path $PSScriptRoot 'Contracts\COMPONENTS.json') -ExternalArtifactManifestPaths @((Join-Path $repositoryRoot 'tools\winapp\current\Manifests\winapp.source.manifest.json')) | Out-Null
     [pscustomobject][ordered]@{
         version = $version
         zip = $zipPath
