@@ -210,9 +210,9 @@ try {
     if ($checks.secretPolicyBlocks.Values -contains $false) { $fail.Add('secretPolicyBlocks: ' + ($checks.secretPolicyBlocks | ConvertTo-Json -Compress)) }
 
     # === 8: Explorer address-bar IsPassword false positive -- allowed ONLY via narrow exception
-    $fpAllowed = Test-KIDesktopControlSecretContext -Policy $policy -ProcessName 'explorer' -ControlType 'Edit' -Name 'Address' -AutomationId '' -ClassName 'Address Band Root' -IsPassword $true
-    $fpDeniedWrongProc = Test-KIDesktopControlSecretContext -Policy $policy -ProcessName 'notepad' -ControlType 'Edit' -Name 'Address' -ClassName 'Address Band Root' -IsPassword $true
-    $fpDeniedRealSignal = Test-KIDesktopControlSecretContext -Policy $policy -ProcessName 'explorer' -ControlType 'Edit' -Name 'Password' -ClassName 'Address Band Root' -IsPassword $true
+    $fpAllowed = Test-KIDesktopControlSecretContext -Policy $policy -ProcessName 'explorer' -ControlType 'Edit' -Name 'Address' -AutomationId '' -ClassName 'Address Band Root' -UiAProtectionFlag $true
+    $fpDeniedWrongProc = Test-KIDesktopControlSecretContext -Policy $policy -ProcessName 'notepad' -ControlType 'Edit' -Name 'Address' -ClassName 'Address Band Root' -UiAProtectionFlag $true
+    $fpDeniedRealSignal = Test-KIDesktopControlSecretContext -Policy $policy -ProcessName 'explorer' -ControlType 'Edit' -Name 'Password' -ClassName 'Address Band Root' -UiAProtectionFlag $true
     $checks.explorerAddressBarException = [ordered]@{
         allowedForExplorerAddressEdit = ($fpAllowed.secret -and -not $fpAllowed.block -and [string]$fpAllowed.exception -eq 'explorer-address-and-breadcrumb-edit')
         notAllowedForNonExplorer = ($fpDeniedWrongProc.block -and $null -eq $fpDeniedWrongProc.exception)

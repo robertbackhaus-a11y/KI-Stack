@@ -538,7 +538,7 @@ function Invoke-KIDesktopControlOperation {
             -Name ([string](Get-KIDesktopControlObjectValue $element @('name', 'Name'))) `
             -AutomationId ([string](Get-KIDesktopControlObjectValue $element @('automationId', 'AutomationId'))) `
             -ClassName ([string](Get-KIDesktopControlObjectValue $props @('className', 'ClassName'))) `
-            -IsPassword (Get-KIDesktopControlObjectValue $props @('isPassword', 'IsPassword'))
+            -UiAProtectionFlag (Get-KIDesktopControlObjectValue $props @('isPassword', 'IsPassword'))
         if ($secret.block) {
             return & $finish (New-KIDesktopControlResult -Operation $Operation -Class $class -Success $false -Status 'SecretContextBlocked' -Extra @{
                 policy = [pscustomobject]@{ classification = $class; secretContext = $secret }

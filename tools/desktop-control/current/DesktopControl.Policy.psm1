@@ -242,12 +242,12 @@ function Test-KIDesktopControlSecretContext {
         [string]$Name = '',
         [string]$AutomationId = '',
         [string]$ClassName = '',
-        [AllowNull()][object]$IsPassword = $null
+        [AllowNull()][object]$UiAProtectionFlag = $null
     )
     $s = $Policy.secretContext.positiveSignals
     $signals = [System.Collections.Generic.List[string]]::new()
 
-    if ($IsPassword -eq $true) { $signals.Add('isPassword') | Out-Null }
+    if ($UiAProtectionFlag -eq $true) { $signals.Add('isPassword') | Out-Null }
     foreach ($p in @($s.namePatterns)) { if (-not [string]::IsNullOrWhiteSpace($Name) -and $Name -match $p) { $signals.Add("name~$p") | Out-Null } }
     foreach ($p in @($s.automationIdPatterns)) { if (-not [string]::IsNullOrWhiteSpace($AutomationId) -and $AutomationId -match $p) { $signals.Add("automationId~$p") | Out-Null } }
     foreach ($p in @($s.classNamePatterns)) { if (-not [string]::IsNullOrWhiteSpace($ClassName) -and $ClassName -match $p) { $signals.Add("className~$p") | Out-Null } }
