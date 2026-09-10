@@ -596,6 +596,89 @@ function Test-KICompleteWinAppCompliant {
     return $true
 }
 
+function Test-KICompleteDesktopControlPayloadParity {
+    # Desired-state parity for the Complete Installer's planning / skip-recheck decision: the
+    # deployed <TargetRoot>\tools\desktop-control\current\ tree must still be byte-identical to
+    # THIS installer run's desktop-control payload (Payload/DesktopControl/*.zip) -- not merely
+    # internally consistent at the same component VERSION. This closes the same drift the
+    # component's own Test-KIDesktopControlSourceParity closes (missing / changed / extra file
+    # => not compliant), but from the orchestrator side and WITHOUT importing the component
+    # module cross-package: the payload zip is expanded with the existing Expand-KICompletePayload
+    # helper and the trees are compared by SHA256, exactly as Test-KICompleteDeploymentCompliant
+    # already compares the installer's own mirrored files. The comparison source is the installer
+    # payload, never the git working tree.
+    param([Parameter(Mandatory)][string]$PackageRoot,[Parameter(Mandatory)][string]$DeployedPackageRoot)
+    $payloadDir=Join-Path $PackageRoot 'Payload/DesktopControl'
+    if(-not(Test-Path -LiteralPath $payloadDir -PathType Container)){return $false}
+    if(@(Get-ChildItem -LiteralPath $payloadDir -File -Filter '*.zip' -ErrorAction SilentlyContinue).Count-ne1){return $false}
+    if(-not(Test-Path -LiteralPath $DeployedPackageRoot -PathType Container)){return $false}
+    $extract=Join-Path ([IO.Path]::GetTempPath()) ('KICompleteDCParity-'+[guid]::NewGuid().ToString('N').Substring(0,12))
+    try{
+        $sourceRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'DesktopControl' -Destination $extract
+        $rel={param($base,$path) [IO.Path]::GetRelativePath($base,$path).Replace('\','/')}
+        $keep={param($r) $r-ne'Payload'-and$r-notlike'Payload/*'}
+        $sourceFiles=@(Get-ChildItem -LiteralPath $sourceRoot -Recurse -File|ForEach-Object{& $rel $sourceRoot $_.FullName}|Where-Object{& $keep $_})
+        $targetFiles=@(Get-ChildItem -LiteralPath $DeployedPackageRoot -Recurse -File|ForEach-Object{& $rel $DeployedPackageRoot $_.FullName}|Where-Object{& $keep $_})
+        foreach($r in $sourceFiles){
+            $native=$r.Replace('/',[IO.Path]::DirectorySeparatorChar)
+            $t=Join-Path $DeployedPackageRoot $native
+            if(-not(Test-Path -LiteralPath $t -PathType Leaf)){return $false}
+            if((Get-FileHash -LiteralPath (Join-Path $sourceRoot $native) -Algorithm SHA256).Hash-ne(Get-FileHash -LiteralPath $t -Algorithm SHA256).Hash){return $false}
+        }
+        if(@($targetFiles|Where-Object{$sourceFiles-notcontains$_}).Count-gt0){return $false}
+        return $true
+    }finally{
+        if(Test-Path -LiteralPath $extract){Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue}
+    }
+}
+
+function Test-KICompleteDesktopControlCompliant {
+    # Mirrors Test-KICompleteWinAppCompliant's shape for another self-contained ("isolation A")
+    # component. Re-verifies directly against the real, on-disk artifacts
+    # Install-KIDesktopControl writes: <TargetRoot>\tools\desktop-control\VERSION (== expected),
+    # <TargetRoot>\tools\desktop-control\installation.json (marker version == expected), the
+    # deployed current\ directory, its SHA256SUMS.txt still matching every deployed file, and the
+    # required wrapper/policy/config/dispatcher/vendored-resolver files. The live central WinApp
+    # resolver probe is a separate runtime concern (checked by the component's own -Action
+    # Validate, which the isolated step runs right after Install), never part of "is this package
+    # correctly deployed".
+    #
+    # -InstallerPackageRoot (the installer package root of THIS run) additionally enforces
+    # source<->target parity against Payload/DesktopControl/*.zip via
+    # Test-KICompleteDesktopControlPayloadParity, so an internally consistent OLD deployment at the
+    # same VERSION (0.1.0 == 0.1.0) is reported non-compliant and the isolated step actually runs.
+    # Omitted => the previous version/marker/checksum/required-file behaviour only (unchanged for
+    # any other caller). (Named -InstallerPackageRoot, not -PackageRoot, so it never collides with
+    # the local $packageRoot below -- PowerShell variable names are case-insensitive.)
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.1.0',[string]$InstallerPackageRoot)
+    $root=Join-Path $TargetRoot 'tools/desktop-control'
+    $packageRoot=Join-Path $root 'current'
+    $versionStamp=Join-Path $root 'VERSION'
+    $markerPath=Join-Path $root 'installation.json'
+    $checksumFile=Join-Path $packageRoot 'SHA256SUMS.txt'
+    foreach($path in @($versionStamp,$markerPath,$checksumFile)){if(-not(Test-Path -LiteralPath $path -PathType Leaf)){return $false}}
+    if(-not(Test-Path -LiteralPath $packageRoot -PathType Container)){return $false}
+    try{
+        if((Get-Content -LiteralPath $versionStamp -Raw).Trim()-ne$ExpectedComponentVersion){return $false}
+        $marker=Read-KICompleteJson $markerPath
+        if([string]$marker.version-ne$ExpectedComponentVersion){return $false}
+    }catch{return $false}
+    foreach($line in Get-Content -LiteralPath $checksumFile){
+        if([string]::IsNullOrWhiteSpace($line)){continue}
+        if($line-notmatch'^([0-9a-fA-F]{64})\s+\*?(.+)$'){return $false}
+        $file=Join-Path $packageRoot ($Matches[2].Replace('/',[IO.Path]::DirectorySeparatorChar))
+        if(-not(Test-Path -LiteralPath $file -PathType Leaf)){return $false}
+        if((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()-ne$Matches[1].ToLowerInvariant()){return $false}
+    }
+    foreach($required in @('DesktopControl.psm1','DesktopControl.Policy.psm1','Invoke-KIStackDesktopControl.ps1','Vendor/WinApp.Resolver.psm1','Config/desktop-control.config.json','Config/desktop-control.policy.json')){
+        if(-not(Test-Path -LiteralPath (Join-Path $packageRoot ($required.Replace('/',[IO.Path]::DirectorySeparatorChar))) -PathType Leaf)){return $false}
+    }
+    if(-not[string]::IsNullOrWhiteSpace($InstallerPackageRoot)){
+        if(-not(Test-KICompleteDesktopControlPayloadParity -PackageRoot $InstallerPackageRoot -DeployedPackageRoot $packageRoot)){return $false}
+    }
+    return $true
+}
+
 function Test-KICompleteIntegrationCompliant {
     param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='1.5.11')
     $root=Join-Path $TargetRoot 'modules/integration'
@@ -717,6 +800,7 @@ function New-KICompletePlan {
         if([string]$component.id-eq'open-terminal'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'mcp-runtime'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteMcpRuntimeCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'winapp'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteWinAppCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
+        if([string]$component.id-eq'desktop-control'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteDesktopControlCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version) -InstallerPackageRoot $PackageRoot)}
         if([string]$component.id-eq'integration'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'comfyui'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         $reconciliationNeeded=$compliant-and$stored-ne[string]$component.version
@@ -1622,6 +1706,7 @@ function Invoke-KIStackCompleteInstaller {
                 if([string]$step.id-eq'open-terminal'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'mcp-runtime'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteMcpRuntimeCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'winapp'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteWinAppCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+                if([string]$step.id-eq'desktop-control'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteDesktopControlCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version) -InstallerPackageRoot $PackageRoot)}
                 if([string]$step.id-eq'integration'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'comfyui'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteComfyUICompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
                 if($resumeCompliant){$index++;continue}
@@ -1946,6 +2031,44 @@ function Invoke-KIStackCompleteInstaller {
                     if(-not[bool]$validation.passed){throw 'WinApp-Validierung fehlgeschlagen.'}
                     # SkippedAlreadyCompliant carries no backupPath -- defensive, never assumed
                     # present under StrictMode, mirroring open-terminal's own identical comment.
+                    $resultBackupPath=if($result.PSObject.Properties['backupPath']){[string]$result.backupPath}else{$null}
+                    $step.backup=$resultBackupPath
+                    $step.result=@{install=$result;validation=$validation;backupPath=$resultBackupPath;validated=$true}
+                }catch{
+                    if($null -ne $result -and$result.PSObject.Properties['backupPath']-and-not [string]::IsNullOrWhiteSpace([string]$result.backupPath)){
+                        $rollback=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Rollback';BackupPath=[string]$result.backupPath}
+                        $_.Exception.Data['KIStackRollbackStatus']=if([bool]$rollback.passed){'Completed'}else{'Failed'}
+                        $_.Exception.Data['KIStackBackupPath']=[string]$result.backupPath
+                    }
+                    throw
+                }
+            }
+            elseif ($step.id -eq 'desktop-control') {
+                # Mirrors winapp's / mcp-runtime's own isolated shape exactly (same template,
+                # same Expand-KICompletePayload -> own entry-point Install/Upgrade/Repair via
+                # plannedMode, then Validate -> on any failure, roll back via that SAME entry
+                # point's own Rollback action against its own backupPath). Install-KIDesktopControl
+                # deploys ONLY this component's own files (wrapper + policy + config + dispatcher +
+                # vendored WinApp resolver + tests/docs) into <TargetRoot>\tools\desktop-control\
+                # current\ and is idempotent ('SkippedAlreadyCompliant' for an intact,
+                # checksum-verified, same-version deployment). It starts no process, opens no
+                # window, and introduces no runtime, port, credential or service. winapp stays a
+                # separate dependency: the -Action Validate run right after Install exercises the
+                # component's own Test-KIDesktopControl, which probes the central WinApp resolver
+                # (a single winapp --version call) -- so a missing/incompatible winapp fails this
+                # step closed. winapp is order 180, desktop-control order 190, so winapp is always
+                # provisioned first.
+                $extract=Join-Path ([string]$pathContext.PayloadRoot) 'DesktopControl'
+                $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'DesktopControl' -Destination $extract
+                $entry=Join-Path $componentRoot 'Invoke-KIStackDesktopControl.ps1'
+                if(-not(Test-Path -LiteralPath $entry -PathType Leaf)){throw 'Desktop-Control-Einstieg fehlt.'}
+                $action=if($step.plannedMode-eq'Repair'){'Repair'}elseif($step.plannedMode-eq'Upgrade'){'Upgrade'}else{'Install'}
+                $result=$null
+                try{
+                    $result=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot}
+                    if(-not[bool]$result.passed){throw "Desktop-Control-$action fehlgeschlagen."}
+                    $validation=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
+                    if(-not[bool]$validation.passed){throw 'Desktop-Control-Validierung fehlgeschlagen.'}
                     $resultBackupPath=if($result.PSObject.Properties['backupPath']){[string]$result.backupPath}else{$null}
                     $step.backup=$resultBackupPath
                     $step.result=@{install=$result;validation=$validation;backupPath=$resultBackupPath;validated=$true}

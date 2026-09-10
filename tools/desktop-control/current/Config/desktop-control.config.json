@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "version": "0.1.0",
+  "targetRoot": "C:\\KI-Stack",
+  "kiStackRoot": "C:\\KI-Stack",
+  "winappResolver": {
+    "vendoredModule": "Vendor/WinApp.Resolver.psm1",
+    "canonicalSource": "tools/winapp/current/WinApp.Resolver.psm1",
+    "expectedWinAppVersion": "0.6.1",
+    "allowDevelopmentFallback": false
+  },
+  "uia": {
+    "inspectDepth": 8,
+    "windowResolveTimeoutMs": 8000,
+    "windowResolvePollMs": 250,
+    "operationTimeoutMs": 10000,
+    "postconditionTimeoutMs": 10000,
+    "postconditionPollMs": 250
+  },
+  "evidence": {
+    "relativeRoot": "state/desktop-control/evidence",
+    "captureOnMutation": true,
+    "captureOnBlock": true
+  },
+  "audit": {
+    "relativeRoot": "state/desktop-control/logs/actions",
+    "format": "jsonl"
+  },
+  "operations": {
+    "readOnly": ["list_windows", "inspect_window", "find_element", "get_properties", "get_value", "screenshot", "wait_for"],
+    "mutating": ["set_value", "invoke", "focus"],
+    "backendCapabilityUnverified": ["scroll_into_view", "scroll"],
+    "neverExposed": ["send_input", "send_keys", "global_hotkey", "system_hotkey", "mouse_click_coordinate", "drag", "touch", "pen", "raw_winapp"]
+  }
+}

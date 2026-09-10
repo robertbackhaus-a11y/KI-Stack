@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "1.0",
+  "actionClassification": {
+    "readOnly": ["list_windows", "inspect_window", "find_element", "get_properties", "get_value", "screenshot", "wait_for"],
+    "mutating": ["set_value", "invoke", "focus", "scroll_into_view", "scroll"],
+    "rejectUnknownOperation": true,
+    "rejectRawWinAppArguments": true,
+    "neverExposed": ["send_input", "send_keys", "global_hotkey", "system_hotkey", "mouse_click_coordinate", "drag", "touch", "pen", "raw_winapp"]
+  },
+  "targetContract": {
+    "window": {
+      "requireUniqueHwnd": true,
+      "requireCurrentReResolution": true,
+      "requireProcessIdentity": true,
+      "requireTitleContext": true
+    },
+    "element": {
+      "requireCurrentReResolution": true,
+      "requireControlType": true,
+      "requireIsEnabledNotFalse": true,
+      "requireIsOffscreenNotTrue": true,
+      "requireIdentityMatch": true,
+      "rejectAmbiguous": true,
+      "rejectStaleSelectorOnlyIdentity": true
+    }
+  },
+  "windowState": {
+    "blockMutationWhenMinimized": true,
+    "autoRestoreMinimized": false,
+    "backgroundObservationAllowed": true
+  },
+  "secretContext": {
+    "blockReadAndWriteWhenSecret": true,
+    "isPasswordAloneIsNotSufficientGuard": true,
+    "positiveSignals": {
+      "namePatterns": [
+        "(?i)pass\\s*(word|wort)",
+        "(?i)kennwort",
+        "(?i)passphrase",
+        "(?i)\\bsecret\\b",
+        "(?i)\\bpin\\b",
+        "(?i)credential",
+        "(?i)api[\\s_-]?key",
+        "(?i)\\btoken\\b",
+        "(?i)\\b(otp|mfa|2fa)\\b"
+      ],
+      "automationIdPatterns": [
+        "(?i)pass(word|wort)",
+        "(?i)passphrase",
+        "(?i)secret",
+        "(?i)credential",
+        "(?i)api[_-]?key|apikey",
+        "(?i)pin(entry|field|box)?",
+        "(?i)token"
+      ],
+      "classNamePatterns": [
+        "(?i)passwordbox",
+        "(?i)passwordedit"
+      ],
+      "processNamePatterns": [
+        "(?i)^(keeper|1password|1passwordgui|bitwarden|lastpass|keepass2?|keepassxc|dashlane|nordpass|enpass)$",
+        "(?i)^(credentialuibroker|logonui|consent|credui|lsass)$"
+      ],
+      "controlTypeIsEdit": ["Edit", "Document", "ComboBox"]
+    },
+    "compositeRuleNote": "SECRET := IsPassword==true OR any positiveSignal (name / automationId / className / processName) matches. A SECRET element is blocked for get_value AND set_value. It is only allowed if exactly one falsePositiveException fully matches.",
+    "falsePositiveExceptions": [
+      {
+        "id": "explorer-address-and-breadcrumb-edit",
+        "reason": "Desktop-control spike 2.18: the Windows Explorer address / breadcrumb Edit was observed reporting IsPassword=true falsely (Test-KIStackDesktopControlSpike.ps1). This exception is intentionally narrow -- it requires the Explorer process AND an Edit/ComboBox control type AND an Explorer-shell class name AND a non-credential name -- so it never widens to a bare name allowlist.",
+        "require": {
+          "processNameEquals": "explorer",
+          "controlTypeIn": ["Edit", "ComboBox"],
+          "classNameMatches": "(?i)^(Address Band Root|msctls_progress32|ToolbarWindow32|Breadcrumb Parent|Edit|ComboBox)$",
+          "nameMatches": "(?i)(address|adresse|breadcrumb|pfad|location|speicherort|all locations)",
+          "nameMustNotMatchAnyPositiveSignal": true
+        }
+      }
+    ]
+  }
+}
