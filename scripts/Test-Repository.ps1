@@ -204,7 +204,9 @@ try {
         'tools/openwebui-ballistics-pack/current',
         'tools/openwebui-visual-pack/current',
         'tools/package-validation-gate/current',
-        'tools/complete-installer/current'
+        'tools/complete-installer/current',
+        'tools/winapp/current',
+        'tools/desktop-control/current'
     )
     $trackedLookup = [Collections.Generic.HashSet[string]]::new(
         [StringComparer]::OrdinalIgnoreCase
@@ -494,7 +496,9 @@ try {
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.4'},
         @{name='Integration';root='tools/integration/current';version='1.5.11'},
         @{name='Cutover Runtime';root='tools/cutover-runtime/current';version='1.6.14'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.17.0'}
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.17.0'},
+        @{name='WinApp';root='tools/winapp/current';version='0.6.1'},
+        @{name='Desktop Control';root='tools/desktop-control/current';version='0.1.0'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root

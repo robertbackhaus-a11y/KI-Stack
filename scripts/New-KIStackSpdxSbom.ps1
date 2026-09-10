@@ -5,7 +5,12 @@ param(
     [Parameter(Mandatory)][string]$ZipPath,
     [Parameter(Mandatory)][string]$OutputPath,
     [Parameter(Mandatory)][string]$ModelsManifestPath,
-    [string]$ComponentsPath
+    [string]$ComponentsPath,
+    # Zero or more component source manifests for external, not-contained binary artifacts that
+    # are downloaded and integrity-verified at install time (same "external dependency, not in
+    # the release ZIP" model as the visual models -- NOT a new parallel mechanism). Currently:
+    # tools/winapp/current/Manifests/winapp.source.manifest.json.
+    [string[]]$ExternalArtifactManifestPaths = @()
 )
 
 Set-StrictMode -Version Latest
@@ -103,6 +108,32 @@ if ($lmStudioModel) {
     }
 }
 
+$externalArtifactIndex = 1
+foreach ($manifestPath in @($ExternalArtifactManifestPaths)) {
+    if ([string]::IsNullOrWhiteSpace($manifestPath) -or -not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw "External artifact source manifest missing: $manifestPath"
+    }
+    $extManifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json -Depth 30
+    $tool = [string](Get-KIStackOptionalManifestValue -Object $extManifest -Name 'tool' -Default 'NOASSERTION')
+    $extVersion = [string](Get-KIStackOptionalManifestValue -Object $extManifest -Name 'version' -Default 'NOASSERTION')
+    $upstream = Get-KIStackOptionalManifestValue -Object $extManifest -Name 'upstream' -Default $null
+    $upstreamProject = [string](Get-KIStackOptionalManifestValue -Object $upstream -Name 'project' -Default 'NOASSERTION')
+    $releaseTag = [string](Get-KIStackOptionalManifestValue -Object $upstream -Name 'releaseTag' -Default 'NOASSERTION')
+    $sourceRevision = [string](Get-KIStackOptionalManifestValue -Object $upstream -Name 'sourceRevision' -Default 'NOASSERTION')
+    foreach ($artifact in @(Get-KIStackOptionalManifestValue -Object $extManifest -Name 'artifact' -Default @())) {
+        $id = "SPDXRef-ExternalArtifact-$externalArtifactIndex"
+        $artifactSources = Get-KIStackOptionalManifestValue -Object $artifact -Name 'sources' -Default $null
+        $infoSource = if ($artifactSources) { [string]@($artifactSources)[0] } else { 'NOASSERTION' }
+        $fileName = [string](Get-KIStackOptionalManifestValue -Object $artifact -Name 'fileName' -Default 'NOASSERTION')
+        $artifactSha = [string](Get-KIStackOptionalManifestValue -Object $artifact -Name 'sha256' -Default 'NOASSERTION')
+        $artifactSize = [string](Get-KIStackOptionalManifestValue -Object $artifact -Name 'sizeBytes' -Default 'NOASSERTION')
+        $comment = "NOT_CONTAINED_EXTERNAL_ARTIFACT; component=$tool; upstreamProject=$upstreamProject; releaseTag=$releaseTag; sourceRevision=$sourceRevision; fileName=$fileName; sizeBytes=$artifactSize; sha256=$artifactSha; distribution=$([string](Get-KIStackOptionalManifestValue -Object (Get-KIStackOptionalManifestValue -Object $extManifest -Name 'downloadContract' -Default $null) -Name 'distribution' -Default 'NOASSERTION')); informationSource=$infoSource"
+        $packages.Add((New-SpdxPackage -Name "$tool $extVersion ($fileName)" -Id $id -Version $extVersion -Supplier ("Organization: " + ($upstreamProject -split '/')[0]) -License 'NOASSERTION' -Purpose 'OTHER' -Comment $comment -Sha256 $artifactSha))
+        $relationships.Add([ordered]@{ spdxElementId = $rootId; relationshipType = 'DEPENDS_ON'; relatedSpdxElement = $id })
+        $externalArtifactIndex++
+    }
+}
+
 $sbom = [ordered]@{
     spdxVersion = 'SPDX-2.3'
     dataLicense = 'CC0-1.0'
@@ -118,4 +149,4 @@ $sbom = [ordered]@{
 
 $json = $sbom | ConvertTo-Json -Depth 30
 [System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath($OutputPath), $json + "`n", [System.Text.UTF8Encoding]::new($false))
-[pscustomobject]@{ path = [System.IO.Path]::GetFullPath($OutputPath); zipSha256 = $zipHash; zipSizeBytes = $zip.Length; format = 'SPDX-2.3 JSON'; externalModels = ($models.Count + @($lmStudioModel.files).Count) }
+[pscustomobject]@{ path = [System.IO.Path]::GetFullPath($OutputPath); zipSha256 = $zipHash; zipSizeBytes = $zip.Length; format = 'SPDX-2.3 JSON'; externalModels = ($models.Count + @($lmStudioModel.files).Count); externalArtifacts = ($externalArtifactIndex - 1) }

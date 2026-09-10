@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "packageId": "KI-STACK-DESKTOP-CONTROL",
+  "name": "KI-Stack Desktop Control",
+  "version": "0.1.0",
+  "status": "Development_SourceValidationPending",
+  "containsSecrets": false,
+  "runtimeGitDependency": false,
+  "introducesRuntime": false,
+  "introducesPort": false,
+  "introducesCredential": false,
+  "backend": {
+    "tool": "winapp",
+    "expectedVersion": "0.6.1",
+    "resolvedExclusivelyVia": "tools/winapp/current/WinApp.Resolver.psm1",
+    "vendoredResolver": "Vendor/WinApp.Resolver.psm1",
+    "developmentFallbackInProduction": false
+  },
+  "operationModel": "Resolve -> Validate -> Act -> Re-observe -> Verify",
+  "exposedOperationClasses": ["read-only", "mutating-semantic-uia"],
+  "notExposed": [
+    "send-input", "send-keys", "global keyboard injection", "system hotkeys",
+    "mouse coordinate click", "arbitrary drag/touch/pen", "raw winapp command execution"
+  ],
+  "mcpIntegration": "deferred -- see MCP-INTEGRATION.md; no new MCP server, port or credential"
+}
