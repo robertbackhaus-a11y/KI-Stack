@@ -1,13 +1,13 @@
-# KI-Stack Complete Installer 2.17.0 – Installation and upgrade
+# KI-Stack Complete Installer 2.18.0 – Installation and upgrade
 
-This guide applies to the current published package `KI-Stack-Complete-Installer-v2.17.0.zip`. The last complete, successful, physical Greenfield installation on an empty target was performed and verified with version 2.4.0. Later releases through 2.17.0 were validated through repository regression, deterministic package builds, component-specific acceptance, and real-target upgrade/reconciliation tests as documented for each release; no newer complete empty-target Windows Greenfield run is claimed here.
+This guide applies to the current published package `KI-Stack-Complete-Installer-v2.18.0.zip`. The last complete, successful, physical Greenfield installation on an empty target was performed and verified with version 2.4.0. Later releases through 2.18.0 were validated through repository regression, deterministic package builds, component-specific acceptance, and real-target upgrade/reconciliation tests as documented for each release; no newer complete empty-target Windows Greenfield run is claimed here.
 
 ## Download and SHA-256
 
-Download the ZIP and `KI-Stack-Complete-Installer-v2.17.0.zip.sha256` from the same GitHub Release. The authoritative hash is provided only by the sidecar and the GitHub Release description.
+Download the ZIP and `KI-Stack-Complete-Installer-v2.18.0.zip.sha256` from the same GitHub Release. The authoritative hash is provided only by the sidecar and the GitHub Release description.
 
 ```powershell
-$zip = '.\KI-Stack-Complete-Installer-v2.17.0.zip'
+$zip = '.\KI-Stack-Complete-Installer-v2.18.0.zip'
 $expected = ((Get-Content "$zip.sha256" -Raw) -split '\s+')[0].ToLowerInvariant()
 $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -ne $expected) { throw 'SHA-256 mismatch.' }

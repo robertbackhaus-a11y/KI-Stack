@@ -1,4 +1,4 @@
-# KI-Stack 2.17.0 operations and user guide
+# KI-Stack 2.18.0 operations and user guide
 
 ## Normal operation
 
@@ -228,12 +228,12 @@ A first-time WSL2 activation on a genuinely empty machine can require a Windows 
 - **SearXNG appears unreachable**: check `systemctl status ki-stack-searxng uwsgi nginx valkey-server` inside the WSL Debian distribution; either `ki-stack-searxng` or `uwsgi` being active and healthy on port 8888 is a valid, expected state.
 - **An Open WebUI API-dependent step reports a credential-related Pending/Blocked state**: run `Test-KIStackOpenWebUICredential.ps1`. If no valid credential exists, bootstrap it with `Initialize-KIStackOpenWebUICredential.ps1`; do not fall back to a separately maintained temporary API key.
 
-The last complete, successful, physical Greenfield installation on an empty target was verified with Complete Installer 2.4.0. Later releases through 2.17.0 add regression, package, component, upgrade/reconcile, and real-target evidence but do not claim a newer complete empty-target Windows Greenfield run.
+The last complete, successful, physical Greenfield installation on an empty target was verified with Complete Installer 2.4.0. Later releases through 2.18.0 add regression, package, component, upgrade/reconcile, and real-target evidence but do not claim a newer complete empty-target Windows Greenfield run.
 
 ## Known open items
 
 - **Latency tracing**: there is still no dedicated end-to-end timing breakdown for Open WebUI input -> prompt/tool assembly -> LM Studio request -> first token.
 - **Memory request default**: Open WebUI 0.11.3 has no persisted server-side default for `features.memory=true`.
 - **Production database restore**: online `webui.db` backup is real-target validated and controlled restore is acceptance-tested, but no production database restore has been performed.
-- **GUI/Desktop automation**: broad graphical desktop/application automation is outside 2.17.
+- **GUI/Desktop automation**: broad graphical desktop/application automation is outside 2.18; the controlled Desktop Control layer is deliberately narrow and its MCP wiring is not yet activated.
 - **Bootstrap phase without PowerShell 7**: the bootstrap path used when PowerShell 7 itself is missing has no live heartbeat display of its own and writes a structured `.bootstrap.jsonl` diagnostic log instead.

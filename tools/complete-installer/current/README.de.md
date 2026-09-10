@@ -1,11 +1,12 @@
-# KI-Stack Complete Installer 2.17.0
+# KI-Stack Complete Installer 2.18.0
 
-`KI-Stack-Complete-Installer-v2.17.0.zip` ist das aktuell veröffentlichte Complete-Installer-Paket.
+`KI-Stack-Complete-Installer-v2.18.0.zip` ist das aktuell veröffentlichte Complete-Installer-Paket.
 
-Das aktuelle Paket stellt den vollständig verwalteten KI-Stack-Stand bis Release 2.17.0 bereit. Die aktuelle Architektur umfasst:
+Das aktuelle Paket stellt den vollständig verwalteten KI-Stack-Stand bis Release 2.18.0 bereit. Die aktuelle Architektur umfasst:
 
 - Open WebUI `0.11.3` als Referenz-/Mindestversion; unterstützte neuere Installationen bleiben erhalten und werden nie automatisch zurückgestuft.
 - ComfyUI `v0.34.0` als Referenz-/Mindestversion; unterstützte neuere Installationen bleiben erhalten.
+- Desktop Control 0.1.0 mit zentralem WinApp 0.6.1 als kontrollierte Windows-UIA-Schicht; semantische Operationen mit Policy-, Target-, Secret-, Audit- und unabhängiger Postcondition-Prüfung. MCP-Anbindung bleibt in 2.18 bewusst noch ausstehend.
 - Codex Local `0.2.1` mit isoliertem `CODEX_HOME`.
 - RAG `0.4.0` mit globalen und projektbezogenen Knowledge-Collections.
 - OpenWebUI Agent Pack `1.9.0`.
@@ -26,7 +27,7 @@ Memory-Policy des aktuellen Pakets:
 
 Der 2.17-Datenbankschutz umfasst Online-Backup von `webui.db` über SQLite `VACUUM INTO`, Integritätsprüfung, kontrolliertes Restore-Werkzeug, Sicherheitsbackup vor dem Restore, WAL-/SHM-Behandlung sowie Health-Verifikation nach dem Restore.
 
-Validierungsaussagen bleiben nach Umfang getrennt. Die letzte vollständige physische Windows-Greenfield-Installation auf einem leeren Zielsystem wurde mit 2.4.0 durchgeführt. Die späteren Releases bis 2.17.0 ergänzen Repository-Regression, deterministische Paket-, Komponenten-, Upgrade-/Reconcile- und Real-Target-Acceptance-Nachweise, ohne einen neueren vollständigen Greenfield-Lauf zu behaupten.
+Validierungsaussagen bleiben nach Umfang getrennt. Die letzte vollständige physische Windows-Greenfield-Installation auf einem leeren Zielsystem wurde mit 2.4.0 durchgeführt. Die späteren Releases bis 2.18.0 ergänzen Repository-Regression, deterministische Paket-, Komponenten-, Upgrade-/Reconcile- und Real-Target-Acceptance-Nachweise, ohne einen neueren vollständigen Greenfield-Lauf zu behaupten.
 - Heretic ist das einzige Chat-LLM.
 - Nomic dient ausschließlich Embeddings.
 - Z-Image verwendet nur `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf`.
