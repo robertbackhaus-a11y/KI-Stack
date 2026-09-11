@@ -1,6 +1,6 @@
 # Automatischer Modell-Downloadvertrag
 
-Dieser Vertrag gilt für das aktuell veröffentlichte Complete-Installer-Release 2.17.0.
+Dieser Vertrag gilt für das aktuell veröffentlichte Complete-Installer-Release 2.18.0.
 
 Der Complete Installer benötigt auf einem leeren Zielsystem keine manuell bereitgestellten Modell- oder Payloaddateien. Die neun Visualartefakte für Z-Image Turbo und WAN2.2 T2V 14B mit beiden LightX2V-4-Step-LoRAs, die beiden Heretic-Dateien und das ausschließlich für Embeddings verwendete `nomic-embed-text-v1.5.Q4_K_M.gguf` besitzen revisionsgebundene Downloadquellen, exakte Bytegrößen und SHA-256-Werte in `tools/models-workflows/current/Manifests/models.manifest.json`.
 

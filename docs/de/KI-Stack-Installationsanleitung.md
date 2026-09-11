@@ -1,13 +1,13 @@
-# KI-Stack Complete Installer 2.17.0 – Installation und Upgrade
+# KI-Stack Complete Installer 2.18.0 – Installation und Upgrade
 
-Diese Anleitung gilt für das aktuell veröffentlichte Paket `KI-Stack-Complete-Installer-v2.17.0.zip`. Die letzte vollständige, erfolgreiche, physische Greenfield-Installation auf einem leeren Zielsystem wurde mit Version 2.4.0 durchgeführt und verifiziert. Die späteren Releases bis einschließlich 2.17.0 wurden durch Repository-Regressionstests, deterministische Paket-Builds, komponentenspezifische Acceptance-Tests und reale Upgrade-/Reconciliation-Läufe validiert, wie für die jeweiligen Releases dokumentiert; ein neuerer vollständiger Windows-Greenfield-Lauf auf einem leeren Zielsystem wird hier ausdrücklich nicht behauptet.
+Diese Anleitung gilt für das aktuell veröffentlichte Paket `KI-Stack-Complete-Installer-v2.18.0.zip`. Die letzte vollständige, erfolgreiche, physische Greenfield-Installation auf einem leeren Zielsystem wurde mit Version 2.4.0 durchgeführt und verifiziert. Die späteren Releases bis einschließlich 2.18.0 wurden durch Repository-Regressionstests, deterministische Paket-Builds, komponentenspezifische Acceptance-Tests und reale Upgrade-/Reconciliation-Läufe validiert, wie für die jeweiligen Releases dokumentiert; ein neuerer vollständiger Windows-Greenfield-Lauf auf einem leeren Zielsystem wird hier ausdrücklich nicht behauptet.
 
 ## Download und SHA-256
 
-Lade ZIP und `KI-Stack-Complete-Installer-v2.17.0.zip.sha256` aus demselben GitHub-Release. Der verbindliche Hash steht ausschließlich im Sidecar und in der GitHub-Releasebeschreibung.
+Lade ZIP und `KI-Stack-Complete-Installer-v2.18.0.zip.sha256` aus demselben GitHub-Release. Der verbindliche Hash steht ausschließlich im Sidecar und in der GitHub-Releasebeschreibung.
 
 ```powershell
-$zip = '.\KI-Stack-Complete-Installer-v2.17.0.zip'
+$zip = '.\KI-Stack-Complete-Installer-v2.18.0.zip'
 $expected = ((Get-Content "$zip.sha256" -Raw) -split '\s+')[0].ToLowerInvariant()
 $actual = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -ne $expected) { throw 'SHA-256 stimmt nicht überein.' }

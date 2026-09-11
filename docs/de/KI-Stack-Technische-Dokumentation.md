@@ -1,10 +1,10 @@
-# KI-Stack 2.17.0 – Technische Dokumentation
+# KI-Stack 2.18.0 – Technische Dokumentation
 
-KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Installer `2.17.0` ist das aktuell veröffentlichte GitHub-Release.
+KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Installer `2.18.0` ist das aktuell veröffentlichte GitHub-Release.
 
 Der Validierungsstand muss nach Umfang getrennt betrachtet werden: Die letzte vollständige physische Greenfield-Installation auf einem leeren Windows-Zielsystem wurde mit 2.4.0 durchgeführt und verifiziert; Complete Installer 2.10.0 bleibt der dokumentierte Referenzlauf für Gesamt-Regression plus reales Zielsystem. Spätere Releases ergänzten weitere reale Zielsystem-, Komponenten-, Upgrade-/Reconcile-, Security- und Paketvalidierungen, ohne damit einen neueren vollständigen Windows-Greenfield-Lauf auf einem leeren Zielsystem zu behaupten.
 
-Die aktuelle 2.17-Architektur umfasst den mit 2.15 eingeführten MCP Runtime als primären Terminal-/Host-Control-Pfad für MCP-fähige Profile, autonomes Local Control auf genau dieser Runtime seit 2.16 sowie natives persistentes OpenWebUI-Memory einschließlich Datenbank-Backup-/Restore-Schutz seit 2.17. Open Terminal bleibt installiert und als ausdrücklicher Fallback-/Rollback-Pfad unterstützt.
+Die aktuelle 2.18-Architektur umfasst den mit 2.15 eingeführten MCP Runtime als primären Terminal-/Host-Control-Pfad für MCP-fähige Profile, autonomes Local Control auf genau dieser Runtime seit 2.16 sowie natives persistentes OpenWebUI-Memory einschließlich Datenbank-Backup-/Restore-Schutz seit 2.17. Open Terminal bleibt installiert und als ausdrücklicher Fallback-/Rollback-Pfad unterstützt. 2.18 ergänzt darauf die zentral verwaltete Windows-UI-Automation-Basis WinApp `0.6.1` und die kontrollierte semantische UIA-Schicht Desktop Control `0.1.0`.
 
 ## Aktive Komponenten
 
@@ -21,12 +21,14 @@ Die aktuelle 2.17-Architektur umfasst den mit 2.15 eingeführten MCP Runtime als
 | RAG | 0.4.0 |
 | MCP Runtime | 0.1.0 |
 | Open Terminal | 0.1.0 |
+| WinApp | 0.6.1 |
+| Desktop Control | 0.1.0 |
 | Production Recovery | 1.7.0-r7 |
 | Validation Gate | 1.0.3 |
 | Target Acceptance | 1.0.10 |
 | OpenWebUI Visual Pack | 2.0.5 |
 | OpenWebUI Agent Pack | 1.9.0 |
-| Complete Installer | 2.17.0 |
+| Complete Installer | 2.18.0 |
 
 Referenz- und Mindestversion von ComfyUI für reproduzierbare Neuinstallationen und Reconcile ist `v0.34.0`; eine bestehende, unterstützte neuere Installation bleibt erhalten und wird nie automatisch zurückgestuft. `ReferenceVersion` und `MinimumSupportedVersion` von Open WebUI sind beide `0.11.3` -- jede installierte Version ab `0.11.3` wird unterstützt, und eine bestehende, unterstützte neuere Installation bleibt ebenso erhalten, nie automatisch auf exakt die Referenz zurückgestuft.
 
@@ -65,6 +67,18 @@ MCP Runtime `0.1.0`, eingeführt mit KI-Stack 2.15, ist eine eigenständige Comp
 
 KI-Stack 2.16 ergänzt Local Control auf genau dieser vorhandenen Runtime. Bewusst entstehen kein zweiter Windows-Control-Dienst, kein zusätzlicher Port und kein zusätzliches Credential. Windows-, WSL-, Prozess-, Filesystem-, Service-, Registry-, Task- und Anwendungssteuerung verwendet die vorhandene MCP-Oberfläche, insbesondere `run_command`, PowerShell und die bestehenden KI-Stack-Lifecycle-Skripte.
 
+KI-Stack 2.18 integriert MCP Runtime zusätzlich vollständig in den zentralen Start-/Stop-Lifecycle: Der zentrale Stack-Start startet MCP Runtime über dessen eigenen Starter und prüft ihn über den vorhandenen MCP-Health-Vertrag, bevor OpenWebUI startet; schlägt Start oder Health fehl, startet OpenWebUI nicht. Der zentrale Stop stoppt OpenWebUI zuerst, MCP Runtime zuletzt -- über denselben vorhandenen Stopper, idempotent bei bereits gestopptem Zustand. MCP Runtime erscheint dadurch weiterhin im zentralen Health-/Status-Bericht (Prozessidentität plus Endpoint-Erreichbarkeit).
+
+
+## Desktop Control und WinApp
+
+WinApp `0.6.1` ist die zentral verwaltete Windows-UI-Automation-Basis. Desktop Control `0.1.0` kapselt diese Basis als kontrollierte semantische UIA-Schicht darauf.
+
+Jede Desktop-Control-Anfrage folgt dem festen Ablauf Resolve -> Validate -> Act -> Re-observe -> Verify. Vor jeder Aktion wird das Ziel eindeutig aufgelöst (genau ein Fenster, genau ein Element); Policy-, Interactability- und Secret-Context-Prüfungen greifen davor. Mutierende Operationen gelten nur dann als erfolgreich, wenn eine unabhängige Postcondition bestätigt ist -- ein CLI-Exitcode allein genügt nicht.
+
+Nicht freigegeben sind rohe Keyboard-/Mouse-Injection, beliebige oder ungekapselte WinApp-Ausführung sowie nicht verifizierte Backend-Fähigkeiten.
+
+Der Complete Installer integriert WinApp und Desktop Control in Reconciliation und Payload-Parity. Es entsteht kein neuer Dienst, kein neuer Port, kein neues Credential und keine neue Windows-Control-Service-Instanz. Die MCP-Anbindung von Desktop Control ist in 2.18 bewusst noch nicht aktiviert.
 
 ## Native Memory
 
@@ -109,6 +123,7 @@ Die Validierungsnachweise werden bewusst danach getrennt, was tatsächlich ausge
 - **2.15.0**: MCP Foundation real auf dem Zielsystem validiert, einschließlich MCP-Bindungen der produktiven Profile, realer MCP-Tool-Aufrufe, Rollback-/Fallback-Verhalten, Credential-Synchronisierung und korrigierter Cutover-Runtime-Compliance-Erkennung.
 - **2.16.0**: reale Local-Control-Validierung auf Basis des vorhandenen MCP Runtime, einschließlich Filesystem-, Prozess-, Working-Directory-, Windows-Abfrage-, Anwendungssteuerungs- und Ballistics-MCP-Binding-Preservation-Verhalten.
 - **2.17.0**: reale Native-Memory-Add/Search/Delete-Acceptance, Agent-Pack-Memory-/Profil-Policy-Validierung, reales Online-Backup von `webui.db` bei weiter gesundem OpenWebUI sowie kontrollierte Restore-Acceptance gegen eine temporäre Datenbankkopie. Repository-Regression: 34/34 PASS.
+- **2.18.0**: reale Desktop-Control-Ende-zu-Ende-Validierung für `list_windows`, `inspect_window`, `find_element`, `get_properties`, `get_value`, `wait_for`, `set_value` (inklusive unabhängigem Readback), `invoke` (inklusive erneuter Tree-Beobachtung) und `focus` (inklusive Focus-Readback) sowie Reconcile-, Repair-, Idempotenz- und Payload-Parity-Nachweise. Kein breiter MCP-Integrationsclaim.
 
 Diese Umfänge sind kumulative Nachweise und keine austauschbaren Gesamtfreigaben. Insbesondere wurde nach 2.4.0 kein neuer vollständiger Windows-Greenfield-Lauf auf einem leeren Zielsystem behauptet oder durchgeführt; ebenso wurde in 2.17 kein Restore der produktiven `webui.db` durchgeführt.
 
@@ -117,5 +132,5 @@ Diese Umfänge sind kumulative Nachweise und keine austauschbaren Gesamtfreigabe
 - **Latenz-Tracing**: Es gibt weiterhin keine dedizierte Ende-zu-Ende-Zeitaufschlüsselung für OpenWebUI-Eingabe -> Prompt-/Tool-Aufbereitung -> LM-Studio-Request -> erstes Token. Der in 2.15 ergänzte LM-Studio-Runtime-Baseline-Check ersetzt kein vollständiges Tracing.
 - **Memory-Request-Default**: OpenWebUI 0.11.3 besitzt keinen persistenten serverseitigen Standard für `features.memory=true`.
 - **Produktionsdatenbank-Restore**: Das Online-Backup von `webui.db` ist real zielsystemvalidiert und das kontrollierte Restore acceptance-getestet; ein Restore der Produktionsdatenbank wurde nicht durchgeführt.
-- **GUI-/Desktop-Automation**: Breite grafische Desktop-/Anwendungsautomation liegt außerhalb von 2.17.
+- **Desktop-Control-MCP-Anbindung**: Die MCP-Anbindung von Desktop Control ist noch nicht aktiviert; nicht freigegebene oder noch nicht produktionsvalidierte UIA-Fähigkeiten bleiben außerhalb des Vertrags.
 - **Bootstrap-Phase ohne PowerShell 7**: `Bootstrap-KIStackPowerShell7.ps1`, nur verwendet wenn PowerShell 7 selbst fehlt, besitzt weiterhin keine eigene Live-Heartbeat-Anzeige und schreibt stattdessen sein strukturiertes `.bootstrap.jsonl`-Diagnoselog.

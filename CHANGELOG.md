@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.18.0
+
+- Adds KI-Stack Desktop Control 0.1.0 as the controlled Windows UI Automation layer, using the central WinApp 0.6.1 component and semantic winapp ui operations.
+- Every Desktop Control request follows Resolve -> Validate -> Act -> Re-observe -> Verify; mutating operations succeed only when an independent postcondition is proven.
+- Adds explicit window, element, interactability, secret-context, audit, and evidence policies. Raw keyboard/mouse injection, arbitrary WinApp execution, and unverified backend capabilities remain blocked.
+- Integrates WinApp and Desktop Control into Complete Installer reconciliation and payload-parity handling without introducing a new runtime, port, credential, or service.
+- Desktop Control MCP wiring remains intentionally deferred; 2.18 ships the wrapper, policy, installer integration, and validation boundary first.
+- Fixes the central Start-KIStack/Stop-KIStack lifecycle so MCP Runtime -- the primary terminal/host-control backend for MCP-enabled Open WebUI profiles since 2.15 -- starts and is proven healthy before Open WebUI, and stops after it; reuses MCP Runtime's own existing starter, stopper, and health contract, introducing no new runtime, port, credential, or service.
+- Complete Installer advances from 2.17.0 to 2.18.0. The documented full empty-target Windows Greenfield reference remains 2.4.0; 2.18 does not claim a newer full Greenfield run.
+
 ## 2.17.0
 
 - Adds native persistent Memory support by reusing Open WebUI's existing local Memory implementation; no second memory service, database, MCP runtime, port, or cloud dependency is introduced.
