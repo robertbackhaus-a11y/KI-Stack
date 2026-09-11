@@ -798,6 +798,13 @@ function Install-KIDesktopControl {
         [string]$PackageRoot = $PSScriptRoot,
         [string]$TargetRoot,
         [ValidateSet('Install', 'Upgrade', 'Repair')][string]$Action = 'Install',
+        # 2.18.1 hotfix: optional, externally-owned backup root. When set, the backup is created
+        # EXCLUSIVELY under this root (a timestamped subfolder of it), never under the standalone
+        # <TargetRoot>\backups\desktop-control\ scheme -- so a caller with its own transaction-
+        # scoped recovery contract (the Complete Installer) gets a BackupPath its own recovery
+        # logic accepts, instead of the always-standalone path a fresh, non-transactional run
+        # still gets when this is omitted. Omitted => unchanged standalone behavior.
+        [string]$BackupRoot,
         [switch]$DryRun
     )
     $config = Get-KIDesktopControlConfig -PackageRoot $PackageRoot
@@ -820,7 +827,8 @@ function Install-KIDesktopControl {
     }
 
     New-KIDesktopControlDirectory $p.installRoot
-    $backupRoot = Join-Path $TargetRoot ('backups/desktop-control/' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fffffff'))
+    $backupRootBase = if (-not [string]::IsNullOrWhiteSpace($BackupRoot)) { $BackupRoot } else { Join-Path $TargetRoot 'backups/desktop-control' }
+    $backupRoot = Join-Path $backupRootBase ([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fffffff'))
     New-KIDesktopControlDirectory $backupRoot
     $items = @()
     foreach ($def in @(

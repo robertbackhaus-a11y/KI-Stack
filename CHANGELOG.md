@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.18.1
+
+- Fixes a real, reproduced 2.18.0 defect where Complete Installer step 18/18 ("KI-Stack Desktop Control") failed with "Desktop-Control-Validierung fehlgeschlagen." even though the same Install/Validate payload succeeded when run standalone.
+- Runs Desktop Control Install/Upgrade/Repair and the immediately following Validate in a fresh `pwsh` process from Complete Installer, isolated from the shared orchestrator process; the JSON result contract, error handling, and exit-code behavior are unchanged, and no other component's execution path is touched.
+- Adds an optional, transaction-scoped `BackupRoot` to `Install-KIDesktopControl` and `Invoke-KIStackDesktopControl.ps1`; Complete Installer now passes its own transaction backup root through, so Desktop Control backups created via Complete Installer live under that transaction instead of Desktop Control's standalone backup path. Standalone usage without `-BackupRoot` is unchanged.
+- Fixes `Assert-KICompletePathAwareTransaction` so a Failed step whose `rollbackStatus` is already `Completed` no longer blocks a later Complete Installer run over its own, already-compensated backup path. Every other status keeps the existing strict BackupPath check unchanged; no other path-safety check is loosened.
+- Complete Installer advances from 2.18.0 to 2.18.1. Desktop Control stays at 0.1.0; WinApp stays at 0.6.1.
+- Live-verified against the real affected target's actual WinApp binaries in disposable scratch directories; adds dedicated, dependency-free regression coverage for the isolated execution path, the BackupRoot contract, and the rollback-completed skip logic.
+
 ## 2.18.0
 
 - Adds KI-Stack Desktop Control 0.1.0 as the controlled Windows UI Automation layer, using the central WinApp 0.6.1 component and semantic winapp ui operations.

@@ -1,6 +1,6 @@
-# KI-Stack 2.18.0 – Technische Dokumentation
+# KI-Stack 2.18.1 – Technische Dokumentation
 
-KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Installer `2.18.0` ist das aktuell veröffentlichte GitHub-Release.
+KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Installer `2.18.1` ist das aktuell veröffentlichte GitHub-Release.
 
 Der Validierungsstand muss nach Umfang getrennt betrachtet werden: Die letzte vollständige physische Greenfield-Installation auf einem leeren Windows-Zielsystem wurde mit 2.4.0 durchgeführt und verifiziert; Complete Installer 2.10.0 bleibt der dokumentierte Referenzlauf für Gesamt-Regression plus reales Zielsystem. Spätere Releases ergänzten weitere reale Zielsystem-, Komponenten-, Upgrade-/Reconcile-, Security- und Paketvalidierungen, ohne damit einen neueren vollständigen Windows-Greenfield-Lauf auf einem leeren Zielsystem zu behaupten.
 
@@ -14,7 +14,7 @@ Die aktuelle 2.18-Architektur umfasst den mit 2.15 eingeführten MCP Runtime als
 | Python / Git | 1.1.5 |
 | ComfyUI | 1.2.4 |
 | Models / Workflows | 2.0.3 |
-| Applications | 1.4.11 |
+| Applications | 1.4.12 |
 | Integration | 1.5.11 |
 | Cutover Runtime | 1.6.14 |
 | Codex Local | 0.2.1 |
@@ -28,7 +28,7 @@ Die aktuelle 2.18-Architektur umfasst den mit 2.15 eingeführten MCP Runtime als
 | Target Acceptance | 1.0.10 |
 | OpenWebUI Visual Pack | 2.0.5 |
 | OpenWebUI Agent Pack | 1.9.0 |
-| Complete Installer | 2.18.0 |
+| Complete Installer | 2.18.1 |
 
 Referenz- und Mindestversion von ComfyUI für reproduzierbare Neuinstallationen und Reconcile ist `v0.34.0`; eine bestehende, unterstützte neuere Installation bleibt erhalten und wird nie automatisch zurückgestuft. `ReferenceVersion` und `MinimumSupportedVersion` von Open WebUI sind beide `0.11.3` -- jede installierte Version ab `0.11.3` wird unterstützt, und eine bestehende, unterstützte neuere Installation bleibt ebenso erhalten, nie automatisch auf exakt die Referenz zurückgestuft.
 
@@ -124,6 +124,7 @@ Die Validierungsnachweise werden bewusst danach getrennt, was tatsächlich ausge
 - **2.16.0**: reale Local-Control-Validierung auf Basis des vorhandenen MCP Runtime, einschließlich Filesystem-, Prozess-, Working-Directory-, Windows-Abfrage-, Anwendungssteuerungs- und Ballistics-MCP-Binding-Preservation-Verhalten.
 - **2.17.0**: reale Native-Memory-Add/Search/Delete-Acceptance, Agent-Pack-Memory-/Profil-Policy-Validierung, reales Online-Backup von `webui.db` bei weiter gesundem OpenWebUI sowie kontrollierte Restore-Acceptance gegen eine temporäre Datenbankkopie. Repository-Regression: 34/34 PASS.
 - **2.18.0**: reale Desktop-Control-Ende-zu-Ende-Validierung für `list_windows`, `inspect_window`, `find_element`, `get_properties`, `get_value`, `wait_for`, `set_value` (inklusive unabhängigem Readback), `invoke` (inklusive erneuter Tree-Beobachtung) und `focus` (inklusive Focus-Readback) sowie Reconcile-, Repair-, Idempotenz- und Payload-Parity-Nachweise. Kein breiter MCP-Integrationsclaim.
+- **2.18.1**: Hotfix. Der zentrale Desktop-Control-Reconcile-Schritt des Complete Installers lief bislang im selben, langlebigen Orchestrator-Prozess wie jede andere Komponente; auf dem realen Zielsystem scheiterte dabei die unmittelbar auf Install folgende Validate-Phase, obwohl beide Aktionen einzeln, jeweils in einem frischen Prozess, real erfolgreich waren. Install/Upgrade/Repair und die anschließende Validate laufen jetzt jeweils in einem frischen `pwsh`-Prozess; Desktop Control erhält zusätzlich einen optionalen, transaktionsgebundenen Backup-Root, und ein bereits vollständig zurückgerollter Failed-Step blockiert einen späteren Lauf nicht mehr über seinen eigenen, dann irrelevanten Backup-Pfad. Live gegen das reale betroffene Zielsystem verifiziert (echtes `winapp.exe`); kein neuer Funktionsumfang, keine neue Greenfield-Behauptung.
 
 Diese Umfänge sind kumulative Nachweise und keine austauschbaren Gesamtfreigaben. Insbesondere wurde nach 2.4.0 kein neuer vollständiger Windows-Greenfield-Lauf auf einem leeren Zielsystem behauptet oder durchgeführt; ebenso wurde in 2.17 kein Restore der produktiven `webui.db` durchgeführt.
 

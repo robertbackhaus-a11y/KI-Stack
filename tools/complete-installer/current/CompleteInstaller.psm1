@@ -953,6 +953,13 @@ function Assert-KICompletePathAwareTransaction {
     $transactionSteps=if($Transaction.PSObject.Properties['steps']){@($Transaction.steps)}else{@()}
     foreach($step in $transactionSteps){
         if([string]$step.status-ne'Failed'){continue}
+        # 2.18.1 hotfix: a Failed step whose own rollbackStatus is already 'Completed' has already
+        # been fully compensated -- its recorded BackupPath is no longer a pending recovery
+        # dependency and must not block a later run just because that (now-stale, possibly already
+        # cleaned-up) path no longer sits under the CURRENT transaction's own BackupRoot. Only this
+        # exact, narrow condition is skipped: any other status (Failed with rollbackStatus $null,
+        # 'Failed', 'NotRequired', ...) still goes through the full, unchanged strict check below.
+        if($step.PSObject.Properties['rollbackStatus']-and[string]::Equals([string]$step.rollbackStatus,'Completed',[StringComparison]::Ordinal)){continue}
         $recordedPaths=@()
         if($step.PSObject.Properties['backup']-and$step.backup){$recordedPaths+=[string]$step.backup}
         if($step.PSObject.Properties['result']-and$step.result){
@@ -1084,6 +1091,60 @@ function Invoke-KICompleteJsonScript {
     )
     $output = & $Script @Arguments
     ($output -join [Environment]::NewLine) | ConvertFrom-Json -Depth 100
+}
+
+function Invoke-KICompleteJsonScriptIsolated {
+    # 2.18.1 hotfix: same external contract as Invoke-KICompleteJsonScript (runs $Script, returns
+    # its own parsed JSON result) but via a genuinely FRESH pwsh.exe child process
+    # (Start-Process -Wait, never in-process `&`) -- so the call cannot share PowerShell
+    # module/session state with the orchestrator's own long-lived process or with any earlier step
+    # already executed in it. Real, reproduced 2.18.0 defect (transaction
+    # KI-COMPLETE-20260911-174901 against C:\KI-Stack): the desktop-control step's own
+    # Install-then-Validate pair failed when both ran in-process via Invoke-KICompleteJsonScript,
+    # while the SAME two calls against the SAME published payload each passed when run standalone
+    # in their own fresh process. A brand-new child process starts with an empty module table and
+    # no inherited session state by construction, eliminating that entire class of same-session
+    # interference regardless of its exact internal trigger. Deliberately NOT a generic replacement
+    # for Invoke-KICompleteJsonScript -- used only where a caller explicitly opts into process
+    # isolation (desktop-control's own Install/Upgrade/Repair + Validate below); every other
+    # isolated-A component keeps using the existing, unchanged in-process call.
+    param(
+        [Parameter(Mandatory)][string]$Script,
+        [Parameter(Mandatory)][hashtable]$Arguments
+    )
+    $pwsh = (Get-Command pwsh.exe -ErrorAction Stop).Source
+    $argumentList = [Collections.Generic.List[string]]::new()
+    $argumentList.AddRange([string[]]@('-NoLogo', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (ConvertTo-KICompleteProcessArgument $Script)))
+    foreach ($key in $Arguments.Keys) {
+        $value = $Arguments[$key]
+        if ($value -is [switch]) {
+            if ([bool]$value) { $argumentList.Add("-$key") }
+            continue
+        }
+        $stringValue = [string]$value
+        if ([string]::IsNullOrEmpty($stringValue)) { continue }
+        $argumentList.Add("-$key") | Out-Null
+        $argumentList.Add((ConvertTo-KICompleteProcessArgument $stringValue)) | Out-Null
+    }
+    $workDir = Join-Path ([IO.Path]::GetTempPath()) ('KICompleteIsolated-' + [guid]::NewGuid().ToString('N').Substring(0, 12))
+    New-Item -ItemType Directory -Path $workDir -Force | Out-Null
+    $stdoutPath = Join-Path $workDir 'stdout.txt'
+    $stderrPath = Join-Path $workDir 'stderr.txt'
+    try {
+        $process = Start-Process -FilePath $pwsh -ArgumentList $argumentList.ToArray() -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        $stdout = if (Test-Path -LiteralPath $stdoutPath -PathType Leaf) { Get-Content -LiteralPath $stdoutPath -Raw } else { '' }
+        $stderr = if (Test-Path -LiteralPath $stderrPath -PathType Leaf) { Get-Content -LiteralPath $stderrPath -Raw } else { '' }
+        if ([string]::IsNullOrWhiteSpace($stdout)) {
+            throw "Isolierter Prozessaufruf ($Script) lieferte keine Ausgabe (Exitcode $($process.ExitCode)): $stderr"
+        }
+        try {
+            $stdout | ConvertFrom-Json -Depth 100
+        } catch {
+            throw "Isolierter Prozessaufruf ($Script) lieferte keine gültige JSON-Ausgabe (Exitcode $($process.ExitCode)): $($_.Exception.Message)"
+        }
+    } finally {
+        Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Invoke-KICompletePendingComponentRollback {
@@ -1671,7 +1732,7 @@ function Invoke-KIStackCompleteInstaller {
         # so there is no 'deprecatedAliasUsed' field here: this shape is never produced by the
         # deprecated alias, which keeps the historical flat shape instead (see above).
         return [pscustomobject][ordered]@{
-            version='2.18.0'
+            version='2.18.1'
             mode=$Mode
             operation='OperationsRestore'
             scope=@('Registry/Autostart (LM Studio competing autostart)','Desktop-Verknüpfungen (KI-Stack starten/stoppen/Status)','Docker-Restart-Policy (KI-Stack-eigene Container)')
@@ -1687,13 +1748,13 @@ function Invoke-KIStackCompleteInstaller {
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
     $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics -ReplayComponent $ReplayComponent -PathContext $pathContext
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.18.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.18.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.18.1';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.18.1';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
     if(-not$Resume -and $plan.alreadyCompliant -and -not[bool]$plan.hasReplay -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -PathContext $pathContext -CompleteVersion '2.18.0'}
-        return [pscustomobject]@{version='2.18.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -PathContext $pathContext -CompleteVersion '2.18.1'}
+        return [pscustomobject]@{version='2.18.1';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
     $state = [string]$pathContext.StateRoot
     if ($Resume) {
@@ -2084,16 +2145,26 @@ function Invoke-KIStackCompleteInstaller {
                 # (a single winapp --version call) -- so a missing/incompatible winapp fails this
                 # step closed. winapp is order 180, desktop-control order 190, so winapp is always
                 # provisioned first.
+                #
+                # 2.18.1 hotfix: Install/Upgrade/Repair and the immediately following Validate run
+                # via Invoke-KICompleteJsonScriptIsolated (a genuinely fresh pwsh.exe process each),
+                # never the shared in-process Invoke-KICompleteJsonScript every other isolated-A
+                # component still uses -- see that function's own header for the real, reproduced
+                # defect this closes. The backup root is this component's own slice of the
+                # transaction's BackupRoot, never its standalone <TargetRoot>\backups\desktop-control
+                # path, so a Failed step's recorded BackupPath is one Assert-KICompleteRecoveryBackupPath
+                # actually accepts on a later run.
                 $extract=Join-Path ([string]$pathContext.PayloadRoot) 'DesktopControl'
                 $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'DesktopControl' -Destination $extract
                 $entry=Join-Path $componentRoot 'Invoke-KIStackDesktopControl.ps1'
                 if(-not(Test-Path -LiteralPath $entry -PathType Leaf)){throw 'Desktop-Control-Einstieg fehlt.'}
                 $action=if($step.plannedMode-eq'Repair'){'Repair'}elseif($step.plannedMode-eq'Upgrade'){'Upgrade'}else{'Install'}
+                $desktopControlBackupRoot=Join-Path ([string]$pathContext.TransactionBackupRoot) 'desktop-control'
                 $result=$null
                 try{
-                    $result=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot}
+                    $result=Invoke-KICompleteJsonScriptIsolated -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot;BackupRoot=$desktopControlBackupRoot}
                     if(-not[bool]$result.passed){throw "Desktop-Control-$action fehlgeschlagen."}
-                    $validation=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
+                    $validation=Invoke-KICompleteJsonScriptIsolated -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
                     if(-not[bool]$validation.passed){throw 'Desktop-Control-Validierung fehlgeschlagen.'}
                     $resultBackupPath=if($result.PSObject.Properties['backupPath']){[string]$result.backupPath}else{$null}
                     $step.backup=$resultBackupPath
@@ -2228,7 +2299,7 @@ function Invoke-KIStackCompleteInstaller {
         # can re-sync this exact same object into components.json too -- otherwise this file would
         # permanently keep reporting "ValidatedExistingInstallation" while transaction.json already
         # correctly shows CompletedWithWarnings, two persisted state files disagreeing forever.
-        $componentState=[ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.18.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}}
+        $componentState=[ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.18.1';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}}
         Write-KICompleteJson $componentStatePath $componentState
         Write-KICompleteJson $txPath $tx
         # Commit boundary: both required Final-State writes above succeeded. From this point on,

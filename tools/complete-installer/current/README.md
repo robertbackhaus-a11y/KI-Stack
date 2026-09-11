@@ -1,8 +1,8 @@
-# KI-Stack Complete Installer 2.18.0
+# KI-Stack Complete Installer 2.18.1
 
-`KI-Stack-Complete-Installer-v2.18.0.zip` is the current published Complete Installer package.
+`KI-Stack-Complete-Installer-v2.18.1.zip` is the current published Complete Installer package.
 
-The current package provides the complete managed KI-Stack state through release 2.18.0. Its current architecture includes:
+The current package provides the complete managed KI-Stack state through release 2.18.1. Its current architecture includes:
 
 - Open WebUI `0.11.3` as reference/minimum supported version; supported newer installations are preserved and never automatically downgraded.
 - ComfyUI `v0.34.0` as reference/minimum supported version; supported newer installations are preserved.
@@ -27,7 +27,7 @@ Memory policy in the current package:
 
 The 2.17 database-protection contract includes online `webui.db` backup using SQLite `VACUUM INTO`, integrity validation, controlled restore tooling, pre-restore safety backup, WAL/SHM handling, and post-restore health verification.
 
-Validation claims remain scope-specific. The last complete physical empty-target Windows Greenfield installation was performed with 2.4.0. Later releases through 2.18.0 add repository regression, deterministic package, component, upgrade/reconcile, and real-target acceptance evidence without claiming a newer complete Greenfield run.
+Validation claims remain scope-specific. The last complete physical empty-target Windows Greenfield installation was performed with 2.4.0. Later releases through 2.18.1 add repository regression, deterministic package, component, upgrade/reconcile, and real-target acceptance evidence without claiming a newer complete Greenfield run.
 - Heretic is the only chat LLM.
 - Nomic is embedding-only.
 - Z-Image uses only `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf`.
