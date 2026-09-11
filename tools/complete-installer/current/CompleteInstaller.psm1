@@ -1306,6 +1306,15 @@ function Install-KICompleteCentralStarters {
     # (never just the changed content) so Restore-KICompleteCentralStarters can distinguish an
     # overwritten pre-existing file (restore original content) from a newly created one (must be
     # removed again on rollback, never left behind as a "new artifact that stuck around").
+    # 2.18.2 hotfix: this always deploys from 'Lifecycle/' -- a real, reproduced defect was that
+    # Lifecycle/Start-KIStack.cmd and Stop-KIStack.cmd called modules/cutover/*-KIStack.cmd
+    # directly, so the deployed root starters never reached -Mode Start/Stop (and therefore never
+    # started/stopped MCP Runtime or Open Terminal, and never gated Open WebUI on MCP health).
+    # Fixed by pointing Lifecycle/Start-KIStack.cmd and Stop-KIStack.cmd at
+    # installer/complete/Invoke-KIStackCompleteInstaller.ps1 -Mode Start/Stop instead (which
+    # itself still runs the same modules/cutover/*-KIStack.cmd via Invoke-KICompleteLifecycle, now
+    # wrapped with MCP Runtime and Open Terminal); Stop-KIStack.cmd keeps running its existing
+    # Stop-KIStack-Managed.ps1 stale-process/WSL/registry cleanup afterward, unchanged.
     param([string]$PackageRoot,[string]$TargetRoot,[string]$BackupRoot)
     $source=Join-Path $PackageRoot 'Lifecycle';$changed=@()
     foreach($name in @('Start-KIStack.cmd','Stop-KIStack.cmd','Stop-KIStack-Managed.ps1','Validate-KIStack.cmd','Get-KIStackStatus.ps1','Show-KIStackStatus.ps1','Status-KIStack-Interactive.cmd','Repair-KIStack.cmd','Update-KIStack-OpenWebUI.cmd','Update-KIStack-OpenWebUI.ps1','Update-KIStack-All.cmd','Update-KIStack-All.ps1')){
@@ -1732,7 +1741,7 @@ function Invoke-KIStackCompleteInstaller {
         # so there is no 'deprecatedAliasUsed' field here: this shape is never produced by the
         # deprecated alias, which keeps the historical flat shape instead (see above).
         return [pscustomobject][ordered]@{
-            version='2.18.1'
+            version='2.18.2'
             mode=$Mode
             operation='OperationsRestore'
             scope=@('Registry/Autostart (LM Studio competing autostart)','Desktop-Verknüpfungen (KI-Stack starten/stoppen/Status)','Docker-Restart-Policy (KI-Stack-eigene Container)')
@@ -1748,13 +1757,13 @@ function Invoke-KIStackCompleteInstaller {
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
     $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics -ReplayComponent $ReplayComponent -PathContext $pathContext
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.18.1';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.18.1';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.18.2';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.18.2';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
     if(-not$Resume -and $plan.alreadyCompliant -and -not[bool]$plan.hasReplay -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -PathContext $pathContext -CompleteVersion '2.18.1'}
-        return [pscustomobject]@{version='2.18.1';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -PathContext $pathContext -CompleteVersion '2.18.2'}
+        return [pscustomobject]@{version='2.18.2';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
     $state = [string]$pathContext.StateRoot
     if ($Resume) {
@@ -2299,7 +2308,7 @@ function Invoke-KIStackCompleteInstaller {
         # can re-sync this exact same object into components.json too -- otherwise this file would
         # permanently keep reporting "ValidatedExistingInstallation" while transaction.json already
         # correctly shows CompletedWithWarnings, two persisted state files disagreeing forever.
-        $componentState=[ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.18.1';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}}
+        $componentState=[ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.18.2';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}}
         Write-KICompleteJson $componentStatePath $componentState
         Write-KICompleteJson $txPath $tx
         # Commit boundary: both required Final-State writes above succeeded. From this point on,

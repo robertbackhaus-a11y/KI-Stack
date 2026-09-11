@@ -1,4 +1,4 @@
-# KI-Stack 2.18.1 – Betriebs- und Benutzerhandbuch
+# KI-Stack 2.18.2 – Betriebs- und Benutzerhandbuch
 
 ## Normalbetrieb
 
@@ -228,7 +228,7 @@ Eine erstmalige WSL2-Aktivierung auf einer wirklich leeren Maschine kann einen W
 - **SearXNG scheint nicht erreichbar**: in der WSL-Debian-Instanz `systemctl status ki-stack-searxng uwsgi nginx valkey-server` prüfen; dass entweder `ki-stack-searxng` oder `uwsgi` aktiv und auf Port 8888 gesund ist, ist ein gültiger, erwarteter Zustand.
 - **Ein OpenWebUI-API-abhängiger Schritt meldet einen Credential-bezogenen Pending-/Blocked-Zustand**: `Test-KIStackOpenWebUICredential.ps1` ausführen. Existiert kein gültiges Credential, dieses mit `Initialize-KIStackOpenWebUICredential.ps1` bootstrappen; nicht auf einen separat gepflegten temporären API-Key zurückfallen.
 
-Die letzte vollständige, erfolgreiche, reale Greenfield-Installation auf einem leeren Zielsystem wurde mit Complete Installer 2.4.0 verifiziert. Die späteren Releases bis 2.18.1 ergänzen Regression-, Paket-, Komponenten-, Upgrade-/Reconcile- und Real-Target-Nachweise, behaupten jedoch keinen neueren vollständigen Windows-Greenfield-Lauf auf einem leeren Zielsystem.
+Die letzte vollständige, erfolgreiche, reale Greenfield-Installation auf einem leeren Zielsystem wurde mit Complete Installer 2.4.0 verifiziert. Die späteren Releases bis 2.18.2 ergänzen Regression-, Paket-, Komponenten-, Upgrade-/Reconcile- und Real-Target-Nachweise, behaupten jedoch keinen neueren vollständigen Windows-Greenfield-Lauf auf einem leeren Zielsystem.
 
 ## Bekannte offene Punkte
 

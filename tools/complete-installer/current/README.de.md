@@ -1,8 +1,8 @@
-# KI-Stack Complete Installer 2.18.1
+# KI-Stack Complete Installer 2.18.2
 
-`KI-Stack-Complete-Installer-v2.18.1.zip` ist das aktuell veröffentlichte Complete-Installer-Paket.
+`KI-Stack-Complete-Installer-v2.18.2.zip` ist das aktuell veröffentlichte Complete-Installer-Paket.
 
-Das aktuelle Paket stellt den vollständig verwalteten KI-Stack-Stand bis Release 2.18.1 bereit. Die aktuelle Architektur umfasst:
+Das aktuelle Paket stellt den vollständig verwalteten KI-Stack-Stand bis Release 2.18.2 bereit. Die aktuelle Architektur umfasst:
 
 - Open WebUI `0.11.3` als Referenz-/Mindestversion; unterstützte neuere Installationen bleiben erhalten und werden nie automatisch zurückgestuft.
 - ComfyUI `v0.34.0` als Referenz-/Mindestversion; unterstützte neuere Installationen bleiben erhalten.
@@ -27,7 +27,7 @@ Memory-Policy des aktuellen Pakets:
 
 Der 2.17-Datenbankschutz umfasst Online-Backup von `webui.db` über SQLite `VACUUM INTO`, Integritätsprüfung, kontrolliertes Restore-Werkzeug, Sicherheitsbackup vor dem Restore, WAL-/SHM-Behandlung sowie Health-Verifikation nach dem Restore.
 
-Validierungsaussagen bleiben nach Umfang getrennt. Die letzte vollständige physische Windows-Greenfield-Installation auf einem leeren Zielsystem wurde mit 2.4.0 durchgeführt. Die späteren Releases bis 2.18.1 ergänzen Repository-Regression, deterministische Paket-, Komponenten-, Upgrade-/Reconcile- und Real-Target-Acceptance-Nachweise, ohne einen neueren vollständigen Greenfield-Lauf zu behaupten.
+Validierungsaussagen bleiben nach Umfang getrennt. Die letzte vollständige physische Windows-Greenfield-Installation auf einem leeren Zielsystem wurde mit 2.4.0 durchgeführt. Die späteren Releases bis 2.18.2 ergänzen Repository-Regression, deterministische Paket-, Komponenten-, Upgrade-/Reconcile- und Real-Target-Acceptance-Nachweise, ohne einen neueren vollständigen Greenfield-Lauf zu behaupten.
 - Heretic ist das einzige Chat-LLM.
 - Nomic dient ausschließlich Embeddings.
 - Z-Image verwendet nur `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf`.

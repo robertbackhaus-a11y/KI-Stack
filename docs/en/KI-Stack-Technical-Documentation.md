@@ -1,6 +1,6 @@
-# KI-Stack 2.18.1 technical documentation
+# KI-Stack 2.18.2 technical documentation
 
-KI-Stack is a transactional Windows local-AI stack. Complete Installer `2.18.1` is the current published GitHub Release.
+KI-Stack is a transactional Windows local-AI stack. Complete Installer `2.18.2` is the current published GitHub Release.
 
 The validation record must be read by scope rather than as one interchangeable claim: the last complete physical Greenfield installation on an empty Windows target was performed and verified with 2.4.0; Complete Installer 2.10.0 remains the documented whole-stack regression plus real-target reference run; later releases added additional real-target, component, upgrade/reconcile, security, and package-validation evidence without claiming a newer full empty-target Windows Greenfield run.
 
@@ -28,7 +28,7 @@ The current 2.18 architecture includes the MCP Runtime introduced in 2.15 as the
 | Target Acceptance | 1.0.10 |
 | OpenWebUI Visual Pack | 2.0.5 |
 | OpenWebUI Agent Pack | 1.9.0 |
-| Complete Installer | 2.18.1 |
+| Complete Installer | 2.18.2 |
 
 ComfyUI's reference and minimum supported version for reproducible Greenfield installs and reconciliation is `v0.34.0`; an existing, supported newer installation is preserved and never auto-downgraded. Open WebUI's `ReferenceVersion` and `MinimumSupportedVersion` are both `0.11.3` -- any installed version from `0.11.3` up is supported, and an existing, supported newer installation is preserved the same way, never auto-downgraded to the exact reference.
 
@@ -127,6 +127,7 @@ Validation evidence is intentionally scoped by what was actually exercised:
 - **2.17.0**: real native Memory add/search/delete acceptance, Agent Pack Memory/profile policy validation, real online `webui.db` backup while Open WebUI remained healthy, and controlled restore acceptance against a temporary database copy. Repository regression was 34/34 PASS.
 - **2.18.0**: real Desktop Control end-to-end validation for `list_windows`, `inspect_window`, `find_element`, `get_properties`, `get_value`, `wait_for`, `set_value` (including an independent readback), `invoke` (including a fresh tree re-observation), and `focus` (including a focus readback), plus reconcile, repair, idempotency, and payload-parity evidence. No broad MCP integration claim.
 - **2.18.1**: hotfix. The Complete Installer own central desktop-control reconcile step previously ran in the same long-lived orchestrator process as every other component; on the real target, the Validate phase immediately following Install failed there even though both actions each passed for real when run individually, each in its own fresh process. Install/Upgrade/Repair and the following Validate now each run in a fresh `pwsh` process; Desktop Control additionally accepts an optional, transaction-scoped backup root, and a Failed step whose own rollback already completed no longer blocks a later run over its own, by then irrelevant, backup path. Verified live against the real affected target (a real `winapp.exe`); no new feature scope, no new Greenfield claim.
+- **2.18.2**: hotfix. The central `Start-KIStack.cmd`/`Stop-KIStack.cmd` deployed onto every target previously called the old cutover core (`modules\cutover\*-KIStack.cmd`) directly, never reaching `-Mode Start`/`-Mode Stop` (`Invoke-KICompleteLifecycle`) -- MCP Runtime and Open Terminal were therefore never started or stopped by the central starters, and the MCP health gate ahead of Open WebUI never applied there. The deployed lifecycle templates now call `installer\complete\Invoke-KIStackCompleteInstaller.ps1 -Mode Start`/`-Mode Stop`, which still run the same cutover core internally but now correctly wrapped with MCP Runtime and Open Terminal; the existing stale-process/WSL/registry stop cleanup is preserved unchanged. No new feature scope, no new Greenfield claim.
 
 These scopes are cumulative evidence, not interchangeable claims. In particular, no release after 2.4.0 has claimed or performed a new complete empty-target Windows Greenfield acceptance, and no production `webui.db` restore was performed in 2.17.
 

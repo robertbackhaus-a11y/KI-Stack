@@ -1,6 +1,6 @@
-# KI-Stack 2.18.1 – Technische Dokumentation
+# KI-Stack 2.18.2 – Technische Dokumentation
 
-KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Installer `2.18.1` ist das aktuell veröffentlichte GitHub-Release.
+KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Installer `2.18.2` ist das aktuell veröffentlichte GitHub-Release.
 
 Der Validierungsstand muss nach Umfang getrennt betrachtet werden: Die letzte vollständige physische Greenfield-Installation auf einem leeren Windows-Zielsystem wurde mit 2.4.0 durchgeführt und verifiziert; Complete Installer 2.10.0 bleibt der dokumentierte Referenzlauf für Gesamt-Regression plus reales Zielsystem. Spätere Releases ergänzten weitere reale Zielsystem-, Komponenten-, Upgrade-/Reconcile-, Security- und Paketvalidierungen, ohne damit einen neueren vollständigen Windows-Greenfield-Lauf auf einem leeren Zielsystem zu behaupten.
 
@@ -28,7 +28,7 @@ Die aktuelle 2.18-Architektur umfasst den mit 2.15 eingeführten MCP Runtime als
 | Target Acceptance | 1.0.10 |
 | OpenWebUI Visual Pack | 2.0.5 |
 | OpenWebUI Agent Pack | 1.9.0 |
-| Complete Installer | 2.18.1 |
+| Complete Installer | 2.18.2 |
 
 Referenz- und Mindestversion von ComfyUI für reproduzierbare Neuinstallationen und Reconcile ist `v0.34.0`; eine bestehende, unterstützte neuere Installation bleibt erhalten und wird nie automatisch zurückgestuft. `ReferenceVersion` und `MinimumSupportedVersion` von Open WebUI sind beide `0.11.3` -- jede installierte Version ab `0.11.3` wird unterstützt, und eine bestehende, unterstützte neuere Installation bleibt ebenso erhalten, nie automatisch auf exakt die Referenz zurückgestuft.
 
@@ -125,6 +125,7 @@ Die Validierungsnachweise werden bewusst danach getrennt, was tatsächlich ausge
 - **2.17.0**: reale Native-Memory-Add/Search/Delete-Acceptance, Agent-Pack-Memory-/Profil-Policy-Validierung, reales Online-Backup von `webui.db` bei weiter gesundem OpenWebUI sowie kontrollierte Restore-Acceptance gegen eine temporäre Datenbankkopie. Repository-Regression: 34/34 PASS.
 - **2.18.0**: reale Desktop-Control-Ende-zu-Ende-Validierung für `list_windows`, `inspect_window`, `find_element`, `get_properties`, `get_value`, `wait_for`, `set_value` (inklusive unabhängigem Readback), `invoke` (inklusive erneuter Tree-Beobachtung) und `focus` (inklusive Focus-Readback) sowie Reconcile-, Repair-, Idempotenz- und Payload-Parity-Nachweise. Kein breiter MCP-Integrationsclaim.
 - **2.18.1**: Hotfix. Der zentrale Desktop-Control-Reconcile-Schritt des Complete Installers lief bislang im selben, langlebigen Orchestrator-Prozess wie jede andere Komponente; auf dem realen Zielsystem scheiterte dabei die unmittelbar auf Install folgende Validate-Phase, obwohl beide Aktionen einzeln, jeweils in einem frischen Prozess, real erfolgreich waren. Install/Upgrade/Repair und die anschließende Validate laufen jetzt jeweils in einem frischen `pwsh`-Prozess; Desktop Control erhält zusätzlich einen optionalen, transaktionsgebundenen Backup-Root, und ein bereits vollständig zurückgerollter Failed-Step blockiert einen späteren Lauf nicht mehr über seinen eigenen, dann irrelevanten Backup-Pfad. Live gegen das reale betroffene Zielsystem verifiziert (echtes `winapp.exe`); kein neuer Funktionsumfang, keine neue Greenfield-Behauptung.
+- **2.18.2**: Hotfix. Der zentrale, auf jedem Zielsystem deployte `Start-KIStack.cmd`/`Stop-KIStack.cmd` rief bislang direkt den alten Cutover-Kern (`modules\cutover\*-KIStack.cmd`) auf und erreichte damit nie `-Mode Start`/`-Mode Stop` (`Invoke-KICompleteLifecycle`) -- MCP Runtime und Open Terminal wurden beim zentralen Start/Stop dadurch nie gestartet bzw. gestoppt, und das MCP-Health-Gate vor Open WebUI griff nicht. Die deployten Lifecycle-Vorlagen rufen jetzt `installer\complete\Invoke-KIStackCompleteInstaller.ps1 -Mode Start`/`-Mode Stop` auf, die intern weiterhin denselben Cutover-Kern nutzen, jetzt aber korrekt um MCP Runtime und Open Terminal ergänzt; die bestehende Stop-Bereinigung verwaister Prozesse/WSL/Registry-Einträge bleibt unverändert erhalten. Kein neuer Funktionsumfang, keine neue Greenfield-Behauptung.
 
 Diese Umfänge sind kumulative Nachweise und keine austauschbaren Gesamtfreigaben. Insbesondere wurde nach 2.4.0 kein neuer vollständiger Windows-Greenfield-Lauf auf einem leeren Zielsystem behauptet oder durchgeführt; ebenso wurde in 2.17 kein Restore der produktiven `webui.db` durchgeführt.
 

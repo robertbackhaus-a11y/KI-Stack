@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.18.2
+
+- Fixes a real, reproduced defect where the central `Start-KIStack.cmd`/`Stop-KIStack.cmd` deployed onto every target called the old cutover core (`modules\cutover\*-KIStack.cmd`) directly instead of `Invoke-KIStackCompleteInstaller.ps1 -Mode Start`/`-Mode Stop`; as a result MCP Runtime and Open Terminal were never started or stopped by the central starters, and the MCP health gate ahead of Open WebUI never applied there.
+- Points the deployed `Lifecycle/Start-KIStack.cmd` and `Lifecycle/Stop-KIStack.cmd` templates at `installer/complete/Invoke-KIStackCompleteInstaller.ps1 -Mode Start`/`-Mode Stop`, which still run the same cutover core internally (via `Invoke-KICompleteLifecycle`) but now correctly start MCP Runtime before Open WebUI and stop it after, and start/stop Open Terminal alongside it.
+- Preserves the existing `Stop-KIStack-Managed.ps1` stale-process/WSL/registry cleanup, which still runs after the central stop, unchanged.
+- Complete Installer advances from 2.18.1 to 2.18.2. Desktop Control stays at 0.1.0; WinApp stays at 0.6.1.
+- Adds dedicated regression coverage proving the deployed central starters resolve to the correct `-Mode Start`/`-Mode Stop` invocation (including a real cmd-execution check with a space in the target path) and that the stale-process cleanup still runs after it.
+
 ## 2.18.1
 
 - Fixes a real, reproduced 2.18.0 defect where Complete Installer step 18/18 ("KI-Stack Desktop Control") failed with "Desktop-Control-Validierung fehlgeschlagen." even though the same Install/Validate payload succeeded when run standalone.
