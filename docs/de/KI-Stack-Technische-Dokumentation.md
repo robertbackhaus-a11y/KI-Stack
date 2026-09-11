@@ -67,6 +67,8 @@ MCP Runtime `0.1.0`, eingeführt mit KI-Stack 2.15, ist eine eigenständige Comp
 
 KI-Stack 2.16 ergänzt Local Control auf genau dieser vorhandenen Runtime. Bewusst entstehen kein zweiter Windows-Control-Dienst, kein zusätzlicher Port und kein zusätzliches Credential. Windows-, WSL-, Prozess-, Filesystem-, Service-, Registry-, Task- und Anwendungssteuerung verwendet die vorhandene MCP-Oberfläche, insbesondere `run_command`, PowerShell und die bestehenden KI-Stack-Lifecycle-Skripte.
 
+KI-Stack 2.18 integriert MCP Runtime zusätzlich vollständig in den zentralen Start-/Stop-Lifecycle: Der zentrale Stack-Start startet MCP Runtime über dessen eigenen Starter und prüft ihn über den vorhandenen MCP-Health-Vertrag, bevor OpenWebUI startet; schlägt Start oder Health fehl, startet OpenWebUI nicht. Der zentrale Stop stoppt OpenWebUI zuerst, MCP Runtime zuletzt -- über denselben vorhandenen Stopper, idempotent bei bereits gestopptem Zustand. MCP Runtime erscheint dadurch weiterhin im zentralen Health-/Status-Bericht (Prozessidentität plus Endpoint-Erreichbarkeit).
+
 
 ## Desktop Control und WinApp
 

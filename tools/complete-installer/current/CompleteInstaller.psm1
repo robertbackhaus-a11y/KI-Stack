@@ -1578,13 +1578,39 @@ function Invoke-KICompleteMcpRuntimeLifecycle {
 }
 
 function Invoke-KICompleteLifecycle {
+    # MCP Runtime has been the primary terminal/host-control backend for MCP-enabled Open WebUI
+    # profiles since 2.15 -- Open WebUI itself talks to the registered MCP endpoint -- so on Start
+    # it must be running and healthy BEFORE the core cutover chain brings Open WebUI up. Reuses
+    # Install-KIMcpRuntime's own starter/health contract via the SAME additive
+    # Invoke-KICompleteMcpRuntimeLifecycle wrapper Stop already used below (Start-KIStack-McpRuntime.cmd
+    # -> Invoke-KIStackMcpRuntime.ps1 -Action Start -> Start-KIMcpRuntime -> Wait-KIMcpRuntimeHealthy,
+    # a real MCP protocol handshake, never a bare port probe -- no new health definition). A target
+    # that never installed MCP Runtime is unaffected (attempted=$false, passed=$true, exactly as
+    # before, exactly like Open Terminal's own never-break contract). One that DID install it but
+    # fails to start or come up healthy now stops Open WebUI from starting at all -- a clear thrown
+    # error, the SAME failure/exitcode semantics the core cutover script's own failure already uses
+    # below, never a silent, best-effort skip for THIS component, because Open WebUI depends on it.
+    # On Stop, order is reversed and unchanged from before: Open WebUI (stopped by the core cutover
+    # chain's own Stop-KIStack-Applications step, which runs first) goes before MCP Runtime, which
+    # stops last -- MCP Runtime's own Stop-KIMcpRuntime is idempotent (AlreadyStopped is not an
+    # error), matching the existing Open Terminal stop convention.
     param([ValidateSet('Start','Stop')][string]$Action,[string]$TargetRoot='C:\KI-Stack')
+    $mcpRuntime = $null
+    if ($Action -eq 'Start') {
+        $mcpRuntime = Invoke-KICompleteMcpRuntimeLifecycle -Action 'Start' -TargetRoot $TargetRoot
+        if ([bool]$mcpRuntime.attempted -and -not [bool]$mcpRuntime.passed) {
+            $detail = if ($mcpRuntime.PSObject.Properties['reason'] -and -not [string]::IsNullOrWhiteSpace([string]$mcpRuntime.reason)) { [string]$mcpRuntime.reason } else { "Exitcode $($mcpRuntime.exitCode)" }
+            throw "MCP Runtime konnte vor Open WebUI nicht gestartet oder nicht gesund gemeldet werden ($detail); Open WebUI wird nicht gestartet."
+        }
+    }
     $script = Join-Path $TargetRoot ("modules/cutover/{0}-KIStack.cmd" -f $Action)
     if (-not (Test-Path $script)) { throw "Zentraler $Action-Einstieg fehlt: $script" }
     $p=Start-Process -FilePath $script -Wait -PassThru -NoNewWindow
     if ($p.ExitCode -ne 0) { throw "$Action fehlgeschlagen: Exitcode $($p.ExitCode)" }
     $openTerminal = Invoke-KICompleteOpenTerminalLifecycle -Action $Action -TargetRoot $TargetRoot
-    $mcpRuntime = Invoke-KICompleteMcpRuntimeLifecycle -Action $Action -TargetRoot $TargetRoot
+    if ($Action -eq 'Stop') {
+        $mcpRuntime = Invoke-KICompleteMcpRuntimeLifecycle -Action 'Stop' -TargetRoot $TargetRoot
+    }
     [pscustomobject]@{action=$Action;passed=$true;exitCode=$p.ExitCode;openTerminal=$openTerminal;mcpRuntime=$mcpRuntime}
 }
 

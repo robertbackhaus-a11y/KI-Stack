@@ -78,7 +78,7 @@ Operationally this means:
 - general Windows/WSL/application work uses the existing MCP surface, especially `run_command`, PowerShell, and the KI-Stack lifecycle scripts;
 - no second Local-Control port, runtime, or credential exists.
 
-The MCP Runtime is installed and reconciled by the Complete Installer and participates in the normal central KI-Stack lifecycle.
+The MCP Runtime is installed and reconciled by the Complete Installer. Since 2.18, the central start (`Start-KIStack.cmd`) also covers MCP Runtime: it starts before Open WebUI and is proven healthy through the existing MCP health contract; if that fails, Open WebUI is not started. The central stop stops Open WebUI first, MCP Runtime last. A target without MCP Runtime installed is unaffected.
 
 ## Native Memory
 

@@ -67,6 +67,8 @@ MCP Runtime `0.1.0`, introduced with KI-Stack 2.15, is a self-contained Complete
 
 KI-Stack 2.16 adds Local Control on top of that same runtime. It deliberately introduces no second Windows-control runtime, no additional port, and no additional credential. Windows, WSL, process, filesystem, service, registry, task, and application control uses the existing MCP surface, especially `run_command`, PowerShell, and the existing KI-Stack lifecycle scripts.
 
+KI-Stack 2.18 additionally integrates MCP Runtime fully into the central Start/Stop lifecycle: the central stack start starts MCP Runtime through its own starter and proves it healthy through the existing MCP health contract before Open WebUI starts; if Start or Health fails, Open WebUI is not started. The central stop stops Open WebUI first, MCP Runtime last -- through the same existing stopper, idempotent when already stopped. MCP Runtime continues to appear in the central Health/Status report (process identity plus endpoint reachability).
+
 
 ## Desktop Control and WinApp
 
