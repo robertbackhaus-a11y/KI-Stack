@@ -1,4 +1,4 @@
-# KI-Stack Integration 1.5.11
+# KI-Stack Integration 1.5.12
 
 Git-free successor to 1.5.10. The package builder obtains SearXNG only from upstream commit `357662d86dd225bf8f0bfe5cfaa45bed09aef788`, verifies archive size and SHA-256, applies the tracked Git-free version overlay and produces the embedded payload deterministically. A verified cache is optional; interrupted downloads resume and no manual preload is required. The upstream source and overlay remain AGPL-3.0-or-later. A healthy standard installation is adopted without deleting unmanaged source or metadata.
 
@@ -73,6 +73,45 @@ directory absent beforehand) and the existing case (directory and a prior
 marker already present) by calling `Write-IntegrationMarker` directly --
 the real production function, no duplicated logic.
 
+
+## WSL-Keeper reliability (2.18.2)
+
+`Runtime/Start-KIStack-SearXNG.ps1` keeps the Debian WSL instance alive with a
+long-running `sleep infinity` process ("the keeper"). Through 1.5.11 it was
+launched as `wsl.exe -d Debian -u root -- bash -lc "exec sleep infinity"` and
+tracked purely by the Windows-side `wsl.exe` launcher's own PID. Real,
+reproduced defect (verified live against an actual Debian WSL instance): the
+`-l` login shell opens a PAM/systemd-logind session that can be torn down
+independently of the `exec`'ed `sleep` process, killing it -- the launcher
+itself was observed to exit within about a second of starting, and Debian
+fell back to `Stopped` shortly after `Get-KIStackStatus.ps1` had reported it
+`Running`.
+
+Fixed as of 1.5.12: the keeper now launches via
+`wsl.exe -d Debian --exec /bin/sleep infinity` -- no shell, no login session
+-- confirmed durably stable over repeated real checks. Its liveness is
+decided solely by a real in-Debian `pgrep -f 'sleep infinity'` check (plus a
+`wsl --list --running` check that Debian is actually up), never by the
+Windows launcher PID recorded in `wsl-keeper.pid`, which is now
+best-effort/informational only: a stale, missing, or reused PID can never
+make a real, still-running keeper report as stopped, and a PID that names
+some other real process never causes a duplicate keeper to be skipped from
+starting. The start script waits for real keeper confirmation before
+starting Linux services; the stop script kills the real in-Debian process
+directly and checks whether Debian is still running before querying it for
+a diagnostic service-status readout, so it can no longer accidentally revive
+Debian right after a clean stop. `Get-KIStackStatus.ps1`'s WSL-Keeper
+detection (and the valkey-server/uwsgi/nginx checks that follow it) were
+fixed the same way.
+
+This is the same class of BuilderKernel-bundle delivery gap already fixed
+for `applications` (1.4.11) and `open-terminal`/`cutover-runtime`: the fix
+lives in generated content that the reconcile/plan logic only redelivers to
+an already-installed target when the pinned component version itself
+changes -- confirmed empirically via a real-fixture plan check before this
+bump (`compliant=true`, `plannedMode=Skip`). Integration therefore advances
+1.5.11 -> 1.5.12, and Cutover Runtime (whose own copy of this fix lives in
+`Modules/07-Integration/KIModuleIntegration.psm1`) advances 1.6.15 -> 1.6.16.
 
 ## Windows runtime contract (diag13)
 

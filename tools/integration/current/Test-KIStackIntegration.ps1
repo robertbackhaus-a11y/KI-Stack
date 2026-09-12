@@ -119,7 +119,7 @@ $runtimeFixtureRoot=Join-Path ([IO.Path]::GetTempPath())('ki-stack-integration-r
 $kiStackTarget=Join-Path $runtimeFixtureRoot 'Local AI/KI Stack';$runtimeTarget=Join-Path $kiStackTarget 'modules/integration';$runtimeBackup=Join-Path $runtimeFixtureRoot 'backup';New-Item -ItemType Directory $runtimeBackup -Force|Out-Null
 try {
     Backup-IntegrationWindowsRuntime -RuntimeRoot $runtimeTarget -BackupPath $runtimeBackup
-    $runtimeResult=Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeTarget -Marker ([ordered]@{version='1.5.11';release='KI-Stack-Integration-Execute-v1.5.11'})
+    $runtimeResult=Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeTarget -Marker ([ordered]@{version='1.5.12';release='KI-Stack-Integration-Execute-v1.5.12'})
     if(-not[bool]$runtimeResult.passed-or-not(Test-IntegrationRuntime -RuntimeRoot $runtimeTarget -Contract $runtimeContract)){$fail+='greenfield runtime deployment incomplete'}
     foreach($requiredStarter in @('Start-KIStack-SearXNG.cmd','Start-KIStack-OpenWebUI-WithSearch.cmd')){if(-not(Test-Path -LiteralPath (Join-Path $runtimeTarget $requiredStarter)-PathType Leaf)){$fail+="greenfield starter missing: $requiredStarter"}}
     $deployedWindowsContent=(Get-ChildItem -LiteralPath $runtimeTarget -File|Where-Object{$_.Extension-in@('.cmd','.ps1')}|ForEach-Object{Get-Content -LiteralPath $_.FullName -Raw})-join"`n"
@@ -135,14 +135,14 @@ try {
 
     New-Item -ItemType Directory $runtimeTarget -Force|Out-Null;Set-Content -LiteralPath (Join-Path $runtimeTarget 'installation.json') -Value '{"version":"old"}' -Encoding UTF8;Set-Content -LiteralPath (Join-Path $runtimeTarget 'Start-KIStack-SearXNG.cmd') -Value 'old starter' -Encoding ascii
     $upgradeBackup=Join-Path $runtimeFixtureRoot 'upgrade-backup';New-Item -ItemType Directory $upgradeBackup -Force|Out-Null;Backup-IntegrationWindowsRuntime -RuntimeRoot $runtimeTarget -BackupPath $upgradeBackup
-    Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeTarget -Marker ([ordered]@{version='1.5.11';release='KI-Stack-Integration-Execute-v1.5.11'})|Out-Null
+    Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeTarget -Marker ([ordered]@{version='1.5.12';release='KI-Stack-Integration-Execute-v1.5.12'})|Out-Null
     Restore-IntegrationWindowsRuntime -BackupPath $upgradeBackup
     if((Get-Content (Join-Path $runtimeTarget 'Start-KIStack-SearXNG.cmd')-Raw).Trim()-ne'old starter'-or(Get-Content (Join-Path $runtimeTarget 'installation.json')-Raw)-notmatch'old'){$fail+='upgrade runtime rollback did not restore prior state'}
 
     $rootA=Join-Path $runtimeFixtureRoot 'Root A';$rootB=Join-Path $runtimeFixtureRoot 'Root B'
     $runtimeA=Join-Path $rootA 'modules/integration';$runtimeB=Join-Path $rootB 'modules/integration'
-    Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeA -Marker ([ordered]@{version='1.5.11'})|Out-Null
-    Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeB -Marker ([ordered]@{version='1.5.11'})|Out-Null
+    Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeA -Marker ([ordered]@{version='1.5.12'})|Out-Null
+    Install-IntegrationRuntime -PackageRoot $root -RuntimeRoot $runtimeB -Marker ([ordered]@{version='1.5.12'})|Out-Null
     foreach($pair in @(@{own=$rootA;foreign=$rootB;runtime=$runtimeA},@{own=$rootB;foreign=$rootA;runtime=$runtimeB})){
         $content=(Get-ChildItem -LiteralPath $pair.runtime -File|Where-Object{$_.Extension-in@('.cmd','.ps1')}|ForEach-Object{Get-Content -LiteralPath $_.FullName -Raw})-join"`n"
         if($content.Contains([string]$pair.foreign)-or$content.Contains('C:\KI-Stack')){$fail+='two-root runtime isolation failed'}
@@ -189,5 +189,5 @@ foreach($emptyCase in @(@{name='null';value=$null},@{name='empty-array';value=[s
     }catch{$fail+="empty diagnostic threw: $($emptyCase.name): $($_.Exception.Message)"}
     finally{Remove-Item -LiteralPath $diagnosticPath -Force -ErrorAction SilentlyContinue}
 }
-$result=[ordered]@{passed=($fail.Count-eq0);version='1.5.11';checks=41;failures=$fail;payloadFailureType=if($payloadFailure){$payloadFailure.Exception.GetType().FullName}else{$null};payloadFailureMessage=if($payloadFailure){$payloadFailure.Exception.Message}else{$null}};$result|ConvertTo-Json -Depth 10
+$result=[ordered]@{passed=($fail.Count-eq0);version='1.5.12';checks=41;failures=$fail;payloadFailureType=if($payloadFailure){$payloadFailure.Exception.GetType().FullName}else{$null};payloadFailureMessage=if($payloadFailure){$payloadFailure.Exception.Message}else{$null}};$result|ConvertTo-Json -Depth 10
 if ($fail.Count) { throw ($fail-join'; ') }

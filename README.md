@@ -15,8 +15,8 @@ Project page and accompanying articles: [okami.de – Lokaler KI-Stack](https://
 | ComfyUI | 1.2.4 | Stable component; transactional marker/readback. Reference/minimum supported version `v0.34.0` for reproducible Greenfield installs and reconciliation; an existing, supported newer installation is preserved, never auto-downgraded |
 | Models / Workflows | 2.0.3 | Automatic revision-pinned model acquisition, including Nomic Q4_K_M, with optional verified cache/preload |
 | Applications | 1.4.12 | Stable; LM Studio (competing Electron autostart removed before *and* after server start) and Open WebUI (`ReferenceVersion`/`MinimumSupportedVersion` `0.11.3`; any installed version from `0.11.3` up is supported, and a newer supported installation is always preserved, never auto-downgraded) |
-| Integration | 1.5.11 | Stable component; immutable SearXNG revision plus tracked overlay; the OpenWebUI-with-search starter it regenerates on every reconcile now preserves an already-applied RAG embedding-prefix env-call line instead of silently erasing it |
-| Cutover runtime | 1.6.15 | Stable component; transaction-local continuation state; real-target-validated ComfyUI supported-version contract, v0.28.0-payload-overlay protection, the Open WebUI `0.11.1` reference-version bump, and the Integration RAG-starter-preservation fix above (see `docs/releases/complete-installer-v2.10.0.md` for the ComfyUI/Applications fixes carried forward) |
+| Integration | 1.5.12 | Stable component; immutable SearXNG revision plus tracked overlay; the OpenWebUI-with-search starter it regenerates on every reconcile now preserves an already-applied RAG embedding-prefix env-call line instead of silently erasing it; the WSL keeper now launches `sleep infinity` directly (no login shell) and its liveness is verified against the real in-Debian process, never a possibly-stale Windows launcher PID |
+| Cutover runtime | 1.6.16 | Stable component; transaction-local continuation state; real-target-validated ComfyUI supported-version contract, v0.28.0-payload-overlay protection, the Open WebUI `0.11.1` reference-version bump, and the Integration RAG-starter-preservation fix above (see `docs/releases/complete-installer-v2.10.0.md` for the ComfyUI/Applications fixes carried forward) |
 | Production recovery | 1.7.0-r7 | Target-system accepted; portable runtime resolution |
 | Universal package Validation Gate | 1.0.3 | Activated on the target system |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` on 2026-07-21 |
@@ -90,7 +90,7 @@ pwsh -NoProfile -File .\tools\complete-installer\current\New-KIStackCompleteInst
 
 Do not commit credentials, access tokens, private keys, personal transaction logs or machine-specific state. No open-source license has been selected yet; public visibility alone does not grant reuse rights.
 
-Production Recovery `1.7.0-r7` is a recovery line, not a new runtime version; r5 remains its published predecessor. The current Cutover Runtime version is `1.6.15` (see the table above and `docs/releases/complete-installer-v2.10.0.md`).
+Production Recovery `1.7.0-r7` is a recovery line, not a new runtime version; r5 remains its published predecessor. The current Cutover Runtime version is `1.6.16` (see the table above and `docs/releases/complete-installer-v2.10.0.md`).
 
 ## Production recovery and target acceptance
 

@@ -170,9 +170,13 @@ $otModuleSource=Get-Content -LiteralPath (Join-Path $PackageRoot 'CompleteInstal
 $cutoverMarkerSource=Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $PackageRoot)) 'cutover-runtime/current/Modules/08-Cutover/KIModuleCutover.psm1') -Raw
 $openTerminalVersionFile=(Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $PackageRoot)) 'open-terminal/current/VERSION') -Raw).Trim()
 $cutoverRuntimeVersionFile=(Get-Content -LiteralPath (Join-Path (Split-Path -Parent (Split-Path -Parent $PackageRoot)) 'cutover-runtime/current/VERSION') -Raw).Trim()
+# The exact marker string advances every time ANY bundled BuilderKernel module (ComfyUI,
+# Integration, ...) needs a fresh cutover-runtime dispatch delivered to an existing target, not
+# just for the Open Terminal/ComfyUI fix this file was originally written for -- checked against
+# the live VERSION file rather than a hardcoded numeral so this does not go stale again.
 $checks.canonicalSourcesAndVersionFilesConsistent=[ordered]@{
-    cutoverMarkerContainsNewRelease=$cutoverMarkerSource.Contains("release='KI-Stack-Cutover-Execute-v1.6.15'")
-    cutoverMarkerNoLongerContainsOldRelease=-not $cutoverMarkerSource.Contains("release='KI-Stack-Cutover-Execute-v1.6.14'")
+    cutoverMarkerContainsNewRelease=$cutoverMarkerSource.Contains("release='KI-Stack-Cutover-Execute-v$cutoverRuntimeVersionFile'")
+    cutoverMarkerNoLongerContainsOldRelease=-not $cutoverMarkerSource.Contains("release='KI-Stack-Cutover-Execute-v1.6.15'")
     openTerminalVersionFileMatchesPin=$openTerminalVersionFile-eq[string]$openTerminalComponent.version
     cutoverRuntimeVersionFileMatchesPin=$cutoverRuntimeVersionFile-eq[string]$cutoverRuntimeComponent.version
     openTerminalMarkerFieldNameUnchanged=[string]$openTerminalComponent.marker-eq'modules/open-terminal/installation.json'

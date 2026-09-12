@@ -680,7 +680,7 @@ function Test-KICompleteDesktopControlCompliant {
 }
 
 function Test-KICompleteIntegrationCompliant {
-    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='1.5.11')
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='1.5.12')
     $root=Join-Path $TargetRoot 'modules/integration'
     $markerPath=Join-Path $root 'installation.json'
     # Must match tools/integration/current/Runtime/RUNTIME-CONTRACT.json 'files'.
@@ -1820,7 +1820,7 @@ function Invoke-KIStackCompleteInstaller {
                     $cutoverRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'CutoverRuntime' -Destination $extract
                     $kernel = Join-Path $cutoverRoot 'Invoke-KIStackBuilderKernel.ps1'
                     $preflightGenerator = Join-Path $cutoverRoot 'New-KIStackEmbeddedPreflight.ps1'
-                    $preflight = Join-Path ([string]$pathContext.TempRoot) 'generated/Preflight-Continuation-v1.6.15.zip'
+                    $preflight = Join-Path ([string]$pathContext.TempRoot) 'generated/Preflight-Continuation-v1.6.16.zip'
                     if (-not (Test-Path -LiteralPath $kernel -PathType Leaf) -or -not (Test-Path -LiteralPath $preflightGenerator -PathType Leaf)) {
                         throw 'Cutover-Kernel oder Preflight-Generator fehlt.'
                     }

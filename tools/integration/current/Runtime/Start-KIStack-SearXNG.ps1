@@ -14,22 +14,41 @@ $wsl=(Get-Command wsl.exe -ErrorAction Stop).Source
 # contract and is not needed now that install-searxng-payload.sh enables
 # the units again (diag14). Restore that contract: keeper only, systemd
 # owns the service lifecycle, Windows only verifies readiness below.
-$expectedArgs=@('-d',$distribution,'-u','root','--exec','sleep','infinity')
-function Test-KeeperIdentity([int]$ProcessId){
-    $proc=Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction SilentlyContinue
-    if($null-eq$proc){return $false}
-    if($proc.Name-ne'wsl.exe'){return $false}
-    return ($proc.CommandLine-match[regex]::Escape($distribution))-and($proc.CommandLine-match'sleep')-and($proc.CommandLine-match'infinity')
+#
+# 2.18.2 hotfix (real, reproduced defect, verified live against a real Debian WSL instance):
+# launching the keeper via '-u root -- bash -lc "exec sleep infinity"' opens a login shell
+# (bash -l); on this real target the wsl.exe launcher itself exited within ~1 second of being
+# started and the exec'ed sleep process never survived past that, so Debian fell back to Stopped
+# shortly after Get-KIStackStatus.ps1 had reported it Running. '--exec /bin/sleep infinity' runs
+# the binary directly, with no shell and no login session, and was confirmed durably stable (both
+# the Windows launcher and the in-Debian process) over repeated real checks. The Windows-side
+# launcher PID recorded below is informational/best-effort only -- Test-KIWslKeeperProcessAlive
+# is the only thing that decides whether a keeper is already alive, so a stale or missing PID can
+# never make a real, still-running keeper look Stopped.
+function Test-KIWslDebianRunning {
+    $running=@((& $wsl --list --running --quiet 2>$null)|ForEach-Object{$_.Trim([char]0).Trim()}|Where-Object{$_})
+    return $running -contains $distribution
 }
-$keeperAlive=$false
+function Test-KIWslKeeperProcessAlive {
+    if(-not(Test-KIWslDebianRunning)){return $false}
+    $pgrepOutput=@(& $wsl -d $distribution -- pgrep -f 'sleep infinity' 2>$null)
+    return ($LASTEXITCODE-eq0)-and(@($pgrepOutput|Where-Object{$_-match'^\d+$'}).Count-gt0)
+}
 if(Test-Path -LiteralPath $pidFile -PathType Leaf){
     $raw=(Get-Content -LiteralPath $pidFile -Raw).Trim()
-    if($raw-match'^\d+$'){$keeperAlive=(Test-KeeperIdentity([int]$raw))}
-    if(-not$keeperAlive){Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue}
+    if($raw-notmatch'^\d+$'-or$null-eq(Get-Process -Id([int]$raw)-ErrorAction SilentlyContinue)){
+        Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
+    }
 }
-if(-not$keeperAlive){
-    $keeper=Start-Process -FilePath $wsl -ArgumentList $expectedArgs -WindowStyle Hidden -PassThru
+if(-not(Test-KIWslKeeperProcessAlive)){
+    $keeper=Start-Process -FilePath $wsl -ArgumentList @('-d',$distribution,'--exec','/bin/sleep','infinity') -WindowStyle Hidden -PassThru
     Set-Content -LiteralPath $pidFile -Value ([string]$keeper.Id) -Encoding ascii
+    $keeperDeadline=(Get-Date).AddSeconds(15)
+    do{
+        if(Test-KIWslKeeperProcessAlive){break}
+        Start-Sleep -Milliseconds 500
+    }while((Get-Date)-lt$keeperDeadline)
+    if(-not(Test-KIWslKeeperProcessAlive)){throw 'WSL-Keeper (sleep infinity in Debian) konnte nicht gestartet werden oder ist nicht dauerhaft aktiv.'}
 }
 $deadline=(Get-Date).AddSeconds(30)
 do {

@@ -15,8 +15,8 @@ Projektseite und begleitende Artikel: [okami.de – Lokaler KI-Stack](https://ww
 | ComfyUI | 1.2.4 | Stabile Komponente; transaktionaler Marker/Readback. Referenz-/Mindestversion `v0.34.0` für reproduzierbare Neuinstallationen und Reconcile; eine bestehende, unterstützte neuere Installation bleibt erhalten und wird nie automatisch zurückgestuft |
 | Modelle / Workflows | 2.0.3 | Automatischer revisionsgebundener Modelldownload einschließlich Nomic Q4_K_M mit optionalem geprüftem Cache/Preload |
 | Applications | 1.4.12 | Stabil; LM Studio (konkurrierender Electron-Autostart wird vor *und* nach dem Serverstart entfernt) und Open WebUI (`ReferenceVersion`/`MinimumSupportedVersion` `0.11.3`; jede installierte Version ab `0.11.3` wird unterstützt, eine neuere unterstützte Installation bleibt immer erhalten und wird nie automatisch zurückgestuft) |
-| Integration | 1.5.11 | Stabile Komponente; feste SearXNG-Revision plus getracktes Overlay; der bei jedem Reconcile neu erzeugte OpenWebUI-mit-Suche-Starter erhält jetzt eine bereits eingebundene RAG-Embedding-Präfix-Umgebungszeile, statt sie stillschweigend zu löschen |
-| Cutover Runtime | 1.6.15 | Stabile Komponente; transaktionslokaler Fortsetzungszustand; zielsystemvalidierter ComfyUI-Supported-Version-Vertrag, Schutz gegen v0.28.0-Payload-Overlay, der Open-WebUI-`0.11.1`-Referenzversions-Bump und der Integration-RAG-Starter-Preservation-Fix oben (siehe `docs/releases/complete-installer-v2.10.0.md` für die fortgeführten ComfyUI-/Applications-Korrekturen) |
+| Integration | 1.5.12 | Stabile Komponente; feste SearXNG-Revision plus getracktes Overlay; der bei jedem Reconcile neu erzeugte OpenWebUI-mit-Suche-Starter erhält jetzt eine bereits eingebundene RAG-Embedding-Präfix-Umgebungszeile, statt sie stillschweigend zu löschen; der WSL-Keeper startet `sleep infinity` jetzt direkt (ohne Login-Shell), seine Lebendigkeit wird gegen den echten In-Debian-Prozess geprüft, nie gegen eine möglicherweise veraltete Windows-Launcher-PID |
+| Cutover Runtime | 1.6.16 | Stabile Komponente; transaktionslokaler Fortsetzungszustand; zielsystemvalidierter ComfyUI-Supported-Version-Vertrag, Schutz gegen v0.28.0-Payload-Overlay, der Open-WebUI-`0.11.1`-Referenzversions-Bump und der Integration-RAG-Starter-Preservation-Fix oben (siehe `docs/releases/complete-installer-v2.10.0.md` für die fortgeführten ComfyUI-/Applications-Korrekturen) |
 | Production Recovery | 1.7.0-r7 | Auf dem Zielsystem akzeptiert; SearXNG-Kaltstart repariert |
 | Universeller Paket-Validation-Gate | 1.0.3 | Auf dem Zielsystem aktiviert |
 | Production Target Acceptance | 1.0.10 | `TARGET_SYSTEM_ACCEPTANCE_PASSED` am 21.07.2026 |
@@ -51,7 +51,7 @@ Jedes Paket enthält Selbsttest, Dry-Run, Execute, Transaktionsprotokollierung, 
 
 `tools/system-cleanup/current` inventarisiert ausschließlich lesend und klassifiziert konservativ. Der erzeugte Bereinigungsplan ist per SHA256 gebunden und ohne getrennte ausdrückliche Freigabe nicht ausführbar; Version 1.0.0 löscht nichts.
 
-Production Recovery `1.7.0-r7` ist eine Wiederherstellungslinie und keine neue Runtime-Version; r5 bleibt als veröffentlichter Vorgänger dokumentiert. Die aktuelle Cutover-Runtime-Version ist `1.6.15` (siehe Tabelle oben und `docs/releases/complete-installer-v2.10.0.md`).
+Production Recovery `1.7.0-r7` ist eine Wiederherstellungslinie und keine neue Runtime-Version; r5 bleibt als veröffentlichter Vorgänger dokumentiert. Die aktuelle Cutover-Runtime-Version ist `1.6.16` (siehe Tabelle oben und `docs/releases/complete-installer-v2.10.0.md`).
 
 ## Produktionswiederherstellung und Zielsystemabnahme
 

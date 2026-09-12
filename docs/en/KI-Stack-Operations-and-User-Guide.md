@@ -180,7 +180,7 @@ If the credential is missing, invalid, unavailable, or lacks administrator privi
 
 ## Maintenance: reconcile and repeated-run behavior
 
-Running Upgrade/Repair/Audit again on an already-installed target is a normal, supported operation. As of Cutover Runtime 1.6.15 and OpenWebUI Agent Pack 1.9.0:
+Running Upgrade/Repair/Audit again on an already-installed target is a normal, supported operation. As of Cutover Runtime 1.6.16 and OpenWebUI Agent Pack 1.9.0:
 
 - **Integration's OpenWebUI-with-search starter regeneration no longer erases RAG's embedding-prefix line.** Integration unconditionally regenerates `Start-KIStack-OpenWebUI-WithSearch.cmd` on every Install/Upgrade/Repair pass; a real regression previously caused an already-applied RAG `call "...\OpenWebUI-RAG.env.cmd"` line to be silently dropped whenever Integration reconciled without RAG also running in the same transaction. That line is now preserved across every regeneration.
 - **Agent Pack reconcile no longer replaces a managed profile's `meta` wholesale.** OpenWebUI's own model-update endpoint replaces `meta` rather than merging it; the Agent Pack now merges on the package's own side before every Create/Update, so a live/UI-added value on an already-managed profile's `capabilities`, `builtinTools`, `access_grants`, or `profile_image_url` survives a reconcile untouched, while only the fields the package actually owns (name, base model, system prompt, tool/knowledge bindings, etc.) are reasserted.

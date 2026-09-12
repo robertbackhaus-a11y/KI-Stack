@@ -183,12 +183,28 @@ try{
     $results.Add((New-StatusResult 'OpenWebUICredential' 'Unchecked' 'Statusprüfung konnte nicht ausgeführt werden'))
 }
 
-$keeper=@(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue|Where-Object{$_.Name -eq 'wsl.exe'-and$_.CommandLine -match '(?i)-d\s+Debian\b.*--exec\s+sleep\s+infinity\b'})
-$results.Add((New-StatusResult 'WSL-Keeper' $(if($keeper.Count){'Läuft'}else{'Gestoppt'}) $(if($keeper.Count){"PID $($keeper[0].ProcessId)"}else{'Kein Keeper-Prozess'})))
-
+# 2.18.2 hotfix (real, reproduced defect): the Windows-side wsl.exe launcher process that starts
+# the keeper can legitimately exit shortly after being started (real, reproduced on a live target:
+# a login-shell-based launch died within ~1 second) while Debian itself briefly still reports
+# Running -- matching on a still-alive Win32_Process for the launcher therefore both misses a
+# real, still-running keeper once its own launcher has exited and stays blind to a keeper that
+# never really came up. WSL-Keeper is now reported Running only when Debian is an actually
+# running distribution AND a real 'sleep infinity' process is found inside it.
 $runningDistros=@((& wsl.exe --list --running --quiet 2>$null)|ForEach-Object{$_.Trim([char]0).Trim()}|Where-Object{$_})
+$debianRunning=$runningDistros -contains 'Debian'
+$keeperProcessAlive=$false
+$keeperDetail='Debian läuft nicht'
+if($debianRunning){
+    try{
+        $pgrepOutput=@(& wsl.exe -d Debian -- pgrep -f 'sleep infinity' 2>$null)
+        $keeperProcessAlive=($LASTEXITCODE-eq0)-and(@($pgrepOutput|Where-Object{$_-match'^\d+$'}).Count-gt0)
+        $keeperDetail=if($keeperProcessAlive){'sleep infinity aktiv in Debian'}else{'Debian läuft, aber kein sleep-infinity-Prozess gefunden'}
+    }catch{$keeperDetail='Statusprüfung des Keeper-Prozesses fehlgeschlagen'}
+}
+$results.Add((New-StatusResult 'WSL-Keeper' $(if($keeperProcessAlive){'Läuft'}else{'Gestoppt'}) $keeperDetail))
+
 foreach($unit in @('valkey-server','uwsgi','nginx')){
-    if($runningDistros -notcontains 'Debian'){$results.Add((New-StatusResult $unit 'Gestoppt' 'Debian läuft nicht'));continue}
+    if(-not$debianRunning){$results.Add((New-StatusResult $unit 'Gestoppt' 'Debian läuft nicht'));continue}
     try{$state=((& wsl.exe -d Debian -- systemctl is-active $unit 2>$null)-join'').Trim();if($state-eq'active'){$results.Add((New-StatusResult $unit 'Läuft' 'active'))}elseif($state-in@('inactive','failed','deactivating','activating')){$results.Add((New-StatusResult $unit $(if($state-eq'failed'){'Fehler'}else{'Gestoppt'}) $state))}else{$results.Add((New-StatusResult $unit 'Fehler' $(if($state){$state}else{'Status unbekannt'})))}}catch{$results.Add((New-StatusResult $unit 'Fehler' $_.Exception.Message))}
 }
 

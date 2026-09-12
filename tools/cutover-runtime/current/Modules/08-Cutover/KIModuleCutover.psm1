@@ -309,7 +309,7 @@ function Install-KIModuleCutover {
     # already-installed target is permanently reported compliant/Skip for the whole bundle and
     # never actually receives the new generated content -- the exact same class of real defect
     # already confirmed and fixed for 'applications' in 2.18.1.
-    $marker=[pscustomobject][ordered]@{managedBy='KI-STACK-CUTOVER-MANAGED';schemaVersion='1.0';release='KI-Stack-Cutover-Execute-v1.6.15';installedAt=(Get-Date).ToString('o');transactionId=[string]$Context.Transaction.transactionId;moduleRoot=$root;readinessReport=$readinessPath}
+    $marker=[pscustomobject][ordered]@{managedBy='KI-STACK-CUTOVER-MANAGED';schemaVersion='1.0';release='KI-Stack-Cutover-Execute-v1.6.16';installedAt=(Get-Date).ToString('o');transactionId=[string]$Context.Transaction.transactionId;moduleRoot=$root;readinessReport=$readinessPath}
     Install-KICutoverManagedFile -Context $Context -RollbackState $rollback -Path ([string]$config.installationMarker) -Content ($marker|ConvertTo-Json -Depth 30)
     return [pscustomobject][ordered]@{success=$true;skipped=$false;message='Gesamtstarter, Stopper, Healthcheck und Readiness-Bericht wurden eingerichtet.';data=[pscustomobject][ordered]@{moduleRoot=$root;readinessReport=$readinessPath;initialHealth=$health;rollbackStatePath=(Get-KICutoverRollbackStatePath -Context $Context)}}
 }
