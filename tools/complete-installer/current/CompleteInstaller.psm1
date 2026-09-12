@@ -512,7 +512,7 @@ function Test-KICompleteOpenTerminalCompliant {
     # itself). Deliberately does NOT require the managed uv prerequisite or a running process --
     # both are separate runtime concerns (see OpenTerminal.psm1's own Test-KIOpenTerminal /
     # Get-KIOpenTerminalStatus split), never part of "is this package itself correctly deployed".
-    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.1.0')
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.1.1')
     $root=Join-Path $TargetRoot 'modules/open-terminal'
     $markerPath=Join-Path $root 'installation.json'
     $starter=Join-Path $root 'Start-KIStack-OpenTerminal.cmd'
@@ -1820,7 +1820,7 @@ function Invoke-KIStackCompleteInstaller {
                     $cutoverRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'CutoverRuntime' -Destination $extract
                     $kernel = Join-Path $cutoverRoot 'Invoke-KIStackBuilderKernel.ps1'
                     $preflightGenerator = Join-Path $cutoverRoot 'New-KIStackEmbeddedPreflight.ps1'
-                    $preflight = Join-Path ([string]$pathContext.TempRoot) 'generated/Preflight-Continuation-v1.6.14.zip'
+                    $preflight = Join-Path ([string]$pathContext.TempRoot) 'generated/Preflight-Continuation-v1.6.15.zip'
                     if (-not (Test-Path -LiteralPath $kernel -PathType Leaf) -or -not (Test-Path -LiteralPath $preflightGenerator -PathType Leaf)) {
                         throw 'Cutover-Kernel oder Preflight-Generator fehlt.'
                     }

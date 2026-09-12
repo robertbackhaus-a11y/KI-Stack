@@ -64,8 +64,26 @@ $results.Add((New-StatusResult 'RAG-Modul' $(if(Test-Path $ragMarker){'Läuft'}e
 # OpenTerminal.psm1's Test-KIOpenTerminalProcessIdentity, hier bewusst inline dupliziert (wie
 # bereits beim Codex-Local-Block oben) statt eines Cross-Package-Imports, da das isolierte
 # Open-Terminal-Paket selbst nicht neben diesem am TargetRoot bereitgestellten Skript liegt.
+# 2.18.2 hotfix, real reproduziert: `uv tool run open-terminal ...` uebergibt an den eigentlichen,
+# langlebigen Server-Prozess und beendet sich selbst kurz danach -- die urspruenglich erfasste PID
+# (die des `uv.exe`-Launchers) wird dadurch fast sofort veraltet, waehrend der reale Server unter
+# einer ANDEREN PID weiterlaeuft, als pip/uv-generierter Windows-Konsolenskript-Launcher, den
+# Win32_Process mit Name "python.exe" meldet (der Launcher ist buchstaeblich ein eingebetteter
+# Python-Interpreter), obwohl seine CommandLine weiterhin "open-terminal.exe run --host ... --port
+# ..." nennt. 'python.exe' gehoert daher jetzt zu den erlaubten Namen, und ein fehlender/veralteter
+# PID-Eintrag wird nicht mehr sofort als "Gestoppt" gewertet, sondern faellt auf eine identitaets-
+# geprüfte Portbesitzer-Ermittlung zurueck (niemals eine bloße Portpruefung als Gesundheitsnachweis).
+function Test-KIStackOpenTerminalIdentityForStatus {
+    param([Parameter(Mandatory)][int]$ProcessId,[Parameter(Mandatory)][int]$Port,[Parameter(Mandatory)][string]$WorkspacePath)
+    $proc=Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction SilentlyContinue
+    if($null-eq$proc){return $false}
+    if($proc.Name-notin@('uv.exe','uvx.exe','python.exe')){return $false}
+    $commandLine=[string]$proc.CommandLine
+    return ($commandLine-match'(?i)open-terminal')-and($commandLine-match[regex]::Escape("--port $Port")-or$commandLine-match[regex]::Escape("--port=$Port"))-and($commandLine-match[regex]::Escape($WorkspacePath))
+}
 $openTerminalMarker=Join-Path $targetRoot 'modules/open-terminal/installation.json'
 $openTerminalPidFile=Join-Path $targetRoot 'state/open-terminal/open-terminal.pid'
+$openTerminalWorkspace=Join-Path $targetRoot 'state/open-terminal/workspace'
 if(-not(Test-Path -LiteralPath $openTerminalMarker -PathType Leaf)){
     $results.Add((New-StatusResult 'Open Terminal' 'Gestoppt' 'Nicht installiert'))
 }else{
@@ -76,12 +94,13 @@ if(-not(Test-Path -LiteralPath $openTerminalMarker -PathType Leaf)){
         $otTrackedId=$null
         if(Test-Path -LiteralPath $openTerminalPidFile -PathType Leaf){
             $otRaw=(Get-Content -LiteralPath $openTerminalPidFile -Raw).Trim()
-            if($otRaw-match'^\d+$'){
-                $otProc=Get-CimInstance Win32_Process -Filter "ProcessId=$otRaw" -ErrorAction SilentlyContinue
-                $otCommandLine=if($null-ne$otProc){[string]$otProc.CommandLine}else{''}
-                if($null-ne$otProc-and$otProc.Name-in@('uvx.exe','uv.exe')-and$otCommandLine-match'(?i)open-terminal'-and($otCommandLine-match[regex]::Escape("--port $otPort")-or$otCommandLine-match[regex]::Escape("--port=$otPort"))){
-                    $otTrackedId=[int]$otRaw
-                }
+            if($otRaw-match'^\d+$'-and(Test-KIStackOpenTerminalIdentityForStatus -ProcessId ([int]$otRaw) -Port $otPort -WorkspacePath $openTerminalWorkspace)){
+                $otTrackedId=[int]$otRaw
+            }
+        }
+        if($null-eq$otTrackedId){
+            foreach($otOwner in @(Get-NetTCPConnection -LocalPort $otPort -State Listen -ErrorAction SilentlyContinue|Select-Object -ExpandProperty OwningProcess -Unique)){
+                if(Test-KIStackOpenTerminalIdentityForStatus -ProcessId ([int]$otOwner) -Port $otPort -WorkspacePath $openTerminalWorkspace){$otTrackedId=[int]$otOwner;break}
             }
         }
         if($null-eq$otTrackedId){

@@ -30,7 +30,7 @@ if($codexComponent.Count-ne1-or$codexComponent.version-ne'0.2.1'-or-not[bool]$co
 if($ragComponent.Count-ne1-or$ragComponent.version-ne'0.4.0'-or-not[bool]$ragComponent.installable){$fail.Add('RAG component')}
 if([int]$codexComponent.order-ge[int]$ragComponent.order){$fail.Add('Codex Local must deploy before RAG')}
 $openTerminalComponent=@($components.components|Where-Object id -eq 'open-terminal')
-if($openTerminalComponent.Count-ne1-or$openTerminalComponent.version-ne'0.1.0'-or-not[bool]$openTerminalComponent.installable){$fail.Add('Open Terminal component')}
+if($openTerminalComponent.Count-ne1-or$openTerminalComponent.version-ne'0.1.1'-or-not[bool]$openTerminalComponent.installable){$fail.Add('Open Terminal component')}
 if(@($openTerminalComponent.requires)-notcontains'python-git'){$fail.Add('Open Terminal must declare its real python-git/managed-uv prerequisite')}
 if([int]$ragComponent.order-ge[int]$openTerminalComponent.order){$fail.Add('RAG must deploy before Open Terminal')}
 $validationComponent = @($components.components | Where-Object id -eq 'validation-gate')

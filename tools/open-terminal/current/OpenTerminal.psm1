@@ -142,6 +142,21 @@ function Assert-KIOpenTerminalApiKey {
     @{ credential = (Get-KIOpenTerminalCredential -TargetRoot $TargetRoot); created = $true }
 }
 
+# 2.18.2 hotfix: the canonical set of real, legitimate process names for a KI-Stack-started Open
+# Terminal instance. Real, reproduced live: `uv tool run open-terminal ...` (uv's own documented
+# shorthand for `uvx open-terminal ...`) resolves/launches the tool and then hands off -- on
+# Windows this is a real child-process handoff, not a POSIX exec() replacing the same PID, and the
+# launching `uv.exe` process exits shortly after handoff. The PID Start-Process returns (uv.exe's)
+# therefore goes stale almost immediately, while the actual long-lived server keeps running under
+# a *different* PID, as a pip/uv-generated Windows console-script launcher -- which Win32_Process
+# reports with Name "python.exe" (it is literally an embedded-Python launcher binary) even though
+# its own CommandLine still names the "open-terminal.exe" console-script and the real `run --host
+# ... --port ...` arguments. All three names are real, legitimate identities the tracked process
+# can have at different points in its lifecycle (uv.exe/uvx.exe as the transient launcher, python.exe
+# as the final long-lived server) -- CommandLine + port + workspace path still gate the match, so
+# widening this set does not weaken identity verification.
+$script:KIOpenTerminalAllowedProcessNames = @('uv.exe', 'uvx.exe', 'python.exe')
+
 function Test-KIOpenTerminalProcessIdentity {
     # A PID number alone is never trusted (PIDs are reused by the OS) -- the live process's own
     # Name and CommandLine must still match what this module itself would have started, exactly
@@ -151,11 +166,10 @@ function Test-KIOpenTerminalProcessIdentity {
         [Parameter(Mandatory)][int]$ProcessId,
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][string]$WorkspacePath,
-        # uvx ships as its own binary (uvx.exe) as well as via `uv tool run` / `uv run` -- accept
-        # either real launcher name, never a bare heuristic on PID existence alone. Overridable
-        # ONLY so Test-KIStackOpenTerminal.ps1 can exercise this exact identity logic end to end
-        # against a real (non-uvx-named) local test process -- never overridden by any real caller.
-        [string[]]$AllowedNames = @('uvx.exe', 'uv.exe')
+        # Overridable ONLY so Test-KIStackOpenTerminal.ps1 can exercise this exact identity logic
+        # end to end against a real (non-default-named) local test process -- never overridden by
+        # any real caller, which always gets $script:KIOpenTerminalAllowedProcessNames.
+        [string[]]$AllowedNames = $script:KIOpenTerminalAllowedProcessNames
     )
     $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction SilentlyContinue
     if ($null -eq $proc) { return $false }
@@ -166,16 +180,45 @@ function Test-KIOpenTerminalProcessIdentity {
            ($commandLine -match [regex]::Escape($WorkspacePath))
 }
 
-function Get-KIOpenTerminalTrackedProcessId {
-    # Reads the PID file and returns the live, identity-verified process id, or $null. Never
-    # mutates the PID file itself (callers that find a stale one decide whether to clean it up).
-    param([Parameter(Mandatory)][object]$Paths, [Parameter(Mandatory)][object]$Config, [string[]]$AllowedNames = @('uvx.exe', 'uv.exe'))
-    if (-not (Test-Path -LiteralPath $Paths.pidFile -PathType Leaf)) { return $null }
-    $raw = (Get-Content -LiteralPath $Paths.pidFile -Raw).Trim()
-    if ($raw -notmatch '^\d+$') { return $null }
-    $candidate = [int]$raw
-    if (Test-KIOpenTerminalProcessIdentity -ProcessId $candidate -Port ([int]$Config.port) -WorkspacePath $Paths.workspace -AllowedNames $AllowedNames) { return $candidate }
+function Get-KIOpenTerminalPortOwnerProcessId {
+    # Fallback discovery for when the PID file is missing, stale, or points at an identity
+    # mismatch: looks up the real, current owner of the configured TCP port and identity-verifies
+    # it exactly like a PID-file candidate -- never a bare "something is listening on this port"
+    # port check (a health-only probe could not tell a genuine Open Terminal instance apart from
+    # an unrelated process that happens to occupy the same port after a crash/restart). Returns
+    # $null if no listener on the port passes identity verification.
+    param(
+        [Parameter(Mandatory)][object]$Config,
+        [Parameter(Mandatory)][string]$WorkspacePath,
+        [string[]]$AllowedNames = $script:KIOpenTerminalAllowedProcessNames
+    )
+    $owners = @(Get-NetTCPConnection -LocalPort ([int]$Config.port) -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -ExpandProperty OwningProcess -Unique)
+    foreach ($owner in $owners) {
+        if (Test-KIOpenTerminalProcessIdentity -ProcessId ([int]$owner) -Port ([int]$Config.port) -WorkspacePath $WorkspacePath -AllowedNames $AllowedNames) {
+            return [int]$owner
+        }
+    }
     return $null
+}
+
+function Get-KIOpenTerminalTrackedProcessId {
+    # Reads the PID file and returns the live, identity-verified process id. Never mutates the PID
+    # file itself (callers that find a stale one decide whether to clean it up). 2.18.2 hotfix: a
+    # missing or identity-mismatched PID file no longer immediately means "not running" -- falls
+    # back to Get-KIOpenTerminalPortOwnerProcessId (still fully identity-verified, never a bare
+    # port check) so a real, healthy instance is not falsely reported stopped just because its PID
+    # file went stale (e.g. the uv.exe-to-python.exe handoff above, or an externally restarted
+    # process whose PID file was never updated).
+    param([Parameter(Mandatory)][object]$Paths, [Parameter(Mandatory)][object]$Config, [string[]]$AllowedNames = $script:KIOpenTerminalAllowedProcessNames)
+    if (Test-Path -LiteralPath $Paths.pidFile -PathType Leaf) {
+        $raw = (Get-Content -LiteralPath $Paths.pidFile -Raw).Trim()
+        if ($raw -match '^\d+$') {
+            $candidate = [int]$raw
+            if (Test-KIOpenTerminalProcessIdentity -ProcessId $candidate -Port ([int]$Config.port) -WorkspacePath $Paths.workspace -AllowedNames $AllowedNames) { return $candidate }
+        }
+    }
+    return Get-KIOpenTerminalPortOwnerProcessId -Config $Config -WorkspacePath $Paths.workspace -AllowedNames $AllowedNames
 }
 
 function Test-KIOpenTerminalHealthy {
@@ -194,8 +237,17 @@ function Test-KIOpenTerminalHealthy {
 function Wait-KIOpenTerminalHealthy {
     # Bounded wait: polls Test-KIOpenTerminalHealthy every intervalSeconds up to timeoutSeconds
     # total. Never waits forever -- always returns a clear passed/failed verdict, and fails fast
-    # if the just-started process has already exited (never waits out the full timeout for a
-    # process that is provably already dead).
+    # if the just-started process has already exited with a non-zero exit code (never waits out
+    # the full timeout for a process that is provably already dead/crashed).
+    # 2.18.2 hotfix: a CLEAN exit (code 0) of $Process is no longer treated as fail-fast. Real,
+    # reproduced live: `uv tool run open-terminal ...` (uv's own documented shorthand for `uvx
+    # open-terminal ...`) legitimately hands off to the tool's own long-lived process and exits
+    # itself -- with exit code 0 -- often before that real server has finished starting and
+    # answering health checks. Treating that clean handoff exit as a failure could abort a
+    # perfectly healthy start; the bounded overall timeout below is still the only wait limit, so
+    # this never risks an infinite wait -- it only stops giving up early on a launcher that was
+    # never meant to keep running in the first place. A genuine crash (non-zero exit code) still
+    # fails fast exactly as before.
     param(
         [Parameter(Mandatory)][object]$Config,
         [Diagnostics.Process]$Process
@@ -207,7 +259,7 @@ function Wait-KIOpenTerminalHealthy {
     do {
         $probe = Test-KIOpenTerminalHealthy -Config $Config -RequestTimeoutSeconds $requestTimeoutSeconds
         if ([bool]$probe.reachable) { return [pscustomobject]@{ passed = $true; probe = $probe } }
-        if ($null -ne $Process -and $Process.HasExited) {
+        if ($null -ne $Process -and $Process.HasExited -and [int]$Process.ExitCode -ne 0) {
             return [pscustomobject]@{ passed = $false; probe = $probe; reason = "Open-Terminal-Prozess wurde vorzeitig mit Exitcode $($Process.ExitCode) beendet." }
         }
         Start-Sleep -Seconds $intervalSeconds
@@ -296,7 +348,7 @@ function Start-KIOpenTerminal {
         # behavior (real managed uv, real Get-KIOpenTerminalStartArguments contract) is unchanged.
         [string]$CommandOverride = '',
         [string[]]$ArgumentsOverride = $null,
-        [string[]]$AllowedProcessNames = @('uv.exe', 'python.exe'),
+        [string[]]$AllowedProcessNames = $script:KIOpenTerminalAllowedProcessNames,
         # Test-only seam: inject a config object (e.g. pinned to a free ephemeral port) instead
         # of reading Config/open-terminal.config.json -- never used by any real caller, which
         # always gets the real, on-disk package configuration.
@@ -342,7 +394,6 @@ function Start-KIOpenTerminal {
         $env:OPEN_TERMINAL_API_KEY = $previousEnv
         $plainKey = $null
     }
-    Set-Content -LiteralPath $paths.pidFile -Value ([string]$process.Id) -Encoding ascii
 
     $health = Wait-KIOpenTerminalHealthy -Config $config -Process $process
     if (-not [bool]$health.passed) {
@@ -352,14 +403,26 @@ function Start-KIOpenTerminal {
         Remove-Item -LiteralPath $paths.pidFile -Force -ErrorAction SilentlyContinue
         return [pscustomobject]@{ passed = $false; status = 'Failed'; reason = $health.reason; processId = $process.Id; mutatesTarget = $true }
     }
-    [pscustomobject]@{ passed = $true; status = 'Started'; processId = $process.Id; endpoint = $health.probe.uri; apiKeyCreated = [bool]$ensured.created; mutatesTarget = $true }
+    # 2.18.2 hotfix: only NOW -- once /openapi.json has proven a real server is answering -- is the
+    # PID actually persisted, and it is the real, identity-verified PORT OWNER, not necessarily
+    # $process.Id. `uv tool run` (real, reproduced live) hands off to the tool's own long-lived
+    # process and exits itself, so $process.Id (uv.exe's PID) can already be stale by the time
+    # health passes; Get-KIOpenTerminalPortOwnerProcessId finds whichever real, identity-verified
+    # process actually holds the port right now. Falls back to $process.Id only if that lookup
+    # cannot identity-verify anything (e.g. $resolvedCommand/$ArgumentsOverride itself IS the final
+    # long-lived process, as every existing CommandOverride-based test fixture does), so this is
+    # never a behavior change for a launcher that never hands off.
+    $listenerProcessId = Get-KIOpenTerminalPortOwnerProcessId -Config $config -WorkspacePath $paths.workspace -AllowedNames $AllowedProcessNames
+    $trackedProcessId = if ($null -ne $listenerProcessId) { $listenerProcessId } else { [int]$process.Id }
+    Set-Content -LiteralPath $paths.pidFile -Value ([string]$trackedProcessId) -Encoding ascii
+    [pscustomobject]@{ passed = $true; status = 'Started'; processId = $trackedProcessId; endpoint = $health.probe.uri; apiKeyCreated = [bool]$ensured.created; mutatesTarget = $true }
 }
 
 function Stop-KIOpenTerminal {
     # Stops ONLY the identity-verified, KI-Stack-tracked Open Terminal process -- never a
     # pauschal `Stop-Process -Name uvx`/python/uv sweep. A missing or stale PID file is treated
     # as "already stopped", never an error.
-    param([string]$PackageRoot = $PSScriptRoot, [string]$TargetRoot = 'C:\KI-Stack', [string[]]$AllowedProcessNames = @('uvx.exe', 'uv.exe'), [object]$ConfigOverride = $null)
+    param([string]$PackageRoot = $PSScriptRoot, [string]$TargetRoot = 'C:\KI-Stack', [string[]]$AllowedProcessNames = $script:KIOpenTerminalAllowedProcessNames, [object]$ConfigOverride = $null)
     $config = if ($null -ne $ConfigOverride) { $ConfigOverride } else { Get-KIOpenTerminalConfig -PackageRoot $PackageRoot }
     $paths = Get-KIOpenTerminalPaths -TargetRoot $TargetRoot
     $trackedId = Get-KIOpenTerminalTrackedProcessId -Paths $paths -Config $config -AllowedNames $AllowedProcessNames
@@ -372,7 +435,7 @@ function Stop-KIOpenTerminal {
 function Get-KIOpenTerminalStatus {
     # Read-only. Never includes the API key. State: Running (tracked + healthy) / Failed
     # (tracked but not answering /openapi.json) / Stopped (nothing tracked).
-    param([string]$PackageRoot = $PSScriptRoot, [string]$TargetRoot = 'C:\KI-Stack', [string[]]$AllowedProcessNames = @('uvx.exe', 'uv.exe'), [object]$ConfigOverride = $null)
+    param([string]$PackageRoot = $PSScriptRoot, [string]$TargetRoot = 'C:\KI-Stack', [string[]]$AllowedProcessNames = $script:KIOpenTerminalAllowedProcessNames, [object]$ConfigOverride = $null)
     $config = if ($null -ne $ConfigOverride) { $ConfigOverride } else { Get-KIOpenTerminalConfig -PackageRoot $PackageRoot }
     $paths = Get-KIOpenTerminalPaths -TargetRoot $TargetRoot
     $endpoint = "http://$($config.host):$($config.port)"

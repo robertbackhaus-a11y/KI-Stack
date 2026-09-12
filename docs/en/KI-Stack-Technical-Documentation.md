@@ -16,11 +16,11 @@ The current 2.18 architecture includes the MCP Runtime introduced in 2.15 as the
 | Models / Workflows | 2.0.3 |
 | Applications | 1.4.12 |
 | Integration | 1.5.11 |
-| Cutover Runtime | 1.6.14 |
+| Cutover Runtime | 1.6.15 |
 | Codex Local | 0.2.1 |
 | RAG | 0.4.0 |
 | MCP Runtime | 0.1.0 |
-| Open Terminal | 0.1.0 |
+| Open Terminal | 0.1.1 |
 | WinApp | 0.6.1 |
 | Desktop Control | 0.1.0 |
 | Production Recovery | 1.7.0-r7 |
@@ -97,7 +97,7 @@ Memory is stored in Open WebUI's `webui.db`, is user-scoped, and can be reused a
 
 ## Open Terminal
 
-Open Terminal `0.1.0` remains a self-contained, fully supported Complete Installer component. Since 2.15 it is no longer the default terminal/host-control integration for production MCP-enabled profiles; MCP Runtime is the primary path.
+Open Terminal `0.1.1` remains a self-contained, fully supported Complete Installer component. Since 2.15 it is no longer the default terminal/host-control integration for production MCP-enabled profiles; MCP Runtime is the primary path.
 
 Open Terminal remains available as an explicit fallback and rollback path at `http://127.0.0.1:8000`. It uses the managed Python/uv runtime, its own persistent DPAPI-protected API key, bounded readiness checks, process-identity verification, and the central KI-Stack Start/Stop/Status lifecycle.
 
