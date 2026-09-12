@@ -325,14 +325,37 @@ $ErrorActionPreference='Stop'
 $distribution='__DISTRO__'
 $pidFile='__PID_FILE__'
 $wsl=(Get-Command wsl.exe -ErrorAction Stop).Source
-$keeperAlive=$false
-if(Test-Path -LiteralPath $pidFile -PathType Leaf){
-  $keeperPid=[int](Get-Content -LiteralPath $pidFile -Raw)
-  $keeperAlive=$null -ne (Get-Process -Id $keeperPid -ErrorAction SilentlyContinue)
+# 2.18.2 hotfix (real, reproduced defect, verified live against a real Debian WSL instance):
+# launching the keeper via '-u root -- bash -lc "exec sleep infinity"' opens a login shell
+# (bash -l); on this real target the wsl.exe launcher itself exited within ~1 second of being
+# started and the exec'ed sleep process never survived past that, so Debian fell back to Stopped
+# shortly after Get-KIStackStatus.ps1 had reported it Running. '--exec /bin/sleep infinity' runs
+# the binary directly, with no shell and no login session, and was confirmed durably stable (both
+# the Windows launcher and the in-Debian process) over repeated real checks. The Windows-side
+# launcher PID recorded below is informational/best-effort only -- Test-KIWslKeeperProcessAlive
+# is the only thing that decides whether a keeper is already alive, so a stale or missing PID can
+# never make a real, still-running keeper look Stopped.
+function Test-KIWslDebianRunning {
+  $running=@((& $wsl --list --running --quiet 2>$null)|ForEach-Object{$_.Trim([char]0).Trim()}|Where-Object{$_})
+  return $running -contains $distribution
 }
-if(-not $keeperAlive){
-  $keeper=Start-Process -FilePath $wsl -ArgumentList @('-d',$distribution,'-u','root','--','bash','-lc','exec sleep infinity') -WindowStyle Hidden -PassThru
+function Test-KIWslKeeperProcessAlive {
+  if(-not(Test-KIWslDebianRunning)){return $false}
+  $pgrepOutput=@(& $wsl -d $distribution -- pgrep -f 'sleep infinity' 2>$null)
+  return ($LASTEXITCODE-eq0)-and(@($pgrepOutput|Where-Object{$_-match'^\d+$'}).Count-gt0)
+}
+if(Test-Path -LiteralPath $pidFile -PathType Leaf){
+  $rawPid=(Get-Content -LiteralPath $pidFile -Raw).Trim()
+  if($rawPid-notmatch'^\d+$'-or$null-eq(Get-Process -Id([int]$rawPid)-ErrorAction SilentlyContinue)){
+    Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue
+  }
+}
+if(-not(Test-KIWslKeeperProcessAlive)){
+  $keeper=Start-Process -FilePath $wsl -ArgumentList @('-d',$distribution,'--exec','/bin/sleep','infinity') -WindowStyle Hidden -PassThru
   Set-Content -LiteralPath $pidFile -Value ([string]$keeper.Id) -Encoding ascii
+  $keeperDeadline=(Get-Date).AddSeconds(15)
+  do{ if(Test-KIWslKeeperProcessAlive){break}; Start-Sleep -Milliseconds 500 } while((Get-Date) -lt $keeperDeadline)
+  if(-not(Test-KIWslKeeperProcessAlive)){throw 'WSL-Keeper (sleep infinity in Debian) konnte nicht gestartet werden oder ist nicht dauerhaft aktiv.'}
 }
 $output=@(& $wsl -d $distribution -u root -- bash -lc 'systemctl start valkey-server nginx; if systemctl list-unit-files ki-stack-searxng.service --no-legend 2>/dev/null | grep -q ki-stack; then systemctl start ki-stack-searxng; fi' 2>&1)
 if($LASTEXITCODE-ne 0){throw ('Linux-Dienste konnten nicht gestartet werden: '+($output-join ' | '))}
@@ -346,8 +369,15 @@ throw 'SearXNG ist nach 30 Sekunden nicht erreichbar.'
 param()
 Set-StrictMode -Version Latest
 $distribution='__DISTRO__';$pidFile='__PID_FILE__';$wsl=(Get-Command wsl.exe -ErrorAction Stop).Source
-& $wsl -d $distribution -u root -- bash -lc 'systemctl stop ki-stack-searxng 2>/dev/null || true' 2>$null|Out-Null
-if(Test-Path -LiteralPath $pidFile -PathType Leaf){$keeperPid=[int](Get-Content -LiteralPath $pidFile -Raw);Stop-Process -Id $keeperPid -Force -ErrorAction SilentlyContinue;Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue}
+$distributionRunning=@((& $wsl --list --running --quiet 2>$null)|ForEach-Object{$_.Trim([char]0).Trim()}|Where-Object{$_}) -contains $distribution
+if($distributionRunning){
+  & $wsl -d $distribution -u root -- bash -lc 'systemctl stop ki-stack-searxng 2>/dev/null || true' 2>$null|Out-Null
+  # Kills the real in-Debian keeper process directly -- the Windows-side wsl.exe launcher PID in
+  # $pidFile is best-effort/informational only and may already be gone even while the keeper is
+  # still alive, so it is never the sole stop mechanism (see Start-KIStack-SearXNG.ps1).
+  & $wsl -d $distribution -- pkill -f 'sleep infinity' 2>$null|Out-Null
+}
+if(Test-Path -LiteralPath $pidFile -PathType Leaf){$rawPid=(Get-Content -LiteralPath $pidFile -Raw).Trim();if($rawPid-match'^\d+$'){Stop-Process -Id([int]$rawPid) -Force -ErrorAction SilentlyContinue};Remove-Item -LiteralPath $pidFile -Force -ErrorAction SilentlyContinue}
 Write-Host 'SearXNG/WSL-Keeper wurde beendet.'
 '@
     $stopPs=$stopPs.Replace('__DISTRO__',$distribution.Replace("'","''")).Replace('__PID_FILE__',([string]$config.keeperPidFile).Replace("'","''"))

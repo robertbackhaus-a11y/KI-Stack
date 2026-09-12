@@ -493,8 +493,27 @@ if (`$matchingProcesses.Count -eq 0) {
     exit 0
 }
 foreach (`$processEntry in `$matchingProcesses) {
-    Stop-Process -Id ([int]`$processEntry.ProcessId) -Force -ErrorAction Stop
-    Write-Host ('ComfyUI-Prozess beendet: PID {0}' -f `$processEntry.ProcessId)
+    # 2.18.2 hotfix, real reproduziert: zwischen der Enumeration oben und dem Stop-Process-Aufruf
+    # hier kann der Prozess bereits von selbst beendet worden sein (Race), was Stop-Process mit
+    # -ErrorAction Stop sonst als Fehler wirft und das gesamte Stop-Skript unnoetig fehlschlagen
+    # laesst, obwohl der gewuenschte Endzustand (Prozess nicht mehr da) bereits erreicht ist. Ein
+    # bereits verschwundener Prozess ist ein erfolgreicher Zustand, nie ein Fehler -- ein echter
+    # Stop-Fehler (Prozess existiert noch, laesst sich aber nicht beenden) wird weiterhin gemeldet.
+    `$processId = [int]`$processEntry.ProcessId
+    if (-not (Get-Process -Id `$processId -ErrorAction SilentlyContinue)) {
+        Write-Host ('ComfyUI-Prozess bereits beendet: PID {0}' -f `$processId)
+        continue
+    }
+    try {
+        Stop-Process -Id `$processId -Force -ErrorAction Stop
+        Write-Host ('ComfyUI-Prozess beendet: PID {0}' -f `$processId)
+    } catch {
+        if (-not (Get-Process -Id `$processId -ErrorAction SilentlyContinue)) {
+            Write-Host ('ComfyUI-Prozess bereits beendet: PID {0}' -f `$processId)
+        } else {
+            throw
+        }
+    }
 }
 "@
 

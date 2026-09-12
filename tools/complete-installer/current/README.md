@@ -1,8 +1,8 @@
-# KI-Stack Complete Installer 2.18.0
+# KI-Stack Complete Installer 2.18.2
 
-`KI-Stack-Complete-Installer-v2.18.0.zip` is the current published Complete Installer package.
+`KI-Stack-Complete-Installer-v2.18.2.zip` is the current published Complete Installer package.
 
-The current package provides the complete managed KI-Stack state through release 2.18.0. Its current architecture includes:
+The current package provides the complete managed KI-Stack state through release 2.18.2. Its current architecture includes:
 
 - Open WebUI `0.11.3` as reference/minimum supported version; supported newer installations are preserved and never automatically downgraded.
 - ComfyUI `v0.34.0` as reference/minimum supported version; supported newer installations are preserved.
@@ -14,7 +14,7 @@ The current package provides the complete managed KI-Stack state through release
 - Ballistics Pack `1.0.0`.
 - MCP Runtime `0.1.0` as the primary terminal/host-control backend for MCP-enabled profiles on `127.0.0.1:8021`.
 - Local Control on the existing MCP Runtime, with no second Windows-control runtime, port, or credential.
-- Open Terminal `0.1.0` remains fully managed and lifecycle-integrated as a supported fallback/rollback backend; MCP Runtime is the primary terminal/host-control path for production MCP-enabled profiles.
+- Open Terminal `0.1.1` remains fully managed and lifecycle-integrated as a supported fallback/rollback backend; MCP Runtime is the primary terminal/host-control path for production MCP-enabled profiles.
 - Native Open WebUI Memory for the managed profiles defined by the Agent Pack policy.
 - Central persistent Open WebUI credential bootstrap with DPAPI-protected local storage.
 - Component Isolation, internal component version registry, deterministic release packaging, PackageSelfTest, and automatic Release Attestation.
@@ -27,7 +27,7 @@ Memory policy in the current package:
 
 The 2.17 database-protection contract includes online `webui.db` backup using SQLite `VACUUM INTO`, integrity validation, controlled restore tooling, pre-restore safety backup, WAL/SHM handling, and post-restore health verification.
 
-Validation claims remain scope-specific. The last complete physical empty-target Windows Greenfield installation was performed with 2.4.0. Later releases through 2.18.0 add repository regression, deterministic package, component, upgrade/reconcile, and real-target acceptance evidence without claiming a newer complete Greenfield run.
+Validation claims remain scope-specific. The last complete physical empty-target Windows Greenfield installation was performed with 2.4.0. Later releases through 2.18.2 add repository regression, deterministic package, component, upgrade/reconcile, and real-target acceptance evidence without claiming a newer complete Greenfield run.
 - Heretic is the only chat LLM.
 - Nomic is embedding-only.
 - Z-Image uses only `Qwen3-4b-Z-Image-Engineer-V4-Q8_0.gguf`.

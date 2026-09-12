@@ -1,4 +1,4 @@
-# KI-Stack 2.18.0 – Betriebs- und Benutzerhandbuch
+# KI-Stack 2.18.2 – Betriebs- und Benutzerhandbuch
 
 ## Normalbetrieb
 
@@ -107,7 +107,7 @@ Ein reales Online-Backup der Produktionsdatenbank wurde durchgeführt. Die kontr
 
 ## Open-Terminal-Fallback
 
-Open Terminal `0.1.0` bleibt installiert, unterstützt, über den Lifecycle verwaltet und unter `http://127.0.0.1:8000` verfügbar, ist aber nicht mehr der Standardpfad für Terminal-/Host-Control produktiver MCP-fähiger Profile.
+Open Terminal `0.1.1` bleibt installiert, unterstützt, über den Lifecycle verwaltet und unter `http://127.0.0.1:8000` verfügbar, ist aber nicht mehr der Standardpfad für Terminal-/Host-Control produktiver MCP-fähiger Profile.
 
 Open Terminal nur noch als ausdrücklichen Fallback- oder Rollback-Pfad verwenden.
 
@@ -180,7 +180,7 @@ Fehlt das Credential, ist es ungültig, nicht prüfbar oder besitzt keine Admini
 
 ## Wartung: Reconcile- und Wiederholungslauf-Verhalten
 
-Ein erneuter Upgrade-/Repair-/Audit-Lauf auf einem bereits installierten Ziel ist ein normaler, unterstützter Vorgang. Stand Cutover Runtime 1.6.14 und OpenWebUI Agent Pack 1.9.0:
+Ein erneuter Upgrade-/Repair-/Audit-Lauf auf einem bereits installierten Ziel ist ein normaler, unterstützter Vorgang. Stand Cutover Runtime 1.6.16 und OpenWebUI Agent Pack 1.9.0:
 
 - **Die Neuerzeugung von Integrations OpenWebUI-mit-Suche-Starter löscht RAGs Embedding-Präfix-Zeile nicht mehr.** Integration erzeugt `Start-KIStack-OpenWebUI-WithSearch.cmd` bei jedem Install-/Upgrade-/Repair-Lauf bedingungslos neu; eine reale Regression löschte zuvor eine bereits eingebundene RAG-Zeile (`call "...\OpenWebUI-RAG.env.cmd"`) still, sobald Integration ohne RAG in derselben Transaktion reconciled wurde. Diese Zeile bleibt jetzt bei jeder Neuerzeugung erhalten.
 - **Agent-Pack-Reconcile ersetzt `meta` eines verwalteten Profils nicht mehr pauschal.** OpenWebUIs eigener Modell-Update-Endpunkt ersetzt `meta` statt sie zu mergen; das Agent Pack merged jetzt selbst vor jedem Create/Update, sodass ein live/über die UI ergänzter Wert bei `capabilities`, `builtinTools`, `access_grants` oder `profile_image_url` eines bereits verwalteten Profils einen Reconcile unangetastet übersteht, während nur die tatsächlich paketverwalteten Felder (Name, Basismodell, Systemprompt, Tool-/Knowledge-Bindungen usw.) erneut erzwungen werden.
@@ -228,7 +228,7 @@ Eine erstmalige WSL2-Aktivierung auf einer wirklich leeren Maschine kann einen W
 - **SearXNG scheint nicht erreichbar**: in der WSL-Debian-Instanz `systemctl status ki-stack-searxng uwsgi nginx valkey-server` prüfen; dass entweder `ki-stack-searxng` oder `uwsgi` aktiv und auf Port 8888 gesund ist, ist ein gültiger, erwarteter Zustand.
 - **Ein OpenWebUI-API-abhängiger Schritt meldet einen Credential-bezogenen Pending-/Blocked-Zustand**: `Test-KIStackOpenWebUICredential.ps1` ausführen. Existiert kein gültiges Credential, dieses mit `Initialize-KIStackOpenWebUICredential.ps1` bootstrappen; nicht auf einen separat gepflegten temporären API-Key zurückfallen.
 
-Die letzte vollständige, erfolgreiche, reale Greenfield-Installation auf einem leeren Zielsystem wurde mit Complete Installer 2.4.0 verifiziert. Die späteren Releases bis 2.18.0 ergänzen Regression-, Paket-, Komponenten-, Upgrade-/Reconcile- und Real-Target-Nachweise, behaupten jedoch keinen neueren vollständigen Windows-Greenfield-Lauf auf einem leeren Zielsystem.
+Die letzte vollständige, erfolgreiche, reale Greenfield-Installation auf einem leeren Zielsystem wurde mit Complete Installer 2.4.0 verifiziert. Die späteren Releases bis 2.18.2 ergänzen Regression-, Paket-, Komponenten-, Upgrade-/Reconcile- und Real-Target-Nachweise, behaupten jedoch keinen neueren vollständigen Windows-Greenfield-Lauf auf einem leeren Zielsystem.
 
 ## Bekannte offene Punkte
 

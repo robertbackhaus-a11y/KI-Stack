@@ -17,6 +17,12 @@ param(
     [string]$TargetRoot = 'C:\KI-Stack',
     [string]$KIStackRoot,
     [Parameter(ParameterSetName = 'Lifecycle')][string]$BackupPath,
+    # Optional, transaction-bound backup root for Install/Upgrade/Repair (2.18.1 hotfix). When set,
+    # Install-KIDesktopControl creates its backup exclusively under this root instead of its own
+    # standalone <TargetRoot>\backups\desktop-control\<timestamp> scheme -- so a caller that owns
+    # its own recovery contract (the Complete Installer's transaction-scoped BackupRoot) gets a
+    # BackupPath its own recovery logic actually accepts. Omitted => unchanged standalone behavior.
+    [Parameter(ParameterSetName = 'Lifecycle')][string]$BackupRoot,
     [Parameter(ParameterSetName = 'Lifecycle')][switch]$DryRun
 )
 # Operator / Complete-Installer entry point. Exposes ONLY the semantic operation set plus the
@@ -42,9 +48,9 @@ if ($PSCmdlet.ParameterSetName -eq 'Operation') {
         'Audit' { Test-KIDesktopControl -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot -KIStackRoot $KIStackRoot }
         'Validate' { Test-KIDesktopControl -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot -KIStackRoot $KIStackRoot }
         'Status' { Get-KIDesktopControlStatus -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot -KIStackRoot $KIStackRoot }
-        'Install' { Install-KIDesktopControl -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot -Action 'Install' -DryRun:$DryRun }
-        'Upgrade' { Install-KIDesktopControl -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot -Action 'Upgrade' -DryRun:$DryRun }
-        'Repair' { Install-KIDesktopControl -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot -Action 'Repair' -DryRun:$DryRun }
+        'Install' { Install-KIDesktopControl -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot -Action 'Install' -BackupRoot $BackupRoot -DryRun:$DryRun }
+        'Upgrade' { Install-KIDesktopControl -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot -Action 'Upgrade' -BackupRoot $BackupRoot -DryRun:$DryRun }
+        'Repair' { Install-KIDesktopControl -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot -Action 'Repair' -BackupRoot $BackupRoot -DryRun:$DryRun }
         'Rollback' { Restore-KIDesktopControl -BackupPath $BackupPath -PackageRoot $PSScriptRoot -TargetRoot $TargetRoot }
     }
 }

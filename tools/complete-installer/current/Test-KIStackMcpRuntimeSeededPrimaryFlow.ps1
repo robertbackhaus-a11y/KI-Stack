@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 # at 160 and mcp-runtime at 170) as needing reconciliation -- Get-KICompleteInstalledVersion's
 # frozen acceptedVersions map pins it at '1.6.10' forever, by deliberate design (see that
 # function's own comment: bumping it to match a newer pin previously caused a real, silent
-# reconciliation-skip bug), while Contracts/COMPONENTS.json's real pin is '1.6.14'. Confirmed
+# reconciliation-skip bug), while Contracts/COMPONENTS.json's real pin is '1.6.16'. Confirmed
 # empirically against the REAL production target (2026-09-05, read-only Audit): 'cutover-runtime'
 # shows installedVersion=1.6.10, compliant=false there too, exactly like a fresh scratch target.
 # This forces the elevation-gated Invoke-KIStackBuilderKernel.ps1 child process to run on EVERY

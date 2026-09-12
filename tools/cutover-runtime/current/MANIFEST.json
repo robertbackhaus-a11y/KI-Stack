@@ -1,8 +1,8 @@
 {
   "schemaVersion": "1.0",
   "packageId": "KI-STACK-CUTOVER-RUNTIME",
-  "version": "1.6.14",
-  "releaseId": "CUTOVER-1.6.14",
+  "version": "1.6.16",
+  "releaseId": "CUTOVER-1.6.16",
   "status": "StaticPendingValidation_TargetPending",
   "embeddedHistoricalState": false,
   "preflightContract": {

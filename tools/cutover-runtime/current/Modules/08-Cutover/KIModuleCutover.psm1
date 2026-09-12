@@ -300,7 +300,16 @@ function Install-KIModuleCutover {
     $readiness=[pscustomobject][ordered]@{schemaVersion='1.0';release=[string]$Context.Config.executeRelease.releaseId;transactionId=[string]$Context.Transaction.transactionId;generatedAt=(Get-Date).ToString('o');requiredSourcesPresent=$true;liveEndpointsRequired=[bool]$config.requireLiveEndpointsDuringExecute;health=$health}
     $readinessPath=Join-Path $reportRoot 'Readiness-latest.json'
     Install-KICutoverManagedFile -Context $Context -RollbackState $rollback -Path $readinessPath -Content ($readiness|ConvertTo-Json -Depth 50)
-    $marker=[pscustomobject][ordered]@{managedBy='KI-STACK-CUTOVER-MANAGED';schemaVersion='1.0';release='KI-Stack-Cutover-Execute-v1.6.14';installedAt=(Get-Date).ToString('o');transactionId=[string]$Context.Transaction.transactionId;moduleRoot=$root;readinessReport=$readinessPath}
+    # 2.18.2 hotfix: this release string MUST be bumped whenever any module this shared
+    # BuilderKernel bundle owns (e.g. 04-ComfyUI's generated stop-script content) changes --
+    # Complete Installer's compliance check for 'cutover-runtime' compares its
+    # Contracts/COMPONENTS.json pin against exactly this string as read back from an existing
+    # target's own modules/cutover/installation.json (Get-KICompleteInstalledVersion's dedicated
+    # live-marker case for this component id). An unbumped release string here means an
+    # already-installed target is permanently reported compliant/Skip for the whole bundle and
+    # never actually receives the new generated content -- the exact same class of real defect
+    # already confirmed and fixed for 'applications' in 2.18.1.
+    $marker=[pscustomobject][ordered]@{managedBy='KI-STACK-CUTOVER-MANAGED';schemaVersion='1.0';release='KI-Stack-Cutover-Execute-v1.6.16';installedAt=(Get-Date).ToString('o');transactionId=[string]$Context.Transaction.transactionId;moduleRoot=$root;readinessReport=$readinessPath}
     Install-KICutoverManagedFile -Context $Context -RollbackState $rollback -Path ([string]$config.installationMarker) -Content ($marker|ConvertTo-Json -Depth 30)
     return [pscustomobject][ordered]@{success=$true;skipped=$false;message='Gesamtstarter, Stopper, Healthcheck und Readiness-Bericht wurden eingerichtet.';data=[pscustomobject][ordered]@{moduleRoot=$root;readinessReport=$readinessPath;initialHealth=$health;rollbackStatePath=(Get-KICutoverRollbackStatePath -Context $Context)}}
 }

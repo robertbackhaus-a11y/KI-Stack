@@ -1,6 +1,6 @@
-# KI-Stack 2.18.0 – Technische Dokumentation
+# KI-Stack 2.18.2 – Technische Dokumentation
 
-KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Installer `2.18.0` ist das aktuell veröffentlichte GitHub-Release.
+KI-Stack ist ein transaktionsgesicherter lokaler Windows-KI-Stack. Complete Installer `2.18.2` ist das aktuell veröffentlichte GitHub-Release.
 
 Der Validierungsstand muss nach Umfang getrennt betrachtet werden: Die letzte vollständige physische Greenfield-Installation auf einem leeren Windows-Zielsystem wurde mit 2.4.0 durchgeführt und verifiziert; Complete Installer 2.10.0 bleibt der dokumentierte Referenzlauf für Gesamt-Regression plus reales Zielsystem. Spätere Releases ergänzten weitere reale Zielsystem-, Komponenten-, Upgrade-/Reconcile-, Security- und Paketvalidierungen, ohne damit einen neueren vollständigen Windows-Greenfield-Lauf auf einem leeren Zielsystem zu behaupten.
 
@@ -14,13 +14,13 @@ Die aktuelle 2.18-Architektur umfasst den mit 2.15 eingeführten MCP Runtime als
 | Python / Git | 1.1.5 |
 | ComfyUI | 1.2.4 |
 | Models / Workflows | 2.0.3 |
-| Applications | 1.4.11 |
-| Integration | 1.5.11 |
-| Cutover Runtime | 1.6.14 |
+| Applications | 1.4.12 |
+| Integration | 1.5.12 |
+| Cutover Runtime | 1.6.16 |
 | Codex Local | 0.2.1 |
 | RAG | 0.4.0 |
 | MCP Runtime | 0.1.0 |
-| Open Terminal | 0.1.0 |
+| Open Terminal | 0.1.1 |
 | WinApp | 0.6.1 |
 | Desktop Control | 0.1.0 |
 | Production Recovery | 1.7.0-r7 |
@@ -28,7 +28,7 @@ Die aktuelle 2.18-Architektur umfasst den mit 2.15 eingeführten MCP Runtime als
 | Target Acceptance | 1.0.10 |
 | OpenWebUI Visual Pack | 2.0.5 |
 | OpenWebUI Agent Pack | 1.9.0 |
-| Complete Installer | 2.18.0 |
+| Complete Installer | 2.18.2 |
 
 Referenz- und Mindestversion von ComfyUI für reproduzierbare Neuinstallationen und Reconcile ist `v0.34.0`; eine bestehende, unterstützte neuere Installation bleibt erhalten und wird nie automatisch zurückgestuft. `ReferenceVersion` und `MinimumSupportedVersion` von Open WebUI sind beide `0.11.3` -- jede installierte Version ab `0.11.3` wird unterstützt, und eine bestehende, unterstützte neuere Installation bleibt ebenso erhalten, nie automatisch auf exakt die Referenz zurückgestuft.
 
@@ -97,7 +97,7 @@ Memory liegt in OpenWebUIs `webui.db`, ist benutzerbezogen und kann für denselb
 
 ## Open Terminal
 
-Open Terminal `0.1.0` bleibt eine eigenständige, vollständig unterstützte Complete-Installer-Komponente. Seit 2.15 ist es jedoch nicht mehr die Standardintegration für Terminal-/Host-Control produktiver MCP-fähiger Profile; der MCP Runtime ist der primäre Pfad.
+Open Terminal `0.1.1` bleibt eine eigenständige, vollständig unterstützte Complete-Installer-Komponente. Seit 2.15 ist es jedoch nicht mehr die Standardintegration für Terminal-/Host-Control produktiver MCP-fähiger Profile; der MCP Runtime ist der primäre Pfad.
 
 Open Terminal bleibt als ausdrücklicher Fallback- und Rollback-Pfad unter `http://127.0.0.1:8000` verfügbar. Es verwendet die verwaltete Python-/uv-Runtime, einen eigenen persistenten DPAPI-geschützten API-Key, begrenzte Readiness-Prüfungen, Prozessidentitätsprüfung sowie den zentralen KI-Stack-Start-/Stop-/Status-Lifecycle.
 
@@ -124,6 +124,8 @@ Die Validierungsnachweise werden bewusst danach getrennt, was tatsächlich ausge
 - **2.16.0**: reale Local-Control-Validierung auf Basis des vorhandenen MCP Runtime, einschließlich Filesystem-, Prozess-, Working-Directory-, Windows-Abfrage-, Anwendungssteuerungs- und Ballistics-MCP-Binding-Preservation-Verhalten.
 - **2.17.0**: reale Native-Memory-Add/Search/Delete-Acceptance, Agent-Pack-Memory-/Profil-Policy-Validierung, reales Online-Backup von `webui.db` bei weiter gesundem OpenWebUI sowie kontrollierte Restore-Acceptance gegen eine temporäre Datenbankkopie. Repository-Regression: 34/34 PASS.
 - **2.18.0**: reale Desktop-Control-Ende-zu-Ende-Validierung für `list_windows`, `inspect_window`, `find_element`, `get_properties`, `get_value`, `wait_for`, `set_value` (inklusive unabhängigem Readback), `invoke` (inklusive erneuter Tree-Beobachtung) und `focus` (inklusive Focus-Readback) sowie Reconcile-, Repair-, Idempotenz- und Payload-Parity-Nachweise. Kein breiter MCP-Integrationsclaim.
+- **2.18.1**: Hotfix. Der zentrale Desktop-Control-Reconcile-Schritt des Complete Installers lief bislang im selben, langlebigen Orchestrator-Prozess wie jede andere Komponente; auf dem realen Zielsystem scheiterte dabei die unmittelbar auf Install folgende Validate-Phase, obwohl beide Aktionen einzeln, jeweils in einem frischen Prozess, real erfolgreich waren. Install/Upgrade/Repair und die anschließende Validate laufen jetzt jeweils in einem frischen `pwsh`-Prozess; Desktop Control erhält zusätzlich einen optionalen, transaktionsgebundenen Backup-Root, und ein bereits vollständig zurückgerollter Failed-Step blockiert einen späteren Lauf nicht mehr über seinen eigenen, dann irrelevanten Backup-Pfad. Live gegen das reale betroffene Zielsystem verifiziert (echtes `winapp.exe`); kein neuer Funktionsumfang, keine neue Greenfield-Behauptung. Behebt außerdem einen real reproduzierten Defekt, bei dem OpenWebUIs eigener `Path.cwd()`-Fallback für `WEBUI_SECRET_KEY` das jeweils aktuelle Arbeitsverzeichnis der äußersten Starter-Kette übernahm (z. B. `C:\Windows\System32` bei einer wie üblich geöffneten erhöhten Shell) und dort ohne Admin-Rechte am Persistieren des Schlüssels scheiterte; der generierte OpenWebUI-Starter setzt `WEBUI_SECRET_KEY` jetzt selbst aus einem einmalig erzeugten, kryptografisch zufälligen, persistenten Schlüssel unter `<TargetRoot>\state\openwebui\.webui_secret_key` und migriert einen bereits bestehenden, legitimen Schlüssel unter `<TargetRoot>\.webui_secret_key`, damit bestehende Sessions nicht ungültig werden. Applications steigt von 1.4.11 auf 1.4.12, damit ein bestehendes Zielsystem diesen Fix im generierten Starter-Inhalt über einen regulären Upgrade-/Repair-Lauf tatsächlich erhält, statt bei unveränderter Komponentenversion als Skip geplant zu werden.
+- **2.18.2**: Hotfix. Der zentrale, auf jedem Zielsystem deployte `Start-KIStack.cmd`/`Stop-KIStack.cmd` rief bislang direkt den alten Cutover-Kern (`modules\cutover\*-KIStack.cmd`) auf und erreichte damit nie `-Mode Start`/`-Mode Stop` (`Invoke-KICompleteLifecycle`) -- MCP Runtime und Open Terminal wurden beim zentralen Start/Stop dadurch nie gestartet bzw. gestoppt, und das MCP-Health-Gate vor Open WebUI griff nicht. Die deployten Lifecycle-Vorlagen rufen jetzt `installer\complete\Invoke-KIStackCompleteInstaller.ps1 -Mode Start`/`-Mode Stop` auf, die intern weiterhin denselben Cutover-Kern nutzen, jetzt aber korrekt um MCP Runtime und Open Terminal ergänzt; die bestehende Stop-Bereinigung verwaister Prozesse/WSL/Registry-Einträge bleibt unverändert erhalten. Behebt außerdem einen real reproduzierten Open-Terminal-Defekt, bei dem die getrackte PID die des `uv`/`uvx`-Launcher-Prozesses statt des echten, langlebigen Listener-Prozesses sein konnte, an den übergeben wird (der Launcher beendet sich selbst, oft mit Exitcode 0, sobald das Tool übernimmt); Status/Stop verifizieren jetzt die Prozessidentität (Name, `CommandLine`, Port) gegen einen `Get-NetTCPConnection`-gestützten Fallback auf den echten Listener, sobald die getrackte PID fehlt, veraltet oder nicht identitätsgeprüft passt; der bestehende PID-Wiederverwendungsschutz bleibt erhalten. Ein verwandter Defekt in `Wait-KIOpenTerminalHealthy`, der den sauberen Exitcode-0-Handoff des Launchers fälschlich wie einen Absturz behandelte, ist ebenfalls behoben. Behebt außerdem eine real reproduzierte ComfyUI-Stop-Race-Bedingung: das generierte Stop-Skript prüft jetzt unmittelbar vor jedem `Stop-Process`-Aufruf erneut, ob der Prozess noch existiert, und wertet einen zwischenzeitlich von selbst beendeten Prozess als erfolgreich gestoppt statt als Fehler; ein tatsächlich noch laufender, nicht stoppbarer Prozess wird weiterhin als echter Fehler gemeldet. Open Terminal steigt von 0.1.0 auf 0.1.1 und Cutover Runtime von 1.6.14 auf 1.6.15, damit ein bestehendes Zielsystem diese beiden Fixes über einen regulären Upgrade-/Repair-Lauf tatsächlich erhält, statt bei unveränderten Komponentenversionen als Skip geplant zu werden -- dieselbe Lücke, die für Applications bereits in 2.18.1 geschlossen wurde. Behebt außerdem einen real reproduzierten WSL-Keeper-Defekt, live gegen eine echte Debian-WSL-Instanz verifiziert: der Start des Keepers über eine Login-Shell (`-u root -- bash -lc "exec sleep infinity"`) ließ dessen Windows-seitigen wsl.exe-Launcher innerhalb von rund einer Sekunde sterben, wodurch Debian kurz nach dem gemeldeten Running-Zustand wieder auf Stopped zurückfiel. Der Keeper startet jetzt über `wsl.exe -d Debian --exec /bin/sleep infinity` (keine Shell, keine Login-Session); ob er lebt, entscheidet ausschließlich ein echter `pgrep -f 'sleep infinity'`-Check innerhalb von Debian, sodass eine veraltete oder fehlende Windows-Launcher-PID (nur noch Best-Effort-Zusatzinfo) einen real laufenden Keeper nie mehr als gestoppt meldet; `Get-KIStackStatus.ps1`s WSL-Keeper-Erkennung wurde entsprechend korrigiert. Integration steigt von 1.5.11 auf 1.5.12 und Cutover Runtime weiter von 1.6.15 auf 1.6.16, damit ein bestehendes Zielsystem diesen Fix tatsächlich erhält -- dieselbe Lücke wie oben, da der Fix in generiertem Inhalt liegt, der von der Reconcile-/Plan-Logik nur bei geänderter Komponentenversion neu ausgeliefert wird. Kein neuer Funktionsumfang, keine neue Greenfield-Behauptung.
 
 Diese Umfänge sind kumulative Nachweise und keine austauschbaren Gesamtfreigaben. Insbesondere wurde nach 2.4.0 kein neuer vollständiger Windows-Greenfield-Lauf auf einem leeren Zielsystem behauptet oder durchgeführt; ebenso wurde in 2.17 kein Restore der produktiven `webui.db` durchgeführt.
 

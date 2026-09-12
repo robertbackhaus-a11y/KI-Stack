@@ -81,12 +81,12 @@ function Test-IntegrationTarget {
     param([Parameter(Mandatory)][string]$PackageRoot,[Parameter(Mandatory)][string]$TargetRoot)
     $runtimeContract=Get-IntegrationRuntimeContract $PackageRoot
     $runtimeRoot=Join-Path $TargetRoot 'modules/integration'
-    [pscustomobject]@{passed=((Test-IntegrationEndpoint)-and(Test-IntegrationRuntime -RuntimeRoot $runtimeRoot -Contract $runtimeContract)-and(Test-IntegrationServicesEnabled));version='1.5.11';runtimeChain=@('wsl keeper','valkey-server','uwsgi','nginx');runtimeGitDependency=$false;targetRoot=$TargetRoot}
+    [pscustomobject]@{passed=((Test-IntegrationEndpoint)-and(Test-IntegrationRuntime -RuntimeRoot $runtimeRoot -Contract $runtimeContract)-and(Test-IntegrationServicesEnabled));version='1.5.12';runtimeChain=@('wsl keeper','valkey-server','uwsgi','nginx');runtimeGitDependency=$false;targetRoot=$TargetRoot}
 }
 function ConvertTo-IntegrationWslPath { param([string]$Path) (@(wsl.exe -d Debian --exec wslpath -u $Path)|Select-Object -Last 1).Trim() }
 function Backup-IntegrationState {
     param([Parameter(Mandatory)][string]$TargetRoot)
-    $BackupRoot=Join-Path $TargetRoot 'backups/integration-1.5.11'
+    $BackupRoot=Join-Path $TargetRoot 'backups/integration-1.5.12'
     $directory=Join-Path $BackupRoot ([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'));New-Item -ItemType Directory $directory -Force|Out-Null
     $archive=Join-Path $directory 'linux-state.tar.gz';$linuxArchive=ConvertTo-IntegrationWslPath $archive
     & wsl.exe -d Debian -u root --exec tar -czf $linuxArchive --ignore-failed-read /opt/ki-stack/integration/installation.json /etc/searxng/settings.yml /etc/uwsgi/apps-available/searxng.ini /etc/uwsgi/apps-enabled/searxng.ini /etc/nginx/default.d/searxng.conf
@@ -217,7 +217,7 @@ function Install-IntegrationPayload {
     }
     Assert-IntegrationPayloadExitCode -ExitCode $payloadExitCode -BackupPath $backup.directory -DiagnosticLogPath $diagnosticLogPath
     try {
-        $marker=[ordered]@{schemaVersion='1.0';managedBy='KI-STACK-INTEGRATION-MANAGED';version='1.5.11';release='KI-Stack-Integration-Execute-v1.5.11';installedAt=[DateTime]::UtcNow.ToString('o');distribution='Debian';searxngUrl='http://localhost/searxng';payloadId='KI-STACK-SEARXNG-SOURCE-2026.6.28';payloadSha256=[string]$test.contract.output.sha256;linuxMode='adopted-existing';runtimeGitDependency=$false}
+        $marker=[ordered]@{schemaVersion='1.0';managedBy='KI-STACK-INTEGRATION-MANAGED';version='1.5.12';release='KI-Stack-Integration-Execute-v1.5.12';installedAt=[DateTime]::UtcNow.ToString('o');distribution='Debian';searxngUrl='http://localhost/searxng';payloadId='KI-STACK-SEARXNG-SOURCE-2026.6.28';payloadSha256=[string]$test.contract.output.sha256;linuxMode='adopted-existing';runtimeGitDependency=$false}
         $runtime=Install-IntegrationRuntime -PackageRoot $PackageRoot -RuntimeRoot (Join-Path $TargetRoot 'modules/integration') -Marker $marker
         $result=Test-IntegrationTarget -PackageRoot $PackageRoot -TargetRoot $TargetRoot;if(-not[bool]$result.passed){throw 'Integration runtime or local SearXNG readback failed.'};$result|Add-Member backupPath $backup.directory;$result|Add-Member runtime $runtime;$result
     } catch {

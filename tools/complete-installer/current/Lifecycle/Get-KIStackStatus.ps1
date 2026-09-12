@@ -64,8 +64,26 @@ $results.Add((New-StatusResult 'RAG-Modul' $(if(Test-Path $ragMarker){'Läuft'}e
 # OpenTerminal.psm1's Test-KIOpenTerminalProcessIdentity, hier bewusst inline dupliziert (wie
 # bereits beim Codex-Local-Block oben) statt eines Cross-Package-Imports, da das isolierte
 # Open-Terminal-Paket selbst nicht neben diesem am TargetRoot bereitgestellten Skript liegt.
+# 2.18.2 hotfix, real reproduziert: `uv tool run open-terminal ...` uebergibt an den eigentlichen,
+# langlebigen Server-Prozess und beendet sich selbst kurz danach -- die urspruenglich erfasste PID
+# (die des `uv.exe`-Launchers) wird dadurch fast sofort veraltet, waehrend der reale Server unter
+# einer ANDEREN PID weiterlaeuft, als pip/uv-generierter Windows-Konsolenskript-Launcher, den
+# Win32_Process mit Name "python.exe" meldet (der Launcher ist buchstaeblich ein eingebetteter
+# Python-Interpreter), obwohl seine CommandLine weiterhin "open-terminal.exe run --host ... --port
+# ..." nennt. 'python.exe' gehoert daher jetzt zu den erlaubten Namen, und ein fehlender/veralteter
+# PID-Eintrag wird nicht mehr sofort als "Gestoppt" gewertet, sondern faellt auf eine identitaets-
+# geprüfte Portbesitzer-Ermittlung zurueck (niemals eine bloße Portpruefung als Gesundheitsnachweis).
+function Test-KIStackOpenTerminalIdentityForStatus {
+    param([Parameter(Mandatory)][int]$ProcessId,[Parameter(Mandatory)][int]$Port,[Parameter(Mandatory)][string]$WorkspacePath)
+    $proc=Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction SilentlyContinue
+    if($null-eq$proc){return $false}
+    if($proc.Name-notin@('uv.exe','uvx.exe','python.exe')){return $false}
+    $commandLine=[string]$proc.CommandLine
+    return ($commandLine-match'(?i)open-terminal')-and($commandLine-match[regex]::Escape("--port $Port")-or$commandLine-match[regex]::Escape("--port=$Port"))-and($commandLine-match[regex]::Escape($WorkspacePath))
+}
 $openTerminalMarker=Join-Path $targetRoot 'modules/open-terminal/installation.json'
 $openTerminalPidFile=Join-Path $targetRoot 'state/open-terminal/open-terminal.pid'
+$openTerminalWorkspace=Join-Path $targetRoot 'state/open-terminal/workspace'
 if(-not(Test-Path -LiteralPath $openTerminalMarker -PathType Leaf)){
     $results.Add((New-StatusResult 'Open Terminal' 'Gestoppt' 'Nicht installiert'))
 }else{
@@ -76,12 +94,13 @@ if(-not(Test-Path -LiteralPath $openTerminalMarker -PathType Leaf)){
         $otTrackedId=$null
         if(Test-Path -LiteralPath $openTerminalPidFile -PathType Leaf){
             $otRaw=(Get-Content -LiteralPath $openTerminalPidFile -Raw).Trim()
-            if($otRaw-match'^\d+$'){
-                $otProc=Get-CimInstance Win32_Process -Filter "ProcessId=$otRaw" -ErrorAction SilentlyContinue
-                $otCommandLine=if($null-ne$otProc){[string]$otProc.CommandLine}else{''}
-                if($null-ne$otProc-and$otProc.Name-in@('uvx.exe','uv.exe')-and$otCommandLine-match'(?i)open-terminal'-and($otCommandLine-match[regex]::Escape("--port $otPort")-or$otCommandLine-match[regex]::Escape("--port=$otPort"))){
-                    $otTrackedId=[int]$otRaw
-                }
+            if($otRaw-match'^\d+$'-and(Test-KIStackOpenTerminalIdentityForStatus -ProcessId ([int]$otRaw) -Port $otPort -WorkspacePath $openTerminalWorkspace)){
+                $otTrackedId=[int]$otRaw
+            }
+        }
+        if($null-eq$otTrackedId){
+            foreach($otOwner in @(Get-NetTCPConnection -LocalPort $otPort -State Listen -ErrorAction SilentlyContinue|Select-Object -ExpandProperty OwningProcess -Unique)){
+                if(Test-KIStackOpenTerminalIdentityForStatus -ProcessId ([int]$otOwner) -Port $otPort -WorkspacePath $openTerminalWorkspace){$otTrackedId=[int]$otOwner;break}
             }
         }
         if($null-eq$otTrackedId){
@@ -164,12 +183,28 @@ try{
     $results.Add((New-StatusResult 'OpenWebUICredential' 'Unchecked' 'Statusprüfung konnte nicht ausgeführt werden'))
 }
 
-$keeper=@(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue|Where-Object{$_.Name -eq 'wsl.exe'-and$_.CommandLine -match '(?i)-d\s+Debian\b.*--exec\s+sleep\s+infinity\b'})
-$results.Add((New-StatusResult 'WSL-Keeper' $(if($keeper.Count){'Läuft'}else{'Gestoppt'}) $(if($keeper.Count){"PID $($keeper[0].ProcessId)"}else{'Kein Keeper-Prozess'})))
-
+# 2.18.2 hotfix (real, reproduced defect): the Windows-side wsl.exe launcher process that starts
+# the keeper can legitimately exit shortly after being started (real, reproduced on a live target:
+# a login-shell-based launch died within ~1 second) while Debian itself briefly still reports
+# Running -- matching on a still-alive Win32_Process for the launcher therefore both misses a
+# real, still-running keeper once its own launcher has exited and stays blind to a keeper that
+# never really came up. WSL-Keeper is now reported Running only when Debian is an actually
+# running distribution AND a real 'sleep infinity' process is found inside it.
 $runningDistros=@((& wsl.exe --list --running --quiet 2>$null)|ForEach-Object{$_.Trim([char]0).Trim()}|Where-Object{$_})
+$debianRunning=$runningDistros -contains 'Debian'
+$keeperProcessAlive=$false
+$keeperDetail='Debian läuft nicht'
+if($debianRunning){
+    try{
+        $pgrepOutput=@(& wsl.exe -d Debian -- pgrep -f 'sleep infinity' 2>$null)
+        $keeperProcessAlive=($LASTEXITCODE-eq0)-and(@($pgrepOutput|Where-Object{$_-match'^\d+$'}).Count-gt0)
+        $keeperDetail=if($keeperProcessAlive){'sleep infinity aktiv in Debian'}else{'Debian läuft, aber kein sleep-infinity-Prozess gefunden'}
+    }catch{$keeperDetail='Statusprüfung des Keeper-Prozesses fehlgeschlagen'}
+}
+$results.Add((New-StatusResult 'WSL-Keeper' $(if($keeperProcessAlive){'Läuft'}else{'Gestoppt'}) $keeperDetail))
+
 foreach($unit in @('valkey-server','uwsgi','nginx')){
-    if($runningDistros -notcontains 'Debian'){$results.Add((New-StatusResult $unit 'Gestoppt' 'Debian läuft nicht'));continue}
+    if(-not$debianRunning){$results.Add((New-StatusResult $unit 'Gestoppt' 'Debian läuft nicht'));continue}
     try{$state=((& wsl.exe -d Debian -- systemctl is-active $unit 2>$null)-join'').Trim();if($state-eq'active'){$results.Add((New-StatusResult $unit 'Läuft' 'active'))}elseif($state-in@('inactive','failed','deactivating','activating')){$results.Add((New-StatusResult $unit $(if($state-eq'failed'){'Fehler'}else{'Gestoppt'}) $state))}else{$results.Add((New-StatusResult $unit 'Fehler' $(if($state){$state}else{'Status unbekannt'})))}}catch{$results.Add((New-StatusResult $unit 'Fehler' $_.Exception.Message))}
 }
 

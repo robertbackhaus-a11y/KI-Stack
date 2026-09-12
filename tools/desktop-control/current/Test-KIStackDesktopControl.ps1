@@ -538,6 +538,21 @@ try {
     }
     if ($checks.sourceParityReconcile.Values -contains $false) { $fail.Add('sourceParityReconcile: ' + ($checks.sourceParityReconcile | ConvertTo-Json -Compress)) }
 
+    # === 26: -BackupRoot contract (2.18.1 hotfix) -- an externally-owned backup root is honored;
+    #        omitting it keeps the exact prior standalone <TargetRoot>\backups\desktop-control
+    #        behavior unchanged. =====================================================
+    $brRoot = New-DCTestRoot 'backuproot-given'
+    $externalBackupRoot = Join-Path $scratch 'external-backups\desktop-control'
+    $brInstall = Install-KIDesktopControl -PackageRoot $PackageRoot -TargetRoot $brRoot -Action 'Install' -BackupRoot $externalBackupRoot
+    $brStandaloneRoot = New-DCTestRoot 'backuproot-omitted'
+    $brInstallStandalone = Install-KIDesktopControl -PackageRoot $PackageRoot -TargetRoot $brStandaloneRoot -Action 'Install'
+    $checks.backupRootContract = [ordered]@{
+        externalRootHonored = ([string]$brInstall.backupPath).StartsWith($externalBackupRoot)
+        externalRollbackJsonExists = (Test-Path -LiteralPath $brInstall.backupPath -PathType Leaf)
+        omittedKeepsStandaloneRoot = ([string]$brInstallStandalone.backupPath).StartsWith((Join-Path $brStandaloneRoot 'backups\desktop-control'))
+    }
+    if ($checks.backupRootContract.Values -contains $false) { $fail.Add('backupRootContract: ' + ($checks.backupRootContract | ConvertTo-Json -Compress)) }
+
     $passed = $fail.Count -eq 0
     [pscustomobject]@{ passed = $passed; checks = $checks; failures = @($fail) } | ConvertTo-Json -Depth 12
     if (-not $passed) { throw 'Desktop-Control-Regression fehlgeschlagen.' }

@@ -66,6 +66,38 @@ try {
 }
 '@
 
+# A second fixture, used ONLY where the real TCP port-owner PID must be independently verifiable
+# via Get-NetTCPConnection (the 2.18.2 hotfix's port-owner fallback scenarios below): a raw
+# Winsock TcpListener, not [Net.HttpListener]. Real, reproduced: HttpListener binds through
+# Windows' kernel-mode HTTP.SYS (URL-ACL reservations), and Get-NetTCPConnection reports HTTP.SYS-
+# backed listeners as owned by PID 4 ("System"), never the real user-mode process -- exactly the
+# same reason Test-KIStackLMStudioStarterContract.ps1's own mock server already uses a raw
+# TcpListener instead. Open Terminal's real server (a Python ASGI app) binds an ordinary socket,
+# not HTTP.SYS, so this fixture -- not FakeOpenTerminalServer.ps1 above -- is the one that matches
+# production's real port-ownership semantics.
+$rawSocketFixtureScriptPath = Join-Path $scratchBase 'FakeOpenTerminalRawSocketServer.ps1'
+Set-Content -LiteralPath $rawSocketFixtureScriptPath -Encoding utf8NoBOM -Value @'
+param([int]$ListenPort,[string]$ListenWorkspaceDir,[Parameter(ValueFromRemainingArguments=$true)]$Rest)
+$tcp = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Parse('127.0.0.1'), $ListenPort)
+$tcp.Start()
+while ($true) {
+    $client = $tcp.AcceptTcpClient()
+    try {
+        $stream = $client.GetStream()
+        $buffer = [byte[]]::new(4096)
+        [void]$stream.Read($buffer, 0, $buffer.Length)
+        $body = [Text.Encoding]::UTF8.GetBytes('{"openapi":"3.1.0","info":{"title":"fake-open-terminal"}}')
+        $header = "HTTP/1.1 200 OK`r`nContent-Type: application/json`r`nContent-Length: $($body.Length)`r`nConnection: close`r`n`r`n"
+        $headerBytes = [Text.Encoding]::ASCII.GetBytes($header)
+        $stream.Write($headerBytes, 0, $headerBytes.Length)
+        $stream.Write($body, 0, $body.Length)
+        $stream.Flush()
+    } finally {
+        $client.Close()
+    }
+}
+'@
+
 # Occupies the SAME resource the fixture server itself binds (an HttpListener URL prefix, via
 # Windows' HTTP.SYS -- a distinct reservation mechanism from a plain Winsock TcpListener, which
 # does NOT reliably conflict with it) so the real fixture's own bind attempt genuinely fails,
@@ -370,6 +402,159 @@ exit 1
     $checks.negativeControl_ForeignProcessNeverMisidentified = [ordered]@{ notIdentifiedAsOpenTerminal = (-not $identityOnForeignProcess) }
     if ($checks.negativeControl_ForeignProcessNeverMisidentified.Values -contains $false) { $fail.Add('negativeControl_ForeignProcessNeverMisidentified failed: ' + ($checks.negativeControl_ForeignProcessNeverMisidentified | ConvertTo-Json -Compress)) }
     try { Stop-Process -Id $foreignProcess.Id -Force -ErrorAction SilentlyContinue } catch {}
+
+    # 2.18.2 hotfix regression suite: real, reproduced live -- `uv tool run open-terminal ...`
+    # (uv's own documented shorthand for `uvx open-terminal ...`) hands off to the tool's own
+    # long-lived process and exits itself shortly after, so the PID Start-Process returns (the
+    # launcher's) goes stale almost immediately while the real server keeps running under a
+    # DIFFERENT PID -- a pip/uv-generated Windows console-script launcher, which Win32_Process
+    # reports with Name "python.exe" even though its CommandLine still names the "open-terminal.exe"
+    # console-script and the real `run --host ... --port ...` arguments. Scenarios below exercise
+    # every case named in the task: valid PID, stale PID + valid listener, stale PID + wrong
+    # listener, wrong process, wrong CommandLine (already covered by negativeControl_* above), wrong
+    # port, and no listener at all -- plus the actual handoff fix end to end.
+
+    # === 14: The real fix -- a launcher that hands off to a separate, real long-lived process and
+    #         exits itself (simulating uv.exe's own handoff-then-exit behavior) must result in the
+    #         CHILD's real PID being recorded/returned, never the already-exited launcher's PID. ===
+    $t14Root = New-KIOpenTerminalTestRoot 't14-pid-handoff'
+    $port14 = Get-KIOpenTerminalFreePort
+    $paths14 = Get-KIOpenTerminalPaths -TargetRoot $t14Root
+    New-KIOpenTerminalDirectory $paths14.workspace
+    # $PwshPath/$ChildScript are baked directly into the generated launcher's source (rather than
+    # passed as -ArgumentList runtime values) because Start-Process -ArgumentList does not reliably
+    # quote an array element containing spaces in this environment -- confirmed real, reproduced:
+    # pwsh's own real install path here is under "...\Program Files\WindowsApps\...", and passing
+    # it as a plain array element silently truncates it at the first space ("C:\Program"), a purely
+    # test-fixture concern unrelated to the actual fix under test.
+    $launcherScriptPath = Join-Path $scratchBase 'FakeOpenTerminalLauncher.ps1'
+    $launcherContent = @"
+param([int]`$ListenPort,[string]`$ListenWorkspaceDir)
+`$PwshPath = '$($pwshPath -replace "'","''")'
+`$ChildScript = '$($rawSocketFixtureScriptPath -replace "'","''")'
+Start-Process -FilePath `$PwshPath -ArgumentList @('-NoLogo','-NoProfile','-File',`$ChildScript,'-ListenPort',`$ListenPort,'-ListenWorkspaceDir',`$ListenWorkspaceDir,'open-terminal','--port',`$ListenPort,`$ListenWorkspaceDir) -WindowStyle Hidden
+Start-Sleep -Milliseconds 300
+exit 0
+"@
+    Set-Content -LiteralPath $launcherScriptPath -Encoding utf8NoBOM -Value $launcherContent
+    $launcherArguments = @('-NoLogo', '-NoProfile', '-File', $launcherScriptPath, '-ListenPort', [string]$port14, '-ListenWorkspaceDir', $paths14.workspace)
+    $start14 = Start-KIOpenTerminal -PackageRoot $PackageRoot -TargetRoot $t14Root -CommandOverride $pwshPath -ArgumentsOverride $launcherArguments -AllowedProcessNames @('pwsh.exe') -ConfigOverride (Get-KIOpenTerminalConfigForPort -Port $port14)
+    if ([bool]$start14.passed -and $start14.PSObject.Properties['processId']) { $startedProcessIds.Add([int]$start14.processId) }
+    # Start-KIOpenTerminal only returns after /openapi.json has already answered successfully, so
+    # the real listener is provably up at this point -- no extra wait needed (and none should be:
+    # waiting here would only give the launcher's own already-stale PID more time to look "gone",
+    # which is not what this check is about).
+    $pidFileContentsAfterHandoff = (Get-Content -LiteralPath $paths14.pidFile -Raw).Trim()
+    $checks.pidHandoffRecordsRealListenerNotLauncher = [ordered]@{
+        startPassed = [bool]$start14.passed
+        recordedPidIsListening = (@(Get-NetTCPConnection -LocalPort $port14 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess) -contains [int]$start14.processId)
+        pidFileMatchesReturnedPid = ([string]$pidFileContentsAfterHandoff -eq [string]$start14.processId)
+        recordedProcessStillAlive = (Get-Process -Id $start14.processId -ErrorAction SilentlyContinue) -ne $null
+    }
+    if ($checks.pidHandoffRecordsRealListenerNotLauncher.Values -contains $false) { $fail.Add('pidHandoffRecordsRealListenerNotLauncher failed: ' + ($checks.pidHandoffRecordsRealListenerNotLauncher | ConvertTo-Json -Compress)) }
+
+    # === 15: Stale PID + gültiger Listener -- the PID file names a process that no longer exists,
+    #         but a real, identity-verified Open Terminal instance is actually listening on the
+    #         configured port -> must still be found (never falsely reported stopped). ===========
+    $t15Root = New-KIOpenTerminalTestRoot 't15-stale-pid-valid-listener'
+    $port15 = Get-KIOpenTerminalFreePort
+    $paths15 = Get-KIOpenTerminalPaths -TargetRoot $t15Root
+    New-KIOpenTerminalDirectory $paths15.stateRoot
+    New-KIOpenTerminalDirectory $paths15.workspace
+    $realListener15 = Start-Process -FilePath $pwshPath -ArgumentList @('-NoLogo', '-NoProfile', '-File', $rawSocketFixtureScriptPath, '-ListenPort', [string]$port15, '-ListenWorkspaceDir', $paths15.workspace, 'open-terminal', '--port', [string]$port15, $paths15.workspace) -WindowStyle Hidden -PassThru
+    $startedProcessIds.Add([int]$realListener15.Id)
+    Start-Sleep -Milliseconds 400
+    $deadPid15 = $realListener15.Id + 1
+    while (Get-Process -Id $deadPid15 -ErrorAction SilentlyContinue) { $deadPid15++ }
+    Set-Content -LiteralPath $paths15.pidFile -Value ([string]$deadPid15) -Encoding ascii
+    $tracked15 = Get-KIOpenTerminalTrackedProcessId -Paths $paths15 -Config (Get-KIOpenTerminalConfigForPort -Port $port15) -AllowedNames @('pwsh.exe')
+    $checks.stalePidWithValidListenerIsFound = [ordered]@{
+        pidFileWasStale = ($deadPid15 -ne $realListener15.Id)
+        fallbackFoundRealListener = ($tracked15 -eq [int]$realListener15.Id)
+    }
+    if ($checks.stalePidWithValidListenerIsFound.Values -contains $false) { $fail.Add('stalePidWithValidListenerIsFound failed: ' + ($checks.stalePidWithValidListenerIsFound | ConvertTo-Json -Compress)) }
+
+    # === 16: Stale PID + falscher Listener -- something else occupies the configured port, but it
+    #         does not identity-verify as Open Terminal -> must NOT be falsely adopted; correctly
+    #         reports nothing tracked (never a bare port-occupancy check). ======================
+    $t16Root = New-KIOpenTerminalTestRoot 't16-stale-pid-wrong-listener'
+    $port16 = Get-KIOpenTerminalFreePort
+    $paths16 = Get-KIOpenTerminalPaths -TargetRoot $t16Root
+    New-KIOpenTerminalDirectory $paths16.stateRoot
+    New-KIOpenTerminalDirectory $paths16.workspace
+    $wrongListenerScript = Join-Path $scratchBase 'WrongListener16.ps1'
+    Set-Content -LiteralPath $wrongListenerScript -Encoding utf8NoBOM -Value @'
+param([int]$Port)
+$listener = [Net.HttpListener]::new()
+$listener.Prefixes.Add("http://127.0.0.1:$Port/")
+$listener.Start()
+Start-Sleep -Seconds 120
+'@
+    $wrongListener16 = Start-Process -FilePath $pwshPath -ArgumentList @('-NoLogo', '-NoProfile', '-File', $wrongListenerScript, '-Port', [string]$port16) -WindowStyle Hidden -PassThru
+    $startedProcessIds.Add([int]$wrongListener16.Id)
+    $bindDeadline16 = (Get-Date).AddSeconds(5)
+    do { $bound16 = (@(Get-NetTCPConnection -LocalPort $port16 -State Listen -ErrorAction SilentlyContinue).Count -gt 0); if (-not $bound16) { Start-Sleep -Milliseconds 100 } } while (-not $bound16 -and (Get-Date) -lt $bindDeadline16)
+    Set-Content -LiteralPath $paths16.pidFile -Value ([string]($wrongListener16.Id + 50000)) -Encoding ascii
+    $tracked16 = Get-KIOpenTerminalTrackedProcessId -Paths $paths16 -Config (Get-KIOpenTerminalConfigForPort -Port $port16) -AllowedNames @('pwsh.exe')
+    $checks.stalePidWithWrongListenerIsNotAdopted = [ordered]@{
+        wrongListenerActuallyBoundThePort = $bound16
+        neverFalselyAdopted = ($null -eq $tracked16)
+    }
+    if ($checks.stalePidWithWrongListenerIsNotAdopted.Values -contains $false) { $fail.Add('stalePidWithWrongListenerIsNotAdopted failed: ' + ($checks.stalePidWithWrongListenerIsNotAdopted | ConvertTo-Json -Compress)) }
+
+    # === 17: Falscher Prozess -- a real, running, otherwise-legitimate process (notepad.exe, a
+    #         name never in the allowed set) must never be misidentified regardless of PID. =======
+    $notepad17 = Start-Process -FilePath 'notepad.exe' -PassThru
+    $startedProcessIds.Add([int]$notepad17.Id)
+    Start-Sleep -Milliseconds 300
+    $identity17 = Test-KIOpenTerminalProcessIdentity -ProcessId $notepad17.Id -Port 8000 -WorkspacePath 'C:\KI-Stack\state\open-terminal\workspace'
+    $checks.wrongProcessNameNeverIdentified = [ordered]@{ notIdentified = (-not $identity17) }
+    if ($checks.wrongProcessNameNeverIdentified.Values -contains $false) { $fail.Add('wrongProcessNameNeverIdentified failed: ' + ($checks.wrongProcessNameNeverIdentified | ConvertTo-Json -Compress)) }
+    try { Stop-Process -Id $notepad17.Id -Force -ErrorAction SilentlyContinue } catch {}
+
+    # === 18: Falscher Port -- the exact same real, correctly-identified process is rejected when
+    #         checked against the WRONG port, and accepted again against its real one (isolates the
+    #         port check specifically, rather than some other coincidental mismatch). =============
+    $t18Root = New-KIOpenTerminalTestRoot 't18-wrong-port'
+    $port18 = Get-KIOpenTerminalFreePort
+    $paths18 = Get-KIOpenTerminalPaths -TargetRoot $t18Root
+    New-KIOpenTerminalDirectory $paths18.workspace
+    $listener18 = Start-Process -FilePath $pwshPath -ArgumentList (New-KIOpenTerminalFixtureArguments -Port $port18 -WorkspacePath $paths18.workspace) -WindowStyle Hidden -PassThru
+    $startedProcessIds.Add([int]$listener18.Id)
+    Start-Sleep -Milliseconds 400
+    $wrongPort18 = Get-KIOpenTerminalFreePort
+    $identityWrongPort = Test-KIOpenTerminalProcessIdentity -ProcessId $listener18.Id -Port $wrongPort18 -WorkspacePath $paths18.workspace -AllowedNames @('pwsh.exe')
+    $identityRightPort = Test-KIOpenTerminalProcessIdentity -ProcessId $listener18.Id -Port $port18 -WorkspacePath $paths18.workspace -AllowedNames @('pwsh.exe')
+    $checks.wrongPortRejectedRightPortAccepted = [ordered]@{
+        rejectedOnWrongPort = (-not $identityWrongPort)
+        acceptedOnRealPort = $identityRightPort
+    }
+    if ($checks.wrongPortRejectedRightPortAccepted.Values -contains $false) { $fail.Add('wrongPortRejectedRightPortAccepted failed: ' + ($checks.wrongPortRejectedRightPortAccepted | ConvertTo-Json -Compress)) }
+
+    # === 19: Kein Listener -- nothing at all is bound to the configured port and the PID file is
+    #         missing/stale -> correctly reports nothing tracked, never a false positive. =========
+    $t19Root = New-KIOpenTerminalTestRoot 't19-no-listener'
+    $port19 = Get-KIOpenTerminalFreePort
+    $paths19 = Get-KIOpenTerminalPaths -TargetRoot $t19Root
+    New-KIOpenTerminalDirectory $paths19.stateRoot
+    $tracked19 = Get-KIOpenTerminalTrackedProcessId -Paths $paths19 -Config (Get-KIOpenTerminalConfigForPort -Port $port19) -AllowedNames @('pwsh.exe')
+    $checks.noListenerReportsNothingTracked = [ordered]@{ nothingTracked = ($null -eq $tracked19) }
+    if ($checks.noListenerReportsNothingTracked.Values -contains $false) { $fail.Add('noListenerReportsNothingTracked failed: ' + ($checks.noListenerReportsNothingTracked | ConvertTo-Json -Compress)) }
+
+    # === 20: Gültiger PID -- the ordinary, already-covered baseline case (a correct PID file
+    #         naming a live, identity-verified process) is unaffected by the fallback addition. ===
+    $t20Root = New-KIOpenTerminalTestRoot 't20-valid-pid-baseline'
+    $port20 = Get-KIOpenTerminalFreePort
+    $paths20 = Get-KIOpenTerminalPaths -TargetRoot $t20Root
+    New-KIOpenTerminalDirectory $paths20.stateRoot
+    New-KIOpenTerminalDirectory $paths20.workspace
+    $listener20 = Start-Process -FilePath $pwshPath -ArgumentList (New-KIOpenTerminalFixtureArguments -Port $port20 -WorkspacePath $paths20.workspace) -WindowStyle Hidden -PassThru
+    $startedProcessIds.Add([int]$listener20.Id)
+    Start-Sleep -Milliseconds 400
+    Set-Content -LiteralPath $paths20.pidFile -Value ([string]$listener20.Id) -Encoding ascii
+    $tracked20 = Get-KIOpenTerminalTrackedProcessId -Paths $paths20 -Config (Get-KIOpenTerminalConfigForPort -Port $port20) -AllowedNames @('pwsh.exe')
+    $checks.validPidBaselineStillWorks = [ordered]@{ trackedMatchesRealPid = ($tracked20 -eq [int]$listener20.Id) }
+    if ($checks.validPidBaselineStillWorks.Values -contains $false) { $fail.Add('validPidBaselineStillWorks failed: ' + ($checks.validPidBaselineStillWorks | ConvertTo-Json -Compress)) }
 
     $passed = $fail.Count -eq 0
     [pscustomobject]@{ passed = $passed; checks = $checks; failures = @($fail) } | ConvertTo-Json -Depth 12
