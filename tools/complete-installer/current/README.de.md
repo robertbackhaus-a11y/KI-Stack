@@ -14,7 +14,7 @@ Das aktuelle Paket stellt den vollständig verwalteten KI-Stack-Stand bis Releas
 - Ballistics Pack `1.0.0`.
 - MCP Runtime `0.1.0` als primärer Terminal-/Host-Control-Backendpfad für MCP-fähige Profile auf `127.0.0.1:8021`.
 - Local Control auf dem vorhandenen MCP Runtime, ohne zweite Windows-Control-Runtime, zusätzlichen Port oder zusätzliches Credential.
-- Open Terminal `0.1.0` bleibt vollständig verwaltet und in den Lifecycle integriert als unterstützter Fallback-/Rollback-Backendpfad; der MCP Runtime ist der primäre Terminal-/Host-Control-Pfad für produktive MCP-fähige Profile.
+- Open Terminal `0.1.1` bleibt vollständig verwaltet und in den Lifecycle integriert als unterstützter Fallback-/Rollback-Backendpfad; der MCP Runtime ist der primäre Terminal-/Host-Control-Pfad für produktive MCP-fähige Profile.
 - natives OpenWebUI-Memory für die durch die Agent-Pack-Policy definierten verwalteten Profile.
 - zentraler persistenter OpenWebUI-Credential-Bootstrap mit lokalem DPAPI-geschütztem Secret-Store.
 - Component Isolation, interne Komponentenversions-Registry, deterministische Release-Paketierung, PackageSelfTest und automatische Release Attestation.
