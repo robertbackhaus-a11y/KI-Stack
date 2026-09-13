@@ -496,9 +496,9 @@ try {
         @{name='ComfyUI';root='tools/comfyui/current';version='1.2.4'},
         @{name='Integration';root='tools/integration/current';version='1.5.12'},
         @{name='Cutover Runtime';root='tools/cutover-runtime/current';version='1.6.16'},
-        @{name='Complete Installer';root='tools/complete-installer/current';version='2.18.2'},
+        @{name='Complete Installer';root='tools/complete-installer/current';version='2.19.0'},
         @{name='WinApp';root='tools/winapp/current';version='0.6.1'},
-        @{name='Desktop Control';root='tools/desktop-control/current';version='0.1.0'}
+        @{name='Desktop Control';root='tools/desktop-control/current';version='0.1.1'}
     )
     foreach($packageContract in $gitFreePackages){
         $packageRoot=Join-Path $RootPath $packageContract.root

@@ -82,10 +82,14 @@ result, `winapp` exitCode, evidence path, blocked reason. Screenshots (evidence)
 
 ## MCP integration
 
-Deferred — see `MCP-INTEGRATION.md`. The existing MCP Runtime hosts Open Terminal's OpenAPI app
-unchanged and has no KI-Stack-owned tool registry; adding a `desktop_control` tool changes that
-component or adds an endpoint, so the wrapper + policy + tests ship first and the wiring is a
-separate step. No new MCP server, port, or credential when it lands.
+Implemented, KI-Stack 2.19 Phase 1 — see `MCP-INTEGRATION.md`. The existing MCP Runtime
+(`tools/mcp-runtime/current/Scripts/mcp_launcher.py`) registers a flat `ui_*` tool surface
+(`ui_list_windows`, `ui_inspect_window`, `ui_find_element`, `ui_get_properties`, `ui_get_value`,
+`ui_screenshot`, `ui_wait_for`, `ui_set_value`, `ui_invoke`, `ui_focus`) as native FastMCP tools
+on the SAME `FastMCP` instance and port Open Terminal's own tools already run on — no new MCP
+server, no new port, no new credential. Each tool is a thin transport straight to this
+component's own `Invoke-KIStackDesktopControl.ps1`; every policy decision documented above stays
+inside this component unchanged.
 
 ## Tests
 

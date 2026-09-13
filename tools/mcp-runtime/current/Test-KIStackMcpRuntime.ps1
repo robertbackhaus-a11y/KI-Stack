@@ -52,6 +52,11 @@ try {
     # 4. Tool Discovery erfolgreich (bereits ueber Health-Check-toolCount indirekt belegt, hier explizit erneut pruefen)
     Add-KIMcpRuntimeCheck 'Tool Discovery (>0 Tools gefunden)' ([int]$health.toolCount -gt 0) "toolCount=$($health.toolCount)"
 
+    # 4a-4c. Desktop-Control ui_* Tool-Oberflaeche (2.19 Phase 1) -- aus demselben list_tools-Roundtrip
+    Add-KIMcpRuntimeCheck 'Open-Terminal-Basistools weiterhin vorhanden' ([bool]$health.openTerminalToolsPresent) ("missing=" + ($health.missingOpenTerminalTools -join ','))
+    Add-KIMcpRuntimeCheck 'Alle 10 ui_* Tools vorhanden' ([bool]$health.uiToolsPresent) ("missing=" + ($health.missingUiTools -join ','))
+    Add-KIMcpRuntimeCheck 'Keine verbotenen UI-Tools exponiert' ([bool]$health.forbiddenUiToolsAbsent) ("present=" + ($health.presentForbiddenUiTools -join ','))
+
     # 5-11: run_command / Exitcode / write_file / read_file / Prozess starten / get_process_status / kill_process
     # -- ueber einen direkten MCP-Client-Aufruf gegen den gerade gestarteten Server, NICHT ueber
     # OpenWebUI (das ist Punkt 12) -- isoliert die MCP-Runtime-Komponente selbst von der
