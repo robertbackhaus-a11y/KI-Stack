@@ -527,6 +527,125 @@ function Test-KICompleteOpenTerminalCompliant {
     }catch{return $false}
 }
 
+function Get-KICompletePayloadEmbeddedVersion {
+    # Reads the version embedded INSIDE an already-built payload zip, via the exact same
+    # packageIdentity.kind contract ('file'/'jsonField'/'jsonComposite')
+    # Lifecycle/KIStackComponentVersionRegistry.psm1's own Get-KIStackPublishedComponentVersion
+    # already uses to read a component's PUBLISHED (GitHub-hosted) version -- here from a local
+    # zip entry instead of a raw.githubusercontent.com URL, so one contract shape validates both
+    # meanings of "the version this component's own source claims" consistently. No component-
+    # specific branching: the same three `kind` cases this repo already defines.
+    param(
+        [Parameter(Mandatory)][string]$ZipPath,
+        [Parameter(Mandatory)][object]$PackageIdentity,
+        # REQUIRED-PAYLOADS.json's own 'source' for this payload (e.g. 'tools/mcp-runtime/current')
+        # -- packageIdentity.path is repo-relative (e.g. 'tools/mcp-runtime/current/VERSION'); a
+        # payload zip's own entries are relative to ITS OWN source root instead (optionally
+        # archiveRoot-prefixed), so this prefix must be stripped to get the in-zip entry name.
+        [Parameter(Mandatory)][string]$SourceRootRelative,
+        [string]$ArchiveRoot
+    )
+    $kind = [string]$PackageIdentity.kind
+    $pathInsideSource = ([string]$PackageIdentity.path).Substring($SourceRootRelative.Length).TrimStart('/', '\')
+    $entryName = if (-not [string]::IsNullOrWhiteSpace($ArchiveRoot)) { "$ArchiveRoot/$pathInsideSource" } else { $pathInsideSource }
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::OpenRead($ZipPath)
+    try {
+        $entry = @($archive.Entries | Where-Object { $_.FullName -eq $entryName }) | Select-Object -First 1
+        if ($null -eq $entry) { throw "Payload-Eintrag fehlt: $entryName" }
+        $reader = [IO.StreamReader]::new($entry.Open())
+        try { $raw = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        switch ($kind) {
+            'file' {
+                $version = $raw.Trim()
+                if ([string]::IsNullOrWhiteSpace($version)) { throw 'Leere VERSION-Datei im Payload.' }
+                return $version
+            }
+            'jsonField' {
+                $obj = $raw | ConvertFrom-Json -Depth 20
+                $prop = $obj.PSObject.Properties[[string]$PackageIdentity.field]
+                if ($null -eq $prop -or [string]::IsNullOrWhiteSpace([string]$prop.Value)) { throw "Feld '$([string]$PackageIdentity.field)' fehlt oder ist leer im Payload." }
+                return [string]$prop.Value
+            }
+            'jsonComposite' {
+                $obj = $raw | ConvertFrom-Json -Depth 20
+                $parts = @()
+                foreach ($fieldName in @($PackageIdentity.fields)) {
+                    $prop = $obj.PSObject.Properties[[string]$fieldName]
+                    if ($null -eq $prop -or [string]::IsNullOrWhiteSpace([string]$prop.Value)) { throw "Feld '$fieldName' fehlt oder ist leer im Payload." }
+                    $parts += [string]$prop.Value
+                }
+                $separator = if ($PackageIdentity.PSObject.Properties['separator']) { [string]$PackageIdentity.separator } else { '-' }
+                return ($parts -join $separator)
+            }
+            default { throw "Unbekannter packageIdentity.kind: '$kind'" }
+        }
+    } finally {
+        $archive.Dispose()
+    }
+}
+
+function Test-KICompletePayloadVersionContract {
+    # Generic, contract-driven build-gate (2.19.0 packaging-metadata fix): for every
+    # REQUIRED-PAYLOADS.json entry whose matching COMPONENTS.json component(s) declare a real,
+    # checkable own version source (packageIdentity.kind 'file'/'jsonField'/'jsonComposite' --
+    # NEVER the 'bundled-reference-only' pinned/shared-payload components such as
+    # foundation-runtime/python-git/applications, which have no packageIdentity at all and are
+    # therefore correctly skipped, not special-cased), verifies BOTH that the version embedded
+    # INSIDE the just-built payload zip (via Get-KICompletePayloadEmbeddedVersion above) matches
+    # the component's own pinned COMPONENTS.json version, AND that any version token embedded in
+    # the payload's own declared `file`/`archiveRoot` (REQUIRED-PAYLOADS.json) matches it too.
+    # This is exactly the check that would have caught a stale packaging filename/archiveRoot
+    # left behind after a component version bump (the real, reproduced 2.19.0 McpRuntime/
+    # DesktopControl defect this closes) -- for ANY component this contract shape applies to, not
+    # only those two. Every failure is collected (never fails fast on the first one) so a single
+    # build run reports every inconsistency at once.
+    param(
+        [Parameter(Mandatory)][object]$ComponentContract,
+        [Parameter(Mandatory)][object]$PayloadDefinition,
+        [Parameter(Mandatory)][string]$PayloadZipPath
+    )
+    $failures = [Collections.Generic.List[string]]::new()
+    $matchedComponents = @($ComponentContract.components | Where-Object { [string]$_.source -eq ('Payload/' + [string]$PayloadDefinition.key) })
+    $versionCheckable = @($matchedComponents | Where-Object {
+        $_.PSObject.Properties['packageIdentity'] -and $null -ne $_.packageIdentity -and
+        [string]$_.packageIdentity.kind -in @('file', 'jsonField', 'jsonComposite')
+    })
+
+    foreach ($component in $versionCheckable) {
+        $expected = [string]$component.version
+        $embedded = $null
+        try {
+            $embedded = Get-KICompletePayloadEmbeddedVersion -ZipPath $PayloadZipPath -PackageIdentity $component.packageIdentity -SourceRootRelative ([string]$PayloadDefinition.source) -ArchiveRoot ([string]$PayloadDefinition.archiveRoot)
+        } catch {
+            $failures.Add("$($component.id): eingebettete Payload-Version konnte nicht gelesen werden: $($_.Exception.Message)")
+            continue
+        }
+        if ($embedded -ne $expected) {
+            $failures.Add("$($component.id): Payload enthaelt Version '$embedded', COMPONENTS.json erwartet '$expected'")
+        }
+
+        foreach ($fieldName in @('file', 'archiveRoot')) {
+            $fieldValue = [string]$PayloadDefinition.$fieldName
+            if ([string]::IsNullOrWhiteSpace($fieldValue)) { continue }
+            # Strict: bare X.Y.Z, optionally the one real pre-release-style suffix this repo's
+            # own component versions use elsewhere ('-rN', e.g. production-recovery's '1.7.0-r7')
+            # -- deliberately NOT a generic '-<anything>' suffix capture, which previously
+            # misread a purely descriptive filename qualifier (Cutover Runtime's own
+            # 'KI-Stack-Cutover-Execute-v1.6.16-core.zip', where '-core' disambiguates the
+            # payload variant and is never part of the version) as if it were part of the version.
+            if ($fieldValue -match '-v(\d+\.\d+\.\d+(?:-r\d+)?)') {
+                $embeddedInName = $Matches[1]
+                if ($embeddedInName -ne $expected) {
+                    $failures.Add("$($component.id): REQUIRED-PAYLOADS.json-Feld '$fieldName' ('$fieldValue') enthaelt Version '$embeddedInName', COMPONENTS.json erwartet '$expected'")
+                }
+            }
+        }
+    }
+
+    [pscustomobject]@{ ok = ($failures.Count -eq 0); failures = @($failures); checkedComponents = @($versionCheckable.id) }
+}
+
 function Test-KICompleteMcpRuntimePayloadParity {
     # Verbatim pattern of Test-KICompleteDesktopControlPayloadParity (s/DesktopControl/McpRuntime/,
     # Payload key 'McpRuntime', deployed target 'tools/mcp-runtime/current'): desired-state parity
