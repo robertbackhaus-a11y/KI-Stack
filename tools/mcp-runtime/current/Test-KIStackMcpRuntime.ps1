@@ -135,7 +135,19 @@ asyncio.run(main())
         }
         access_grants = @(); is_active = $true
     } | ConvertTo-Json -Depth 10
-    Invoke-RestMethod -Uri "$OpenWebUIEndpoint/api/v1/models/create" -Method Post -Headers $adminHeaders -Body $profilePayload -TimeoutSec 15 | Out-Null
+    # Idempotent create-or-reuse (2.19.0 fix): GET /api/v1/models/model?id=<id> -- the same
+    # existence-check route already used in production elsewhere in this repo for exactly this
+    # purpose, verified live against a real KI-Stack Open-WebUI instance -- decides Create vs
+    # Reuse, so a profile left behind by a prior -SkipCleanup run is detected and reused instead
+    # of Open WebUI's own /api/v1/models/create rejecting the now-duplicate fixed profile id
+    # ("Uh-oh! This model id is already registered."). The profile id itself stays fixed, never
+    # randomized -- a stable, well-known validation-gate profile id is the point.
+    $profileResolution = Resolve-KIMcpRuntimeValidationGateProfile -GetProfile {
+        Get-KIMcpRuntimeOpenWebUIModelById -OpenWebUIEndpoint $OpenWebUIEndpoint -Headers $adminHeaders -ModelId $profileId
+    } -CreateProfile {
+        Invoke-RestMethod -Uri "$OpenWebUIEndpoint/api/v1/models/create" -Method Post -Headers $adminHeaders -Body $profilePayload -TimeoutSec 15 | Out-Null
+    }
+    Add-KIMcpRuntimeCheck 'Testprofil angelegt oder wiederverwendet (idempotent)' $true "status=$($profileResolution.status) id=$profileId"
 
     $chatPayload = @{ chat = @{ title = 'mcp-runtime-validation-gate'; models = @($profileId); messages = @(); history = @{ messages = @{}; currentId = $null } } } | ConvertTo-Json -Depth 10
     $chat = Invoke-RestMethod -Uri "$OpenWebUIEndpoint/api/v1/chats/new" -Method Post -Headers $adminHeaders -Body $chatPayload -TimeoutSec 15

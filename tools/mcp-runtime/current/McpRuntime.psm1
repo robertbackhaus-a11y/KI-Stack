@@ -921,4 +921,60 @@ function Test-KIMcpRuntimeOpenWebUIRegistration {
     [pscustomobject]@{ passed = $true; registered = ($null -ne $ownEntry); entry = $ownEntry; mutatesTarget = $false }
 }
 
+# --- Validation-gate Open-WebUI model/profile idempotency (Test-KIStackMcpRuntime.ps1 own use) -
+#
+# Distinct concern from the tool-server registration above: Test-KIStackMcpRuntime.ps1's own
+# point 12 (the real Open-WebUI agent test) creates a throwaway model/profile
+# ('mcp-runtime-validation-gate-test') to run a chat completion against. That profile id is
+# fixed (never randomized -- a fixed, well-known validation-gate profile id is the whole point),
+# so a prior run's profile left behind by -SkipCleanup must be detected and reused, never
+# blindly re-created (Open WebUI's own /api/v1/models/create rejects a duplicate id outright).
+
+function Get-KIMcpRuntimeOpenWebUIModelById {
+    # Existence check via the SAME read route already used in production elsewhere in this repo
+    # for exactly this purpose (OpenWebUIBallisticsPack.psm1's Get-BallisticsModel,
+    # OpenWebUIAgentPack.psm1's per-id lookup, Complete Installer's Operations/*.ps1) --
+    # GET /api/v1/models/model?id=<id>. Verified live against a real KI-Stack Open-WebUI
+    # instance (2026-09-13): 200 with the full model body when it exists, 404 with a JSON
+    # {"detail":"..."} body when it does not. Returns {found=$true;model=<obj>} or
+    # {found=$false;model=$null} for a genuine 404 -- any OTHER failure (network, 5xx, auth,
+    # malformed response) is never swallowed here; it propagates so the caller fails closed.
+    param(
+        [Parameter(Mandatory)][string]$OpenWebUIEndpoint,
+        [Parameter(Mandatory)][hashtable]$Headers,
+        [Parameter(Mandatory)][string]$ModelId,
+        [int]$TimeoutSec = 15
+    )
+    try {
+        $model = Invoke-RestMethod -Uri "$OpenWebUIEndpoint/api/v1/models/model?id=$([Uri]::EscapeDataString($ModelId))" -Headers $Headers -TimeoutSec $TimeoutSec
+        [pscustomobject]@{ found = $true; model = $model }
+    } catch {
+        if ($null -ne $_.Exception.Response -and [int]$_.Exception.Response.StatusCode.value__ -eq 404) {
+            [pscustomobject]@{ found = $false; model = $null }
+        } else {
+            throw
+        }
+    }
+}
+
+function Resolve-KIMcpRuntimeValidationGateProfile {
+    # Pure create-or-reuse decision, deliberately separated from the real HTTP calls above so it
+    # is unit-testable without a live Open WebUI target: -GetProfile is expected to return the
+    # exact {found;model} shape Get-KIMcpRuntimeOpenWebUIModelById returns (or throw, for a
+    # genuine read failure); -CreateProfile performs the actual POST /api/v1/models/create (or
+    # throws, for a genuine create failure). Never invents a random profile id and never retries
+    # past a create failure -- both fail closed by simply propagating whatever their scriptblock
+    # throws, exactly like every other unguarded step in Test-KIStackMcpRuntime.ps1.
+    param(
+        [Parameter(Mandatory)][scriptblock]$GetProfile,
+        [Parameter(Mandatory)][scriptblock]$CreateProfile
+    )
+    $lookup = & $GetProfile
+    if ([bool]$lookup.found) {
+        return [pscustomobject]@{ status = 'Reused'; model = $lookup.model }
+    }
+    & $CreateProfile
+    [pscustomobject]@{ status = 'Created'; model = $null }
+}
+
 Export-ModuleMember -Function *
