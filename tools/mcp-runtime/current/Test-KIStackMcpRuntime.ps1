@@ -52,6 +52,11 @@ try {
     # 4. Tool Discovery erfolgreich (bereits ueber Health-Check-toolCount indirekt belegt, hier explizit erneut pruefen)
     Add-KIMcpRuntimeCheck 'Tool Discovery (>0 Tools gefunden)' ([int]$health.toolCount -gt 0) "toolCount=$($health.toolCount)"
 
+    # 4a-4c. Desktop-Control ui_* Tool-Oberflaeche (2.19 Phase 1) -- aus demselben list_tools-Roundtrip
+    Add-KIMcpRuntimeCheck 'Open-Terminal-Basistools weiterhin vorhanden' ([bool]$health.openTerminalToolsPresent) ("missing=" + ($health.missingOpenTerminalTools -join ','))
+    Add-KIMcpRuntimeCheck 'Alle 10 ui_* Tools vorhanden' ([bool]$health.uiToolsPresent) ("missing=" + ($health.missingUiTools -join ','))
+    Add-KIMcpRuntimeCheck 'Keine verbotenen UI-Tools exponiert' ([bool]$health.forbiddenUiToolsAbsent) ("present=" + ($health.presentForbiddenUiTools -join ','))
+
     # 5-11: run_command / Exitcode / write_file / read_file / Prozess starten / get_process_status / kill_process
     # -- ueber einen direkten MCP-Client-Aufruf gegen den gerade gestarteten Server, NICHT ueber
     # OpenWebUI (das ist Punkt 12) -- isoliert die MCP-Runtime-Komponente selbst von der
@@ -130,7 +135,19 @@ asyncio.run(main())
         }
         access_grants = @(); is_active = $true
     } | ConvertTo-Json -Depth 10
-    Invoke-RestMethod -Uri "$OpenWebUIEndpoint/api/v1/models/create" -Method Post -Headers $adminHeaders -Body $profilePayload -TimeoutSec 15 | Out-Null
+    # Idempotent create-or-reuse (2.19.0 fix): GET /api/v1/models/model?id=<id> -- the same
+    # existence-check route already used in production elsewhere in this repo for exactly this
+    # purpose, verified live against a real KI-Stack Open-WebUI instance -- decides Create vs
+    # Reuse, so a profile left behind by a prior -SkipCleanup run is detected and reused instead
+    # of Open WebUI's own /api/v1/models/create rejecting the now-duplicate fixed profile id
+    # ("Uh-oh! This model id is already registered."). The profile id itself stays fixed, never
+    # randomized -- a stable, well-known validation-gate profile id is the point.
+    $profileResolution = Resolve-KIMcpRuntimeValidationGateProfile -GetProfile {
+        Get-KIMcpRuntimeOpenWebUIModelById -OpenWebUIEndpoint $OpenWebUIEndpoint -Headers $adminHeaders -ModelId $profileId
+    } -CreateProfile {
+        Invoke-RestMethod -Uri "$OpenWebUIEndpoint/api/v1/models/create" -Method Post -Headers $adminHeaders -Body $profilePayload -TimeoutSec 15 | Out-Null
+    }
+    Add-KIMcpRuntimeCheck 'Testprofil angelegt oder wiederverwendet (idempotent)' $true "status=$($profileResolution.status) id=$profileId"
 
     $chatPayload = @{ chat = @{ title = 'mcp-runtime-validation-gate'; models = @($profileId); messages = @(); history = @{ messages = @{}; currentId = $null } } } | ConvertTo-Json -Depth 10
     $chat = Invoke-RestMethod -Uri "$OpenWebUIEndpoint/api/v1/chats/new" -Method Post -Headers $adminHeaders -Body $chatPayload -TimeoutSec 15

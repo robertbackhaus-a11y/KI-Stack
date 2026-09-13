@@ -2,7 +2,7 @@
   "schemaVersion": "1.0",
   "packageId": "KI-STACK-DESKTOP-CONTROL",
   "name": "KI-Stack Desktop Control",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "status": "Development_SourceValidationPending",
   "containsSecrets": false,
   "runtimeGitDependency": false,
@@ -22,5 +22,5 @@
     "send-input", "send-keys", "global keyboard injection", "system hotkeys",
     "mouse coordinate click", "arbitrary drag/touch/pen", "raw winapp command execution"
   ],
-  "mcpIntegration": "deferred -- see MCP-INTEGRATION.md; no new MCP server, port or credential"
+  "mcpIntegration": "implemented, 2.19 Phase 1 -- see MCP-INTEGRATION.md; ui_* tools on the existing ki-stack-mcp-runtime MCP server, no new MCP server, port or credential"
 }

@@ -403,7 +403,7 @@ try {
     $provRoot = New-DCTestRoot 'provision'
     $inst1 = Install-KIDesktopControl -PackageRoot $PackageRoot -TargetRoot $provRoot -Action 'Install'
     $installPaths = Get-KIDesktopControlInstallPaths -TargetRoot $provRoot
-    $deployed = Test-KIDesktopControlDeployed -TargetRoot $provRoot -ExpectedVersion '0.1.0'
+    $deployed = Test-KIDesktopControlDeployed -TargetRoot $provRoot -ExpectedVersion '0.1.1'
     $inst2 = Install-KIDesktopControl -PackageRoot $PackageRoot -TargetRoot $provRoot -Action 'Repair'
     # Corrupt one deployed file -> Repair must re-deploy and pass again.
     Add-Content -LiteralPath (Join-Path $installPaths.packageRoot 'MANIFEST.json') -Value 'corruption'
@@ -412,7 +412,7 @@ try {
     $instAlt = Install-KIDesktopControl -PackageRoot $PackageRoot -TargetRoot $altRoot -Action 'Install'
     $checks.centralProvisioning = [ordered]@{
         installedUnderToolsDesktopControl = ([string]$inst1.status -eq 'Installed' -and $installPaths.installRoot -eq (Join-Path ([IO.Path]::GetFullPath($provRoot)) 'tools\desktop-control') -and (Test-Path -LiteralPath (Join-Path $provRoot 'tools\desktop-control\current\Invoke-KIStackDesktopControl.ps1') -PathType Leaf))
-        probeStampWritten = ((Get-Content -LiteralPath (Join-Path $provRoot 'tools\desktop-control\VERSION') -Raw).Trim() -eq '0.1.0')
+        probeStampWritten = ((Get-Content -LiteralPath (Join-Path $provRoot 'tools\desktop-control\VERSION') -Raw).Trim() -eq '0.1.1')
         markerWritten = (Test-Path -LiteralPath $installPaths.marker -PathType Leaf)
         deployedComplianceOk = ([bool]$deployed.ok)
         idempotentRepairIsNoOp = ([string]$inst2.status -eq 'SkippedAlreadyCompliant' -and -not [bool]$inst2.mutatesTarget)
@@ -436,7 +436,7 @@ try {
     $orchestrator = Get-Content -LiteralPath (Join-Path $repoRoot 'tools\complete-installer\current\CompleteInstaller.psm1') -Raw
     $dc = @($components | Where-Object id -eq 'desktop-control')
     $checks.completeInstallerWiring = [ordered]@{
-        componentsJsonEntry = ($dc.Count -eq 1 -and [string]$dc[0].version -eq '0.1.0' -and [bool]$dc[0].installable -and [string]$dc[0].isolation -eq 'A' -and [string]$dc[0].source -eq 'Payload/DesktopControl')
+        componentsJsonEntry = ($dc.Count -eq 1 -and [string]$dc[0].version -eq '0.1.1' -and [bool]$dc[0].installable -and [string]$dc[0].isolation -eq 'A' -and [string]$dc[0].source -eq 'Payload/DesktopControl')
         requiresWinapp = ($dc.Count -eq 1 -and @($dc[0].requires) -contains 'winapp')
         orderAfterWinapp = ($dc.Count -eq 1 -and [int]$dc[0].order -gt [int](@($components | Where-Object id -eq 'winapp')[0].order))
         textProbeOnVersionStamp = ($dc.Count -eq 1 -and [string]$dc[0].probe.type -eq 'text' -and [string]$dc[0].probe.path -eq 'tools/desktop-control/VERSION')
@@ -473,7 +473,7 @@ try {
 
     # === 25: reconcile compliance is measured against the SOURCE payload, never merely against
     #        the target's own SHA256SUMS.txt. A changed payload at an unchanged component
-    #        VERSION (0.1.0 == 0.1.0) must make the deployed target non-compliant, a Repair must
+    #        VERSION (0.1.1 == 0.1.1) must make the deployed target non-compliant, a Repair must
     #        redeploy the source state, and a second Repair with no further change is a NoOp.
     $regenSums = {
         param([string]$Root)
@@ -502,17 +502,17 @@ try {
     Add-Content -LiteralPath (Join-Path $pkgRoot 'DesktopControl.Policy.psm1') -Value "`n# drifted in place, sums realigned"
     & $regenSums $pkgRoot
     $bTargetSumsSelfConsistent = Test-KIDesktopControlChecksums -PackageRoot $pkgRoot -ChecksumFile (Join-Path $pkgRoot 'SHA256SUMS.txt')
-    $bDeployed = Test-KIDesktopControlDeployed -TargetRoot $parityRoot -ExpectedVersion '0.1.0' -SourceRoot $srcCopy
+    $bDeployed = Test-KIDesktopControlDeployed -TargetRoot $parityRoot -ExpectedVersion '0.1.1' -SourceRoot $srcCopy
     $bRepair = Install-KIDesktopControl -PackageRoot $srcCopy -TargetRoot $parityRoot -Action 'Repair'
     $bParityAfter = Test-KIDesktopControlSourceParity -SourceRoot $srcCopy -TargetPackageRoot $pkgRoot
 
-    # C: the SOURCE payload changes while the component VERSION stays 0.1.0 => the (still intact,
+    # C: the SOURCE payload changes while the component VERSION stays 0.1.1 => the (still intact,
     #    still self-consistent) target is now non-compliant because it no longer matches source.
     Add-Content -LiteralPath (Join-Path $srcCopy 'DesktopControl.Policy.psm1') -Value "`n# source payload changed, same VERSION"
     & $regenSums $srcCopy
     $cVersionsEqual = ((Get-Content -LiteralPath (Join-Path $srcCopy 'VERSION') -Raw).Trim() -eq (Get-Content -LiteralPath (Join-Path $pkgRoot 'VERSION') -Raw).Trim())
     $cTargetStillSelfConsistent = Test-KIDesktopControlChecksums -PackageRoot $pkgRoot -ChecksumFile (Join-Path $pkgRoot 'SHA256SUMS.txt')
-    $cDeployed = Test-KIDesktopControlDeployed -TargetRoot $parityRoot -ExpectedVersion '0.1.0' -SourceRoot $srcCopy
+    $cDeployed = Test-KIDesktopControlDeployed -TargetRoot $parityRoot -ExpectedVersion '0.1.1' -SourceRoot $srcCopy
 
     # D: Repair rebuilds the target from the current source payload.
     $dRepair = Install-KIDesktopControl -PackageRoot $srcCopy -TargetRoot $parityRoot -Action 'Repair'
@@ -523,7 +523,7 @@ try {
 
     # F: an extra, unexpected file under current\ => non-compliant; Repair drops it.
     Set-Content -LiteralPath (Join-Path $pkgRoot 'rogue-extra.txt') -Value 'x' -Encoding ascii -NoNewline
-    $fDeployed = Test-KIDesktopControlDeployed -TargetRoot $parityRoot -ExpectedVersion '0.1.0' -SourceRoot $srcCopy
+    $fDeployed = Test-KIDesktopControlDeployed -TargetRoot $parityRoot -ExpectedVersion '0.1.1' -SourceRoot $srcCopy
     $fRepair = Install-KIDesktopControl -PackageRoot $srcCopy -TargetRoot $parityRoot -Action 'Repair'
     $fDropped = -not (Test-Path -LiteralPath (Join-Path $pkgRoot 'rogue-extra.txt'))
 

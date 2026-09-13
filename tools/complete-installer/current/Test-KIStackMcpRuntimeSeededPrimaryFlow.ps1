@@ -46,19 +46,21 @@ New-Item -ItemType Directory -Path $scratchBase -Force | Out-Null
 
 function Invoke-KISeededMcpRuntimeStep {
     # Manually replicates CompleteInstaller.psm1's own `elseif ($step.id -eq 'mcp-runtime')` branch
-    # body verbatim (same PathContext.PayloadRoot convention, same entry point, same Validate-
-    # then-rollback-on-failure shape) -- never a parallel reimplementation.
+    # body verbatim (same PathContext.PayloadRoot convention, same entry point, same
+    # BackupRoot-under-TransactionBackupRoot + Isolated-process Install/Validate + Validate-then-
+    # rollback-on-failure shape, 2.19 Phase 1) -- never a parallel reimplementation.
     param([Parameter(Mandatory)][string]$TargetRoot,[Parameter(Mandatory)][object]$PathContext,[Parameter(Mandatory)][string]$PlannedMode)
     $extract = Join-Path ([string]$PathContext.PayloadRoot) 'McpRuntime'
     $componentRoot = Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'McpRuntime' -Destination $extract
     $entry = Join-Path $componentRoot 'Invoke-KIStackMcpRuntime.ps1'
     if (-not (Test-Path -LiteralPath $entry -PathType Leaf)) { throw 'MCP-Runtime-Einstieg fehlt.' }
     $action = if ($PlannedMode -eq 'Repair') { 'Repair' } elseif ($PlannedMode -eq 'Upgrade') { 'Upgrade' } else { 'Install' }
+    $mcpRuntimeBackupRoot = Join-Path ([string]$PathContext.TransactionBackupRoot) 'mcp-runtime'
     $result = $null
     try {
-        $result = Invoke-KICompleteJsonScript -Script $entry -Arguments @{ Action = $action; TargetRoot = $TargetRoot }
+        $result = Invoke-KICompleteJsonScriptIsolated -Script $entry -Arguments @{ Action = $action; TargetRoot = $TargetRoot; BackupRoot = $mcpRuntimeBackupRoot }
         if (-not [bool]$result.passed) { throw "MCP-Runtime-$action fehlgeschlagen." }
-        $validation = Invoke-KICompleteJsonScript -Script $entry -Arguments @{ Action = 'Validate'; TargetRoot = $TargetRoot }
+        $validation = Invoke-KICompleteJsonScriptIsolated -Script $entry -Arguments @{ Action = 'Validate'; TargetRoot = $TargetRoot }
         if (-not [bool]$validation.passed) { throw 'MCP-Runtime-Validierung fehlgeschlagen.' }
         [pscustomobject]@{ passed = $true; action = $action; install = $result; validation = $validation }
     } catch {
@@ -97,6 +99,11 @@ try {
         passed = [bool]$mcpInstall.passed
         actionWasInstall = ($mcpInstall.action -eq 'Install')
         hasBackupPath = (-not [string]::IsNullOrWhiteSpace([string]$mcpInstall.install.backupPath))
+        # 2.19 Phase 1 (2.18.1 Desktop-Control lesson applied to mcp-runtime): the transaction's
+        # own TransactionBackupRoot must actually be honored, never the standalone
+        # <TargetRoot>\backups\mcp-runtime path a non-transactional caller would get.
+        backupUnderTransactionBackupRoot = ([string]$mcpInstall.install.backupPath).StartsWith([string]$pathContext2.TransactionBackupRoot, [StringComparison]::OrdinalIgnoreCase)
+        packageTreeDeployed = (Test-Path -LiteralPath (Join-Path $t2 'tools/mcp-runtime/current/VERSION') -PathType Leaf)
     }
     if ($checks.seededInstallSucceeds.Values -contains $false) { $fail.Add('seededInstallSucceeds failed: ' + ($checks.seededInstallSucceeds | ConvertTo-Json -Compress)) }
 

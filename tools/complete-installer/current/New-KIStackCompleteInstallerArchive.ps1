@@ -81,11 +81,21 @@ function Initialize-GeneratedBuildPayloads {
 
 $payloadContract=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Contracts/REQUIRED-PAYLOADS.json') -Raw|ConvertFrom-Json -Depth 30
 $payloadDefinitions=@($payloadContract.payloads)
+$componentContract=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Contracts/COMPONENTS.json') -Raw|ConvertFrom-Json -Depth 30
+# Test-KICompletePayloadVersionContract (CompleteInstaller.psm1): generic, contract-driven
+# build gate -- verifies the version embedded inside each just-built payload zip, and any
+# version token in that payload's own declared file/archiveRoot, both match the pinned
+# COMPONENTS.json component version. Fails the build closed on any mismatch; this is exactly
+# the check that would have caught the real, reproduced 2.19.0 defect where McpRuntime's and
+# DesktopControl's packaging filenames/archiveRoots still said v0.1.0 after their component
+# versions had already advanced to 0.2.0/0.1.1.
+Import-Module (Join-Path $PSScriptRoot 'CompleteInstaller.psm1') -Force
 
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('ki-stack-complete-build-' + [guid]::NewGuid().ToString('N'))
 $payloadRoot = Join-Path $tempRoot 'payloads'
 $stage = Join-Path $tempRoot $packageName
 New-Item -ItemType Directory -Path $payloadRoot,$stage -Force | Out-Null
+$versionContractResults = [Collections.Generic.List[object]]::new()
 try {
     foreach ($definition in $payloadDefinitions) {
         $source = Join-Path $repositoryRoot $definition.source
@@ -100,6 +110,11 @@ try {
         Update-SourceChecksums -SourceRoot $buildSource
         $payloadArchive = Join-Path $payloadRoot $definition.file
         New-DeterministicArchive -SourceRoot $buildSource -Destination $payloadArchive -ArchiveRoot $definition.archiveRoot
+        $versionContract = Test-KICompletePayloadVersionContract -ComponentContract $componentContract -PayloadDefinition $definition -PayloadZipPath $payloadArchive
+        $versionContractResults.Add([pscustomobject]@{ key = $definition.key; ok = [bool]$versionContract.ok; checkedComponents = $versionContract.checkedComponents; failures = $versionContract.failures }) | Out-Null
+        if (-not [bool]$versionContract.ok) {
+            throw "Payload-Versionsvertrag verletzt fuer '$($definition.key)': $($versionContract.failures -join '; ')"
+        }
         $destination = Join-Path $stage ('Payload\' + $definition.key)
         New-Item -ItemType Directory -Path $destination -Force | Out-Null
         Copy-Item -LiteralPath $payloadArchive -Destination $destination
@@ -128,6 +143,7 @@ try {
         sha256 = $hash
         payloads = @($payloadDefinitions.key)
         payloadValidation = $payloadValidation
+        payloadVersionContract = @($versionContractResults)
         sourceOnlyBuild = $true
         targetSystemAccessed = $false
     }

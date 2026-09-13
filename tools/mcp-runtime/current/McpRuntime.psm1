@@ -107,6 +107,130 @@ function Get-KIMcpRuntimePaths {
     }
 }
 
+# --- Persistent package deployment (2.19 Phase 1 structural fix) -------------------------------
+#
+# Through 2.19 Phase 1's first draft, this module's own code (this file, Scripts/*.py, Config/*,
+# Vendor/*) was NEVER copied onto a real target at all: Start-KIMcpRuntime only ever launched
+# whatever $PackageRoot happened to be at call time, and Install-KIMcpRuntime only ever wrote
+# lifecycle bookkeeping (the marker/starter/stopper under modules/mcp-runtime, credential +
+# workspace under state/mcp-runtime) -- never a stable package tree. Driven by the Complete
+# Installer, $PackageRoot at install time is a TRANSACTION-SCOPED payload staging directory
+# (<TargetRoot>\state\complete-installer\transactions\<TransactionId>\payload\McpRuntime\...,
+# see Runtime/KIStackPathContext.psm1's PayloadRoot) -- so the generated starter/stopper .cmd
+# ended up hard-coding a path into THAT staging directory, and re-running Install with a changed
+# payload at an unchanged component VERSION was silently treated as SkippedAlreadyCompliant
+# (Test-KIMcpRuntime never compared deployed content to source). Both are now fixed: mcp-runtime
+# gets the exact same persistent, source-parity-checked package tree WinApp and Desktop Control
+# already have, at <TargetRoot>\tools\mcp-runtime\current\ -- Get-KIMcpRuntimeInstallPaths below,
+# mirroring Get-KIDesktopControlInstallPaths (DesktopControl.psm1) function-for-function. This is
+# ADDITIVE to the existing lifecycle paths above (modules/mcp-runtime, state/mcp-runtime), which
+# are unchanged: state/mcp-runtime/{credential.json,workspace,mcp-runtime.pid} are runtime state,
+# never payload -- Install-KIMcpRuntime never treats them as part of the deployed package, never
+# backs them up as "payload", and never deletes them on Repair.
+
+function Get-KIMcpRuntimeInstallPaths {
+    # <TargetRoot>\tools\mcp-runtime\current\ -- the persistent, deployed copy of this component's
+    # own code. Deliberately simpler than Desktop Control's own Get-KIDesktopControlInstallPaths
+    # (no separate installRoot-level VERSION/marker stamp one level above current\): this
+    # component's own VERSION file, copied as part of the deployed package contents, already IS
+    # the stable, probeable version stamp -- COMPONENTS.json's existing marker/probe convention
+    # (modules/mcp-runtime/installation.json, the lifecycle marker above) is left untouched by
+    # this addition, so this stays a purely additive package/parity concern.
+    param([Parameter(Mandatory)][string]$TargetRoot)
+    $root = [IO.Path]::GetFullPath($TargetRoot)
+    $installRoot = [IO.Path]::Combine($root, 'tools', 'mcp-runtime')
+    $packageRoot = [IO.Path]::Combine($installRoot, 'current')
+    [pscustomobject]@{
+        targetRoot = $root
+        installRoot = $installRoot
+        packageRoot = $packageRoot
+        versionStamp = [IO.Path]::Combine($packageRoot, 'VERSION')
+        checksums = [IO.Path]::Combine($packageRoot, 'SHA256SUMS.txt')
+    }
+}
+
+$script:KIMcpRuntimeRequiredDeployedFiles = @(
+    'VERSION', 'MANIFEST.json', 'SHA256SUMS.txt', 'Invoke-KIStackMcpRuntime.ps1', 'McpRuntime.psm1',
+    'Config/mcp-runtime.config.json', 'Scripts/mcp_launcher.py', 'Scripts/ki_desktop_control_tools.py',
+    'Vendor/KIStackOpenWebUICredential.psm1', 'Vendor/KIStackPathContext.psm1'
+)
+
+function Test-KIMcpRuntimeChecksums {
+    # Verbatim pattern of Test-KIDesktopControlChecksums (DesktopControl.psm1): every line in
+    # SHA256SUMS.txt must resolve to an existing file under PackageRoot with a matching hash.
+    param([Parameter(Mandatory)][string]$PackageRoot, [Parameter(Mandatory)][string]$ChecksumFile)
+    if (-not (Test-Path -LiteralPath $ChecksumFile -PathType Leaf)) { return $false }
+    foreach ($line in Get-Content -LiteralPath $ChecksumFile) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        if ($line -notmatch '^([0-9a-fA-F]{64})\s+\*?(.+)$') { return $false }
+        $file = Join-Path $PackageRoot ($Matches[2].Replace('/', [IO.Path]::DirectorySeparatorChar))
+        if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return $false }
+        if ((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Matches[1].ToLowerInvariant()) { return $false }
+    }
+    return $true
+}
+
+function Get-KIMcpRuntimeDeployableFile {
+    # Verbatim pattern of Get-KIDesktopControlDeployableFile: every file that would actually be
+    # copied by Install-KIMcpRuntime (the whole tree minus a Payload staging dir, which is never
+    # deployed), as forward-slash relative paths so a source tree and a deployed target can be
+    # compared key-for-key.
+    param([Parameter(Mandatory)][string]$Root)
+    $full = [IO.Path]::GetFullPath($Root)
+    if (-not (Test-Path -LiteralPath $full -PathType Container)) { return @() }
+    @(Get-ChildItem -LiteralPath $full -Recurse -File -Force | ForEach-Object {
+        ($_.FullName.Substring($full.Length).TrimStart('\', '/') -replace '\\', '/')
+    } | Where-Object { $_ -ne 'Payload' -and $_ -notmatch '^Payload/' })
+}
+
+function Test-KIMcpRuntimeSourceParity {
+    # Verbatim pattern of Test-KIDesktopControlSourceParity: every PRODUCTIVELY DEPLOYED file must
+    # be byte-identical (SHA256) between the current source/payload tree and the deployed target --
+    # this is what makes a changed payload at an UNCHANGED component VERSION correctly
+    # non-compliant instead of a silent Skip.
+    #   missing target file       -> not compliant
+    #   changed file (hash drift) -> not compliant
+    #   extra unexpected target file -> not compliant (a Repair must drop it)
+    param([Parameter(Mandatory)][string]$SourceRoot, [Parameter(Mandatory)][string]$TargetPackageRoot)
+    $srcFiles = @(Get-KIMcpRuntimeDeployableFile -Root $SourceRoot)
+    if ($srcFiles.Count -eq 0) { return [pscustomobject]@{ ok = $false; reason = 'source-root-empty-or-missing' } }
+    $tgtFiles = @(Get-KIMcpRuntimeDeployableFile -Root $TargetPackageRoot)
+    $hash = { param($p) (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() }
+    foreach ($rel in $srcFiles) {
+        $native = $rel -replace '/', '\'
+        $tgt = Join-Path $TargetPackageRoot $native
+        if (-not (Test-Path -LiteralPath $tgt -PathType Leaf)) { return [pscustomobject]@{ ok = $false; reason = "missing-in-target:$rel" } }
+        if ((& $hash (Join-Path $SourceRoot $native)) -ne (& $hash $tgt)) { return [pscustomobject]@{ ok = $false; reason = "content-drift:$rel" } }
+    }
+    $extra = @($tgtFiles | Where-Object { $srcFiles -notcontains $_ })
+    if ($extra.Count -gt 0) { return [pscustomobject]@{ ok = $false; reason = "unexpected-target-file:$($extra -join ',')" } }
+    [pscustomobject]@{ ok = $true; reason = 'ok'; fileCount = $srcFiles.Count }
+}
+
+function Test-KIMcpRuntimeDeployed {
+    # On-disk compliance of the *deployed* package copy under <TargetRoot>\tools\mcp-runtime\.
+    # Verbatim pattern of Test-KIDesktopControlDeployed. Used for Install-KIMcpRuntime's own
+    # idempotency gate and available for the Complete Installer's own re-verification.
+    # -SourceRoot is optional: when given, every PRODUCTIVELY DEPLOYED file is compared
+    # Source <-> Target by SHA256 (Test-KIMcpRuntimeSourceParity), so a changed payload at an
+    # unchanged component VERSION is correctly reported non-compliant instead of skipped. Omitted
+    # => the previous, weaker "is the target internally self-consistent" behaviour only.
+    param([Parameter(Mandatory)][string]$TargetRoot, [string]$ExpectedVersion = '0.2.0', [string]$SourceRoot)
+    $p = Get-KIMcpRuntimeInstallPaths -TargetRoot $TargetRoot
+    if (-not (Test-Path -LiteralPath $p.packageRoot -PathType Container)) { return [pscustomobject]@{ ok = $false; reason = 'package-root-missing'; paths = $p } }
+    if (-not (Test-Path -LiteralPath $p.versionStamp -PathType Leaf)) { return [pscustomobject]@{ ok = $false; reason = 'version-stamp-missing'; paths = $p } }
+    if ((Get-Content -LiteralPath $p.versionStamp -Raw).Trim() -ne $ExpectedVersion) { return [pscustomobject]@{ ok = $false; reason = 'version-stamp-mismatch'; paths = $p } }
+    foreach ($rel in $script:KIMcpRuntimeRequiredDeployedFiles) {
+        if (-not (Test-Path -LiteralPath (Join-Path $p.packageRoot ($rel -replace '/', '\')) -PathType Leaf)) { return [pscustomobject]@{ ok = $false; reason = "required-file-missing:$rel"; paths = $p } }
+    }
+    if (-not (Test-KIMcpRuntimeChecksums -PackageRoot $p.packageRoot -ChecksumFile $p.checksums)) { return [pscustomobject]@{ ok = $false; reason = 'checksums-invalid'; paths = $p } }
+    if (-not [string]::IsNullOrWhiteSpace($SourceRoot)) {
+        $parity = Test-KIMcpRuntimeSourceParity -SourceRoot $SourceRoot -TargetPackageRoot $p.packageRoot
+        if (-not [bool]$parity.ok) { return [pscustomobject]@{ ok = $false; reason = "source-parity:$($parity.reason)"; paths = $p } }
+    }
+    [pscustomobject]@{ ok = $true; reason = 'ok'; paths = $p }
+}
+
 # --- Credential (own MCP-server API key; separate from Open Terminal's production key) -------
 
 function ConvertFrom-KIMcpRuntimeSecureStringTransient {
@@ -241,14 +365,36 @@ function Assert-KIMcpRuntimeManagedUv {
 }
 
 function Get-KIMcpRuntimeStartArguments {
-    # `uv run --with open-terminal[mcp] python <launcher> <host> <port> <workspace>` -- resolves
-    # the [mcp] extra on demand (Phase 0 finding: not installed by default), never installs a
-    # second, separate copy of open-terminal itself.
-    param([Parameter(Mandatory)][object]$Config, [Parameter(Mandatory)][string]$LauncherPath, [Parameter(Mandatory)][string]$WorkspacePath, [string[]]$ArgumentsPrefix = @())
+    # `uv run --with open-terminal[mcp] python <launcher> <host> <port> <workspace> <targetRoot>`
+    # -- resolves the [mcp] extra on demand (Phase 0 finding: not installed by default), never
+    # installs a second, separate copy of open-terminal itself. TargetRoot (2.19 Phase 1) is
+    # passed through as its own trailing argument so mcp_launcher.py can derive the Desktop
+    # Control dispatcher path (<TargetRoot>\tools\desktop-control\current\...) without having to
+    # reverse-engineer it from the workspace path.
+    param([Parameter(Mandatory)][object]$Config, [Parameter(Mandatory)][string]$LauncherPath, [Parameter(Mandatory)][string]$WorkspacePath, [Parameter(Mandatory)][string]$TargetRootPath, [string[]]$ArgumentsPrefix = @())
     @($ArgumentsPrefix) + @(
         'run', '--with', [string]$Config.packageSpec, 'python', $LauncherPath,
-        [string]$Config.host, [string][int]$Config.port, $WorkspacePath
+        [string]$Config.host, [string][int]$Config.port, $WorkspacePath, $TargetRootPath
     )
+}
+
+function Get-KIMcpRuntimeExpectedUiTools {
+    # Single source of truth for the PowerShell-side tool-surface check -- mirrors
+    # Scripts/ki_desktop_control_tools.py's own UI_TOOL_TO_OPERATION keys exactly (2.19 Phase 1).
+    @('ui_list_windows', 'ui_inspect_window', 'ui_find_element', 'ui_get_properties', 'ui_get_value', 'ui_screenshot', 'ui_wait_for', 'ui_set_value', 'ui_invoke', 'ui_focus')
+}
+
+function Get-KIMcpRuntimeForbiddenUiTools {
+    # Never-exposed surface (raw input / global hotkeys / coordinate clicks / unverified scroll /
+    # raw winapp) -- a healthy MCP Runtime must never report any of these as a callable tool.
+    @('ui_scroll', 'ui_scroll_into_view', 'send_input', 'send_keys', 'global_hotkey', 'system_hotkey', 'coordinate_click', 'mouse_click_coordinate', 'drag', 'touch', 'pen', 'raw_winapp')
+}
+
+function Get-KIMcpRuntimeBaselineOpenTerminalTools {
+    # Spot-check subset of Open Terminal's own OpenAPI-derived tools (Test-KIStackMcpRuntime.ps1's
+    # own validation-gate calls these by these exact names) -- proves the pre-existing surface
+    # was not displaced by adding the ui_* tools, without hardcoding Open Terminal's full tool list.
+    @('run_command', 'write_file', 'read_file', 'get_process_status', 'kill_process')
 }
 
 function Test-KIMcpRuntimeHealthy {
@@ -257,6 +403,12 @@ function Test-KIMcpRuntimeHealthy {
     # initialize + list_tools. Shells out to the SAME `mcp` Python client library Open WebUI
     # itself uses (open_webui/utils/mcp/client.py), via the Open-WebUI venv's own python.exe --
     # never a bare TCP-port check, which would pass even for a process that is up but 401-broken.
+    #
+    # 2.19 Phase 1: also verifies, from the SAME list_tools round-trip (no second connection),
+    # that Open Terminal's pre-existing tools are still present, all ten ui_* tools are present,
+    # and none of the never-exposed UI tool names are. `reachable` keeps its pre-2.19 meaning
+    # (a working MCP connection) so existing callers (Wait-/Start-/Get-Status) are unaffected;
+    # the new fields are purely additive.
     param([Parameter(Mandatory)][object]$Config, [Parameter(Mandatory)][Security.SecureString]$ApiKey, [int]$RequestTimeoutSeconds = 5, [string]$OpenWebUIPythonExe = 'C:\KI-Stack\python\venvs\openwebui\Scripts\python.exe')
     $uri = "http://$($Config.host):$($Config.port)/mcp"
     if (-not (Test-Path -LiteralPath $OpenWebUIPythonExe -PathType Leaf)) {
@@ -276,7 +428,8 @@ async def main():
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 tools = await session.list_tools()
-                print(json.dumps({"ok": True, "toolCount": len(tools.tools)}))
+                names = sorted(t.name for t in tools.tools)
+                print(json.dumps({"ok": True, "toolCount": len(tools.tools), "toolNames": names}))
 
 asyncio.run(main())
 '@
@@ -288,7 +441,22 @@ asyncio.run(main())
         $global:LASTEXITCODE = 0
         if ($exitCode -eq 0) {
             $parsed = $output | Select-Object -Last 1 | ConvertFrom-Json
-            [pscustomobject]@{ reachable = [bool]$parsed.ok; uri = $uri; toolCount = [int]$parsed.toolCount }
+            $toolNames = @($parsed.toolNames)
+            $missingUiTools = @(Get-KIMcpRuntimeExpectedUiTools | Where-Object { $toolNames -notcontains $_ })
+            $presentForbiddenUiTools = @(Get-KIMcpRuntimeForbiddenUiTools | Where-Object { $toolNames -contains $_ })
+            $missingOpenTerminalTools = @(Get-KIMcpRuntimeBaselineOpenTerminalTools | Where-Object { $toolNames -notcontains $_ })
+            [pscustomobject]@{
+                reachable = [bool]$parsed.ok
+                uri = $uri
+                toolCount = [int]$parsed.toolCount
+                toolNames = $toolNames
+                uiToolsPresent = ($missingUiTools.Count -eq 0)
+                missingUiTools = $missingUiTools
+                forbiddenUiToolsAbsent = ($presentForbiddenUiTools.Count -eq 0)
+                presentForbiddenUiTools = $presentForbiddenUiTools
+                openTerminalToolsPresent = ($missingOpenTerminalTools.Count -eq 0)
+                missingOpenTerminalTools = $missingOpenTerminalTools
+            }
         } else {
             [pscustomobject]@{ reachable = $false; uri = $uri; error = ($output -join "`n") }
         }
@@ -341,7 +509,7 @@ function Start-KIMcpRuntime {
 
     $managedUv = Assert-KIMcpRuntimeManagedUv -TargetRoot $TargetRoot
     $launcherPath = Join-Path $PackageRoot 'Scripts/mcp_launcher.py'
-    $resolvedArguments = Get-KIMcpRuntimeStartArguments -Config $config -LauncherPath $launcherPath -WorkspacePath $paths.workspace -ArgumentsPrefix $managedUv.argumentsPrefix
+    $resolvedArguments = Get-KIMcpRuntimeStartArguments -Config $config -LauncherPath $launcherPath -WorkspacePath $paths.workspace -TargetRootPath $TargetRoot -ArgumentsPrefix $managedUv.argumentsPrefix
 
     $plainKey = $null
     $previousEnv = $env:OPEN_TERMINAL_API_KEY
@@ -492,31 +660,66 @@ function Test-KIMcpRuntime {
 
 function Install-KIMcpRuntime {
     # Serves Install, Upgrade, and Repair alike -- a same-version re-run is a safe no-op via the
-    # SkippedAlreadyCompliant fast path (Install-KIOpenTerminal's exact reconcile contract).
+    # SkippedAlreadyCompliant fast path, but (2.19 Phase 1 structural fix) that fast path now
+    # requires BOTH the lifecycle bookkeeping (Test-KIMcpRuntime: marker/starter/stopper/
+    # workspace/credential) AND the persistent package tree to actually match this run's own
+    # source content (Test-KIMcpRuntimeDeployed -SourceRoot $PackageRoot) -- a changed payload at
+    # an unchanged component VERSION is reconciled (Repair-shaped: clean re-deploy), never
+    # silently skipped, closing the exact drift class Desktop Control's own
+    # Test-KIDesktopControlSourceParity already closes for that component.
     param(
         [string]$PackageRoot = $PSScriptRoot,
         [string]$TargetRoot,
         [ValidateSet('Install', 'Upgrade', 'Repair')][string]$Action = 'Install',
+        # 2.18.1-pattern (Desktop Control's own hotfix, applied here for the same reason):
+        # optional, externally-owned backup root. When set, the backup is created EXCLUSIVELY
+        # under this root (a timestamped subfolder of it), never under the standalone
+        # <TargetRoot>\backups\mcp-runtime\ scheme -- so a caller with its own transaction-scoped
+        # recovery contract (the Complete Installer) gets a BackupPath its own recovery logic
+        # actually accepts. Omitted => unchanged standalone behavior.
+        [string]$BackupRoot,
         [switch]$DryRun,
         [switch]$SkipUvCheck
     )
     $config = Get-KIMcpRuntimeConfig -PackageRoot $PackageRoot
     if ([string]::IsNullOrWhiteSpace($TargetRoot)) { $TargetRoot = [string]$config.targetRoot }
+    $expected = [string]$config.version
+    # Source/config version consistency guard -- mirrors Install-KIDesktopControl's own check --
+    # so a source tree whose VERSION file and Config/mcp-runtime.config.json have drifted apart
+    # fails closed here rather than silently deploying a mislabeled package.
+    $sourceVersionFile = Join-Path $PackageRoot 'VERSION'
+    if (Test-Path -LiteralPath $sourceVersionFile -PathType Leaf) {
+        $sourceVersion = (Get-Content -LiteralPath $sourceVersionFile -Raw).Trim()
+        if ($sourceVersion -ne $expected) { throw "Quell-VERSION ($sourceVersion) und Config-Version ($expected) sind nicht deckungsgleich." }
+    }
     $paths = Get-KIMcpRuntimePaths -TargetRoot $TargetRoot
-    if ($DryRun) { return [pscustomobject]@{ passed = $true; status = 'DryRun'; action = $Action; plan = [pscustomobject]@{ moduleRoot = $paths.moduleRoot; stateRoot = $paths.stateRoot }; mutatesTarget = $false } }
+    $installPaths = Get-KIMcpRuntimeInstallPaths -TargetRoot $TargetRoot
+    if ($DryRun) { return [pscustomobject]@{ passed = $true; status = 'DryRun'; action = $Action; plan = [pscustomobject]@{ moduleRoot = $paths.moduleRoot; stateRoot = $paths.stateRoot; packageRoot = $installPaths.packageRoot }; mutatesTarget = $false } }
 
-    $existing = Test-KIMcpRuntime -PackageRoot $PackageRoot -TargetRoot $TargetRoot -SkipUvCheck:$SkipUvCheck
-    if ($existing.passed) { return [pscustomobject]@{ passed = $true; status = 'SkippedAlreadyCompliant'; action = $Action; marker = (Read-KIMcpRuntimeJson $paths.marker); mutatesTarget = $false } }
+    # Idempotency gate -- BOTH dimensions must already be correct, or this is not a no-op.
+    $packageDeployed = Test-KIMcpRuntimeDeployed -TargetRoot $TargetRoot -ExpectedVersion $expected -SourceRoot $PackageRoot
+    $lifecycleReady = Test-KIMcpRuntime -PackageRoot $PackageRoot -TargetRoot $TargetRoot -SkipUvCheck:$SkipUvCheck
+    if ([bool]$packageDeployed.ok -and [bool]$lifecycleReady.passed) {
+        return [pscustomobject]@{ passed = $true; status = 'SkippedAlreadyCompliant'; action = $Action; marker = (Read-KIMcpRuntimeJson $paths.marker); mutatesTarget = $false }
+    }
 
     if (-not $SkipUvCheck) { Assert-KIMcpRuntimeManagedUv -TargetRoot $TargetRoot | Out-Null }
 
+    $markerExistedBefore = Test-Path -LiteralPath $paths.marker -PathType Leaf
+    New-KIMcpRuntimeDirectory $installPaths.installRoot
     New-KIMcpRuntimeDirectory $paths.moduleRoot
     New-KIMcpRuntimeDirectory $paths.stateRoot
     New-KIMcpRuntimeDirectory $paths.workspace
-    $backupRoot = Join-Path $TargetRoot ('backups/mcp-runtime/' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fffffff'))
+    $backupRootBase = if (-not [string]::IsNullOrWhiteSpace($BackupRoot)) { $BackupRoot } else { Join-Path $TargetRoot 'backups/mcp-runtime' }
+    $backupRoot = Join-Path $backupRootBase ([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss-fffffff'))
     New-KIMcpRuntimeDirectory $backupRoot
+    # Backs up the deployed PACKAGE tree ('current', which already contains its own VERSION and
+    # SHA256SUMS.txt) and the LIFECYCLE bookkeeping (marker/starter/stopper). Deliberately never
+    # includes state/mcp-runtime (credential.json, workspace, mcp-runtime.pid) -- that is runtime
+    # state, never payload, and must survive an Upgrade/Repair untouched.
     $items = @()
     foreach ($definition in @(
+        @{ path = $installPaths.packageRoot; name = 'current' },
         @{ path = $paths.marker; name = 'installation.json' }, @{ path = $paths.starter; name = 'Start-KIStack-McpRuntime.cmd' },
         @{ path = $paths.stopper; name = 'Stop-KIStack-McpRuntime.cmd' }
     )) { $items += @(Copy-KIMcpRuntimeBackupItem -Path $definition.path -BackupRoot $backupRoot -Name $definition.name) }
@@ -524,19 +727,51 @@ function Install-KIMcpRuntime {
     Write-KIMcpRuntimeJson $backupPath ([ordered]@{ schemaVersion = '1.0'; createdAtUtc = [DateTime]::UtcNow.ToString('o'); targetRoot = $TargetRoot; items = $items })
 
     try {
-        $invokeScript = Join-Path $PackageRoot 'Invoke-KIStackMcpRuntime.ps1'
+        # Clean re-deploy of the package tree (a Repair must drop drifted/extra files) --
+        # mirrors Install-KIDesktopControl's own "wipe current\, copy everything except Payload"
+        # shape exactly.
+        if (Test-Path -LiteralPath $installPaths.packageRoot) { Remove-Item -LiteralPath $installPaths.packageRoot -Recurse -Force }
+        New-KIMcpRuntimeDirectory $installPaths.packageRoot
+        Get-ChildItem -LiteralPath $PackageRoot -Force | Where-Object { $_.Name -ne 'Payload' } |
+            Copy-Item -Destination $installPaths.packageRoot -Recurse -Force
+
+        if (-not (Test-KIMcpRuntimeChecksums -PackageRoot $installPaths.packageRoot -ChecksumFile $installPaths.checksums)) {
+            throw 'SHA256SUMS.txt der deployten Komponente stimmt nicht mit dem kopierten Inhalt ueberein (fail closed).'
+        }
+        foreach ($rel in $script:KIMcpRuntimeRequiredDeployedFiles) {
+            if (-not (Test-Path -LiteralPath (Join-Path $installPaths.packageRoot ($rel -replace '/', '\')) -PathType Leaf)) { throw "Pflichtdatei fehlt nach dem Deploy: $rel" }
+        }
+
+        # Starter/stopper reference the PERSISTENT, deployed package root -- never $PackageRoot
+        # (which, driven by the Complete Installer, is a transaction-scoped payload staging
+        # directory that is never guaranteed to still exist by the time these scripts next run).
+        $invokeScript = Join-Path $installPaths.packageRoot 'Invoke-KIStackMcpRuntime.ps1'
         [IO.File]::WriteAllText($paths.starter, (Get-KIMcpRuntimeStarterScriptContent -InvokeScriptPath $invokeScript -TargetRoot $TargetRoot -Action 'Start'), [Text.UTF8Encoding]::new($false))
         [IO.File]::WriteAllText($paths.stopper, (Get-KIMcpRuntimeStarterScriptContent -InvokeScriptPath $invokeScript -TargetRoot $TargetRoot -Action 'Stop'), [Text.UTF8Encoding]::new($false))
         Assert-KIMcpRuntimeApiKey -TargetRoot $TargetRoot -Bytes ([int]$config.apiKeyBytes) | Out-Null
-        $marker = [ordered]@{ schemaVersion = '1.0'; version = [string]$config.version; host = [string]$config.host; port = [int]$config.port; installedAtUtc = [DateTime]::UtcNow.ToString('o') }
+        $deployedFileCount = @(Get-ChildItem -LiteralPath $installPaths.packageRoot -Recurse -File).Count
+        $marker = [ordered]@{ schemaVersion = '1.0'; version = $expected; host = [string]$config.host; port = [int]$config.port; installedAtUtc = [DateTime]::UtcNow.ToString('o'); deployedFileCount = $deployedFileCount }
         Write-KIMcpRuntimeJson $paths.marker $marker
-        $readback = Test-KIMcpRuntime -PackageRoot $PackageRoot -TargetRoot $TargetRoot -SkipUvCheck:$SkipUvCheck
-        if (-not $readback.passed) { throw 'MCP-Runtime-Readback nach Installation ist fehlgeschlagen.' }
+
+        $readback = Test-KIMcpRuntime -PackageRoot $installPaths.packageRoot -TargetRoot $TargetRoot -SkipUvCheck:$SkipUvCheck
+        if (-not $readback.passed) { throw 'MCP-Runtime-Readback (Lifecycle) nach Installation ist fehlgeschlagen.' }
+        $packageReadback = Test-KIMcpRuntimeDeployed -TargetRoot $TargetRoot -ExpectedVersion $expected -SourceRoot $PackageRoot
+        if (-not [bool]$packageReadback.ok) { throw "MCP-Runtime-Readback (Package) nach Installation ist fehlgeschlagen: $($packageReadback.reason)" }
+
         $resultStatus = switch ($Action) { 'Upgrade' { 'Upgraded' }; 'Repair' { 'Repaired' }; default { 'Installed' } }
-        [pscustomobject]@{ passed = $true; status = $resultStatus; action = $Action; marker = $marker; backupPath = $backupPath; readback = $readback; mutatesTarget = $true }
+        [pscustomobject]@{ passed = $true; status = $resultStatus; action = $Action; marker = $marker; backupPath = $backupPath; deployedFileCount = $deployedFileCount; readback = $readback; mutatesTarget = $true }
     } catch {
         $rollbackStatus = 'Failed'
         try { $rollback = Restore-KIMcpRuntimeBackup -BackupPath $backupPath; $rollbackStatus = [string]$rollback.status } catch {}
+        if (-not $markerExistedBefore) {
+            # A fresh install that failed partway must not leave a half-deployed package/module
+            # tree behind -- mirrors Install-KIDesktopControl's own catch-block cleanup.
+            foreach ($cleanupPath in @($installPaths.packageRoot, $paths.moduleRoot)) {
+                if ((-not (Test-Path -LiteralPath $paths.marker -PathType Leaf)) -and (Test-Path -LiteralPath $cleanupPath)) {
+                    Remove-Item -LiteralPath $cleanupPath -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
         $_.Exception.Data['KIStackRollbackStatus'] = $rollbackStatus
         $_.Exception.Data['KIStackBackupPath'] = $backupPath
         throw
@@ -551,13 +786,16 @@ function Restore-KIMcpRuntime {
 function Uninstall-KIMcpRuntime {
     # Stops the process (if running), unregisters ONLY this module's own Open-WebUI tool-server
     # entry (never touches any other entry -- see Unregister-KIMcpRuntimeOpenWebUI), then removes
-    # this module's own module/state trees. Never touches Open Terminal's production install.
+    # this module's own module/state/package trees. Never touches Open Terminal's production
+    # install. Removes the persistent <TargetRoot>\tools\mcp-runtime\ package tree (2.19 Phase 1)
+    # in addition to the pre-existing modules/state trees.
     param([string]$PackageRoot = $PSScriptRoot, [string]$TargetRoot = 'C:\KI-Stack')
     $paths = Get-KIMcpRuntimePaths -TargetRoot $TargetRoot
+    $installPaths = Get-KIMcpRuntimeInstallPaths -TargetRoot $TargetRoot
     $stopResult = Stop-KIMcpRuntime -PackageRoot $PackageRoot -TargetRoot $TargetRoot
     $unregisterResult = $null
     try { $unregisterResult = Unregister-KIMcpRuntimeOpenWebUI -PackageRoot $PackageRoot -TargetRoot $TargetRoot } catch { $unregisterResult = [pscustomobject]@{ passed = $false; error = $_.Exception.Message } }
-    foreach ($path in @($paths.moduleRoot, $paths.stateRoot)) {
+    foreach ($path in @($paths.moduleRoot, $paths.stateRoot, $installPaths.installRoot)) {
         if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction SilentlyContinue }
     }
     [pscustomobject]@{ passed = $true; status = 'Uninstalled'; stopResult = $stopResult; unregisterResult = $unregisterResult; mutatesTarget = $true }
@@ -681,6 +919,62 @@ function Test-KIMcpRuntimeOpenWebUIRegistration {
     $existingList = @($current.TOOL_SERVER_CONNECTIONS)
     $ownEntry = $existingList | Where-Object { $_.info.id -eq [string]$config.toolServerId } | Select-Object -First 1
     [pscustomobject]@{ passed = $true; registered = ($null -ne $ownEntry); entry = $ownEntry; mutatesTarget = $false }
+}
+
+# --- Validation-gate Open-WebUI model/profile idempotency (Test-KIStackMcpRuntime.ps1 own use) -
+#
+# Distinct concern from the tool-server registration above: Test-KIStackMcpRuntime.ps1's own
+# point 12 (the real Open-WebUI agent test) creates a throwaway model/profile
+# ('mcp-runtime-validation-gate-test') to run a chat completion against. That profile id is
+# fixed (never randomized -- a fixed, well-known validation-gate profile id is the whole point),
+# so a prior run's profile left behind by -SkipCleanup must be detected and reused, never
+# blindly re-created (Open WebUI's own /api/v1/models/create rejects a duplicate id outright).
+
+function Get-KIMcpRuntimeOpenWebUIModelById {
+    # Existence check via the SAME read route already used in production elsewhere in this repo
+    # for exactly this purpose (OpenWebUIBallisticsPack.psm1's Get-BallisticsModel,
+    # OpenWebUIAgentPack.psm1's per-id lookup, Complete Installer's Operations/*.ps1) --
+    # GET /api/v1/models/model?id=<id>. Verified live against a real KI-Stack Open-WebUI
+    # instance (2026-09-13): 200 with the full model body when it exists, 404 with a JSON
+    # {"detail":"..."} body when it does not. Returns {found=$true;model=<obj>} or
+    # {found=$false;model=$null} for a genuine 404 -- any OTHER failure (network, 5xx, auth,
+    # malformed response) is never swallowed here; it propagates so the caller fails closed.
+    param(
+        [Parameter(Mandatory)][string]$OpenWebUIEndpoint,
+        [Parameter(Mandatory)][hashtable]$Headers,
+        [Parameter(Mandatory)][string]$ModelId,
+        [int]$TimeoutSec = 15
+    )
+    try {
+        $model = Invoke-RestMethod -Uri "$OpenWebUIEndpoint/api/v1/models/model?id=$([Uri]::EscapeDataString($ModelId))" -Headers $Headers -TimeoutSec $TimeoutSec
+        [pscustomobject]@{ found = $true; model = $model }
+    } catch {
+        if ($null -ne $_.Exception.Response -and [int]$_.Exception.Response.StatusCode.value__ -eq 404) {
+            [pscustomobject]@{ found = $false; model = $null }
+        } else {
+            throw
+        }
+    }
+}
+
+function Resolve-KIMcpRuntimeValidationGateProfile {
+    # Pure create-or-reuse decision, deliberately separated from the real HTTP calls above so it
+    # is unit-testable without a live Open WebUI target: -GetProfile is expected to return the
+    # exact {found;model} shape Get-KIMcpRuntimeOpenWebUIModelById returns (or throw, for a
+    # genuine read failure); -CreateProfile performs the actual POST /api/v1/models/create (or
+    # throws, for a genuine create failure). Never invents a random profile id and never retries
+    # past a create failure -- both fail closed by simply propagating whatever their scriptblock
+    # throws, exactly like every other unguarded step in Test-KIStackMcpRuntime.ps1.
+    param(
+        [Parameter(Mandatory)][scriptblock]$GetProfile,
+        [Parameter(Mandatory)][scriptblock]$CreateProfile
+    )
+    $lookup = & $GetProfile
+    if ([bool]$lookup.found) {
+        return [pscustomobject]@{ status = 'Reused'; model = $lookup.model }
+    }
+    & $CreateProfile
+    [pscustomobject]@{ status = 'Created'; model = $null }
 }
 
 Export-ModuleMember -Function *

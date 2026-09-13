@@ -74,13 +74,36 @@ implementiert Install/Repair/Health eigenständig (Phase-1-Recherchebefund).
 
 `Test-KIStackMcpRuntime.ps1` — 13-Punkte-Check (Server läuft, Health, Open-WebUI-Registrierung,
 Tool Discovery, `run_command`/Exitcode/Dateien/Prozesssteuerung/`kill_process` direkt gegen den
-MCP-Server, ein echter Open-WebUI-Agententest **mit `stream:true`**, vollständiger Cleanup danach).
+MCP-Server, ein echter Open-WebUI-Agententest **mit `stream:true`**, vollständiger Cleanup danach),
+seit 2.19 Phase 1 zusätzlich um drei `ui_*`-Tool-Oberflächen-Checks aus demselben
+`list_tools`-Roundtrip ergänzt (Open-Terminal-Basistools weiterhin vorhanden, alle 10 `ui_*`
+Tools vorhanden, keine verbotenen UI-Tools exponiert). Die `ui_*`-Transportlogik selbst hat ihre
+eigene, dispatcherfreie Unit-Test-Suite: `Scripts/test_ki_desktop_control_tools.py`.
 
 **Wichtig:** Ein Test mit `stream:false` ist laut Phase-0-Befund kein gültiger Nachweis für einen
 MCP-Runtime-Defekt — Open WebUIs `non_streaming_chat_response_handler` durchläuft die
 Tool-Ausführungsschleife für keinen Tool-Typ, unabhängig von MCP. Deshalb erzwingt der
 Validation-Gate-Test an der einzigen Stelle, die einen echten Agentenzyklus über Open WebUI prüft,
 explizit `stream:true`.
+
+## Desktop Control (`ui_*` Tools, 2.19 Phase 1)
+
+`Scripts/mcp_launcher.py` registriert zusätzlich zum unveränderten Open-Terminal-`OpenAPIProvider`
+zehn native FastMCP-Tools (`Scripts/ki_desktop_control_tools.py`, `register_ui_tools`) auf
+DERSELBEN `FastMCP`-Instanz — kein zweiter Server, kein zweiter Port, kein zweiter Prozess:
+`ui_list_windows`, `ui_inspect_window`, `ui_find_element`, `ui_get_properties`, `ui_get_value`,
+`ui_screenshot`, `ui_wait_for`, `ui_set_value`, `ui_invoke`, `ui_focus`. Jedes Tool ist ein
+reiner Transport auf `tools/desktop-control/current/Invoke-KIStackDesktopControl.ps1` — Policy,
+Zielauflösung und Verifikation bleiben vollständig dort. Details, Kontrakt und die bewusst nicht
+exponierte Oberfläche (`scroll`, `send_input`, `raw_winapp`, ...) siehe
+`tools/desktop-control/current/MCP-INTEGRATION.md`.
+
+Der Dispatcher wird ausschließlich unter `<TargetRoot>\tools\desktop-control\current\
+Invoke-KIStackDesktopControl.ps1` gesucht (kein PATH-Fallback) — `TargetRoot` wird dafür seit
+2.19 als viertes Argument an `mcp_launcher.py` durchgereicht (`Get-KIMcpRuntimeStartArguments`).
+Fehlt der Dispatcher, schlägt jeder `ui_*`-Aufruf einzeln mit einem strukturierten MCP-Fehler
+fehl; ein bereits vom Dispatcher selbst gemeldetes `success:false` (z. B.
+`SecretContextBlocked`, `PostconditionNotProven`, `ResolverError`) wird unverändert durchgereicht.
 
 ## Bekannte Grenzen (Phase 1, dokumentiert, nicht blockierend)
 

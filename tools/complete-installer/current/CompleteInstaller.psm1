@@ -527,18 +527,180 @@ function Test-KICompleteOpenTerminalCompliant {
     }catch{return $false}
 }
 
+function Get-KICompletePayloadEmbeddedVersion {
+    # Reads the version embedded INSIDE an already-built payload zip, via the exact same
+    # packageIdentity.kind contract ('file'/'jsonField'/'jsonComposite')
+    # Lifecycle/KIStackComponentVersionRegistry.psm1's own Get-KIStackPublishedComponentVersion
+    # already uses to read a component's PUBLISHED (GitHub-hosted) version -- here from a local
+    # zip entry instead of a raw.githubusercontent.com URL, so one contract shape validates both
+    # meanings of "the version this component's own source claims" consistently. No component-
+    # specific branching: the same three `kind` cases this repo already defines.
+    param(
+        [Parameter(Mandatory)][string]$ZipPath,
+        [Parameter(Mandatory)][object]$PackageIdentity,
+        # REQUIRED-PAYLOADS.json's own 'source' for this payload (e.g. 'tools/mcp-runtime/current')
+        # -- packageIdentity.path is repo-relative (e.g. 'tools/mcp-runtime/current/VERSION'); a
+        # payload zip's own entries are relative to ITS OWN source root instead (optionally
+        # archiveRoot-prefixed), so this prefix must be stripped to get the in-zip entry name.
+        [Parameter(Mandatory)][string]$SourceRootRelative,
+        [string]$ArchiveRoot
+    )
+    $kind = [string]$PackageIdentity.kind
+    $pathInsideSource = ([string]$PackageIdentity.path).Substring($SourceRootRelative.Length).TrimStart('/', '\')
+    $entryName = if (-not [string]::IsNullOrWhiteSpace($ArchiveRoot)) { "$ArchiveRoot/$pathInsideSource" } else { $pathInsideSource }
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::OpenRead($ZipPath)
+    try {
+        $entry = @($archive.Entries | Where-Object { $_.FullName -eq $entryName }) | Select-Object -First 1
+        if ($null -eq $entry) { throw "Payload-Eintrag fehlt: $entryName" }
+        $reader = [IO.StreamReader]::new($entry.Open())
+        try { $raw = $reader.ReadToEnd() } finally { $reader.Dispose() }
+        switch ($kind) {
+            'file' {
+                $version = $raw.Trim()
+                if ([string]::IsNullOrWhiteSpace($version)) { throw 'Leere VERSION-Datei im Payload.' }
+                return $version
+            }
+            'jsonField' {
+                $obj = $raw | ConvertFrom-Json -Depth 20
+                $prop = $obj.PSObject.Properties[[string]$PackageIdentity.field]
+                if ($null -eq $prop -or [string]::IsNullOrWhiteSpace([string]$prop.Value)) { throw "Feld '$([string]$PackageIdentity.field)' fehlt oder ist leer im Payload." }
+                return [string]$prop.Value
+            }
+            'jsonComposite' {
+                $obj = $raw | ConvertFrom-Json -Depth 20
+                $parts = @()
+                foreach ($fieldName in @($PackageIdentity.fields)) {
+                    $prop = $obj.PSObject.Properties[[string]$fieldName]
+                    if ($null -eq $prop -or [string]::IsNullOrWhiteSpace([string]$prop.Value)) { throw "Feld '$fieldName' fehlt oder ist leer im Payload." }
+                    $parts += [string]$prop.Value
+                }
+                $separator = if ($PackageIdentity.PSObject.Properties['separator']) { [string]$PackageIdentity.separator } else { '-' }
+                return ($parts -join $separator)
+            }
+            default { throw "Unbekannter packageIdentity.kind: '$kind'" }
+        }
+    } finally {
+        $archive.Dispose()
+    }
+}
+
+function Test-KICompletePayloadVersionContract {
+    # Generic, contract-driven build-gate (2.19.0 packaging-metadata fix): for every
+    # REQUIRED-PAYLOADS.json entry whose matching COMPONENTS.json component(s) declare a real,
+    # checkable own version source (packageIdentity.kind 'file'/'jsonField'/'jsonComposite' --
+    # NEVER the 'bundled-reference-only' pinned/shared-payload components such as
+    # foundation-runtime/python-git/applications, which have no packageIdentity at all and are
+    # therefore correctly skipped, not special-cased), verifies BOTH that the version embedded
+    # INSIDE the just-built payload zip (via Get-KICompletePayloadEmbeddedVersion above) matches
+    # the component's own pinned COMPONENTS.json version, AND that any version token embedded in
+    # the payload's own declared `file`/`archiveRoot` (REQUIRED-PAYLOADS.json) matches it too.
+    # This is exactly the check that would have caught a stale packaging filename/archiveRoot
+    # left behind after a component version bump (the real, reproduced 2.19.0 McpRuntime/
+    # DesktopControl defect this closes) -- for ANY component this contract shape applies to, not
+    # only those two. Every failure is collected (never fails fast on the first one) so a single
+    # build run reports every inconsistency at once.
+    param(
+        [Parameter(Mandatory)][object]$ComponentContract,
+        [Parameter(Mandatory)][object]$PayloadDefinition,
+        [Parameter(Mandatory)][string]$PayloadZipPath
+    )
+    $failures = [Collections.Generic.List[string]]::new()
+    $matchedComponents = @($ComponentContract.components | Where-Object { [string]$_.source -eq ('Payload/' + [string]$PayloadDefinition.key) })
+    $versionCheckable = @($matchedComponents | Where-Object {
+        $_.PSObject.Properties['packageIdentity'] -and $null -ne $_.packageIdentity -and
+        [string]$_.packageIdentity.kind -in @('file', 'jsonField', 'jsonComposite')
+    })
+
+    foreach ($component in $versionCheckable) {
+        $expected = [string]$component.version
+        $embedded = $null
+        try {
+            $embedded = Get-KICompletePayloadEmbeddedVersion -ZipPath $PayloadZipPath -PackageIdentity $component.packageIdentity -SourceRootRelative ([string]$PayloadDefinition.source) -ArchiveRoot ([string]$PayloadDefinition.archiveRoot)
+        } catch {
+            $failures.Add("$($component.id): eingebettete Payload-Version konnte nicht gelesen werden: $($_.Exception.Message)")
+            continue
+        }
+        if ($embedded -ne $expected) {
+            $failures.Add("$($component.id): Payload enthaelt Version '$embedded', COMPONENTS.json erwartet '$expected'")
+        }
+
+        foreach ($fieldName in @('file', 'archiveRoot')) {
+            $fieldValue = [string]$PayloadDefinition.$fieldName
+            if ([string]::IsNullOrWhiteSpace($fieldValue)) { continue }
+            # Strict: bare X.Y.Z, optionally the one real pre-release-style suffix this repo's
+            # own component versions use elsewhere ('-rN', e.g. production-recovery's '1.7.0-r7')
+            # -- deliberately NOT a generic '-<anything>' suffix capture, which previously
+            # misread a purely descriptive filename qualifier (Cutover Runtime's own
+            # 'KI-Stack-Cutover-Execute-v1.6.16-core.zip', where '-core' disambiguates the
+            # payload variant and is never part of the version) as if it were part of the version.
+            if ($fieldValue -match '-v(\d+\.\d+\.\d+(?:-r\d+)?)') {
+                $embeddedInName = $Matches[1]
+                if ($embeddedInName -ne $expected) {
+                    $failures.Add("$($component.id): REQUIRED-PAYLOADS.json-Feld '$fieldName' ('$fieldValue') enthaelt Version '$embeddedInName', COMPONENTS.json erwartet '$expected'")
+                }
+            }
+        }
+    }
+
+    [pscustomobject]@{ ok = ($failures.Count -eq 0); failures = @($failures); checkedComponents = @($versionCheckable.id) }
+}
+
+function Test-KICompleteMcpRuntimePayloadParity {
+    # Verbatim pattern of Test-KICompleteDesktopControlPayloadParity (s/DesktopControl/McpRuntime/,
+    # Payload key 'McpRuntime', deployed target 'tools/mcp-runtime/current'): desired-state parity
+    # for the Complete Installer's planning/skip-recheck decision -- the deployed
+    # <TargetRoot>\tools\mcp-runtime\current\ tree must still be byte-identical to THIS installer
+    # run's mcp-runtime payload (Payload/McpRuntime/*.zip), not merely internally consistent at
+    # the same component VERSION.
+    param([Parameter(Mandatory)][string]$PackageRoot,[Parameter(Mandatory)][string]$DeployedPackageRoot)
+    $payloadDir=Join-Path $PackageRoot 'Payload/McpRuntime'
+    if(-not(Test-Path -LiteralPath $payloadDir -PathType Container)){return $false}
+    if(@(Get-ChildItem -LiteralPath $payloadDir -File -Filter '*.zip' -ErrorAction SilentlyContinue).Count-ne1){return $false}
+    if(-not(Test-Path -LiteralPath $DeployedPackageRoot -PathType Container)){return $false}
+    $extract=Join-Path ([IO.Path]::GetTempPath()) ('KICompleteMRParity-'+[guid]::NewGuid().ToString('N').Substring(0,12))
+    try{
+        $sourceRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'McpRuntime' -Destination $extract
+        $rel={param($base,$path) [IO.Path]::GetRelativePath($base,$path).Replace('\','/')}
+        $keep={param($r) $r-ne'Payload'-and$r-notlike'Payload/*'}
+        $sourceFiles=@(Get-ChildItem -LiteralPath $sourceRoot -Recurse -File|ForEach-Object{& $rel $sourceRoot $_.FullName}|Where-Object{& $keep $_})
+        $targetFiles=@(Get-ChildItem -LiteralPath $DeployedPackageRoot -Recurse -File|ForEach-Object{& $rel $DeployedPackageRoot $_.FullName}|Where-Object{& $keep $_})
+        foreach($r in $sourceFiles){
+            $native=$r.Replace('/',[IO.Path]::DirectorySeparatorChar)
+            $t=Join-Path $DeployedPackageRoot $native
+            if(-not(Test-Path -LiteralPath $t -PathType Leaf)){return $false}
+            if((Get-FileHash -LiteralPath (Join-Path $sourceRoot $native) -Algorithm SHA256).Hash-ne(Get-FileHash -LiteralPath $t -Algorithm SHA256).Hash){return $false}
+        }
+        if(@($targetFiles|Where-Object{$sourceFiles-notcontains$_}).Count-gt0){return $false}
+        return $true
+    }finally{
+        if(Test-Path -LiteralPath $extract){Remove-Item -LiteralPath $extract -Recurse -Force -ErrorAction SilentlyContinue}
+    }
+}
+
 function Test-KICompleteMcpRuntimeCompliant {
-    # Mirrors Test-KICompleteOpenTerminalCompliant's own shape and its own reasoning: mcp-runtime
-    # already has a richer compliance function (McpRuntime.psm1's own Test-KIMcpRuntime -- marker
-    # version match, starter/stopper/workspace/credential presence, optional live uv check), but
-    # this orchestrator cannot reliably cross-import it either: in the packaged/shipped form,
-    # McpRuntime.psm1 lives inside Payload/McpRuntime/*.zip, not as a sibling file next to this
-    # module -- exactly the same packaging constraint Test-KICompleteOpenTerminalCompliant already
-    # documents for Open Terminal. This re-verifies directly against the real, on-disk artifacts
-    # Install-KIMcpRuntime actually writes (same four items Test-KIMcpRuntime itself checks minus
-    # the live uv/decryption checks, which -- like Open Terminal's own split -- are separate
-    # runtime concerns, not "is this package correctly deployed").
-    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.1.0')
+    # Mirrors Test-KICompleteOpenTerminalCompliant's own shape and its own reasoning for the
+    # LIFECYCLE dimension (marker/starter/stopper/workspace/credential presence -- Open-WebUI
+    # reachability plus a live uv check are separate runtime concerns, not "is this package
+    # correctly deployed", exactly as Open Terminal's own split already documents).
+    #
+    # 2.19 Phase 1: ADDITIONALLY verifies the PACKAGE dimension -- mcp-runtime now deploys a
+    # persistent, source-parity-checked tree at <TargetRoot>\tools\mcp-runtime\current\ (see
+    # McpRuntime.psm1's own Get-KIMcpRuntimeInstallPaths/Test-KIMcpRuntimeDeployed), mirroring
+    # winapp's/desktop-control's own persistent-package shape. This orchestrator still cannot
+    # reliably cross-import McpRuntime.psm1 (packaged form: Payload/McpRuntime/*.zip, not a
+    # sibling file), so both dimensions are re-verified directly against the real, on-disk
+    # artifacts Install-KIMcpRuntime actually writes, never by importing that module.
+    #
+    # -InstallerPackageRoot (the installer package root of THIS run) additionally enforces
+    # source<->target parity against Payload/McpRuntime/*.zip via
+    # Test-KICompleteMcpRuntimePayloadParity, so an internally consistent OLD deployment at the
+    # same VERSION (0.1.0 == 0.1.0) is reported non-compliant and the isolated step actually runs
+    # -- this is the exact fix for the drift class that was previously reported
+    # SkippedAlreadyCompliant regardless of payload content. Omitted => the previous
+    # lifecycle-only + package-self-consistency behaviour (no cross-payload parity), never a
+    # weaker check than before this addition.
+    param([Parameter(Mandatory)][string]$TargetRoot,[string]$ExpectedComponentVersion='0.1.0',[string]$InstallerPackageRoot)
     $root=Join-Path $TargetRoot 'modules/mcp-runtime'
     $markerPath=Join-Path $root 'installation.json'
     $starter=Join-Path $root 'Start-KIStack-McpRuntime.cmd'
@@ -549,8 +711,29 @@ function Test-KICompleteMcpRuntimeCompliant {
     if(-not(Test-Path -LiteralPath $workspace -PathType Container)){return $false}
     try{
         $marker=Read-KICompleteJson $markerPath
-        return ([string]$marker.version-eq$ExpectedComponentVersion)
+        if([string]$marker.version-ne$ExpectedComponentVersion){return $false}
     }catch{return $false}
+    $packageRoot=Join-Path $TargetRoot 'tools/mcp-runtime/current'
+    $packageVersionFile=Join-Path $packageRoot 'VERSION'
+    $packageChecksumFile=Join-Path $packageRoot 'SHA256SUMS.txt'
+    if(-not(Test-Path -LiteralPath $packageRoot -PathType Container)){return $false}
+    if(-not(Test-Path -LiteralPath $packageVersionFile -PathType Leaf)){return $false}
+    if((Get-Content -LiteralPath $packageVersionFile -Raw).Trim()-ne$ExpectedComponentVersion){return $false}
+    if(-not(Test-Path -LiteralPath $packageChecksumFile -PathType Leaf)){return $false}
+    foreach($line in Get-Content -LiteralPath $packageChecksumFile){
+        if([string]::IsNullOrWhiteSpace($line)){continue}
+        if($line-notmatch'^([0-9a-fA-F]{64})\s+\*?(.+)$'){return $false}
+        $file=Join-Path $packageRoot ($Matches[2].Replace('/',[IO.Path]::DirectorySeparatorChar))
+        if(-not(Test-Path -LiteralPath $file -PathType Leaf)){return $false}
+        if((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()-ne$Matches[1].ToLowerInvariant()){return $false}
+    }
+    foreach($required in @('Invoke-KIStackMcpRuntime.ps1','McpRuntime.psm1','MANIFEST.json','Config/mcp-runtime.config.json','Scripts/mcp_launcher.py','Scripts/ki_desktop_control_tools.py','Vendor/KIStackOpenWebUICredential.psm1','Vendor/KIStackPathContext.psm1')){
+        if(-not(Test-Path -LiteralPath (Join-Path $packageRoot ($required.Replace('/',[IO.Path]::DirectorySeparatorChar))) -PathType Leaf)){return $false}
+    }
+    if(-not[string]::IsNullOrWhiteSpace($InstallerPackageRoot)){
+        if(-not(Test-KICompleteMcpRuntimePayloadParity -PackageRoot $InstallerPackageRoot -DeployedPackageRoot $packageRoot)){return $false}
+    }
+    return $true
 }
 
 function Test-KICompleteWinAppCompliant {
@@ -798,7 +981,7 @@ function New-KICompletePlan {
         if([string]$component.id-eq'openwebui-visual-pack'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteVisualPackCompliant -PackageRoot $PackageRoot -TargetRoot $TargetRoot)}
         if([string]$component.id-eq'codex-local'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'open-terminal'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
-        if([string]$component.id-eq'mcp-runtime'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteMcpRuntimeCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
+        if([string]$component.id-eq'mcp-runtime'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteMcpRuntimeCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version) -InstallerPackageRoot $PackageRoot)}
         if([string]$component.id-eq'winapp'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteWinAppCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
         if([string]$component.id-eq'desktop-control'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteDesktopControlCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version) -InstallerPackageRoot $PackageRoot)}
         if([string]$component.id-eq'integration'-and$null-eq$FixtureState){$compliant=$compliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$component.version))}
@@ -1741,7 +1924,7 @@ function Invoke-KIStackCompleteInstaller {
         # so there is no 'deprecatedAliasUsed' field here: this shape is never produced by the
         # deprecated alias, which keeps the historical flat shape instead (see above).
         return [pscustomobject][ordered]@{
-            version='2.18.2'
+            version='2.19.0'
             mode=$Mode
             operation='OperationsRestore'
             scope=@('Registry/Autostart (LM Studio competing autostart)','Desktop-Verknüpfungen (KI-Stack starten/stoppen/Status)','Docker-Restart-Policy (KI-Stack-eigene Container)')
@@ -1757,13 +1940,13 @@ function Invoke-KIStackCompleteInstaller {
         [pscustomobject]@{passed=$true;status=if($rollbackRecovery.status-eq'PendingRollbackCompleted'-or$failedStateRecovery.status-eq'FailedTransactionStateRecovered'){'Recovered'}else{'NoPendingRecovery'};rollback=$rollbackRecovery;failedState=$failedStateRecovery}
     } else { [pscustomobject]@{passed=$true;status='NotApplicable';transactions=@()} }
     $plan = New-KICompletePlan -Mode $Mode -PackageRoot $PackageRoot -TargetRoot $TargetRoot -EnableOpenWebUIBallistics:$EnableOpenWebUIBallistics -ReplayComponent $ReplayComponent -PathContext $pathContext
-    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.18.2';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
-    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.18.2';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if ($Mode -eq 'Audit' -or $DryRun) { return [pscustomobject]@{version='2.19.0';mode=$Mode;preflight=$preflight;plan=$plan;operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
+    if ($Mode -eq 'Validate') { return [pscustomobject]@{version='2.19.0';mode='Validate';plan=$plan;health=(Invoke-KICompleteHealth $config);operations=(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath);mutatesTarget=$false} }
     if(-not$Resume -and $plan.alreadyCompliant -and -not[bool]$plan.hasReplay -and (Test-KICompleteDeploymentCompliant $PackageRoot $TargetRoot)-and(Test-KICompleteOperations $TargetRoot -DesktopPath $DesktopPath).passed){
         $needsReconciliation=@($plan.steps|Where-Object{$_.initialState.reconciliationNeeded}).Count-gt0-or[bool]$plan.stateHasOrphans
         $statePath=$null
-        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -PathContext $pathContext -CompleteVersion '2.18.2'}
-        return [pscustomobject]@{version='2.18.2';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
+        if($needsReconciliation){$statePath=Update-KICompleteComponentState -Plan $plan -PathContext $pathContext -CompleteVersion '2.19.0'}
+        return [pscustomobject]@{version='2.19.0';mode=$Mode;status=if($needsReconciliation){'StateReconciled'}else{'SkippedAlreadyCompliant'};plan=$plan;statePath=$statePath;pendingRollback=$pendingRollback;transactionCreated=$false;backupCreated=$false;mutatesTarget=($needsReconciliation-or$pendingRollback.status-eq'Recovered')}
     }
     $state = [string]$pathContext.StateRoot
     if ($Resume) {
@@ -1800,7 +1983,7 @@ function Invoke-KIStackCompleteInstaller {
                 $resumeCompliant=$resumeActual-eq[string]$step.version
                 if([string]$step.id-eq'codex-local'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteCodexLocalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'open-terminal'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteOpenTerminalCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
-                if([string]$step.id-eq'mcp-runtime'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteMcpRuntimeCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
+                if([string]$step.id-eq'mcp-runtime'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteMcpRuntimeCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version) -InstallerPackageRoot $PackageRoot)}
                 if([string]$step.id-eq'winapp'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteWinAppCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
                 if([string]$step.id-eq'desktop-control'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteDesktopControlCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version) -InstallerPackageRoot $PackageRoot)}
                 if([string]$step.id-eq'integration'){$resumeCompliant=$resumeCompliant-and(Test-KICompleteIntegrationCompliant -TargetRoot $TargetRoot -ExpectedComponentVersion ([string]$step.version))}
@@ -2061,29 +2244,42 @@ function Invoke-KIStackCompleteInstaller {
                 }
             }
             elseif ($step.id -eq 'mcp-runtime') {
-                # Mirrors open-terminal's own isolated shape exactly (same template, same
-                # Expand-KICompletePayload -> own entry-point Install/Upgrade/Repair via
-                # plannedMode, then Validate -> on any failure, roll back via that SAME entry
-                # point's own Rollback action against its own backupPath). Deliberately does
-                # NOT start the server process and does NOT register it with Open WebUI here --
-                # Open Terminal's own primary-installer branch does neither either (its own
-                # Start/Stop is a separate, additive chain onto the root Start-/Stop-KIStack.cmd,
-                # see Invoke-KICompleteMcpRuntimeLifecycle below; its own OpenWebUI tool-server
-                # registration is documented as a separate, one-time step, automated or manual,
-                # never part of Install). Real Open-WebUI reachability plus a bootstrapped admin
-                # credential are runtime preconditions for Register only, never modeled as a
-                # dependency here -- Register can run before or after this step, or not at all
-                # yet, without blocking Install/Upgrade/Repair.
+                # Mirrors open-terminal's own isolated shape (same template: Expand-KICompletePayload
+                # -> own entry-point Install/Upgrade/Repair via plannedMode, then Validate -> on any
+                # failure, roll back via that SAME entry point's own Rollback action against its own
+                # backupPath). Deliberately does NOT start the server process and does NOT register
+                # it with Open WebUI here -- Open Terminal's own primary-installer branch does
+                # neither either (its own Start/Stop is a separate, additive chain onto the root
+                # Start-/Stop-KIStack.cmd, see Invoke-KICompleteMcpRuntimeLifecycle below; its own
+                # OpenWebUI tool-server registration is documented as a separate, one-time step,
+                # automated or manual, never part of Install). Real Open-WebUI reachability plus a
+                # bootstrapped admin credential are runtime preconditions for Register only, never
+                # modeled as a dependency here -- Register can run before or after this step, or
+                # not at all yet, without blocking Install/Upgrade/Repair.
+                #
+                # 2.19 Phase 1 structural fix: Install-KIMcpRuntime now deploys a persistent package
+                # tree (<TargetRoot>\tools\mcp-runtime\current\) the exact same way winapp's/
+                # desktop-control's own Install-KI* functions do, so this step now (a) passes its
+                # own slice of the transaction's BackupRoot -- never the standalone
+                # <TargetRoot>\backups\mcp-runtime path -- mirroring desktop-control's own 2.18.1
+                # BackupRoot-respect fix, and (b) runs Install/Upgrade/Repair and the immediately
+                # following Validate via Invoke-KICompleteJsonScriptIsolated (a genuinely fresh
+                # pwsh.exe process each), matching desktop-control's own hardening for the same
+                # risk class (a real Install-then-Validate pair against a freshly re-deployed
+                # package tree, in-process module/session state no longer guaranteed clean).
+                # Rollback stays on the shared in-process Invoke-KICompleteJsonScript, exactly like
+                # desktop-control's own asymmetry.
                 $extract=Join-Path ([string]$pathContext.PayloadRoot) 'McpRuntime'
                 $componentRoot=Expand-KICompletePayload -PackageRoot $PackageRoot -PayloadName 'McpRuntime' -Destination $extract
                 $entry=Join-Path $componentRoot 'Invoke-KIStackMcpRuntime.ps1'
                 if(-not(Test-Path -LiteralPath $entry -PathType Leaf)){throw 'MCP-Runtime-Einstieg fehlt.'}
                 $action=if($step.plannedMode-eq'Repair'){'Repair'}elseif($step.plannedMode-eq'Upgrade'){'Upgrade'}else{'Install'}
+                $mcpRuntimeBackupRoot=Join-Path ([string]$pathContext.TransactionBackupRoot) 'mcp-runtime'
                 $result=$null
                 try{
-                    $result=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot}
+                    $result=Invoke-KICompleteJsonScriptIsolated -Script $entry -Arguments @{Action=$action;TargetRoot=$TargetRoot;BackupRoot=$mcpRuntimeBackupRoot}
                     if(-not[bool]$result.passed){throw "MCP-Runtime-$action fehlgeschlagen."}
-                    $validation=Invoke-KICompleteJsonScript -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
+                    $validation=Invoke-KICompleteJsonScriptIsolated -Script $entry -Arguments @{Action='Validate';TargetRoot=$TargetRoot}
                     if(-not[bool]$validation.passed){throw 'MCP-Runtime-Validierung fehlgeschlagen.'}
                     # SkippedAlreadyCompliant carries no backupPath -- defensive, never assumed
                     # present under StrictMode, mirroring open-terminal's own identical comment.
@@ -2308,7 +2504,7 @@ function Invoke-KIStackCompleteInstaller {
         # can re-sync this exact same object into components.json too -- otherwise this file would
         # permanently keep reporting "ValidatedExistingInstallation" while transaction.json already
         # correctly shows CompletedWithWarnings, two persisted state files disagreeing forever.
-        $componentState=[ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.18.2';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}}
+        $componentState=[ordered]@{schemaVersion='1.0';status=if($tx.status-eq'Completed'){'ValidatedExistingInstallation'}else{$tx.status};completeInstallerVersion='2.19.0';validatedAtUtc=[DateTime]::UtcNow.ToString('o');components=$componentVersions;evidence=[ordered]@{optionalBallisticsEnabled=[bool]$EnableOpenWebUIBallistics;manualStartupOnly=$true;containsSecrets=$false;containsPersonalPaths=$false;pendingRollback=$pendingRollback}}
         Write-KICompleteJson $componentStatePath $componentState
         Write-KICompleteJson $txPath $tx
         # Commit boundary: both required Final-State writes above succeeded. From this point on,

@@ -743,7 +743,7 @@ function Test-KIDesktopControlDeployed {
     # VERSION is reported non-compliant instead of being silently skipped. Callers that only
     # ask "is a self-contained deployment present" (the Complete Installer's planning probe,
     # older tests) omit it and keep the previous behaviour.
-    param([Parameter(Mandatory)][string]$TargetRoot, [string]$ExpectedVersion = '0.1.0', [string]$SourceRoot)
+    param([Parameter(Mandatory)][string]$TargetRoot, [string]$ExpectedVersion = '0.1.1', [string]$SourceRoot)
     $p = Get-KIDesktopControlInstallPaths -TargetRoot $TargetRoot
     if (-not (Test-Path -LiteralPath $p.packageRoot -PathType Container)) { return [pscustomobject]@{ ok = $false; reason = 'package-root-missing'; paths = $p } }
     foreach ($stampPath in @($p.versionStamp, $p.marker)) {
@@ -820,7 +820,7 @@ function Install-KIDesktopControl {
 
     # Idempotency gate. -SourceRoot makes SkippedAlreadyCompliant require that the deployed
     # content still equals THIS payload, not merely that the target is self-consistent -- so a
-    # changed payload at an unchanged VERSION (0.1.0 == 0.1.0) is reconciled, never ignored.
+    # changed payload at an unchanged VERSION (e.g. 0.1.1 == 0.1.1) is reconciled, never ignored.
     $existing = Test-KIDesktopControlDeployed -TargetRoot $TargetRoot -ExpectedVersion $expected -SourceRoot $PackageRoot
     if ([bool]$existing.ok) {
         return [pscustomobject]@{ passed = $true; status = 'SkippedAlreadyCompliant'; action = $Action; marker = (Get-Content -LiteralPath $p.marker -Raw | ConvertFrom-Json -Depth 20); mutatesTarget = $false }
